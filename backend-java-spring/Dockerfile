@@ -21,4 +21,4 @@ RUN unzip -o /tmp/Wallet*.zip -d /app/wallet && \
 EXPOSE 8080
 ENV PORT=8080
 ENV TNS_ADMIN=/app/wallet
-ENTRYPOINT ["java", "-Dserver.port=\${PORT}", "-Doracle.net.tns_admin=/app/wallet", "-Doracle.net.wallet_location=(SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=/app/wallet)))", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
