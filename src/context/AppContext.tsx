@@ -230,7 +230,7 @@ const safeStorageRemove = (key: string) => {
 
 const safeStorageSet = (key: string, value: string) => {
   try {
-    safeStorageSet(key, value);
+    localStorage.setItem(key, value);
   } catch {
     // Ignore unavailable/full browser storage so the UI can still render.
   }
