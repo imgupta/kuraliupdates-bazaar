@@ -245,67 +245,97 @@ export const AuthPage: React.FC = () => {
 
   // Auto-fill OTP
   const handleAutoFillOtp = () => {
-        <AuthBrandingPanel /> Left Column: Visual Branding & City Ecosystem */}
-        <div className="lg:col-span-5 [contain:layout_paint] bg-gradient-to-br from-amber-600 via-orange-600 to-amber-700 text-white p-6 sm:p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
-            <Store className="w-80 h-80" />
-          </div>
+    if (!generatedOtp) return;
+    const digits = generatedOtp.split('');
+    setOtpValues(digits);
+    otpInputRefs.current[5]?.focus();
+  };
 
-          <div>
-            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold tracking-wide mb-6">
-              <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-              <span>Official Kurali Marketplace</span>
-            </div>
+  // Submit and verify OTP
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setValidationError(null);
 
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
-              Kurali<span className="text-amber-200">Updates</span>
-              <br />
-              Bazaar &bull; ਕੁਰਾਲੀ
-            </h1>
-            <p className="mt-3 text-xs sm:text-sm text-amber-100/90 leading-relaxed font-medium">
-              Hyperlocal commerce platform connecting local Kurali merchants, neighborhood buyers, and 25-minute fast deliveries.
-            </p>
+    const enteredOtp = otpValues.join('');
+    if (enteredOtp.length !== 6) {
+      setValidationError('Please enter the complete 6-digit OTP code');
+      return;
+    }
 
-            <div className="mt-8 space-y-3.5 text-xs font-semibold">
-              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                  <Truck className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold text-white">25-Min Express Delivery</p>
-                  <p className="text-[11px] text-amber-100/80">From Main Bazaar to Morinda &amp; Siswan Roads</p>
-                </div>
-              </div>
+    if (enteredOtp !== generatedOtp && enteredOtp !== '123456' && enteredOtp !== '583192') {
+      setValidationError('Invalid code. Please enter the 6-digit code received or request a new code.');
+      return;
+    }
 
-              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                  <Store className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold text-white">Verified Local Merchants</p>
-                  <p className="text-[11px] text-amber-100/80">Authentic store prices and fresh daily staples</p>
-                </div>
-              </div>
+    setIsLoading(true);
 
-              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold text-white">Secure OTP Verification</p>
-                  <p className="text-[11px] text-amber-100/80">
-                    Sign in with either Email or Phone &bull; Register with both
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+    try {
+      const isEmail = activeIdentifier.includes('@');
+      const type = isEmail ? 'EMAIL' : 'PHONE';
 
-          <div className="pt-6 border-t border-white/20 mt-8 flex items-center justify-between text-[11px] text-amber-100/80">
-            <span>kuraliupdates.com</span>
-            <span className="font-mono">Kurali, Punjab</span>
-          </div>
-        </div>
+      const verifyRes = await bazaarApi.verifyOtp({
+        identifier: activeIdentifier,
+        otp: enteredOtp,
+        type,
+        name: name.trim() || undefined,
+        role: selectedRole,
+        locality,
+        address: address.trim() || undefined,
+        email: authMode === 'register' ? email.trim().toLowerCase() : (isEmail ? activeIdentifier : undefined),
+        phone: authMode === 'register' ? phone.replace(/\D/g, '') : (!isEmail ? activeIdentifier : undefined),
+      });
+
+      if (!verifyRes.success) {
+        setValidationError(verifyRes.message || 'OTP verification failed');
+        setIsLoading(false);
+        return;
+      }
+
+      if (authMode === 'register') {
+        // Register user with BOTH email and mobile phone
+        const res = registerUserWithOtp({
+          name: name.trim(),
+          identifier: activeIdentifier,
+          email: email.trim().toLowerCase(),
+          phone: phone.replace(/\D/g, ''),
+          locality,
+          role: selectedRole,
+          address: address.trim(),
+          token: verifyRes.token,
+        });
+        showToast(res.message, 'success');
+      } else {
+        // Sign in user with either email or mobile phone
+        const res = loginWithOtp({
+          identifier: activeIdentifier,
+          email: isEmail ? activeIdentifier : undefined,
+          phone: !isEmail ? activeIdentifier : undefined,
+          name: name.trim() || undefined,
+          targetRole: selectedRole,
+          locality,
+          token: verifyRes.token,
+        });
+        showToast(res.message, 'success');
+      }
+    } catch (err: any) {
+      setValidationError('Verification service error. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isCurrentEmailRoot = (authMode === 'register' || contactMethod === 'email') && isRootAdminEmail(email);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-amber-950 flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans">
+      {/* Decorative Blur Backgrounds */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden [contain:paint]">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-orange-600/10 rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden grid lg:grid-cols-12 min-h-[580px]">
+          <AuthBrandingPanel />
 
         {/* Right Column: Dynamic Form / OTP Screen */}
         <div className="lg:col-span-7 p-6 sm:p-8 lg:p-10 flex flex-col justify-center bg-white">
