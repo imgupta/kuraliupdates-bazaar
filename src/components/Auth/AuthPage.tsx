@@ -488,7 +488,7 @@ export const AuthPage: React.FC = () => {
                       <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                       <input
                         ref={nameRef}
-                        type="text"}
+                        type="text"
                         placeholder="e.g. Jaswinder Singh"
                         className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
                         required
@@ -512,7 +512,7 @@ export const AuthPage: React.FC = () => {
                       <input
                         ref={emailRef}
                         type="email"
-                        onBlur={() => setIsCurrentEmailRoot(isRootAdminEmail(emailRef.current?.value || ''))}}
+                        onBlur={() => setIsCurrentEmailRoot(isRootAdminEmail(emailRef.current?.value || ''))}
                         placeholder="xxxx@xxx.com"
                         className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
                         required
