@@ -1,0 +1,6 @@
+{
+  "name": "KuraliUpdates Bazaar - Hyperlocal Marketplace",
+  "description": "Hyperlocal marketplace for Kurali city with seller registration, admin approval, price comparison, live bargaining chat, bill discounts, delivery agent jobs, and live order tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
