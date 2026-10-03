@@ -537,7 +537,7 @@ export const AuthPage: React.FC = () => {
                       </span>
                       <input
                         ref={phoneRef}
-                        type="tel"}
+                        type="tel"
                         placeholder="XXXXXXXXXX"
                         maxLength={14}
                         className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-r-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
@@ -593,7 +593,7 @@ export const AuthPage: React.FC = () => {
                       </label>
                       <input
                         ref={addressRef}
-                        type="text"}
+                        type="text"
                         placeholder="House / Shop No., Near Fountain Chowk"
                         className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
                       />
