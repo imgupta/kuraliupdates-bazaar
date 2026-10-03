@@ -559,7 +559,7 @@ export const AuthPage: React.FC = () => {
                           <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                           <select
                             ref={localityRef}
-                            defaultValue={authDetails.locality}}
+                            defaultValue={authDetails.locality}
                             className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
                           >
                             {KURALI_LOCALITIES.slice(1).map(loc => (
@@ -577,7 +577,7 @@ export const AuthPage: React.FC = () => {
                         </label>
                         <select
                           ref={selectedRoleRef}
-                          defaultValue={authDetails.selectedRole}}
+                          defaultValue={authDetails.selectedRole}
                           className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
                         >
                           <option value="buyer">Shopper / Local Buyer</option>
