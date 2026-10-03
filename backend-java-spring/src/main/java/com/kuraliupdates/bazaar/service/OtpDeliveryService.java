@@ -19,7 +19,6 @@ public class OtpDeliveryService {
     @Value("${app.otp.msg91.auth-key:}") private String msg91AuthKey;
     @Value("${app.otp.msg91.template-id:}") private String msg91TemplateId;
     @Value("${app.otp.msg91.country-code:91}") private String countryCode;
-    private final HttpClient httpClient = HttpClient.newHttpClient();
 
     public void sendOtp(String identifier, String type, String otp, int expiryMinutes) throws Exception {
         if ("EMAIL".equals(type)) sendEmail(identifier, otp, expiryMinutes);
@@ -63,6 +62,7 @@ public class OtpDeliveryService {
                 .POST(HttpRequest.BodyPublishers.noBody())
                 .build();
 
+        HttpClient httpClient = HttpClient.newHttpClient();
         HttpResponse<String> response = httpClient.send(
                 request, HttpResponse.BodyHandlers.ofString());
 
