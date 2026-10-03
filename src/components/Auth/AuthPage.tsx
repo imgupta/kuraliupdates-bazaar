@@ -68,7 +68,7 @@ const AuthBrandingPanel = React.memo(() => (
                 <div>
                   <p className="font-bold text-white">Secure OTP Verification</p>
                   <p className="text-[11px] text-amber-100/80">
-                    Sign in with either Email or Phone &bull; Register with both
+                    Sign in with either Email or Phone &bull; Register with email OTP
                   </p>
                 </div>
               </div>
@@ -142,13 +142,8 @@ export const AuthPage: React.FC = () => {
       if (authMode === 'register') {
         const email = (emailRef.current?.value || authDetails.email).trim().toLowerCase();
         const phone = (phoneRef.current?.value || authDetails.phone).replace(/\D/g, '');
-        const [emailRes, phoneRes] = await Promise.all([
-          bazaarApi.sendOtp(email, 'EMAIL', 'REGISTER'),
-          bazaarApi.sendOtp(phone, 'PHONE', 'REGISTER'),
-        ]);
-        if (!emailRes.success || !phoneRes.success) {
-          throw new Error(emailRes.success ? phoneRes.message : emailRes.message);
-        }
+        const emailRes = await bazaarApi.sendOtp(email, 'EMAIL', 'REGISTER');
+        if (!emailRes.success) throw new Error(emailRes.message);
       } else {
         const id = (identifier || '').trim();
         const type = id.includes('@') ? 'EMAIL' : 'PHONE';
@@ -297,8 +292,8 @@ export const AuthPage: React.FC = () => {
     const phoneOtp = phoneOtpValues.join('');
 
     if (isRegister) {
-      if (emailOtp.length !== 6 || phoneOtp.length !== 6) {
-        setValidationError('Please enter both 6-digit verification codes');
+      if (emailOtp.length !== 6) {
+        setValidationError('Please enter the complete 6-digit email verification code');
         return;
       }
     } else if (enteredOtp.length !== 6) {
@@ -321,7 +316,7 @@ export const AuthPage: React.FC = () => {
         email: isRegister ? authDetails.email.trim().toLowerCase() : (isEmail ? activeIdentifier : undefined),
         phone: isRegister ? authDetails.phone.replace(/\D/g, '') : (!isEmail ? activeIdentifier : undefined),
         emailOtp: isRegister ? emailOtp : undefined,
-        phoneOtp: isRegister ? phoneOtp : undefined,
+        phoneOtp: undefined,
       });
 
       if (!verifyRes.success || !verifyRes.token) {
@@ -383,7 +378,7 @@ export const AuthPage: React.FC = () => {
                   <p className="text-xs text-slate-500 mt-0.5">
                     {authMode === 'signin'
                       ? 'Sign in using either your Email OR Mobile Phone.'
-                      : 'Both Email and Mobile Phone are required for new registration.'}
+                      : 'Email OTP verification is required for new registration.'}
                   </p>
                 </div>
 
@@ -640,8 +635,7 @@ export const AuthPage: React.FC = () => {
                   <p className="text-xs text-slate-500 mt-1">
                     {authMode === 'register' ? (
                       <>
-                        Sent to <strong className="text-slate-800">{authDetails.email}</strong> and{' '}
-                        <strong className="text-slate-800">+91 {authDetails.phone}</strong>
+                        Sent to <strong className="text-slate-800">{authDetails.email}</strong>
                       </>
                     ) : (
                       <>
@@ -676,7 +670,7 @@ export const AuthPage: React.FC = () => {
                 </div>
                 <p className="text-[11px] text-amber-700">
                   {authMode === 'register'
-                    ? 'Enter the separate 6-digit codes sent to your email and mobile number.'
+                    ? 'Enter the 6-digit code sent to your email.'
                     : 'Enter the 6-digit code sent to your registered contact.'}
                 </p>
               </div>
