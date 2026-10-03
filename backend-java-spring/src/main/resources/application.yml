@@ -18,6 +18,13 @@ spring:
       connection-timeout: 30000
       max-lifetime: 1200000
       pool-name: KuraliHikariPool
+      data-source-properties:
+        oracle.net.wallet_location: (SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=/app/wallet)))
+        oracle.net.tns_admin: /app/wallet
+        javax.net.ssl.trustStore: /app/wallet/truststore.jks
+        javax.net.ssl.trustStorePassword: ${WALLET_PASSWORD:Vasu@123!2026}
+        javax.net.ssl.keyStore: /app/wallet/keystore.jks
+        javax.net.ssl.keyStorePassword: ${WALLET_PASSWORD:Vasu@123!2026}
   jpa:
     database-platform: org.hibernate.dialect.OracleDialect
     hibernate:
