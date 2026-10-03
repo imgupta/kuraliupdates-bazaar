@@ -21,5 +21,4 @@ RUN unzip -o /tmp/Wallet*.zip -d /app/wallet && \
 EXPOSE 8080
 ENV PORT=8080
 ENV TNS_ADMIN=/app/wallet
-ENV WALLET_PASSWORD=Vasu@123!2026
-ENTRYPOINT ["java", "-Dserver.port=${PORT}", "-Doracle.net.tns_admin=/app/wallet", "-Doracle.net.wallet_location=(SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=/app/wallet)))", "-Djavax.net.ssl.trustStore=/app/wallet/truststore.jks", "-Djavax.net.ssl.trustStorePassword=Vasu@123!2026", "-Djavax.net.ssl.keyStore=/app/wallet/keystore.jks", "-Djavax.net.ssl.keyStorePassword=Vasu@123!2026", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Dserver.port=\${PORT}", "-Doracle.net.tns_admin=/app/wallet", "-Doracle.net.wallet_location=(SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=/app/wallet)))", "-jar", "app.jar"]
