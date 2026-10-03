@@ -712,7 +712,62 @@ export const AuthPage: React.FC = () => {
                               if (value && idx < 5) document.getElementById(`email-otp-${idx + 1}`)?.focus();
                             }}
                             id={`email-otp-${idx}`}
-                            className="w-10                 {/* Resend Timer */}
+                            className="w-10 h-12 sm:w-11 sm:h-13 text-center font-mono text-lg font-black bg-slate-50 border-2 border-slate-300 rounded-2xl text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-center text-xs font-bold text-slate-700 mb-3">
+                        Mobile verification code
+                      </label>
+                      <div className="flex items-center justify-center gap-2 sm:gap-3">
+                        {phoneOtpValues.map((val, idx) => (
+                          <input
+                            key={idx}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={val}
+                            onChange={e => {
+                              const value = e.target.value;
+                              if (!/^\d*$/.test(value)) return;
+                              const next = [...phoneOtpValues];
+                              next[idx] = value.slice(-1);
+                              setPhoneOtpValues(next);
+                              if (value && idx < 5) document.getElementById(`phone-otp-${idx + 1}`)?.focus();
+                            }}
+                            id={`phone-otp-${idx}`}
+                            className="w-10 h-12 sm:w-11 sm:h-13 text-center font-mono text-lg font-black bg-slate-50 border-2 border-slate-300 rounded-2xl text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div>
+                    <label className="block text-center text-xs font-bold text-slate-700 mb-3">
+                      Enter the 6-digit verification code
+                    </label>
+                    <div className="flex items-center justify-center gap-2 sm:gap-3" onPaste={handleOtpPaste}>
+                      {otpValues.map((val, idx) => (
+                        <input
+                          key={idx}
+                          ref={el => { otpInputRefs.current[idx] = el; }}
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={1}
+                          value={val}
+                          onChange={e => handleOtpChange(idx, e.target.value)}
+                          onKeyDown={e => handleOtpKeyDown(idx, e)}
+                          className="w-11 h-13 sm:w-12 sm:h-14 text-center font-mono text-xl font-black bg-slate-50 border-2 border-slate-300 rounded-2xl text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white transition-all shadow-xs"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Resend Timer */}
                 <div className="text-center text-xs text-slate-500">
                   {canResend ? (
                     <button
