@@ -114,7 +114,8 @@ export const AuthPage: React.FC = () => {
 
   // OTP state
   const [otpValues, setOtpValues] = useState<string[]>(['', '', '', '', '', '']);
-  const [generatedOtp, setGeneratedOtp] = useState<string>('');
+  const [emailOtpValues, setEmailOtpValues] = useState<string[]>(['', '', '', '', '', '']);
+  const [phoneOtpValues, setPhoneOtpValues] = useState<string[]>(['', '', '', '', '', '']);
   const [countdown, setCountdown] = useState<number>(60);
   const [canResend, setCanResend] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -133,30 +134,44 @@ export const AuthPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [step, countdown]);
 
-  // Dispatch 6-digit live OTP via Spring Boot + Oracle DB backend
-  const triggerOtpDispatch = async (identifier: string) => {
+  // Request real OTPs from the backend. Registration verifies both email and phone.
+  const triggerOtpDispatch = async (identifier?: string) => {
     setIsLoading(true);
     setValidationError(null);
     try {
-      const type = identifier.includes('@') ? 'EMAIL' : 'PHONE';
-      const res = await bazaarApi.sendOtp(identifier, type, (selectedRoleRef.current?.value as UserRole) || authDetails.selectedRole);
+      if (authMode === 'register') {
+        const email = authDetails.email.trim().toLowerCase();
+        const phone = authDetails.phone.replace(/\D/g, '');
+        const [emailRes, phoneRes] = await Promise.all([
+          bazaarApi.sendOtp(email, 'EMAIL', 'REGISTER'),
+          bazaarApi.sendOtp(phone, 'PHONE', 'REGISTER'),
+        ]);
+        if (!emailRes.success || !phoneRes.success) {
+          throw new Error(emailRes.success ? phoneRes.message : emailRes.message);
+        }
+      } else {
+        const id = (identifier || '').trim();
+        const type = id.includes('@') ? 'EMAIL' : 'PHONE';
+        const res = await bazaarApi.sendOtp(id, type, 'LOGIN');
+        if (!res.success) throw new Error(res.message);
+        setActiveIdentifier(id);
+      }
 
-      const code = res.otpPreview || Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedOtp(code);
-      setActiveIdentifier(identifier);
       setCountdown(60);
       setCanResend(false);
       setOtpValues(['', '', '', '', '', '']);
+      setEmailOtpValues(['', '', '', '', '', '']);
+      setPhoneOtpValues(['', '', '', '', '', '']);
       setStep('otp');
-
-      showToast(`6-digit verification code sent to ${identifier}`, 'info');
-
-      // Auto-focus first input
-      setTimeout(() => {
-        otpInputRefs.current[0]?.focus();
-      }, 150);
+      showToast(
+        authMode === 'register'
+          ? 'Verification codes sent to your email and mobile number'
+          : 'Verification code sent successfully',
+        'info'
+      );
+      setTimeout(() => otpInputRefs.current[0]?.focus(), 150);
     } catch (err: any) {
-      setValidationError('Failed to dispatch verification code. Please check your connection and retry.');
+      setValidationError(err?.message || 'Failed to send verification code. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -271,59 +286,53 @@ export const AuthPage: React.FC = () => {
     otpInputRefs.current[focusIdx]?.focus();
   };
 
-  // Auto-fill OTP
-  const handleAutoFillOtp = () => {
-    if (!generatedOtp) return;
-    const digits = generatedOtp.split('');
-    setOtpValues(digits);
-    otpInputRefs.current[5]?.focus();
-  };
-
-  // Submit and verify OTP
+  // Submit and verify OTP. The backend is the only authority.
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError(null);
 
+    const isRegister = authMode === 'register';
     const enteredOtp = otpValues.join('');
-    if (enteredOtp.length !== 6) {
-      setValidationError('Please enter the complete 6-digit OTP code');
-      return;
-    }
+    const emailOtp = emailOtpValues.join('');
+    const phoneOtp = phoneOtpValues.join('');
 
-    if (enteredOtp !== generatedOtp && enteredOtp !== '123456' && enteredOtp !== '583192') {
-      setValidationError('Invalid code. Please enter the 6-digit code received or request a new code.');
+    if (isRegister) {
+      if (emailOtp.length !== 6 || phoneOtp.length !== 6) {
+        setValidationError('Please enter both 6-digit verification codes');
+        return;
+      }
+    } else if (enteredOtp.length !== 6) {
+      setValidationError('Please enter the complete 6-digit verification code');
       return;
     }
 
     setIsLoading(true);
-
     try {
       const isEmail = activeIdentifier.includes('@');
-      const type = isEmail ? 'EMAIL' : 'PHONE';
-
       const verifyRes = await bazaarApi.verifyOtp({
-        identifier: activeIdentifier,
-        otp: enteredOtp,
-        type,
-        name: authDetails.name.trim() || undefined,
-        role: authDetails.selectedRole,
-        locality: authDetails.locality,
-        address: authDetails.address.trim() || undefined,
-        email: authMode === 'register' ? authDetails.email.trim().toLowerCase() : (isEmail ? activeIdentifier : undefined),
-        phone: authMode === 'register' ? authDetails.phone.replace(/\D/g, '') : (!isEmail ? activeIdentifier : undefined),
+        mode: isRegister ? 'REGISTER' : 'LOGIN',
+        identifier: isRegister ? undefined : activeIdentifier,
+        otp: isRegister ? undefined : enteredOtp,
+        type: isRegister ? undefined : (isEmail ? 'EMAIL' : 'PHONE'),
+        name: isRegister ? authDetails.name.trim() : undefined,
+        role: isRegister ? authDetails.selectedRole : undefined,
+        locality: isRegister ? authDetails.locality : undefined,
+        address: isRegister ? authDetails.address.trim() : undefined,
+        email: isRegister ? authDetails.email.trim().toLowerCase() : (isEmail ? activeIdentifier : undefined),
+        phone: isRegister ? authDetails.phone.replace(/\D/g, '') : (!isEmail ? activeIdentifier : undefined),
+        emailOtp: isRegister ? emailOtp : undefined,
+        phoneOtp: isRegister ? phoneOtp : undefined,
       });
 
-      if (!verifyRes.success) {
+      if (!verifyRes.success || !verifyRes.token) {
         setValidationError(verifyRes.message || 'OTP verification failed');
-        setIsLoading(false);
         return;
       }
 
-      if (authMode === 'register') {
-        // Register user with BOTH email and mobile phone
+      if (isRegister) {
         const res = registerUserWithOtp({
           name: authDetails.name.trim(),
-          identifier: activeIdentifier,
+          identifier: authDetails.email.trim().toLowerCase(),
           email: authDetails.email.trim().toLowerCase(),
           phone: authDetails.phone.replace(/\D/g, ''),
           locality: authDetails.locality,
@@ -333,12 +342,10 @@ export const AuthPage: React.FC = () => {
         });
         showToast(res.message, 'success');
       } else {
-        // Sign in user with either email or mobile phone
         const res = loginWithOtp({
           identifier: activeIdentifier,
           email: isEmail ? activeIdentifier : undefined,
           phone: !isEmail ? activeIdentifier : undefined,
-          name: authDetails.name.trim() || undefined,
           targetRole: authDetails.selectedRole,
           locality: authDetails.locality,
           token: verifyRes.token,
@@ -346,11 +353,13 @@ export const AuthPage: React.FC = () => {
         showToast(res.message, 'success');
       }
     } catch (err: any) {
-      setValidationError('Verification service error. Please try again.');
+      setValidationError(err?.message || 'Verification service error. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
+
+
 
   
 
@@ -652,7 +661,7 @@ export const AuthPage: React.FC = () => {
                 </button>
               </div>
 
-              {/* OTP Code Badge */}
+              {/* Never display the OTP in the browser. It is delivered by the configured provider. */}
               <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-xs font-black uppercase text-amber-800">
@@ -663,20 +672,10 @@ export const AuthPage: React.FC = () => {
                     Expires in {countdown}s
                   </span>
                 </div>
-                <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-amber-200">
-                  <div className="font-mono text-base font-extrabold tracking-widest text-slate-900">
-                    {generatedOtp}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAutoFillOtp}
-                    className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                  >
-                    Auto Fill
-                  </button>
-                </div>
                 <p className="text-[11px] text-amber-700">
-                  Enter the 6-digit code above to authenticate your session.
+                  {authMode === 'register'
+                    ? 'Enter the separate 6-digit codes sent to your email and mobile number.'
+                    : 'Enter the 6-digit code sent to your registered contact.'}
                 </p>
               </div>
 
@@ -690,37 +689,35 @@ export const AuthPage: React.FC = () => {
 
               {/* OTP Input Form */}
               <form onSubmit={handleVerifyOtp} className="space-y-6">
-                <div>
-                  <label className="block text-center text-xs font-bold text-slate-700 mb-3">
-                    Enter the 6-digit verification code below
-                  </label>
-
-                  {/* 6 Digit Input Boxes */}
-                  <div className="flex items-center justify-center gap-2 sm:gap-3" onPaste={handleOtpPaste}>
-                    {otpValues.map((val, idx) => (
-                      <input
-                        key={idx}
-                        ref={el => {
-                          otpInputRefs.current[idx] = el;
-                        }}
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={val}
-                        onChange={e => handleOtpChange(idx, e.target.value)}
-                        onKeyDown={e => handleOtpKeyDown(idx, e)}
-                        className="w-11 h-13 sm:w-12 sm:h-14 text-center font-mono text-xl font-black bg-slate-50 border-2 border-slate-300 rounded-2xl text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white transition-all shadow-xs"
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Resend Timer */}
+                {authMode === 'register' ? (
+                  <>
+                    <div>
+                      <label className="block text-center text-xs font-bold text-slate-700 mb-3">
+                        Email verification code
+                      </label>
+                      <div className="flex items-center justify-center gap-2 sm:gap-3">
+                        {emailOtpValues.map((val, idx) => (
+                          <input
+                            key={idx}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={val}
+                            onChange={e => {
+                              const value = e.target.value;
+                              if (!/^\d*$/.test(value)) return;
+                              const next = [...emailOtpValues];
+                              next[idx] = value.slice(-1);
+                              setEmailOtpValues(next);
+                              if (value && idx < 5) document.getElementById(`email-otp-${idx + 1}`)?.focus();
+                            }}
+                            id={`email-otp-${idx}`}
+                            className="w-10                 {/* Resend Timer */}
                 <div className="text-center text-xs text-slate-500">
                   {canResend ? (
                     <button
                       type="button"
-                      onClick={() => triggerOtpDispatch(activeIdentifier)}
+                      onClick={() => triggerOtpDispatch(authMode === 'register' ? undefined : activeIdentifier)}
                       className="font-bold text-amber-600 hover:text-amber-700 underline cursor-pointer"
                     >
                       Resend Verification Code
