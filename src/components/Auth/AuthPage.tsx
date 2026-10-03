@@ -427,7 +427,7 @@ export const AuthPage: React.FC = () => {
                       type="email"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
-                      placeholder="e.g. shubham.gupta180296@gmail.com"
+                      placeholder="xxxx@xxx.com"
                       className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
                       required
                     />
@@ -450,7 +450,7 @@ export const AuthPage: React.FC = () => {
                       type="tel"
                       value={phone}
                       onChange={e => setPhone(e.target.value)}
-                      placeholder="98765 43210"
+                      placeholder="XXXXXXXXXX"
                       maxLength={14}
                       className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-r-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
                       required
@@ -549,9 +549,9 @@ export const AuthPage: React.FC = () => {
                     type="button"
                     onClick={() =>
                       fillQuickProfile({
-                        name: 'Shubham Gupta (Root Admin)',
-                        email: 'shubham.gupta180296@gmail.com',
-                        phone: '9876500001',
+                        name: 'City Administrator',
+                        email: 'admin@kuraliupdates.com',
+                        phone: '9800000000',
                         role: 'admin',
                         locality: 'Main Bazaar & Clock Tower',
                       })
@@ -560,10 +560,10 @@ export const AuthPage: React.FC = () => {
                   >
                     <div className="flex items-center gap-1.5 text-purple-700 font-bold text-[11px]">
                       <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>Root Admin</span>
+                      <span>Admin Desk</span>
                     </div>
                     <span className="text-[10px] text-purple-600 block mt-0.5 truncate">
-                      shubham.gupta
+                      admin@kurali
                     </span>
                   </button>
 
@@ -571,9 +571,9 @@ export const AuthPage: React.FC = () => {
                     type="button"
                     onClick={() =>
                       fillQuickProfile({
-                        name: 'Sunil Aggarwal',
-                        email: 'aggarwalkirana.kurali@gmail.com',
-                        phone: '9876543210',
+                        name: 'Kurali Store Merchant',
+                        email: 'store@kuraliupdates.com',
+                        phone: '9811111111',
                         role: 'seller',
                         locality: 'Main Bazaar & Clock Tower',
                       })
@@ -585,7 +585,7 @@ export const AuthPage: React.FC = () => {
                       <span>Merchant</span>
                     </div>
                     <span className="text-[10px] text-blue-600 block mt-0.5 truncate">
-                      Aggarwal Kirana
+                      store@kurali
                     </span>
                   </button>
 
@@ -593,9 +593,9 @@ export const AuthPage: React.FC = () => {
                     type="button"
                     onClick={() =>
                       fillQuickProfile({
-                        name: 'Gurpreet Singh',
-                        email: 'gurpreet.rider@kuraliupdates.com',
-                        phone: '9876588990',
+                        name: 'Express Delivery Rider',
+                        email: 'rider@kuraliupdates.com',
+                        phone: '9822222222',
                         role: 'delivery',
                         locality: 'Morinda Road',
                       })
@@ -607,7 +607,7 @@ export const AuthPage: React.FC = () => {
                       <span>Rider Fleet</span>
                     </div>
                     <span className="text-[10px] text-emerald-600 block mt-0.5 truncate">
-                      Gurpreet Singh
+                      rider@kurali
                     </span>
                   </button>
 
@@ -615,9 +615,9 @@ export const AuthPage: React.FC = () => {
                     type="button"
                     onClick={() =>
                       fillQuickProfile({
-                        name: 'Simran Kaur',
-                        email: 'simran.kaur.kurali@gmail.com',
-                        phone: '9814055667',
+                        name: 'Local Shopper',
+                        email: 'shopper@kuraliupdates.com',
+                        phone: '9833333333',
                         role: 'buyer',
                         locality: 'Railway Station Road',
                       })
@@ -629,7 +629,7 @@ export const AuthPage: React.FC = () => {
                       <span>Buyer</span>
                     </div>
                     <span className="text-[10px] text-amber-600 block mt-0.5 truncate">
-                      Simran Kaur
+                      shopper@kurali
                     </span>
                   </button>
                 </div>

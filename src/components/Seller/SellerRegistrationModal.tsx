@@ -162,7 +162,7 @@ export const SellerRegistrationModal: React.FC<SellerRegistrationModalProps> = (
                 type="tel"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
-                placeholder="+91 98140 11223"
+                placeholder="+91 XXXXX XXXXX"
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
                 required
               />
@@ -174,7 +174,7 @@ export const SellerRegistrationModal: React.FC<SellerRegistrationModalProps> = (
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="singlastore.kurali@gmail.com"
+                placeholder="xxxx@xxx.com"
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white"
               />
             </div>

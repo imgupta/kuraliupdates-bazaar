@@ -465,7 +465,7 @@ export const bazaarApi = {
         userId: 'user-' + Date.now(),
         email: payload.email,
         phone: payload.phone,
-        name: payload.name || (isRootAdmin ? 'Shubham Gupta (Root Admin)' : 'Kurali User'),
+        name: payload.name || (isRootAdmin ? 'Administrator' : 'Kurali User'),
         role: isRootAdmin ? 'ADMIN' : (payload.role || 'BUYER'),
         locality: payload.locality || 'Main Bazaar, Kurali',
         address: payload.address || 'Kurali City, Punjab',

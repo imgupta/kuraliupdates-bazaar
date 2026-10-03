@@ -91,7 +91,7 @@ export const BuyerRegistrationModal: React.FC<BuyerRegistrationModalProps> = ({ 
                   <input
                     type="email"
                     required
-                    placeholder="yourname@gmail.com"
+                    placeholder="xxxx@xxx.com"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-amber-500 outline-none"
@@ -105,7 +105,7 @@ export const BuyerRegistrationModal: React.FC<BuyerRegistrationModalProps> = ({ 
                   <input
                     type="tel"
                     required
-                    placeholder="+91 98765 43210"
+                    placeholder="+91 XXXXX XXXXX"
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-amber-500 outline-none"

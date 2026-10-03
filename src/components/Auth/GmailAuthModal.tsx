@@ -107,7 +107,7 @@ export const GmailAuthModal: React.FC<GmailAuthModalProps> = ({ onClose, default
               <input
                 type="email"
                 required
-                placeholder="yourname@gmail.com"
+                placeholder="xxxx@xxx.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 outline-none"
@@ -135,7 +135,7 @@ export const GmailAuthModal: React.FC<GmailAuthModalProps> = ({ onClose, default
                 <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="tel"
-                  placeholder="+91 98765 43210"
+                  placeholder="+91 XXXXX XXXXX"
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 outline-none"
