@@ -13,9 +13,10 @@ import {
   PlusCircle,
   Truck,
   Percent,
+  User,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { KURALI_LOCALITIES } from '../data/initialData';
+import { KURALI_LOCALITIES, ROOT_ADMIN_EMAIL } from '../data/initialData';
 import { UserRole } from '../types';
 
 interface HeaderProps {
@@ -42,6 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
     chats,
     setActiveChatId,
     setIsSellerRegisterOpen,
+    setIsBuyerRegisterOpen,
     setIsDeliveryRegisterOpen,
     setIsGmailAuthOpen,
     selectedCityLocality,
@@ -62,7 +64,9 @@ export const Header: React.FC<HeaderProps> = ({
   // Active chats count
   const activeChatsCount = chats.length;
 
-  const roleConfigs: {
+  const isRootAdmin = user.email.toLowerCase() === ROOT_ADMIN_EMAIL.toLowerCase();
+
+  const baseRoleConfigs: {
     id: UserRole;
     label: string;
     shortLabel: string;
@@ -87,15 +91,21 @@ export const Header: React.FC<HeaderProps> = ({
       color: 'text-emerald-600',
       badge: availableJobsCount > 0 ? availableJobsCount : undefined,
     },
-    {
+  ];
+
+  // Admin Desk is strictly enabled ONLY for ROOT_ADMIN_EMAIL
+  if (isRootAdmin) {
+    baseRoleConfigs.push({
       id: 'admin',
       label: 'Admin Desk',
       shortLabel: 'Admin',
       icon: ShieldCheck,
       color: 'text-purple-600',
       badge: pendingSellersCount > 0 ? pendingSellersCount : undefined,
-    },
-  ];
+    });
+  }
+
+  const roleConfigs = baseRoleConfigs;
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs w-full max-w-full overflow-hidden">
@@ -122,6 +132,13 @@ export const Header: React.FC<HeaderProps> = ({
               <PlusCircle className="w-3 h-3" />
               <span className="hidden xs:inline">Register</span> Shop
             </button>
+            <button
+              onClick={() => setIsDeliveryRegisterOpen(true)}
+              className="font-bold underline hover:text-amber-100 flex items-center gap-1 cursor-pointer whitespace-nowrap"
+            >
+              <Bike className="w-3 h-3" />
+              Join Fleet
+            </button>
           </div>
         </div>
       </div>
@@ -139,35 +156,30 @@ export const Header: React.FC<HeaderProps> = ({
                 <Store className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-1">
-                  <span className="font-extrabold text-base sm:text-xl tracking-tight text-slate-900 group-hover:text-amber-600 transition-colors whitespace-nowrap">
-                    Kurali<span className="text-amber-600">Updates</span>
-                  </span>
-                  <span className="bg-amber-100 text-amber-800 text-[9px] sm:text-[10px] font-black px-1.5 py-0.2 rounded-full shrink-0">
-                    BAZAAR
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-500 font-medium hidden md:block truncate">
-                  Local Stores &bull; Low Price &bull; Direct Deals
-                </p>
+                <span className="font-black text-sm sm:text-base tracking-tight text-slate-900 block leading-tight truncate">
+                  Kurali<span className="text-amber-600">Updates</span>
+                </span>
+                <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">
+                  Bazaar &bull; ਕੁਰਾਲੀ
+                </span>
               </div>
             </div>
 
-            {/* Kurali Locality Selector (Desktop/Tablet) */}
-            <div className="relative hidden lg:block">
+            {/* Locality Selector Dropdown */}
+            <div className="relative hidden md:block shrink-0">
               <button
                 onClick={() => setIsLocalityDropdownOpen(!isLocalityDropdownOpen)}
-                className="flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1.5 rounded-lg transition-colors border border-slate-200"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 transition-colors cursor-pointer border border-slate-200"
               >
                 <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span className="max-w-[120px] truncate">{selectedCityLocality}</span>
+                <span className="max-w-[140px] truncate">{selectedCityLocality}</span>
                 <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
               </button>
 
               {isLocalityDropdownOpen && (
-                <div className="absolute left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-50 animate-in fade-in">
-                  <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                    Select Kurali Area
+                <div className="absolute left-0 mt-1.5 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-50 animate-in fade-in">
+                  <div className="px-3 py-1.5 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase">
+                    Select Kurali Zone
                   </div>
                   {KURALI_LOCALITIES.map(loc => (
                     <button
@@ -176,12 +188,14 @@ export const Header: React.FC<HeaderProps> = ({
                         setSelectedCityLocality(loc);
                         setIsLocalityDropdownOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-2 text-xs hover:bg-amber-50 hover:text-amber-900 flex items-center justify-between ${
-                        selectedCityLocality === loc ? 'font-bold text-amber-700 bg-amber-50/60' : 'text-slate-700'
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-amber-50 flex items-center justify-between cursor-pointer ${
+                        selectedCityLocality === loc ? 'text-amber-700 font-bold bg-amber-50/60' : 'text-slate-700'
                       }`}
                     >
                       <span className="truncate">{loc}</span>
-                      {selectedCityLocality === loc && <span className="w-1.5 h-1.5 rounded-full bg-amber-600 shrink-0"></span>}
+                      {selectedCityLocality === loc && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600 shrink-0" />
+                      )}
                     </button>
                   ))}
                 </div>
@@ -189,24 +203,24 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Desktop Search Bar (Hidden on Mobile) */}
+          {/* Search Bar (Desktop) */}
           {role === 'buyer' && (
-            <div className="flex-1 max-w-sm mx-2 hidden md:block">
+            <div className="flex-1 max-w-md mx-2 hidden md:block">
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search Basmati, Desi Ghee, Earbuds in Kurali..."
+                  placeholder="Search products across Kurali shops..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-100 hover:bg-slate-50 focus:bg-white rounded-xl border border-slate-200 focus:border-amber-500 outline-none transition-all"
+                  className="w-full pl-10 pr-9 py-2 bg-slate-100 hover:bg-slate-200/60 focus:bg-white text-xs rounded-xl border border-transparent focus:border-amber-500 outline-none transition-all"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
                   >
-                    Clear
+                    &times;
                   </button>
                 )}
               </div>
@@ -215,7 +229,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right Section: Role Tabs (Desktop) + Actions (Mobile & Desktop) */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Desktop Role Switcher (Hidden on phone screens to prevent overflow!) */}
+            {/* Desktop Role Switcher */}
             <div className="hidden sm:flex bg-slate-100 p-1 rounded-xl items-center gap-1 border border-slate-200/80">
               {roleConfigs.map(item => {
                 const Icon = item.icon;
@@ -273,90 +287,128 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </button>
 
-            {/* User Profile / Google Sign-In */}
-            <div className="relative shrink-0">
-              <button
-                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                className="flex items-center gap-1 p-1 rounded-xl hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200 cursor-pointer"
-              >
-                {user.isSignedIn ? (
+            {/* User Profile / Gmail Sign-In Button */}
+            {user.isSignedIn ? (
+              <div className="relative shrink-0">
+                <button
+                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                  className="flex items-center gap-1.5 p-1 sm:px-2 sm:py-1 rounded-xl hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200 cursor-pointer"
+                >
                   <img
                     src={user.avatarUrl}
                     alt={user.name}
                     className="w-8 h-8 rounded-full border border-amber-300 object-cover"
                   />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs">
-                    G
-                  </div>
-                )}
-              </button>
+                  <span className="hidden md:inline text-xs font-bold text-slate-800 truncate max-w-[90px]">
+                    {user.name.split(' ')[0]}
+                  </span>
+                  <ChevronDown className="w-3 h-3 text-slate-400 hidden sm:inline" />
+                </button>
 
-              {isProfileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in">
-                  <div className="px-4 py-2 border-b border-slate-100">
-                    <p className="text-xs font-semibold text-slate-900">{user.name}</p>
-                    <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
-                    <div className="mt-1 flex items-center gap-1.5">
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                        <Sparkles className="w-2.5 h-2.5" /> Gmail Verified
-                      </span>
-                      <span className="text-[10px] font-medium text-slate-500 capitalize">
-                        Mode: {role}
-                      </span>
+                {isProfileDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in">
+                    <div className="px-4 py-2 border-b border-slate-100">
+                      <p className="text-xs font-semibold text-slate-900">{user.name}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                          <Sparkles className="w-2.5 h-2.5" /> Gmail Verified
+                        </span>
+                        {isRootAdmin && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                            Root Admin
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="py-1">
+                      <button
+                        onClick={() => {
+                          setIsBuyerRegisterOpen(true);
+                          setIsProfileDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <User className="w-4 h-4 text-amber-500" /> Buyer Profile / Address
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsSellerRegisterOpen(true);
+                          setIsProfileDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Store className="w-4 h-4 text-blue-500" /> Register Store in Kurali
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsDeliveryRegisterOpen(true);
+                          setIsProfileDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Bike className="w-4 h-4 text-emerald-500" /> Join as Delivery Agent
+                      </button>
+
+                      {isRootAdmin && (
+                        <button
+                          onClick={() => {
+                            setRole('admin');
+                            setIsProfileDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-xs text-purple-700 hover:bg-purple-50 flex items-center gap-2 font-bold cursor-pointer"
+                        >
+                          <ShieldCheck className="w-4 h-4 text-purple-600" /> Open Root Admin Desk
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          setIsGmailAuthOpen(true);
+                          setIsProfileDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Sparkles className="w-4 h-4 text-blue-500" /> Switch Gmail Account
+                      </button>
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-1">
+                      <button
+                        onClick={() => {
+                          logout();
+                          setIsProfileDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 font-medium cursor-pointer"
+                      >
+                        <LogOut className="w-4 h-4" /> Sign Out
+                      </button>
                     </div>
                   </div>
-
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        setIsGmailAuthOpen(true);
-                        setIsProfileDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                    >
-                      <Store className="w-4 h-4 text-blue-500" /> Switch Gmail / Seller Account
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setIsSellerRegisterOpen(true);
-                        setIsProfileDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                    >
-                      <PlusCircle className="w-4 h-4 text-amber-500" /> Register New Store in Kurali
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setIsDeliveryRegisterOpen(true);
-                        setIsProfileDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                    >
-                      <Bike className="w-4 h-4 text-emerald-500" /> Join as Delivery Agent
-                    </button>
-                  </div>
-
-                  <div className="border-t border-slate-100 pt-1">
-                    <button
-                      onClick={() => {
-                        logout();
-                        setIsProfileDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 font-medium cursor-pointer"
-                    >
-                      <LogOut className="w-4 h-4" /> Sign Out
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsGmailAuthOpen(true)}
+                className="flex items-center gap-1.5 bg-slate-900 hover:bg-black text-white px-2.5 sm:px-3.5 py-2 rounded-xl font-bold text-xs shadow-xs transition-all cursor-pointer shrink-0"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <span className="hidden sm:inline">Sign In / Register</span>
+                <span className="sm:hidden">Sign In</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Mobile Search Bar (Directly below navbar on phones) */}
+        {/* Mobile Search Bar */}
         {role === 'buyer' && (
           <div className="mt-2 md:hidden">
             <div className="relative">
@@ -381,9 +433,9 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </div>
 
-      {/* MOBILE ROLE NAVIGATION SEGMENTS (Dedicated thumb-friendly bar on phones) */}
+      {/* MOBILE ROLE NAVIGATION SEGMENTS */}
       <div className="sm:hidden px-3 pb-2.5 pt-0.5 border-t border-slate-100 bg-white">
-        <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80">
+        <div className={`grid ${roleConfigs.length === 4 ? 'grid-cols-4' : 'grid-cols-3'} gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80`}>
           {roleConfigs.map(item => {
             const Icon = item.icon;
             const isActive = role === item.id;

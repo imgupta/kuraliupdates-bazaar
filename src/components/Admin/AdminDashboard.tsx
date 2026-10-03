@@ -16,12 +16,15 @@ import {
   BarChart3,
   Layers,
   Download,
+  Lock,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MarketTrendsVisualization } from './MarketTrendsVisualization';
+import { ROOT_ADMIN_EMAIL } from '../../data/initialData';
 
 export const AdminDashboard: React.FC = () => {
   const {
+    user,
     sellers,
     approveSeller,
     rejectSeller,
@@ -29,107 +32,104 @@ export const AdminDashboard: React.FC = () => {
     orders,
     products,
     setRole,
+    setIsGmailAuthOpen,
   } = useApp();
 
   const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet'>('trends');
 
+  const isRootAdmin = user.email.toLowerCase() === ROOT_ADMIN_EMAIL.toLowerCase();
+
+  if (!isRootAdmin) {
+    return (
+      <div className="max-w-md mx-auto py-16 px-4 text-center space-y-6 bg-white rounded-3xl border border-slate-200 shadow-xl my-8">
+        <div className="w-16 h-16 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center mx-auto shadow-xs">
+          <Lock className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-black text-slate-900">Admin Desk Restricted</h2>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Access to this master control center is restricted exclusively to the root administrator:
+            <br />
+            <strong className="text-purple-700 font-mono mt-1 block font-bold">{ROOT_ADMIN_EMAIL}</strong>
+          </p>
+        </div>
+        <div className="pt-2">
+          <button
+            onClick={() => setIsGmailAuthOpen(true)}
+            className="w-full py-3 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer"
+          >
+            Sign In with Master Admin Gmail
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const pendingSellers = sellers.filter(s => s.status === 'pending');
   const approvedSellers = sellers.filter(s => s.status === 'approved');
   const rejectedSellers = sellers.filter(s => s.status === 'rejected');
-
   const totalGMV = orders.reduce((sum, o) => sum + o.totalAmount, 0);
 
   return (
     <div className="space-y-6 pb-16">
       {/* Admin Desk Banner */}
       <div className="bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 text-white rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-purple-200">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            KuraliUpdates City Administration
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-purple-100 text-xs font-bold mb-2">
+            <ShieldCheck className="w-4 h-4 text-amber-300" />
+            Root Master Admin Panel ({ROOT_ADMIN_EMAIL})
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Merchant Approval &amp; City Operations Desk
+            KuraliUpdates Marketplace Control
           </h1>
-          <p className="text-xs sm:text-sm text-purple-200 max-w-xl">
-            Monitor search query demand trends across Kurali neighborhoods, popular product categories, and grant merchant operating licenses.
+          <p className="text-xs sm:text-sm text-purple-100 mt-1 max-w-xl">
+            Authorize new local merchant registrations, audit low price compliance across Kurali, monitor live express orders, and review delivery fleet.
           </p>
         </div>
 
-        {/* Actions & Pending Badge */}
-        <div className="flex items-center gap-3">
-          <a
-            href="/kuraliupdates-bazaar.zip"
-            download="kuraliupdates-bazaar.zip"
-            className="bg-white/10 hover:bg-white/20 text-white border border-white/25 px-4 py-3 rounded-2xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 shadow-xs cursor-pointer text-center"
-            title="Download full project ZIP to upload to GitHub"
-          >
-            <Download className="w-4 h-4 text-amber-300" />
-            <span>Download Repo ZIP</span>
-            <span className="text-[10px] text-purple-200 font-mono">For imgupta/kuraliupdates-bazaar</span>
-          </a>
-
-          <div
-            onClick={() => setActiveAdminTab('approvals')}
-            className="bg-white/10 hover:bg-white/15 cursor-pointer transition-colors backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center min-w-[140px]"
-          >
-            <span className="text-xs font-bold text-purple-200 uppercase">Pending Approvals</span>
-            <p className="text-3xl font-black text-amber-300 mt-0.5">
-              {pendingSellers.length}
-            </p>
-            <span className="text-[10px] text-amber-200 block mt-0.5 font-medium underline">
-              Review Applications &rarr;
-            </span>
+        {/* Quick Stats Pill */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 bg-white/10 p-3 sm:p-4 rounded-2xl border border-white/10 shrink-0">
+          <div className="text-center px-2">
+            <span className="text-[10px] text-purple-200 block uppercase font-bold">Total GMV</span>
+            <span className="text-lg font-black">₹{totalGMV.toLocaleString()}</span>
+          </div>
+          <div className="w-px h-8 bg-white/20" />
+          <div className="text-center px-2">
+            <span className="text-[10px] text-purple-200 block uppercase font-bold">Approved Stores</span>
+            <span className="text-lg font-black">{approvedSellers.length}</span>
+          </div>
+          <div className="w-px h-8 bg-white/20" />
+          <div className="text-center px-2">
+            <span className="text-[10px] text-purple-200 block uppercase font-bold">Active Fleet</span>
+            <span className="text-lg font-black">{deliveryAgents.length}</span>
           </div>
         </div>
       </div>
 
-      {/* City Commerce Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-          <span className="text-xs font-semibold text-slate-400">Total Kurali Stores</span>
-          <p className="text-xl font-black text-slate-900 mt-1">{sellers.length}</p>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-          <span className="text-xs font-semibold text-slate-400">Approved &amp; Live</span>
-          <p className="text-xl font-black text-emerald-600 mt-1">{approvedSellers.length}</p>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-          <span className="text-xs font-semibold text-slate-400">Active Delivery Riders</span>
-          <p className="text-xl font-black text-blue-600 mt-1">{deliveryAgents.length}</p>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-          <span className="text-xs font-semibold text-slate-400">Total City Orders (GMV)</span>
-          <p className="text-xl font-black text-purple-600 mt-1">₹{totalGMV}</p>
-        </div>
-      </div>
-
-      {/* Admin Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
+      {/* Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto">
         <button
           onClick={() => setActiveAdminTab('trends')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeAdminTab === 'trends'
-              ? 'bg-purple-700 text-white shadow-xs'
-              : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+              ? 'bg-purple-700 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          <BarChart3 className="w-4 h-4" />
-          <span>Demand &amp; Trends Analytics</span>
+          <BarChart3 className="w-4 h-4" /> Market Demand & Search Trends
         </button>
 
         <button
           onClick={() => setActiveAdminTab('approvals')}
-          className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+          className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeAdminTab === 'approvals'
-              ? 'bg-purple-700 text-white shadow-xs'
-              : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+              ? 'bg-purple-700 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          <ShieldCheck className="w-4 h-4" />
-          <span>Pending Seller Approvals</span>
+          <Store className="w-4 h-4" /> Pending Merchant Approvals
           {pendingSellers.length > 0 && (
-            <span className="bg-amber-400 text-slate-900 text-[10px] font-black px-1.5 py-0.2 rounded-full">
+            <span className="px-1.5 py-0.5 bg-rose-500 text-white text-[10px] rounded-full">
               {pendingSellers.length}
             </span>
           )}
@@ -137,132 +137,105 @@ export const AdminDashboard: React.FC = () => {
 
         <button
           onClick={() => setActiveAdminTab('stores')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeAdminTab === 'stores'
-              ? 'bg-purple-700 text-white shadow-xs'
-              : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+              ? 'bg-purple-700 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          <Store className="w-4 h-4" />
-          <span>Approved Stores ({approvedSellers.length})</span>
+          <Layers className="w-4 h-4" /> All Active Stores ({approvedSellers.length})
         </button>
 
         <button
           onClick={() => setActiveAdminTab('fleet')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeAdminTab === 'fleet'
-              ? 'bg-purple-700 text-white shadow-xs'
-              : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+              ? 'bg-purple-700 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          <Bike className="w-4 h-4" />
-          <span>Delivery Fleet ({deliveryAgents.length})</span>
+          <Bike className="w-4 h-4" /> Delivery Fleet ({deliveryAgents.length})
         </button>
       </div>
 
-      {/* TAB 1: DATA VISUALIZATION - TRENDING SEARCHES & CATEGORIES */}
+      {/* Tab: Trends */}
       {activeAdminTab === 'trends' && <MarketTrendsVisualization />}
 
-      {/* TAB 2: PENDING APPROVALS */}
+      {/* Tab: Approvals */}
       {activeAdminTab === 'approvals' && (
-        <div className="bg-white rounded-3xl p-6 border-2 border-amber-300 shadow-sm space-y-4 animate-in fade-in">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-extrabold text-slate-900 tracking-tight">
-                  Pending Seller Registrations
-                </h2>
-                <span className="bg-amber-100 text-amber-900 text-xs font-bold px-2 py-0.5 rounded-full">
-                  Action Required ({pendingSellers.length})
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                These sellers submitted their store registration for Kurali and require administrative approval before going live.
-              </p>
-            </div>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-extrabold text-slate-900">
+              New Merchant Applications ({pendingSellers.length})
+            </h2>
+            <p className="text-xs text-slate-500">
+              Stores cannot receive orders or display products until approved by root admin.
+            </p>
           </div>
 
           {pendingSellers.length === 0 ? (
-            <div className="py-8 text-center text-slate-400 text-xs bg-slate-50 rounded-2xl border border-slate-100">
-              <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-              <p className="font-bold text-slate-700 text-sm">All pending registrations are cleared!</p>
-              <p className="mt-1">
-                To test the approval flow, click "Register Your Kurali Shop" from the header or Seller Portal.
+            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 space-y-3">
+              <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+              <h3 className="text-sm font-bold text-slate-800">All Merchant Applications Processed</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                No stores are currently waiting for admin authorization in Kurali.
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
               {pendingSellers.map(seller => (
                 <div
                   key={seller.id}
-                  className="bg-amber-50/40 rounded-2xl p-5 border border-amber-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                  className="bg-white rounded-3xl border border-amber-300 p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
                 >
                   <div className="flex items-start gap-4">
                     <img
                       src={seller.avatarUrl}
                       alt={seller.name}
-                      className="w-14 h-14 rounded-2xl object-cover border-2 border-amber-400 shrink-0"
+                      className="w-14 h-14 rounded-2xl object-cover border border-slate-200 shrink-0"
                     />
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-base font-extrabold text-slate-900">
-                          {seller.name}
-                        </h3>
-                        <span className="bg-amber-200 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                        <h3 className="font-extrabold text-sm text-slate-900">{seller.name}</h3>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                          {seller.category}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
                           Pending Verification
                         </span>
-                        <span className="text-xs text-slate-400">
-                          Submitted: {new Date(seller.registeredAt).toLocaleDateString()}
-                        </span>
                       </div>
-
-                      <p className="text-xs text-slate-600 font-medium">
-                        Owner: <strong>{seller.ownerName}</strong> &bull; Category: <span className="text-blue-700 font-bold">{seller.category}</span>
-                      </p>
-
-                      <p className="text-xs text-slate-500 flex items-center gap-3 flex-wrap">
+                      <p className="text-xs text-slate-600">{seller.description}</p>
+                      <div className="flex items-center gap-4 text-[11px] text-slate-500 pt-1 flex-wrap">
                         <span className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-amber-600" />
-                          {seller.address}, {seller.locality}
+                          <MapPin className="w-3.5 h-3.5 text-slate-400" /> {seller.address}, {seller.locality}
                         </span>
                         <span className="flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-slate-400" />
-                          {seller.phone}
+                          <Phone className="w-3.5 h-3.5 text-slate-400" /> {seller.phone}
                         </span>
                         <span className="flex items-center gap-1">
-                          <Mail className="w-3 h-3 text-slate-400" />
-                          {seller.email}
+                          <Mail className="w-3.5 h-3.5 text-slate-400" /> {seller.email}
                         </span>
-                      </p>
-
-                      {seller.gstNumber && (
-                        <p className="text-[11px] text-slate-500 font-mono">
-                          GST / License: <strong>{seller.gstNumber}</strong>
-                        </p>
-                      )}
-
-                      <p className="text-xs text-slate-600 italic bg-white/70 p-2 rounded-xl border border-amber-100 max-w-xl">
-                        "{seller.description}"
-                      </p>
+                        {seller.gstNumber && (
+                          <span className="font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                            GST: {seller.gstNumber}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Approve & Reject Actions */}
-                  <div className="flex sm:flex-col gap-2 w-full md:w-auto shrink-0">
-                    <button
-                      onClick={() => approveSeller(seller.id)}
-                      className="flex-1 sm:flex-none px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      Approve &amp; Go Live
-                    </button>
-
+                  <div className="flex items-center gap-2 self-end md:self-center shrink-0">
                     <button
                       onClick={() => rejectSeller(seller.id)}
-                      className="flex-1 sm:flex-none px-5 py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer flex items-center gap-1.5"
                     >
-                      <XCircle className="w-4 h-4" />
-                      Reject Application
+                      <XCircle className="w-4 h-4" /> Reject
+                    </button>
+                    <button
+                      onClick={() => approveSeller(seller.id)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-4 h-4" /> Approve &amp; Activate
                     </button>
                   </div>
                 </div>
@@ -272,49 +245,40 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: APPROVED STORES */}
+      {/* Tab: All Active Stores */}
       {activeAdminTab === 'stores' && (
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4 animate-in fade-in">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-            <div>
-              <h2 className="text-base font-extrabold text-slate-900 tracking-tight">
-                Approved Active Stores in Kurali ({approvedSellers.length})
-              </h2>
-              <p className="text-xs text-slate-500">
-                Verified merchants with active product catalogs published to buyers.
-              </p>
-            </div>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-extrabold text-slate-900">
+              Verified Marketplace Stores ({approvedSellers.length})
+            </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {approvedSellers.map(seller => {
-              const count = products.filter(p => p.sellerId === seller.id).length;
-
+              const sellerProdCount = products.filter(p => p.sellerId === seller.id).length;
               return (
                 <div
                   key={seller.id}
-                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-400 transition-all space-y-3"
+                  className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs flex items-start gap-4"
                 >
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={seller.avatarUrl}
-                      alt={seller.name}
-                      className="w-12 h-12 rounded-xl object-cover border border-slate-200"
-                    />
-                    <div className="min-w-0">
-                      <h4 className="font-bold text-xs text-slate-900 truncate">
-                        {seller.name}
-                      </h4>
-                      <p className="text-[11px] text-slate-500 truncate">{seller.locality}</p>
-                      <span className="inline-block mt-0.5 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.2 rounded-full">
-                        ★ {seller.rating} &bull; {seller.reviewCount} reviews
+                  <img
+                    src={seller.avatarUrl}
+                    alt={seller.name}
+                    className="w-12 h-12 rounded-2xl object-cover border border-slate-200 shrink-0"
+                  />
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-extrabold text-sm text-slate-900 truncate">{seller.name}</h3>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
+                        Active
                       </span>
                     </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
-                    <span>Catalog: <strong>{count} items</strong></span>
-                    <span>Free delivery &gt; ₹{seller.minOrderForFreeDelivery}</span>
+                    <p className="text-[11px] text-slate-500">{seller.category} &bull; {seller.locality}</p>
+                    <div className="flex items-center gap-3 text-xs text-slate-600 pt-1">
+                      <span>Products Listed: <strong>{sellerProdCount}</strong></span>
+                      <span>Rating: <strong>★ {seller.rating}</strong></span>
+                    </div>
                   </div>
                 </div>
               );
@@ -323,38 +287,46 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 4: DELIVERY FLEET */}
+      {/* Tab: Delivery Fleet */}
       {activeAdminTab === 'fleet' && (
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4 animate-in fade-in">
-          <div>
-            <h2 className="text-base font-extrabold text-slate-900 tracking-tight">
-              Registered Kurali Delivery Partners ({deliveryAgents.length})
-            </h2>
-            <p className="text-xs text-slate-500">
-              Active riders delivering orders across Kurali city sectors and roads.
-            </p>
-          </div>
+        <div className="space-y-4">
+          <h2 className="text-base font-extrabold text-slate-900">
+            Registered Kurali Express Delivery Fleet ({deliveryAgents.length})
+          </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {deliveryAgents.map(ag => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {deliveryAgents.map(agent => (
               <div
-                key={ag.id}
-                className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 flex items-center gap-3"
+                key={agent.id}
+                className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-3"
               >
-                <img
-                  src={ag.avatarUrl}
-                  alt={ag.name}
-                  className="w-12 h-12 rounded-xl object-cover border border-emerald-300"
-                />
-                <div className="min-w-0">
-                  <h4 className="font-bold text-xs text-slate-900">{ag.name}</h4>
-                  <p className="text-[11px] text-slate-500">
-                    {ag.vehicleType} ({ag.vehicleNumber})
-                  </p>
-                  <div className="flex items-center gap-2 text-[10px] font-semibold text-emerald-800 mt-0.5">
-                    <span>★ {ag.rating}</span>
-                    <span>&bull;</span>
-                    <span>{ag.totalTrips} Trips Completed</span>
+                <div className="flex items-center gap-3">
+                  <img
+                    src={agent.avatarUrl}
+                    alt={agent.name}
+                    className="w-12 h-12 rounded-2xl object-cover border border-slate-200"
+                  />
+                  <div>
+                    <h3 className="font-extrabold text-sm text-slate-900">{agent.name}</h3>
+                    <p className="text-[11px] text-slate-500">{agent.phone}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-medium">Vehicle</span>
+                    <span className="font-bold text-slate-800">{agent.vehicleType}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-medium">Plate</span>
+                    <span className="font-bold font-mono text-slate-800">{agent.vehicleNumber}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-medium">Completed Trips</span>
+                    <span className="font-bold text-emerald-600">{agent.totalTrips}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-medium">Total Earned</span>
+                    <span className="font-bold text-slate-900">₹{agent.totalEarnings}</span>
                   </div>
                 </div>
               </div>
@@ -365,4 +337,3 @@ export const AdminDashboard: React.FC = () => {
     </div>
   );
 };
-

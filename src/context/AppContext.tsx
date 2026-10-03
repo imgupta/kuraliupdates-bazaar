@@ -19,6 +19,7 @@ import {
   INITIAL_DELIVERY_AGENTS,
   INITIAL_ORDERS,
   INITIAL_CHATS,
+  ROOT_ADMIN_EMAIL,
 } from '../data/initialData';
 
 export interface UserProfile {
@@ -27,6 +28,7 @@ export interface UserProfile {
   avatarUrl: string;
   phone: string;
   locality: string;
+  address?: string;
   sellerId?: string;
   deliveryAgentId?: string;
   role: UserRole;
@@ -38,29 +40,37 @@ interface AppContextType {
   role: UserRole;
   setRole: (role: UserRole) => void;
   user: UserProfile;
-  loginWithGoogle: (email: string, name?: string, role?: UserRole) => void;
+  loginWithGoogle: (
+    email: string,
+    name: string,
+    targetRole: UserRole,
+    phone?: string,
+    locality?: string,
+    address?: string
+  ) => void;
   logout: () => void;
+  registerBuyer: (data: { name: string; email: string; phone: string; locality: string; address: string }) => void;
 
   // Sellers
   sellers: Seller[];
-  currentSeller: Seller | null;
-  registerSeller: (data: Omit<Seller, 'id' | 'status' | 'registeredAt' | 'rating' | 'reviewCount'>) => string;
+  currentSeller: Seller | undefined;
+  registerSeller: (sellerData: Omit<Seller, 'id' | 'status' | 'rating' | 'reviewCount' | 'registeredAt'>) => void;
   approveSeller: (sellerId: string) => void;
   rejectSeller: (sellerId: string) => void;
   updateSeller: (sellerId: string, updates: Partial<Seller>) => void;
 
   // Products
   products: Product[];
-  addProduct: (product: Omit<Product, 'id' | 'sellerId' | 'sellerName' | 'sellerLocality' | 'sellerDistanceKm' | 'sellerRating'>) => void;
+  addProduct: (productData: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'isAvailable'>) => void;
   updateProduct: (productId: string, updates: Partial<Product>) => void;
   deleteProduct: (productId: string) => void;
 
   // Coupons
   coupons: Coupon[];
-  addCoupon: (coupon: Omit<Coupon, 'id'>) => void;
-  deleteCoupon: (couponId: string) => void;
+  addCoupon: (coupon: Coupon) => void;
+  deleteCoupon: (code: string) => void;
 
-  // Cart & Pricing Calculations
+  // Cart
   cart: CartItem[];
   addToCart: (product: Product, quantity?: number, negotiatedPrice?: number) => void;
   removeFromCart: (productId: string) => void;
@@ -70,58 +80,67 @@ interface AppContextType {
   applyCoupon: (code: string) => { success: boolean; message: string };
   removeCoupon: () => void;
   cartCalculations: {
-    subtotal: number;
-    billDiscount: number;
+    itemSubtotal: number;
     couponDiscount: number;
+    billDiscounts: { sellerId: string; sellerName: string; amount: number; description: string }[];
+    totalBillDiscount: number;
     deliveryFee: number;
     isFreeDelivery: boolean;
-    freeDeliveryThreshold: number;
-    amountNeededForFreeDelivery: number;
+    freeDeliveryThresholdRemaining: number;
     finalTotal: number;
-    activeSeller: Seller | null;
   };
 
   // Orders
   orders: Order[];
   createOrder: (orderData: {
-    buyerName: string;
-    buyerPhone: string;
     deliveryAddress: string;
-    deliveryLocality: string;
-    paymentMethod: 'UPI' | 'Card' | 'COD' | 'NetBanking';
-  }) => Order | null;
-  updateOrderStatus: (orderId: string, newStatus: OrderStatus, note: string) => void;
+    deliveryPhone: string;
+    customerNotes?: string;
+    paymentMethod: 'COD' | 'UPI' | 'StorePay';
+  }) => Order;
+  updateOrderStatus: (orderId: string, status: OrderStatus, note?: string) => void;
+
+  // Delivery
   claimDeliveryJob: (orderId: string, agentId: string) => void;
-  completeDelivery: (orderId: string, enteredOtp: string) => { success: boolean; message: string };
-
-  // Delivery Agents
+  completeDelivery: (orderId: string, otp: string) => { success: boolean; message: string };
   deliveryAgents: DeliveryAgent[];
-  currentAgent: DeliveryAgent | null;
-  registerDeliveryAgent: (data: Omit<DeliveryAgent, 'id' | 'status' | 'rating' | 'totalTrips' | 'todayEarnings' | 'totalEarnings' | 'registeredAt'>) => void;
+  currentAgent: DeliveryAgent | undefined;
+  registerDeliveryAgent: (
+    agentData: Omit<DeliveryAgent, 'id' | 'status' | 'rating' | 'totalTrips' | 'todayEarnings' | 'totalEarnings' | 'registeredAt'>
+  ) => void;
 
-  // Negotiation & Bargaining Chat
+  // Bargaining & Negotiation Chat
   chats: NegotiationChat[];
   openChatForProduct: (product: Product, startingOfferPrice?: number) => string;
   sendMessage: (chatId: string, text: string, offer?: BargainOffer) => void;
-  respondToOffer: (chatId: string, offerId: string, action: 'accept' | 'reject' | 'counter', counterPrice?: number) => void;
+  respondToOffer: (
+    chatId: string,
+    offerId: string,
+    action: 'accept' | 'reject' | 'counter',
+    counterPrice?: number
+  ) => void;
 
-  // UI state & Modals
+  // Active filters and Modals
   selectedCityLocality: string;
-  setSelectedCityLocality: (loc: string) => void;
+  setSelectedCityLocality: (locality: string) => void;
   activeChatId: string | null;
   setActiveChatId: (id: string | null) => void;
   comparingProduct: Product | null;
-  setComparingProduct: (product: Product | null) => void;
+  setComparingProduct: (p: Product | null) => void;
   trackingOrderId: string | null;
   setTrackingOrderId: (id: string | null) => void;
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
   isSellerRegisterOpen: boolean;
   setIsSellerRegisterOpen: (open: boolean) => void;
+  isBuyerRegisterOpen: boolean;
+  setIsBuyerRegisterOpen: (open: boolean) => void;
   isDeliveryRegisterOpen: boolean;
   setIsDeliveryRegisterOpen: (open: boolean) => void;
   isGmailAuthOpen: boolean;
   setIsGmailAuthOpen: (open: boolean) => void;
+
+  // Toast / Alerts
   toast: { message: string; type: 'success' | 'info' | 'error' } | null;
   showToast: (message: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -137,16 +156,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [user, setUser] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('kurali_user');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        /* ignore */
+      }
     }
     return {
-      email: 'sg7508359237@gmail.com',
-      name: 'Simran Singh',
+      email: '',
+      name: 'Guest Shopper',
       avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-      phone: '+91 75083 59237',
+      phone: '',
       locality: 'Main Bazaar, Kurali',
       role: 'buyer',
-      isSignedIn: true,
+      isSignedIn: false,
     };
   });
 
@@ -197,6 +220,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isSellerRegisterOpen, setIsSellerRegisterOpen] = useState(false);
+  const [isBuyerRegisterOpen, setIsBuyerRegisterOpen] = useState(false);
   const [isDeliveryRegisterOpen, setIsDeliveryRegisterOpen] = useState(false);
   const [isGmailAuthOpen, setIsGmailAuthOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
@@ -253,160 +277,179 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 4000);
   };
 
-  const setRole = (newRole: UserRole) => {
-    setRoleState(newRole);
-    setUser(prev => ({
-      ...prev,
-      role: newRole,
-      sellerId: newRole === 'seller' ? (prev.sellerId || 'seller-1') : prev.sellerId,
-      deliveryAgentId: newRole === 'delivery' ? (prev.deliveryAgentId || 'agent-1') : prev.deliveryAgentId,
-    }));
-    showToast(`Switched view to ${newRole.toUpperCase()} mode`, 'info');
+  // Secure Role Switcher: Admin is strictly restricted to ROOT_ADMIN_EMAIL
+  const setRole = (targetRole: UserRole) => {
+    if (targetRole === 'admin') {
+      if (user.email.toLowerCase() !== ROOT_ADMIN_EMAIL.toLowerCase()) {
+        showToast(`Access Restricted: Admin portal is reserved exclusively for master root user (${ROOT_ADMIN_EMAIL})`, 'error');
+        setIsGmailAuthOpen(true);
+        return;
+      }
+    }
+    setRoleState(targetRole);
   };
 
-  const loginWithGoogle = (email: string, name = 'Google User', targetRole: UserRole = role) => {
-    let matchedSellerId: string | undefined;
-    let matchedAgentId: string | undefined;
+  // Google / Gmail Authentication
+  const loginWithGoogle = (
+    email: string,
+    name: string,
+    targetRole: UserRole,
+    phone?: string,
+    locality?: string,
+    address?: string
+  ) => {
+    const isRoot = email.toLowerCase() === ROOT_ADMIN_EMAIL.toLowerCase();
+    const effectiveRole: UserRole = isRoot ? 'admin' : targetRole;
 
-    const matchedSeller = sellers.find(s => s.email.toLowerCase() === email.toLowerCase());
-    if (matchedSeller) {
-      matchedSellerId = matchedSeller.id;
-    } else if (targetRole === 'seller') {
-      matchedSellerId = 'seller-1';
-    }
+    const existingSeller = sellers.find(s => s.email.toLowerCase() === email.toLowerCase());
+    const existingAgent = deliveryAgents.find(a => (a.email || '').toLowerCase() === email.toLowerCase());
 
-    const matchedAgent = deliveryAgents.find(a => a.email.toLowerCase() === email.toLowerCase());
-    if (matchedAgent) {
-      matchedAgentId = matchedAgent.id;
-    } else if (targetRole === 'delivery') {
-      matchedAgentId = 'agent-1';
-    }
-
-    setUser({
+    const updatedUser: UserProfile = {
       email,
       name,
       avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=0284c7,f59e0b,10b981`,
-      phone: '+91 98765 00000',
-      locality: 'Main Bazaar, Kurali',
-      sellerId: matchedSellerId,
-      deliveryAgentId: matchedAgentId,
-      role: targetRole,
+      phone: phone || user.phone || '',
+      locality: locality || user.locality || 'Main Bazaar',
+      address: address || user.address || '',
+      sellerId: existingSeller?.id,
+      deliveryAgentId: existingAgent?.id,
+      role: effectiveRole,
       isSignedIn: true,
-    });
-    setRoleState(targetRole);
-    setIsGmailAuthOpen(false);
-    showToast(`Welcome ${name}! Authenticated via Google (${email})`, 'success');
+    };
+
+    setUser(updatedUser);
+    setRoleState(effectiveRole);
+
+    showToast(
+      isRoot
+        ? `Root Administrator Verified! Welcome ${name}.`
+        : `Signed in successfully via Gmail (${effectiveRole.toUpperCase()})`,
+      'success'
+    );
+  };
+
+  // Register Buyer
+  const registerBuyer = (data: { name: string; email: string; phone: string; locality: string; address: string }) => {
+    const isRoot = data.email.toLowerCase() === ROOT_ADMIN_EMAIL.toLowerCase();
+    const updatedUser: UserProfile = {
+      email: data.email,
+      name: data.name,
+      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(data.name)}&backgroundColor=0284c7,f59e0b,10b981`,
+      phone: data.phone,
+      locality: data.locality,
+      address: data.address,
+      role: isRoot ? 'admin' : 'buyer',
+      isSignedIn: true,
+    };
+    setUser(updatedUser);
+    setRoleState(isRoot ? 'admin' : 'buyer');
+    showToast(`Buyer registration complete! Welcome to KuraliUpdates Bazaar, ${data.name}.`, 'success');
   };
 
   const logout = () => {
     setUser({
       email: '',
-      name: 'Guest User',
-      avatarUrl: '',
+      name: 'Guest Shopper',
+      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
       phone: '',
-      locality: 'Kurali City',
+      locality: 'Main Bazaar, Kurali',
       role: 'buyer',
       isSignedIn: false,
     });
     setRoleState('buyer');
-    showToast('Logged out successfully', 'info');
+    showToast('Signed out successfully.', 'info');
   };
 
-  const currentSeller = sellers.find(s => s.id === (user.sellerId || 'seller-1')) || sellers[0] || null;
-  const currentAgent = deliveryAgents.find(a => a.id === (user.deliveryAgentId || 'agent-1')) || deliveryAgents[0] || null;
+  // Current Seller
+  const currentSeller = sellers.find(
+    s => s.id === user.sellerId || s.email.toLowerCase() === user.email.toLowerCase()
+  );
 
-  // Seller management
-  const registerSeller = (data: Omit<Seller, 'id' | 'status' | 'registeredAt' | 'rating' | 'reviewCount'>): string => {
+  // Current Agent
+  const currentAgent = deliveryAgents.find(
+    a => a.id === user.deliveryAgentId || (a.email && a.email.toLowerCase() === user.email.toLowerCase())
+  );
+
+  // Seller Actions
+  const registerSeller = (
+    data: Omit<Seller, 'id' | 'status' | 'rating' | 'reviewCount' | 'registeredAt'>
+  ) => {
     const newId = `seller-${Date.now()}`;
     const newSeller: Seller = {
       ...data,
       id: newId,
-      status: 'pending', // Requires admin approval!
-      registeredAt: new Date().toISOString(),
-      rating: 0,
+      status: 'pending',
+      rating: 5.0,
       reviewCount: 0,
+      registeredAt: new Date().toISOString(),
     };
+
     setSellers(prev => [newSeller, ...prev]);
-    setUser(prev => ({ ...prev, sellerId: newId }));
-    showToast('Store registration submitted for Admin Approval!', 'success');
-    return newId;
+    setUser(prev => ({ ...prev, sellerId: newId, role: 'seller', isSignedIn: true, email: data.email, name: data.ownerName }));
+    setRoleState('seller');
+    showToast('Store registered successfully! Submitted for Admin verification.', 'success');
   };
 
   const approveSeller = (sellerId: string) => {
     setSellers(prev =>
-      prev.map(s =>
-        s.id === sellerId
-          ? { ...s, status: 'approved', approvedAt: new Date().toISOString() }
-          : s
-      )
+      prev.map(s => (s.id === sellerId ? { ...s, status: 'approved', approvedAt: new Date().toISOString() } : s))
     );
-    showToast('Seller registration approved successfully!', 'success');
+    showToast('Seller store approved! Now live for Kurali buyers.', 'success');
   };
 
   const rejectSeller = (sellerId: string) => {
     setSellers(prev =>
       prev.map(s => (s.id === sellerId ? { ...s, status: 'rejected' } : s))
     );
-    showToast('Seller registration rejected', 'info');
+    showToast('Seller store rejected.', 'info');
   };
 
   const updateSeller = (sellerId: string, updates: Partial<Seller>) => {
     setSellers(prev =>
       prev.map(s => (s.id === sellerId ? { ...s, ...updates } : s))
     );
-    showToast('Seller profile updated', 'success');
+    showToast('Store profile updated successfully.', 'success');
   };
 
-  // Product management
+  // Product Actions
   const addProduct = (
-    productData: Omit<Product, 'id' | 'sellerId' | 'sellerName' | 'sellerLocality' | 'sellerDistanceKm' | 'sellerRating'>
+    productData: Omit<Product, 'id' | 'rating' | 'reviewCount' | 'isAvailable'>
   ) => {
-    const activeSellerObj = currentSeller;
-    if (!activeSellerObj) {
-      showToast('Please select or register an approved store first', 'error');
-      return;
-    }
     const newProduct: Product = {
       ...productData,
       id: `prod-${Date.now()}`,
-      sellerId: activeSellerObj.id,
-      sellerName: activeSellerObj.name,
-      sellerLocality: activeSellerObj.locality,
-      sellerDistanceKm: activeSellerObj.distanceKm,
-      sellerRating: activeSellerObj.rating,
+      rating: 5.0,
+      reviewCount: 0,
+      isAvailable: true,
     };
     setProducts(prev => [newProduct, ...prev]);
-    showToast(`Product "${productData.title}" added to inventory`, 'success');
+    showToast(`"${productData.title}" added to your store inventory.`, 'success');
   };
 
   const updateProduct = (productId: string, updates: Partial<Product>) => {
     setProducts(prev =>
       prev.map(p => (p.id === productId ? { ...p, ...updates } : p))
     );
-    showToast('Product updated successfully', 'success');
+    showToast('Product updated successfully.', 'success');
   };
 
   const deleteProduct = (productId: string) => {
     setProducts(prev => prev.filter(p => p.id !== productId));
-    showToast('Product removed from inventory', 'info');
+    showToast('Product removed from inventory.', 'info');
   };
 
-  // Coupon management
-  const addCoupon = (couponData: Omit<Coupon, 'id'>) => {
-    const newCoupon: Coupon = {
-      ...couponData,
-      id: `c-${Date.now()}`,
-    };
-    setCoupons(prev => [newCoupon, ...prev]);
-    showToast(`Coupon ${couponData.code} created successfully`, 'success');
+  // Coupon Actions
+  const addCoupon = (coupon: Coupon) => {
+    setCoupons(prev => [coupon, ...prev.filter(c => c.code !== coupon.code)]);
+    showToast(`Coupon "${coupon.code}" created!`, 'success');
   };
 
-  const deleteCoupon = (couponId: string) => {
-    setCoupons(prev => prev.filter(c => c.id !== couponId));
-    showToast('Coupon removed', 'info');
+  const deleteCoupon = (code: string) => {
+    setCoupons(prev => prev.filter(c => c.code !== code));
+    showToast(`Coupon "${code}" deleted.`, 'info');
   };
 
-  // Cart operations
+  // Cart Actions
   const addToCart = (product: Product, quantity = 1, negotiatedPrice?: number) => {
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id);
@@ -423,12 +466,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return [...prev, { product, quantity, negotiatedPrice }];
     });
-    showToast(`Added ${product.title} to cart`, 'success');
+    showToast(`Added "${product.title}" to cart`, 'success');
   };
 
   const removeFromCart = (productId: string) => {
     setCart(prev => prev.filter(item => item.product.id !== productId));
-    showToast('Item removed from cart', 'info');
   };
 
   const updateCartQuantity = (productId: string, quantity: number) => {
@@ -437,9 +479,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
     setCart(prev =>
-      prev.map(item =>
-        item.product.id === productId ? { ...item, quantity } : item
-      )
+      prev.map(item => (item.product.id === productId ? { ...item, quantity } : item))
     );
   };
 
@@ -448,231 +488,223 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAppliedCoupon(null);
   };
 
-  // Cart Calculations (MRP, Seller Price, Additional Discount, Bill Discount, Coupons, Free Delivery)
-  const cartCalculations = (() => {
-    if (cart.length === 0) {
-      return {
-        subtotal: 0,
-        billDiscount: 0,
-        couponDiscount: 0,
-        deliveryFee: 0,
-        isFreeDelivery: false,
-        freeDeliveryThreshold: 499,
-        amountNeededForFreeDelivery: 499,
-        finalTotal: 0,
-        activeSeller: null,
-      };
-    }
-
-    // Determine the primary seller for bill discount and free delivery rules
-    const primarySellerId = cart[0].product.sellerId;
-    const activeSeller = sellers.find(s => s.id === primarySellerId) || sellers[0];
-
-    // Calculate subtotal using negotiated price or (sellerPrice - additionalDiscountPercent)
-    let subtotal = 0;
-    cart.forEach(item => {
-      let unitPrice: number;
-      if (item.negotiatedPrice && item.negotiatedPrice > 0) {
-        unitPrice = item.negotiatedPrice;
-      } else {
-        const extraDiscount = (item.product.sellerPrice * item.product.additionalDiscountPercent) / 100;
-        unitPrice = Math.round(item.product.sellerPrice - extraDiscount);
-      }
-      subtotal += unitPrice * item.quantity;
-    });
-
-    // Calculate Bill Discount provided by the seller
-    let billDiscount = 0;
-    if (activeSeller && activeSeller.billDiscounts) {
-      activeSeller.billDiscounts.forEach(rule => {
-        if (subtotal >= rule.minBillAmount) {
-          let discountFromRule = 0;
-          if (rule.flatDiscount) {
-            discountFromRule = rule.flatDiscount;
-          } else if (rule.discountPercentage) {
-            discountFromRule = Math.round((subtotal * rule.discountPercentage) / 100);
-          }
-          if (discountFromRule > billDiscount) {
-            billDiscount = discountFromRule;
-          }
-        }
-      });
-    }
-
-    // Calculate Coupon Discount
-    let couponDiscount = 0;
-    if (appliedCoupon) {
-      if (subtotal >= appliedCoupon.minOrderValue) {
-        if (appliedCoupon.discountType === 'flat') {
-          couponDiscount = appliedCoupon.discountValue;
-        } else {
-          const calculated = Math.round((subtotal * appliedCoupon.discountValue) / 100);
-          couponDiscount = appliedCoupon.maxDiscount
-            ? Math.min(calculated, appliedCoupon.maxDiscount)
-            : calculated;
-        }
-      }
-    }
-
-    // Free delivery check
-    const freeDeliveryThreshold = activeSeller ? activeSeller.minOrderForFreeDelivery : 499;
-    const baseFee = activeSeller ? activeSeller.baseDeliveryFee : 35;
-    const isFreeDelivery = subtotal >= freeDeliveryThreshold;
-    const deliveryFee = isFreeDelivery ? 0 : baseFee;
-    const amountNeededForFreeDelivery = Math.max(0, freeDeliveryThreshold - subtotal);
-
-    const finalTotal = Math.max(0, subtotal - billDiscount - couponDiscount + deliveryFee);
-
-    return {
-      subtotal,
-      billDiscount,
-      couponDiscount,
-      deliveryFee,
-      isFreeDelivery,
-      freeDeliveryThreshold,
-      amountNeededForFreeDelivery,
-      finalTotal,
-      activeSeller,
-    };
-  })();
-
   const applyCoupon = (code: string): { success: boolean; message: string } => {
-    const formattedCode = code.trim().toUpperCase();
-    const found = coupons.find(c => c.code.toUpperCase() === formattedCode);
+    const trimmed = code.trim().toUpperCase();
+    const found = coupons.find(c => c.code.toUpperCase() === trimmed);
     if (!found) {
-      return { success: false, message: 'Invalid coupon code' };
+      return { success: false, message: 'Invalid coupon code for Kurali Bazaar.' };
     }
-    if (cartCalculations.subtotal < found.minOrderValue) {
+    const currentSubtotal = cart.reduce((sum, item) => {
+      const price = item.negotiatedPrice || item.product.sellerPrice;
+      return sum + price * item.quantity;
+    }, 0);
+
+    if (found.minOrderValue && currentSubtotal < found.minOrderValue) {
       return {
         success: false,
-        message: `Min order value for ${found.code} is ₹${found.minOrderValue}. Add items worth ₹${found.minOrderValue - cartCalculations.subtotal} more!`,
-      };
-    }
-    if (found.sellerId !== 'all' && cart[0]?.product.sellerId !== found.sellerId) {
-      return {
-        success: false,
-        message: `This coupon is exclusively valid for ${found.sellerName || 'specific store'}`,
+        message: `Min order value for ${found.code} is ₹${found.minOrderValue}. Add items worth ₹${
+          found.minOrderValue - currentSubtotal
+        } more.`,
       };
     }
     setAppliedCoupon(found);
-    return { success: true, message: `Coupon ${found.code} applied! Saved discount.` };
+    showToast(`Coupon ${found.code} applied successfully!`, 'success');
+    return { success: true, message: `Coupon ${found.code} applied!` };
   };
 
   const removeCoupon = () => {
     setAppliedCoupon(null);
-    showToast('Coupon removed', 'info');
+    showToast('Coupon removed.', 'info');
   };
 
-  // Order creation and tracking
-  const createOrder = (orderData: {
-    buyerName: string;
-    buyerPhone: string;
-    deliveryAddress: string;
-    deliveryLocality: string;
-    paymentMethod: 'UPI' | 'Card' | 'COD' | 'NetBanking';
-  }): Order | null => {
-    if (cart.length === 0) return null;
+  // Cart Calculations
+  const cartCalculations = React.useMemo(() => {
+    const itemSubtotal = cart.reduce((sum, item) => {
+      const price = item.negotiatedPrice || item.product.sellerPrice;
+      return sum + price * item.quantity;
+    }, 0);
 
-    const primarySeller = cartCalculations.activeSeller || sellers[0];
-    const newOrderId = `ORD-KUR-${Math.floor(1000 + Math.random() * 9000)}`;
-    const randomOtp = `${Math.floor(1000 + Math.random() * 9000)}`;
+    // Group items by seller to calculate seller-specific bill discounts
+    const sellerSpend: { [sellerId: string]: { sellerName: string; amount: number; seller: Seller | undefined } } = {};
+    cart.forEach(item => {
+      const sId = item.product.sellerId;
+      const price = item.negotiatedPrice || item.product.sellerPrice;
+      if (!sellerSpend[sId]) {
+        sellerSpend[sId] = {
+          sellerName: item.product.sellerName,
+          amount: 0,
+          seller: sellers.find(s => s.id === sId),
+        };
+      }
+      sellerSpend[sId].amount += price * item.quantity;
+    });
+
+    const activeBillDiscounts: { sellerId: string; sellerName: string; amount: number; description: string }[] = [];
+    let highestDeliveryThreshold = 499;
+    let baseDeliveryFee = 30;
+
+    Object.entries(sellerSpend).forEach(([sId, data]) => {
+      if (data.seller) {
+        if (data.seller.minOrderForFreeDelivery) {
+          highestDeliveryThreshold = Math.max(highestDeliveryThreshold, data.seller.minOrderForFreeDelivery);
+        }
+        if (data.seller.baseDeliveryFee) {
+          baseDeliveryFee = Math.max(baseDeliveryFee, data.seller.baseDeliveryFee);
+        }
+        if (data.seller.billDiscounts) {
+          data.seller.billDiscounts.forEach(bd => {
+            if (data.amount >= bd.minBillAmount) {
+              const discountVal = bd.flatDiscount || Math.round((data.amount * (bd.discountPercentage || 0)) / 100);
+              activeBillDiscounts.push({
+                sellerId: sId,
+                sellerName: data.sellerName,
+                amount: discountVal,
+                description: bd.description,
+              });
+            }
+          });
+        }
+      }
+    });
+
+    const totalBillDiscount = activeBillDiscounts.reduce((sum, bd) => sum + bd.amount, 0);
+
+    let couponDiscount = 0;
+    if (appliedCoupon) {
+      if (appliedCoupon.flatDiscount) {
+        couponDiscount = appliedCoupon.flatDiscount;
+      } else if (appliedCoupon.discountPercentage) {
+        couponDiscount = Math.round((itemSubtotal * appliedCoupon.discountPercentage) / 100);
+        if (appliedCoupon.maxDiscount) {
+          couponDiscount = Math.min(couponDiscount, appliedCoupon.maxDiscount);
+        }
+      }
+    }
+
+    const isFreeDelivery = itemSubtotal >= highestDeliveryThreshold;
+    const deliveryFee = cart.length === 0 || isFreeDelivery ? 0 : baseDeliveryFee;
+    const freeDeliveryThresholdRemaining = Math.max(0, highestDeliveryThreshold - itemSubtotal);
+    const finalTotal = Math.max(0, itemSubtotal - totalBillDiscount - couponDiscount + deliveryFee);
+
+    return {
+      itemSubtotal,
+      couponDiscount,
+      billDiscounts: activeBillDiscounts,
+      totalBillDiscount,
+      deliveryFee,
+      isFreeDelivery,
+      freeDeliveryThresholdRemaining,
+      finalTotal,
+    };
+  }, [cart, sellers, appliedCoupon]);
+
+  // Order Actions
+  const createOrder = (orderData: {
+    deliveryAddress: string;
+    deliveryPhone: string;
+    customerNotes?: string;
+    paymentMethod: 'COD' | 'UPI' | 'StorePay';
+  }): Order => {
+    const randomOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    const newOrderId = `ORD-KUR-${Math.floor(100000 + Math.random() * 900000)}`;
+    const sellerIds = Array.from(new Set(cart.map(c => c.product.sellerId)));
+    const sellerNames = Array.from(new Set(cart.map(c => c.product.sellerName)));
 
     const newOrder: Order = {
       id: newOrderId,
-      buyerName: orderData.buyerName,
-      buyerPhone: orderData.buyerPhone,
-      buyerEmail: user.email || 'customer@kuraliupdates.com',
+      buyerName: user.name || 'Local Shopper',
+      buyerEmail: user.email || 'shopper@kuraliupdates.com',
+      buyerPhone: orderData.deliveryPhone,
       deliveryAddress: orderData.deliveryAddress,
-      deliveryLocality: orderData.deliveryLocality,
+      deliveryLocality: user.locality || 'Main Bazaar',
+      sellerIds,
+      sellerNames,
       items: [...cart],
-      sellerId: primarySeller.id,
-      sellerName: primarySeller.name,
-      sellerLocality: primarySeller.locality,
-      subtotal: cartCalculations.subtotal,
-      billDiscountAmount: cartCalculations.billDiscount,
-      couponDiscountAmount: cartCalculations.couponDiscount,
-      couponCode: appliedCoupon?.code,
+      itemSubtotal: cartCalculations.itemSubtotal,
+      billDiscount: cartCalculations.totalBillDiscount,
+      couponDiscount: cartCalculations.couponDiscount,
       deliveryFee: cartCalculations.deliveryFee,
-      isFreeDelivery: cartCalculations.isFreeDelivery,
       totalAmount: cartCalculations.finalTotal,
       paymentMethod: orderData.paymentMethod,
-      paymentStatus: orderData.paymentMethod === 'COD' ? 'pending_cod' : 'paid',
+      paymentStatus: orderData.paymentMethod === 'UPI' ? 'paid' : 'pending',
       status: 'placed',
-      placedAt: new Date().toISOString(),
       deliveryOtp: randomOtp,
-      distanceKm: primarySeller.distanceKm + 0.8,
-      estimatedDeliveryMins: 25,
+      placedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      estimatedDeliveryTime: '30-45 mins (Local Express)',
+      distanceKm: 1.4,
       statusUpdates: [
         {
           status: 'placed',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          note: `Order placed via ${orderData.paymentMethod} on KuraliUpdates`,
+          note: 'Order placed by buyer. Waiting for store packing.',
         },
       ],
+      customerNotes: orderData.customerNotes,
     };
 
     setOrders(prev => [newOrder, ...prev]);
     clearCart();
     setTrackingOrderId(newOrderId);
+    showToast(`Order #${newOrderId} placed successfully! 4-digit OTP: ${randomOtp}`, 'success');
     return newOrder;
   };
 
-  const updateOrderStatus = (orderId: string, newStatus: OrderStatus, note: string) => {
+  const updateOrderStatus = (orderId: string, status: OrderStatus, note?: string) => {
     setOrders(prev =>
       prev.map(ord => {
         if (ord.id !== orderId) return ord;
         return {
           ...ord,
-          status: newStatus,
+          status,
           statusUpdates: [
             ...ord.statusUpdates,
             {
-              status: newStatus,
+              status,
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              note,
+              note: note || `Order updated to ${status}.`,
             },
           ],
         };
       })
     );
-    showToast(`Order ${orderId} updated: ${newStatus.replace(/_/g, ' ')}`, 'info');
+    showToast(`Order status updated to ${status.toUpperCase()}`, 'info');
   };
 
+  // Delivery Actions
   const claimDeliveryJob = (orderId: string, agentId: string) => {
-    const agent = deliveryAgents.find(a => a.id === agentId) || deliveryAgents[0];
+    const agent = deliveryAgents.find(a => a.id === agentId);
     setOrders(prev =>
       prev.map(ord => {
         if (ord.id !== orderId) return ord;
         return {
           ...ord,
-          status: 'assigned_to_delivery',
-          deliveryAgentId: agent.id,
-          deliveryAgentName: agent.name,
-          deliveryAgentPhone: agent.phone,
-          deliveryAgentVehicle: `${agent.vehicleType} (${agent.vehicleNumber})`,
+          deliveryAgentId: agentId,
+          deliveryAgentName: agent?.name || 'Kurali Express Partner',
+          deliveryAgentPhone: agent?.phone || '+91 98765 00000',
+          status: 'picked_up',
           statusUpdates: [
             ...ord.statusUpdates,
             {
-              status: 'assigned_to_delivery',
+              status: 'picked_up',
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              note: `Assigned to delivery agent ${agent.name}. Pickup underway.`,
+              note: `Picked up by delivery rider ${agent?.name || ''}. En route to buyer.`,
             },
           ],
         };
       })
     );
-    showToast(`Delivery job claimed! Navigating to seller pickup`, 'success');
+    showToast('Delivery order accepted! Navigate to store for pickup.', 'success');
   };
 
-  const completeDelivery = (orderId: string, enteredOtp: string): { success: boolean; message: string } => {
+  const completeDelivery = (orderId: string, otp: string): { success: boolean; message: string } => {
     const order = orders.find(o => o.id === orderId);
-    if (!order) return { success: false, message: 'Order not found' };
-    if (order.deliveryOtp !== enteredOtp.trim()) {
-      return { success: false, message: 'Incorrect Delivery OTP. Ask buyer for 4-digit code.' };
+    if (!order) return { success: false, message: 'Order not found.' };
+
+    if (order.deliveryOtp !== otp.trim()) {
+      return { success: false, message: 'Invalid OTP! Please request 4-digit OTP from customer upon handover.' };
     }
 
     const deliveryFeePayout = Math.max(45, Math.round(order.distanceKm * 22) + 20);
-
     setOrders(prev =>
       prev.map(ord => {
         if (ord.id !== orderId) return ord;
@@ -692,7 +724,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
-    // Update agent earnings
     if (order.deliveryAgentId) {
       setDeliveryAgents(prev =>
         prev.map(ag => {
@@ -728,7 +759,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       registeredAt: new Date().toISOString(),
     };
     setDeliveryAgents(prev => [newAgent, ...prev]);
-    setUser(prev => ({ ...prev, deliveryAgentId: newId, role: 'delivery' }));
+    setUser(prev => ({ ...prev, deliveryAgentId: newId, role: 'delivery', isSignedIn: true, email: data.email, name: data.name }));
     setRoleState('delivery');
     showToast('Delivery Partner registered successfully! Welcome to Kurali Express fleet.', 'success');
   };
@@ -742,10 +773,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setActiveChatId(existing.id);
       return existing.id;
     }
-
     const newChatId = `chat-${Date.now()}`;
     const initialOfferPrice = startingOfferPrice || Math.round(product.sellerPrice * 0.9);
-
     const newChat: NegotiationChat = {
       id: newChatId,
       productId: product.id,
@@ -778,7 +807,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         },
       ],
     };
-
     setChats(prev => [newChat, ...prev]);
     setActiveChatId(newChatId);
     return newChatId;
@@ -794,7 +822,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       offer,
     };
-
     setChats(prev =>
       prev.map(c => {
         if (c.id !== chatId) return c;
@@ -817,7 +844,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map(c => {
         if (c.id !== chatId) return c;
         let agreedPrice = c.currentAgreedPrice;
-
         const updatedMessages = c.messages.map(m => {
           if (m.offer && m.offer.id === offerId) {
             const updatedOfferStatus =
@@ -836,7 +862,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return m;
         });
 
-        // Add automated reply message
         const responseMsg: ChatMessage = {
           id: `m-${Date.now()}`,
           chatId,
@@ -864,7 +889,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
               : undefined,
         };
-
         return {
           ...c,
           currentAgreedPrice: agreedPrice,
@@ -873,7 +897,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       })
     );
-
     if (action === 'accept') {
       showToast('Price deal accepted! Special price locked in.', 'success');
     }
@@ -887,6 +910,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         user,
         loginWithGoogle,
         logout,
+        registerBuyer,
         sellers,
         currentSeller,
         registerSeller,
@@ -933,6 +957,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsCartOpen,
         isSellerRegisterOpen,
         setIsSellerRegisterOpen,
+        isBuyerRegisterOpen,
+        setIsBuyerRegisterOpen,
         isDeliveryRegisterOpen,
         setIsDeliveryRegisterOpen,
         isGmailAuthOpen,

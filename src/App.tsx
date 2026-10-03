@@ -6,12 +6,14 @@ import { CartDrawer } from './components/Buyer/CartDrawer';
 import { CheckoutModal } from './components/Buyer/CheckoutModal';
 import { OrderTrackingModal } from './components/Buyer/OrderTrackingModal';
 import { NegotiationChatModal } from './components/Buyer/NegotiationChatModal';
+import { BuyerRegistrationModal } from './components/Buyer/BuyerRegistrationModal';
 import { SellerDashboard } from './components/Seller/SellerDashboard';
 import { SellerRegistrationModal } from './components/Seller/SellerRegistrationModal';
 import { DeliveryDashboard } from './components/Delivery/DeliveryDashboard';
 import { DeliveryRegistrationModal } from './components/Delivery/DeliveryRegistrationModal';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
 import { GmailAuthModal } from './components/Auth/GmailAuthModal';
+import { ROOT_ADMIN_EMAIL } from './data/initialData';
 import {
   Store,
   MapPin,
@@ -28,10 +30,13 @@ const MainLayout: React.FC = () => {
   const {
     role,
     setRole,
+    user,
     trackingOrderId,
     setTrackingOrderId,
     isSellerRegisterOpen,
     setIsSellerRegisterOpen,
+    isBuyerRegisterOpen,
+    setIsBuyerRegisterOpen,
     isDeliveryRegisterOpen,
     setIsDeliveryRegisterOpen,
     isGmailAuthOpen,
@@ -42,6 +47,8 @@ const MainLayout: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+
+  const isRootAdmin = user.email.toLowerCase() === ROOT_ADMIN_EMAIL.toLowerCase();
 
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 flex flex-col text-slate-900 font-sans">
@@ -64,11 +71,8 @@ const MainLayout: React.FC = () => {
             onOpenTracking={(orderId) => setTrackingOrderId(orderId)}
           />
         )}
-
         {role === 'seller' && <SellerDashboard />}
-
         {role === 'delivery' && <DeliveryDashboard />}
-
         {role === 'admin' && <AdminDashboard />}
       </main>
 
@@ -94,28 +98,25 @@ const MainLayout: React.FC = () => {
 
       {/* Global Modals */}
       <CartDrawer onProceedToCheckout={() => setIsCheckoutOpen(true)} />
-
       {isCheckoutOpen && (
         <CheckoutModal onClose={() => setIsCheckoutOpen(false)} />
       )}
-
       {trackingOrderId && (
         <OrderTrackingModal
           orderId={trackingOrderId}
           onClose={() => setTrackingOrderId(null)}
         />
       )}
-
       <NegotiationChatModal />
-
+      {isBuyerRegisterOpen && (
+        <BuyerRegistrationModal onClose={() => setIsBuyerRegisterOpen(false)} />
+      )}
       {isSellerRegisterOpen && (
         <SellerRegistrationModal onClose={() => setIsSellerRegisterOpen(false)} />
       )}
-
       {isDeliveryRegisterOpen && (
         <DeliveryRegistrationModal onClose={() => setIsDeliveryRegisterOpen(false)} />
       )}
-
       {isGmailAuthOpen && (
         <GmailAuthModal onClose={() => setIsGmailAuthOpen(false)} />
       )}
@@ -186,6 +187,12 @@ const MainLayout: React.FC = () => {
               </h4>
               <div className="space-y-2">
                 <button
+                  onClick={() => setIsBuyerRegisterOpen(true)}
+                  className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  🛍️ Register as Buyer
+                </button>
+                <button
                   onClick={() => setIsSellerRegisterOpen(true)}
                   className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
@@ -197,12 +204,14 @@ const MainLayout: React.FC = () => {
                 >
                   🛵 Join as Delivery Rider
                 </button>
-                <button
-                  onClick={() => setRole('admin')}
-                  className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 text-purple-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                >
-                  🛡️ Admin Approval Desk
-                </button>
+                {isRootAdmin && (
+                  <button
+                    onClick={() => setRole('admin')}
+                    className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 text-purple-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    🛡️ Admin Approval Desk
+                  </button>
+                )}
               </div>
             </div>
           </div>

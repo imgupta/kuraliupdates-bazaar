@@ -1,74 +1,49 @@
 import React, { useState } from 'react';
-import { X, Sparkles, Store, Bike, ShoppingBag, ShieldCheck, Mail, ArrowRight } from 'lucide-react';
+import { X, Shield, Store, Bike, ShoppingBag, CheckCircle2, Mail, User, Phone, Sparkles } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { UserRole } from '../../types';
+import { ROOT_ADMIN_EMAIL } from '../../data/initialData';
 
 interface GmailAuthModalProps {
   onClose: () => void;
+  defaultRole?: UserRole;
 }
 
-export const GmailAuthModal: React.FC<GmailAuthModalProps> = ({ onClose }) => {
-  const { loginWithGoogle, user, sellers, deliveryAgents } = useApp();
-  const [customEmail, setCustomEmail] = useState('');
-  const [customName, setCustomName] = useState('');
-  const [targetRole, setTargetRole] = useState<UserRole>('seller');
+export const GmailAuthModal: React.FC<GmailAuthModalProps> = ({ onClose, defaultRole = 'buyer' }) => {
+  const { loginWithGoogle, user, setIsSellerRegisterOpen, setIsDeliveryRegisterOpen, setIsBuyerRegisterOpen } = useApp();
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [selectedRole, setSelectedRole] = useState<UserRole>(defaultRole);
 
-  const presetAccounts = [
-    {
-      role: 'seller' as UserRole,
-      name: 'Sunil Aggarwal',
-      storeName: 'Aggarwal Super Kirana & Provision',
-      email: 'aggarwalkirana.kurali@gmail.com',
-      avatar: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=200&q=80',
-      badge: 'Approved Kirana Store',
-    },
-    {
-      role: 'seller' as UserRole,
-      name: 'Vikas Sharma',
-      storeName: 'Punjab Mobile Care & Electronics',
-      email: 'punjabmobiles.kurali@gmail.com',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
-      badge: 'Electronics & Mobiles',
-    },
-    {
-      role: 'seller' as UserRole,
-      name: 'Manpreet Singh Dhillon',
-      storeName: 'Dhillon Organic Farm & Health Store',
-      email: 'manpreet.dhillon.kurali@gmail.com',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-      badge: 'Pending Admin Review',
-    },
-    {
-      role: 'delivery' as UserRole,
-      name: 'Gurpreet Singh (Rider)',
-      storeName: 'Hero Splendor (PB 65 AB 4589)',
-      email: 'gurpreet.rider@kuraliupdates.com',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-      badge: 'Delivery Partner',
-    },
-    {
-      role: 'buyer' as UserRole,
-      name: 'Simranjit Kaur',
-      storeName: 'Kurali Resident (Dashmesh Nagar)',
-      email: 'simran.kurali@gmail.com',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80',
-      badge: 'Local Buyer',
-    },
-  ];
+  const isRootAdmin = email.trim().toLowerCase() === ROOT_ADMIN_EMAIL.toLowerCase();
 
-  const handleCustomLogin = (e: React.FormEvent) => {
+  const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customEmail.trim()) return;
-    const nameToUse = customName.trim() || customEmail.split('@')[0];
-    loginWithGoogle(customEmail.trim(), nameToUse, targetRole);
+    if (!email.trim()) return;
+
+    const trimmedEmail = email.trim().toLowerCase();
+    const finalRole: UserRole = trimmedEmail === ROOT_ADMIN_EMAIL.toLowerCase() ? 'admin' : selectedRole;
+    const finalName = name.trim() || trimmedEmail.split('@')[0];
+
+    loginWithGoogle(trimmedEmail, finalName, finalRole, phone.trim());
     onClose();
+
+    // If new registration for specific role, trigger corresponding modal
+    if (finalRole === 'seller') {
+      setIsSellerRegisterOpen(true);
+    } else if (finalRole === 'delivery') {
+      setIsDeliveryRegisterOpen(true);
+    } else if (finalRole === 'buyer' && !user.isSignedIn) {
+      setIsBuyerRegisterOpen(true);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
         {/* Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between">
+        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-xs">
               <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -91,15 +66,10 @@ export const GmailAuthModal: React.FC<GmailAuthModalProps> = ({ onClose }) => {
               </svg>
             </div>
             <div>
-              <h3 className="font-extrabold text-sm tracking-tight">
-                Google / Gmail Sign-In
-              </h3>
-              <p className="text-[11px] text-slate-300">
-                Authenticate your Seller or Rider profile on kuraliupdates.com
-              </p>
+              <h3 className="font-extrabold text-sm tracking-tight">Google / Gmail Sign-In</h3>
+              <p className="text-[11px] text-slate-300">Official authentication for KuraliUpdates Bazaar</p>
             </div>
           </div>
-
           <button
             onClick={onClose}
             className="p-1.5 rounded-full hover:bg-white/20 text-white transition-colors"
@@ -108,114 +78,128 @@ export const GmailAuthModal: React.FC<GmailAuthModalProps> = ({ onClose }) => {
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          <div className="text-xs text-slate-600">
-            <span className="font-bold text-slate-900 block mb-1">
-              Select a Demo Profile or Enter Any Gmail:
-            </span>
-            <span>
-              Click any verified Kurali store owner or rider below to test account management instantly.
-            </span>
-          </div>
+        {/* Form Body */}
+        <form onSubmit={handleSignIn} className="p-6 space-y-4 text-xs">
+          {/* Admin badge if root email typed */}
+          {isRootAdmin ? (
+            <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-2.5">
+              <Shield className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-xs">Master Administrator Verified</p>
+                <p className="text-[11px] text-amber-700">
+                  Welcome Root Admin! You have exclusive privileges to manage all sellers, orders, and commissions.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 rounded-2xl bg-blue-50 border border-blue-100 text-blue-900 flex items-start gap-2">
+              <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <span>
+                Register or log in with your Gmail to order products, register your shop, or become a delivery agent in Kurali.
+              </span>
+            </div>
+          )}
 
-          {/* Quick preset accounts */}
-          <div className="space-y-2">
-            {presetAccounts.map((acc, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  loginWithGoogle(acc.email, acc.name, acc.role);
-                  onClose();
-                }}
-                className="w-full p-3 rounded-2xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/40 transition-all text-left flex items-center justify-between group cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <img
-                    src={acc.avatar}
-                    alt={acc.name}
-                    className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
-                  />
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-xs text-slate-900">
-                        {acc.name}
-                      </span>
-                      <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.2 rounded-full">
-                        {acc.badge}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500">{acc.storeName}</p>
-                    <p className="text-[10px] text-slate-400 font-mono">{acc.email}</p>
-                  </div>
-                </div>
-
-                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-blue-600 transition-colors" />
-              </button>
-            ))}
-          </div>
-
-          <div className="relative my-3 text-center">
-            <span className="bg-white px-2 text-[11px] text-slate-400 font-medium relative z-10">
-              Or Use Your Own Gmail
-            </span>
-            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-slate-200" />
-          </div>
-
-          {/* Custom Email Form */}
-          <form onSubmit={handleCustomLogin} className="space-y-3 text-xs">
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Your Gmail Address *
-              </label>
+          <div>
+            <label className="block font-semibold text-slate-700 mb-1">Your Gmail Address *</label>
+            <div className="relative">
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="email"
                 required
                 placeholder="yourname@gmail.com"
-                value={customEmail}
-                onChange={e => setCustomEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 outline-none"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 outline-none"
               />
             </div>
+          </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Your Name
-                </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">Full Name</label>
+              <div className="relative">
+                <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="e.g. Gurminder Singh"
-                  value={customName}
-                  onChange={e => setCustomName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 outline-none"
+                  placeholder="e.g. Jaswinder Singh"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 outline-none"
                 />
               </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Authenticate As
-                </label>
-                <select
-                  value={targetRole}
-                  onChange={e => setTargetRole(e.target.value as UserRole)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 outline-none"
-                >
-                  <option value="seller">Seller Portal</option>
-                  <option value="delivery">Delivery Agent</option>
-                  <option value="buyer">Local Buyer</option>
-                </select>
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">Mobile Number</label>
+              <div className="relative">
+                <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="tel"
+                  placeholder="+91 98765 43210"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 outline-none"
+                />
               </div>
             </div>
+          </div>
 
+          {/* Account Role Selection */}
+          {!isRootAdmin && (
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1.5">Select Account Type:</label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('buyer')}
+                  className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center gap-1 ${
+                    selectedRole === 'buyer'
+                      ? 'border-amber-500 bg-amber-50/60 text-amber-900 font-bold shadow-xs'
+                      : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <ShoppingBag className="w-4 h-4 text-amber-600" />
+                  <span className="text-[11px]">Buyer</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('seller')}
+                  className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center gap-1 ${
+                    selectedRole === 'seller'
+                      ? 'border-blue-500 bg-blue-50/60 text-blue-900 font-bold shadow-xs'
+                      : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <Store className="w-4 h-4 text-blue-600" />
+                  <span className="text-[11px]">Seller</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('delivery')}
+                  className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center gap-1 ${
+                    selectedRole === 'delivery'
+                      ? 'border-emerald-500 bg-emerald-50/60 text-emerald-900 font-bold shadow-xs'
+                      : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <Bike className="w-4 h-4 text-emerald-600" />
+                  <span className="text-[11px]">Delivery Agent</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="pt-2">
             <button
               type="submit"
-              className="w-full py-2.5 bg-slate-900 hover:bg-black text-white font-bold rounded-xl text-xs shadow-md transition-colors cursor-pointer"
+              className="w-full py-3 bg-slate-900 hover:bg-black text-white font-bold rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
-              Sign In with Google
+              <span>{isRootAdmin ? 'Sign In as Root Administrator' : 'Continue with Google Account'}</span>
             </button>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
   );

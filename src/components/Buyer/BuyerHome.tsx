@@ -14,6 +14,7 @@ import {
   TrendingDown,
   ShieldCheck,
   CheckCircle,
+  Store,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
@@ -44,6 +45,9 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
     comparingProduct,
     setComparingProduct,
     setIsCartOpen,
+    setIsSellerRegisterOpen,
+    setIsBuyerRegisterOpen,
+    setIsDeliveryRegisterOpen,
   } = useApp();
 
   const [sortBy, setSortBy] = useState<'price_asc' | 'distance_asc' | 'discount_desc' | 'featured'>('featured');
@@ -352,7 +356,44 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
       )}
 
       {/* Product Grid */}
-      {filteredProducts.length === 0 ? (
+      {products.length === 0 ? (
+        <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-slate-200 shadow-xs space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white mx-auto flex items-center justify-center shadow-md">
+            <Store className="w-8 h-8" />
+          </div>
+          <div className="space-y-2 max-w-lg mx-auto">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">
+              <Sparkles className="w-3.5 h-3.5" /> Welcome to KuraliUpdates Bazaar
+            </div>
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              Kurali's Local Online Marketplace is Live!
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              No products are listed yet. Are you a local shop owner in Kurali? Register your store, list your groceries or products, and start receiving orders from local neighborhood shoppers!
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <button
+              onClick={() => setIsSellerRegisterOpen(true)}
+              className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <Store className="w-4 h-4" /> Register Your Store
+            </button>
+            <button
+              onClick={() => setIsBuyerRegisterOpen(true)}
+              className="px-5 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <ShoppingBag className="w-4 h-4" /> Register as Buyer
+            </button>
+            <button
+              onClick={() => setIsDeliveryRegisterOpen(true)}
+              className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <Truck className="w-4 h-4" /> Join Delivery Fleet
+            </button>
+          </div>
+        </div>
+      ) : filteredProducts.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 space-y-3">
           <div className="w-14 h-14 rounded-full bg-amber-100 text-amber-600 mx-auto flex items-center justify-center">
             <Search className="w-6 h-6" />
