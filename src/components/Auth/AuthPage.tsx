@@ -26,7 +26,7 @@ const AuthBrandingPanel = React.memo(() => (
           </div>
 
           <div>
-            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold tracking-wide mb-6">
+            <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-full text-xs font-bold tracking-wide mb-6">
               <Sparkles className="w-3.5 h-3.5 text-amber-200" />
               <span>Official Kurali Marketplace</span>
             </div>
@@ -41,7 +41,7 @@ const AuthBrandingPanel = React.memo(() => (
             </p>
 
             <div className="mt-8 space-y-3.5 text-xs font-semibold">
-              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
+              <div className="flex items-center gap-3 bg-white/10 p-3 rounded-2xl border border-white/10">
                 <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
                   <Truck className="w-4 h-4 text-white" />
                 </div>
@@ -51,7 +51,7 @@ const AuthBrandingPanel = React.memo(() => (
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
+              <div className="flex items-center gap-3 bg-white/10 p-3 rounded-2xl border border-white/10">
                 <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
                   <Store className="w-4 h-4 text-white" />
                 </div>
@@ -61,7 +61,7 @@ const AuthBrandingPanel = React.memo(() => (
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
+              <div className="flex items-center gap-3 bg-white/10 p-3 rounded-2xl border border-white/10">
                 <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
                   <ShieldCheck className="w-4 h-4 text-white" />
                 </div>
@@ -356,12 +356,6 @@ export const AuthPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-amber-950 flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans">
-      {/* Decorative Blur Backgrounds */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden [contain:paint]">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-orange-600/10 rounded-full blur-3xl"></div>
-      </div>
-
       <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden grid lg:grid-cols-12 min-h-[580px]">
           <AuthBrandingPanel />
 
