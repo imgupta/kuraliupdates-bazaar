@@ -142,26 +142,19 @@ public class AuthController {
         if (!phone.matches("\\d{10}")) {
             return error(HttpStatus.BAD_REQUEST, "Please enter a valid 10-digit mobile number");
         }
-        if (!emailOtp.matches("\\d{6}") || !phoneOtp.matches("\\d{6}")) {
-            return error(HttpStatus.BAD_REQUEST, "Both email and mobile OTPs must be 6 digits");
+        if (!emailOtp.matches("\\d{6}")) {
+            return error(HttpStatus.BAD_REQUEST, "Email OTP must be 6 digits");
         }
         if (userRepository.findByEmail(email).isPresent() || userRepository.findByPhone(phone).isPresent()) {
             return error(HttpStatus.CONFLICT, "An account already exists with this email or mobile number. Please sign in instead.");
         }
 
         Optional<AuthOtpEntity> emailRecord = authOtpRepository.findValidOtp(email, "EMAIL", LocalDateTime.now());
-        Optional<AuthOtpEntity> phoneRecord = authOtpRepository.findValidOtp(phone, "PHONE", LocalDateTime.now());
         if (emailRecord.isEmpty() || !matchesOtp(emailOtp, emailRecord.get().getOtpCode())) {
             registerFailedAttempt(emailRecord.orElse(null));
             return error(HttpStatus.UNAUTHORIZED, "Email OTP is invalid or expired");
         }
-        if (phoneRecord.isEmpty() || !matchesOtp(phoneOtp, phoneRecord.get().getOtpCode())) {
-            registerFailedAttempt(phoneRecord.orElse(null));
-            return error(HttpStatus.UNAUTHORIZED, "Mobile OTP is invalid or expired");
-        }
-
         markUsed(emailRecord.get());
-        markUsed(phoneRecord.get());
 
         String requestedRole = req.role() == null ? "BUYER" : req.role().trim().toUpperCase();
         if (!Set.of("BUYER", "SELLER", "DELIVERY").contains(requestedRole)) requestedRole = "BUYER";
