@@ -453,7 +453,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const interval = setInterval(syncWithBackend, 45000);
 
     // Live session token check against Oracle DB / Spring Boot backend
-    const savedToken = localStorage.getItem('kurali_auth_token');
+    const savedToken = safeStorageGet('kurali_auth_token');
     if (savedToken) {
       bazaarApi.getMe(savedToken).then(res => {
         if (res.authenticated && res.user) {
