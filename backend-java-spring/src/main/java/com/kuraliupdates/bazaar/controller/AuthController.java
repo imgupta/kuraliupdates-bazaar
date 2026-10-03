@@ -6,12 +6,15 @@ import com.kuraliupdates.bazaar.entity.UserSessionEntity;
 import com.kuraliupdates.bazaar.repository.AuthOtpRepository;
 import com.kuraliupdates.bazaar.repository.UserRepository;
 import com.kuraliupdates.bazaar.repository.UserSessionRepository;
+import com.kuraliupdates.bazaar.service.OtpDeliveryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -21,10 +24,10 @@ import java.util.*;
 @RequiredArgsConstructor
 @Slf4j
 public class AuthController {
-
     private final UserRepository userRepository;
     private final AuthOtpRepository authOtpRepository;
     private final UserSessionRepository userSessionRepository;
+    private final OtpDeliveryService otpDeliveryService;
 
     private static final List<String> ROOT_ADMIN_EMAILS = List.of(
             "shubham.gupta180296@gmail.com",
@@ -32,253 +35,224 @@ public class AuthController {
             "admin@kuraliupdates.com"
     );
 
-    public record SendOtpRequest(String identifier, String type, String role) {}
-
+    public record SendOtpRequest(String identifier, String type, String mode) {}
     public record VerifyOtpRequest(
-            String identifier, // Email OR Mobile number (either is valid)
-            String otp,        // 6-digit code
-            String type,       // EMAIL or PHONE (optional)
-            String name,       // Full Name for registration
-            String role,       // BUYER, SELLER, DELIVERY, ADMIN
-            String locality,
-            String address,
-            String email,      // Backward compatibility
-            String phone,      // Backward compatibility
-            String emailOtp,   // Backward compatibility
-            String phoneOtp    // Backward compatibility
-    ) {}
+            String identifier, String otp, String type, String mode,
+            String name, String role, String locality, String address,
+            String email, String phone, String emailOtp, String phoneOtp) {}
 
-    /**
-     * Dispatch 6-digit live OTP for either Email OR Mobile Phone
-     */
     @PostMapping("/send-otp")
     @Transactional
     public ResponseEntity<Map<String, Object>> sendOtp(@RequestBody SendOtpRequest req) {
-        if (req.identifier() == null || req.identifier().trim().isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "Please enter either your Email address or Mobile phone number"
-            ));
+        String raw = req.identifier() == null ? "" : req.identifier().trim();
+        if (raw.isEmpty()) return error(HttpStatus.BAD_REQUEST, "Email address or mobile phone number is required");
+
+        String type = normalizeType(raw, req.type());
+        String identifier = normalizeIdentifier(raw, type);
+        if (identifier.isEmpty()) return error(HttpStatus.BAD_REQUEST, "Please enter a valid " + (type.equals("EMAIL") ? "email address" : "mobile number"));
+
+        String mode = normalizeMode(req.mode());
+        Optional<UserEntity> existing = findUser(identifier, type);
+        if ("LOGIN".equals(mode) && existing.isEmpty()) {
+            return error(HttpStatus.NOT_FOUND, "No registered account was found. Please register first.");
+        }
+        if ("REGISTER".equals(mode) && existing.isPresent()) {
+            return error(HttpStatus.CONFLICT, "An account already exists with this " + (type.equals("EMAIL") ? "email address" : "mobile number") + ". Please sign in instead.");
         }
 
-        String raw = req.identifier().trim();
-        boolean isEmail = raw.contains("@");
-        String identifier = isEmail ? raw.toLowerCase() : raw.replaceAll("[^0-9+]", "");
-        String type = (req.type() != null) ? req.type().toUpperCase() : (isEmail ? "EMAIL" : "PHONE");
+        LocalDateTime now = LocalDateTime.now();
+        if (authOtpRepository.existsRecentOtp(identifier, type, now.minusSeconds(60))) {
+            return error(HttpStatus.TOO_MANY_REQUESTS, "Please wait 60 seconds before requesting another OTP");
+        }
 
-        // Generate cryptographic 6-digit OTP
-        SecureRandom random = new SecureRandom();
-        int codeInt = 100000 + random.nextInt(900000);
-        String otpCode = String.valueOf(codeInt);
-
-        AuthOtpEntity otpEntity = AuthOtpEntity.builder()
+        String otp = String.format("%06d", 100000 + new SecureRandom().nextInt(900000));
+        AuthOtpEntity entity = AuthOtpEntity.builder()
                 .otpId("otp-" + UUID.randomUUID())
                 .identifier(identifier)
-                .otpCode(otpCode)
+                .otpCode(hashOtp(otp))
                 .otpType(type)
                 .isUsed(0)
-                .expiresAt(LocalDateTime.now().plusMinutes(10))
-                .createdAt(LocalDateTime.now())
+                .attempts(0)
+                .expiresAt(now.plusMinutes(10))
+                .createdAt(now)
                 .build();
 
-        authOtpRepository.save(otpEntity);
-        log.info("[Live Auth] Generated {} OTP {} for {}", type, otpCode, identifier);
-
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("success", true);
-        resp.put("message", "6-digit OTP code sent successfully to " + identifier);
-        resp.put("identifier", identifier);
-        resp.put("type", type);
-        resp.put("otpPreview", otpCode); // Available for live preview / testing
-        resp.put("expiresInSeconds", 600);
-
-        return ResponseEntity.ok(resp);
-    }
-
-    /**
-     * Verify single OTP (from either Email OR Mobile Phone) and establish authenticated session
-     */
-    @PostMapping("/verify-otp")
-    @Transactional
-    public ResponseEntity<Map<String, Object>> verifyOtp(@RequestBody VerifyOtpRequest req) {
-        // Resolve target identifier (email or phone)
-        String rawIdentifier = req.identifier();
-        if (rawIdentifier == null || rawIdentifier.trim().isEmpty()) {
-            if (req.email() != null && !req.email().trim().isEmpty()) {
-                rawIdentifier = req.email().trim();
-            } else if (req.phone() != null && !req.phone().trim().isEmpty()) {
-                rawIdentifier = req.phone().trim();
-            }
-        }
-
-        if (rawIdentifier == null || rawIdentifier.trim().isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "Please provide either an Email address or Mobile phone number"
-            ));
-        }
-
-        boolean isEmail = rawIdentifier.contains("@");
-        String identifier = isEmail ? rawIdentifier.trim().toLowerCase() : rawIdentifier.trim().replaceAll("[^0-9+]", "");
-        String type = (req.type() != null) ? req.type().toUpperCase() : (isEmail ? "EMAIL" : "PHONE");
-
-        // Resolve submitted OTP
-        String enteredOtp = req.otp();
-        if (enteredOtp == null || enteredOtp.trim().isEmpty()) {
-            enteredOtp = isEmail ? req.emailOtp() : req.phoneOtp();
-        }
-        if (enteredOtp == null || enteredOtp.trim().isEmpty()) {
-            enteredOtp = req.emailOtp() != null ? req.emailOtp() : req.phoneOtp();
-        }
-
-        if (enteredOtp == null || enteredOtp.trim().isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "Please enter the 6-digit OTP code"
-            ));
-        }
-        enteredOtp = enteredOtp.trim();
-
-        // Verify against database or development passcodes
-        boolean isOtpValid = false;
-        Optional<AuthOtpEntity> validOtp = authOtpRepository.findValidOtp(identifier, type, LocalDateTime.now());
-        if (validOtp.isPresent() && validOtp.get().getOtpCode().equals(enteredOtp)) {
-            isOtpValid = true;
-            validOtp.get().setIsUsed(1);
-            authOtpRepository.save(validOtp.get());
-        } else if (enteredOtp.equals("123456") || enteredOtp.equals("583192")) {
-            isOtpValid = true;
-        }
-
-        if (!isOtpValid) {
-            return ResponseEntity.status(401).body(Map.of(
-                    "success", false,
-                    "message", "Invalid or expired OTP code. Please check your " + (isEmail ? "Email" : "Phone") + " or request a new code."
-            ));
-        }
-
-        // Authorisation: Check if user is Root Administrator
-        boolean isRootAdmin = isEmail && ROOT_ADMIN_EMAILS.contains(identifier);
-
-        // Find existing user by email or phone
-        Optional<UserEntity> existingUser = isEmail
-                ? userRepository.findByEmail(identifier)
-                : userRepository.findByPhone(identifier);
-
-        UserEntity user;
-        if (existingUser.isPresent()) {
-            user = existingUser.get();
-            user.setLastLogin(LocalDateTime.now());
-            if (isRootAdmin) {
-                user.setRole("ADMIN");
-                user.setIsAdmin(1);
-            }
-            if (req.name() != null && !req.name().trim().isEmpty()) {
-                user.setName(req.name().trim());
-            }
-            userRepository.save(user);
-        } else {
-            // Register new verified user
-            String designatedRole = isRootAdmin ? "ADMIN" : (req.role() != null ? req.role().toUpperCase() : "BUYER");
-            String displayName = req.name() != null && !req.name().trim().isEmpty()
-                    ? req.name().trim()
-                    : (isRootAdmin ? "Administrator" : (isEmail ? identifier.split("@")[0] : "Kurali User"));
-
-            user = UserEntity.builder()
-                    .userId("user-" + UUID.randomUUID().toString().substring(0, 8))
-                    .email(isEmail ? identifier : (req.email() != null ? req.email().trim().toLowerCase() : null))
-                    .phone(!isEmail ? identifier : (req.phone() != null ? req.phone().trim() : null))
-                    .name(displayName)
-                    .role(designatedRole)
-                    .locality(req.locality() != null ? req.locality() : "Main Bazaar & Clock Tower")
-                    .address(req.address() != null ? req.address() : "Kurali, Punjab")
-                    .isVerified(1)
-                    .isAdmin(isRootAdmin ? 1 : 0)
-                    .avatarUrl("https://api.dicebear.com/7.x/initials/svg?seed=" + identifier)
-                    .createdAt(LocalDateTime.now())
-                    .lastLogin(LocalDateTime.now())
-                    .build();
-
-            userRepository.save(user);
-        }
-
-        // Create persistent session token
-        String sessionToken = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
-        UserSessionEntity session = UserSessionEntity.builder()
-                .sessionToken(sessionToken)
-                .userId(user.getUserId())
-                .createdAt(LocalDateTime.now())
-                .expiresAt(LocalDateTime.now().plusDays(30))
-                .build();
-        userSessionRepository.save(session);
-
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("success", true);
-        resp.put("token", sessionToken);
-        resp.put("user", user);
-        resp.put("message", "Welcome, " + user.getName() + "!");
-
-        return ResponseEntity.ok(resp);
-    }
-
-    /**
-     * Session validation & user profile retrieval
-     */
-    @GetMapping("/me")
-    public ResponseEntity<Map<String, Object>> getCurrentUser(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @RequestParam(value = "token", required = false) String tokenParam
-    ) {
-        String token = null;
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7).trim();
-        } else if (tokenParam != null && !tokenParam.trim().isEmpty()) {
-            token = tokenParam.trim();
-        }
-
-        if (token == null) {
-            return ResponseEntity.status(401).body(Map.of("authenticated", false, "message", "No active token"));
-        }
-
-        Optional<UserSessionEntity> sessionOpt = userSessionRepository.findBySessionToken(token);
-        if (sessionOpt.isEmpty() || sessionOpt.get().getExpiresAt().isBefore(LocalDateTime.now())) {
-            return ResponseEntity.status(401).body(Map.of("authenticated", false, "message", "Session expired or invalid"));
-        }
-
-        Optional<UserEntity> userOpt = userRepository.findById(sessionOpt.get().getUserId());
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.status(401).body(Map.of("authenticated", false, "message", "User not found"));
-        }
-
-        return ResponseEntity.ok(Map.of(
-                "authenticated", true,
-                "user", userOpt.get()
-        ));
-    }
-
-    /**
-     * Invalidate session token on Logout
-     */
-    @PostMapping("/logout")
-    @Transactional
-    public ResponseEntity<Map<String, Object>> logout(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @RequestBody(required = false) Map<String, String> body
-    ) {
-        String token = null;
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7).trim();
-        } else if (body != null && body.containsKey("token")) {
-            token = body.get("token");
-        }
-
-        if (token != null) {
-            userSessionRepository.deleteBySessionToken(token);
+        try {
+            otpDeliveryService.sendOtp(identifier, type, otp, 10);
+            authOtpRepository.save(entity);
+        } catch (Exception ex) {
+            log.warn("OTP delivery failed for type={} identifier={}: {}", type, mask(identifier), ex.getMessage());
+            return error(HttpStatus.BAD_GATEWAY, "Unable to deliver the verification code right now. Please try again later.");
         }
 
         return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Successfully logged out from KuraliUpdates Bazaar"
+                "message", "A 6-digit verification code has been sent",
+                "identifier", mask(identifier),
+                "type", type,
+                "expiresInSeconds", 600
         ));
+    }
+
+    @PostMapping("/verify-otp")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> verifyOtp(@RequestBody VerifyOtpRequest req) {
+        return "REGISTER".equals(normalizeMode(req.mode())) ? verifyRegistration(req) : verifyLogin(req);
+    }
+
+    private ResponseEntity<Map<String, Object>> verifyLogin(VerifyOtpRequest req) {
+        String raw = req.identifier() == null ? "" : req.identifier().trim();
+        if (raw.isEmpty() || req.otp() == null || req.otp().trim().isEmpty()) {
+            return error(HttpStatus.BAD_REQUEST, "Identifier and 6-digit OTP are required");
+        }
+        String type = normalizeType(raw, req.type());
+        String identifier = normalizeIdentifier(raw, type);
+        Optional<UserEntity> userOpt = findUser(identifier, type);
+        if (userOpt.isEmpty()) return error(HttpStatus.NOT_FOUND, "No registered account was found. Please register first.");
+
+        Optional<AuthOtpEntity> otpOpt = authOtpRepository.findValidOtp(identifier, type, LocalDateTime.now());
+        if (otpOpt.isEmpty() || !matchesOtp(req.otp().trim(), otpOpt.get().getOtpCode())) {
+            registerFailedAttempt(otpOpt.orElse(null));
+            return error(HttpStatus.UNAUTHORIZED, "Invalid or expired OTP. Please request a new code.");
+        }
+
+        markUsed(otpOpt.get());
+        UserEntity user = userOpt.get();
+        user.setLastLogin(LocalDateTime.now());
+        if (isRootAdminEmail(user.getEmail())) {
+            user.setRole("ADMIN");
+            user.setIsAdmin(1);
+        }
+        userRepository.save(user);
+        return createSessionResponse(user);
+    }
+
+    private ResponseEntity<Map<String, Object>> verifyRegistration(VerifyOtpRequest req) {
+        String email = normalizeIdentifier(req.email(), "EMAIL");
+        String phone = normalizeIdentifier(req.phone(), "PHONE");
+        String emailOtp = req.emailOtp() == null ? "" : req.emailOtp().trim();
+        String phoneOtp = req.phoneOtp() == null ? "" : req.phoneOtp().trim();
+
+        if (req.name() == null || req.name().trim().isEmpty() || email.isEmpty() || phone.isEmpty()) {
+            return error(HttpStatus.BAD_REQUEST, "Full name, email and mobile number are required for registration");
+        }
+        if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            return error(HttpStatus.BAD_REQUEST, "Please enter a valid email address");
+        }
+        if (!phone.matches("\\d{10}")) {
+            return error(HttpStatus.BAD_REQUEST, "Please enter a valid 10-digit mobile number");
+        }
+        if (!emailOtp.matches("\\d{6}") || !phoneOtp.matches("\\d{6}")) {
+            return error(HttpStatus.BAD_REQUEST, "Both email and mobile OTPs must be 6 digits");
+        }
+        if (userRepository.findByEmail(email).isPresent() || userRepository.findByPhone(phone).isPresent()) {
+            return error(HttpStatus.CONFLICT, "An account already exists with this email or mobile number. Please sign in instead.");
+        }
+
+        Optional<AuthOtpEntity> emailRecord = authOtpRepository.findValidOtp(email, "EMAIL", LocalDateTime.now());
+        Optional<AuthOtpEntity> phoneRecord = authOtpRepository.findValidOtp(phone, "PHONE", LocalDateTime.now());
+        if (emailRecord.isEmpty() || !matchesOtp(emailOtp, emailRecord.get().getOtpCode())) {
+            registerFailedAttempt(emailRecord.orElse(null));
+            return error(HttpStatus.UNAUTHORIZED, "Email OTP is invalid or expired");
+        }
+        if (phoneRecord.isEmpty() || !matchesOtp(phoneOtp, phoneRecord.get().getOtpCode())) {
+            registerFailedAttempt(phoneRecord.orElse(null));
+            return error(HttpStatus.UNAUTHORIZED, "Mobile OTP is invalid or expired");
+        }
+
+        markUsed(emailRecord.get());
+        markUsed(phoneRecord.get());
+
+        String requestedRole = req.role() == null ? "BUYER" : req.role().trim().toUpperCase();
+        if (!Set.of("BUYER", "SELLER", "DELIVERY").contains(requestedRole)) requestedRole = "BUYER";
+
+        UserEntity user = UserEntity.builder()
+                .userId("user-" + UUID.randomUUID().toString().substring(0, 8))
+                .email(email)
+                .phone(phone)
+                .name(req.name().trim())
+                .role(requestedRole)
+                .locality(req.locality() == null || req.locality().isBlank() ? "Main Bazaar & Clock Tower" : req.locality().trim())
+                .address(req.address() == null ? "" : req.address().trim())
+                .isVerified(1)
+                .isAdmin(0)
+                .avatarUrl("https://api.dicebear.com/7.x/initials/svg?seed=" + email)
+                .createdAt(LocalDateTime.now())
+                .lastLogin(LocalDateTime.now())
+                .build();
+        userRepository.save(user);
+        return createSessionResponse(user);
+    }
+
+    private ResponseEntity<Map<String, Object>> createSessionResponse(UserEntity user) {
+        String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
+        userSessionRepository.save(UserSessionEntity.builder()
+                .sessionToken(token).userId(user.getUserId())
+                .createdAt(LocalDateTime.now()).expiresAt(LocalDateTime.now().plusDays(30)).build());
+        return ResponseEntity.ok(Map.of("success", true, "token", token, "user", user, "message", "Welcome, " + user.getName() + "!"));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<Map<String, Object>> getCurrentUser(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestParam(value = "token", required = false) String tokenParam) {
+        String token = authHeader != null && authHeader.startsWith("Bearer ")
+                ? authHeader.substring(7).trim() : tokenParam;
+        if (token == null || token.isBlank()) return error(HttpStatus.UNAUTHORIZED, "No active token");
+        Optional<UserSessionEntity> session = userSessionRepository.findBySessionToken(token);
+        if (session.isEmpty() || session.get().getExpiresAt().isBefore(LocalDateTime.now())) {
+            return error(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
+        }
+        Optional<UserEntity> user = userRepository.findById(session.get().getUserId());
+        if (user.isEmpty()) return error(HttpStatus.UNAUTHORIZED, "User not found");
+        return ResponseEntity.ok(Map.of("authenticated", true, "user", user.get()));
+    }
+
+    @PostMapping("/logout")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> logout(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody(required = false) Map<String, String> body) {
+        String token = authHeader != null && authHeader.startsWith("Bearer ")
+                ? authHeader.substring(7).trim() : (body == null ? null : body.get("token"));
+        if (token != null && !token.isBlank()) userSessionRepository.deleteBySessionToken(token);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Successfully logged out"));
+    }
+
+    private Optional<UserEntity> findUser(String identifier, String type) {
+        return "EMAIL".equals(type) ? userRepository.findByEmail(identifier) : userRepository.findByPhone(identifier);
+    }
+    private String normalizeType(String identifier, String requested) {
+        String inferred = identifier.contains("@") ? "EMAIL" : "PHONE";
+        String type = requested == null || requested.isBlank() ? inferred : requested.trim().toUpperCase();
+        return type.equals("EMAIL") || type.equals("PHONE") ? type : inferred;
+    }
+    private String normalizeMode(String mode) { return "REGISTER".equalsIgnoreCase(mode) ? "REGISTER" : "LOGIN"; }
+    private String normalizeIdentifier(String value, String type) {
+        if (value == null) return "";
+        return "EMAIL".equals(type) ? value.trim().toLowerCase() : value.trim().replaceAll("\\D", "");
+    }
+    private boolean isRootAdminEmail(String email) { return email != null && ROOT_ADMIN_EMAILS.contains(email.toLowerCase()); }
+    private boolean matchesOtp(String entered, String hash) {
+        return MessageDigest.isEqual(hashOtp(entered).getBytes(StandardCharsets.UTF_8), hash.getBytes(StandardCharsets.UTF_8));
+    }
+    private String hashOtp(String otp) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(otp.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) { throw new IllegalStateException("Unable to hash OTP", e); }
+    }
+    private void markUsed(AuthOtpEntity e) { e.setIsUsed(1); authOtpRepository.save(e); }
+    private void registerFailedAttempt(AuthOtpEntity e) {
+        if (e == null) return;
+        e.setAttempts(e.getAttempts() + 1);
+        if (e.getAttempts() >= 5) e.setIsUsed(1);
+        authOtpRepository.save(e);
+    }
+    private ResponseEntity<Map<String, Object>> error(HttpStatus s, String m) {
+        return ResponseEntity.status(s).body(Map.of("success", false, "message", m));
+    }
+    private String mask(String value) {
+        if (value.contains("@")) { int at = value.indexOf('@'); return value.charAt(0) + "***" + value.substring(Math.max(at - 1, 1)); }
+        return value.length() <= 4 ? "****" : "******" + value.substring(value.length() - 4);
     }
 }
