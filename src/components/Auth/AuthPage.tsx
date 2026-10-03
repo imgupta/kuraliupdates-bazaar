@@ -140,8 +140,8 @@ export const AuthPage: React.FC = () => {
     setValidationError(null);
     try {
       if (authMode === 'register') {
-        const email = authDetails.email.trim().toLowerCase();
-        const phone = authDetails.phone.replace(/\D/g, '');
+        const email = (emailRef.current?.value || authDetails.email).trim().toLowerCase();
+        const phone = (phoneRef.current?.value || authDetails.phone).replace(/\D/g, '');
         const [emailRes, phoneRes] = await Promise.all([
           bazaarApi.sendOtp(email, 'EMAIL', 'REGISTER'),
           bazaarApi.sendOtp(phone, 'PHONE', 'REGISTER'),
