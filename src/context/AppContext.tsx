@@ -39,6 +39,7 @@ export interface UserProfile {
   phoneVerified?: boolean;
   emailVerified?: boolean;
   authMethod?: 'otp' | 'google';
+  isAdmin?: boolean;
 }
 
 interface AppContextType {
@@ -55,6 +56,7 @@ interface AppContextType {
     locality?: string;
     address?: string;
     token?: string;
+    serverUser?: any;
   }) => { success: boolean; message: string; role: UserRole };
   registerUserWithOtp: (params: {
     name: string;
@@ -65,6 +67,7 @@ interface AppContextType {
     role: UserRole;
     address?: string;
     token?: string;
+    serverUser?: any;
   }) => { success: boolean; message: string; role: UserRole };
   loginWithGoogle: (
     email: string,
@@ -424,8 +427,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       bazaarApi.getMe(savedToken).then(res => {
         if (res.authenticated && res.user) {
           const u = res.user;
-          const isRoot = isRootAdminEmail(u.email);
-          const effectiveRole: UserRole = isRoot ? 'admin' : (u.role?.toLowerCase() as UserRole) || 'buyer';
+          const effectiveRole: UserRole = (u.role?.toLowerCase() as UserRole) || 'buyer';
           setUser(prev => ({
             ...prev,
             email: u.email,
@@ -436,7 +438,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             role: effectiveRole,
             isSignedIn: true,
             phoneVerified: true,
-            emailVerified: true,
+            emailVerified: Boolean(u.email),
+            isAdmin: Number(u.isAdmin) === 1 || effectiveRole === 'admin',
           }));
           setRoleState(effectiveRole);
         }
@@ -449,7 +452,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Secure Role Switcher: Admin is strictly restricted to authorized Root Admins
   const setRole = (targetRole: UserRole) => {
     if (targetRole === 'admin') {
-      if (!isRootAdminEmail(user.email)) {
+      if (!user.isAdmin) {
         showToast(`Access Restricted: City Admin portal is reserved exclusively for verified Root Admins.`, 'error');
         return;
       }
@@ -467,12 +470,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     locality?: string;
     address?: string;
     token?: string;
+    serverUser?: any;
   }) => {
+    if (!params.token || !params.serverUser) {
+      return { success: false, message: 'Authentication was not completed by the server.', role: 'buyer' as UserRole };
+    }
+
     const rawId = (params.identifier || params.email || params.phone || '').trim();
     const isEmail = rawId.includes('@');
     const trimmedEmail = isEmail ? rawId.toLowerCase() : (params.email?.trim().toLowerCase() || '');
     const cleanPhone = !isEmail ? rawId : (params.phone?.trim() || '');
-    const isRoot = isRootAdminEmail(trimmedEmail);
 
     const existingSeller = sellers.find(
       s => (trimmedEmail && s.email.toLowerCase() === trimmedEmail) ||
@@ -483,43 +490,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
            (cleanPhone && a.phone.replace(/\D/g, '') === cleanPhone.replace(/\D/g, ''))
     );
 
-    let effectiveRole: UserRole = isRoot
+    const serverRole = (params.serverUser.role?.toLowerCase() as UserRole) || 'buyer';
+    const effectiveRole: UserRole = Number(params.serverUser.isAdmin) === 1 || serverRole === 'admin'
       ? 'admin'
-      : existingSeller
-      ? 'seller'
-      : existingAgent
-      ? 'delivery'
-      : params.targetRole || 'buyer';
-
-    const displayName = params.name || existingSeller?.ownerName || existingAgent?.name || (isEmail ? trimmedEmail.split('@')[0] : 'Kurali User');
+      : serverRole;
+    const displayName = params.serverUser.name || params.name || existingSeller?.ownerName || existingAgent?.name || (isEmail ? trimmedEmail.split('@')[0] : 'Kurali User');
 
     const updatedUser: UserProfile = {
-      email: trimmedEmail || undefined,
+      email: params.serverUser.email || trimmedEmail || undefined,
       name: displayName,
-      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}&backgroundColor=0284c7,f59e0b,10b981`,
-      phone: cleanPhone || undefined,
-      locality: params.locality || existingSeller?.locality || existingAgent?.currentLocality || 'Main Bazaar & Clock Tower',
-      address: params.address || existingSeller?.address || '',
+      avatarUrl: params.serverUser.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}&backgroundColor=0284c7,f59e0b,10b981`,
+      phone: params.serverUser.phone || cleanPhone || undefined,
+      locality: params.serverUser.locality || params.locality || existingSeller?.locality || existingAgent?.currentLocality || 'Main Bazaar & Clock Tower',
+      address: params.serverUser.address || params.address || existingSeller?.address || '',
       sellerId: existingSeller?.id,
       deliveryAgentId: existingAgent?.id,
       role: effectiveRole,
       isSignedIn: true,
-      phoneVerified: !isEmail || Boolean(cleanPhone),
-      emailVerified: isEmail,
+      phoneVerified: Boolean(params.serverUser.phone),
+      emailVerified: Boolean(params.serverUser.email),
+      isAdmin: effectiveRole === 'admin',
       authMethod: 'otp',
     };
 
     setUser(updatedUser);
     setRoleState(effectiveRole);
     localStorage.setItem('kurali_auth_session', JSON.stringify(updatedUser));
-    if (params.token) {
-      localStorage.setItem('kurali_auth_token', params.token);
-    }
+    localStorage.setItem('kurali_auth_token', params.token);
 
     return {
       success: true,
-      message: isRoot
-        ? `Root Administrator Verified via OTP! Welcome ${displayName}.`
+      message: effectiveRole === 'admin'
+        ? `Administrator verified. Welcome ${displayName}.`
         : `Verified via OTP as ${effectiveRole.toUpperCase()}! Welcome to KuraliUpdates Bazaar.`,
       role: effectiveRole,
     };
@@ -535,40 +537,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     role: UserRole;
     address?: string;
     token?: string;
+    serverUser?: any;
   }) => {
-    const rawId = (params.identifier || params.email || params.phone || '').trim();
-    const isEmail = rawId.includes('@');
-    const trimmedEmail = isEmail ? rawId.toLowerCase() : (params.email?.trim().toLowerCase() || '');
-    const cleanPhone = !isEmail ? rawId : (params.phone?.trim() || '');
-    const isRoot = isRootAdminEmail(trimmedEmail);
-    const effectiveRole: UserRole = isRoot ? 'admin' : params.role;
+    if (!params.token || !params.serverUser) {
+      return { success: false, message: 'Registration was not completed by the server.', role: 'buyer' as UserRole };
+    }
 
-    let sellerId: string | undefined = undefined;
-    let deliveryAgentId: string | undefined = undefined;
+    const trimmedEmail = (params.serverUser.email || params.email || '').trim().toLowerCase();
+    const cleanPhone = (params.serverUser.phone || params.phone || '').replace(/\D/g, '');
+    const effectiveRole = ((params.serverUser.role || params.role || 'buyer').toLowerCase() as UserRole);
+
+    let sellerId: string | undefined;
+    let deliveryAgentId: string | undefined;
 
     if (effectiveRole === 'seller') {
       const newSellerId = `seller-${Date.now()}`;
       sellerId = newSellerId;
       const newSeller: Seller = {
-        id: newSellerId,
-        name: `${params.name}'s Shop`,
-        ownerName: params.name,
-        email: trimmedEmail || `store-${Date.now()}@kuraliupdates.com`,
-        phone: cleanPhone || '+91 98000 00000',
-        category: 'Groceries & Daily Essentials',
-        locality: params.locality,
-        address: params.address || `${params.locality}, Kurali`,
-        distanceKm: 1.0,
-        rating: 5.0,
-        reviewCount: 0,
-        status: 'pending',
+        id: newSellerId, name: `${params.name}'s Shop`, ownerName: params.name,
+        email: trimmedEmail, phone: cleanPhone, category: 'Groceries & Daily Essentials',
+        locality: params.locality, address: params.address || `${params.locality}, Kurali`,
+        distanceKm: 1.0, rating: 5.0, reviewCount: 0, status: 'pending',
         registeredAt: new Date().toISOString(),
         bannerUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
         avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(params.name)}&backgroundColor=0284c7,f59e0b,10b981`,
         description: `Verified retail store registered in ${params.locality}, Kurali.`,
-        minOrderForFreeDelivery: 499,
-        baseDeliveryFee: 35,
-        billDiscounts: [],
+        minOrderForFreeDelivery: 499, baseDeliveryFee: 35, billDiscounts: [],
       };
       setSellers(prev => [newSeller, ...prev]);
       bazaarApi.registerSeller(newSeller);
@@ -576,121 +570,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const newAgentId = `agent-${Date.now()}`;
       deliveryAgentId = newAgentId;
       const newAgent: DeliveryAgent = {
-        id: newAgentId,
-        name: params.name,
-        email: trimmedEmail || `rider-${Date.now()}@kuraliupdates.com`,
-        phone: cleanPhone || '+91 98000 00000',
+        id: newAgentId, name: params.name, email: trimmedEmail, phone: cleanPhone,
         avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(params.name)}&backgroundColor=0284c7,f59e0b,10b981`,
-        vehicleType: 'Bike',
-        vehicleNumber: 'PB 65 TR 1001',
-        licenseNumber: 'PB-65-2026-ACTIVE',
-        status: 'active',
-        rating: 5.0,
-        totalTrips: 0,
-        todayEarnings: 0,
-        totalEarnings: 0,
-        currentLocality: params.locality,
-        registeredAt: new Date().toISOString(),
+        vehicleType: 'Bike', vehicleNumber: 'PB 65 TR 1001', licenseNumber: 'PB-65-2026-ACTIVE',
+        status: 'active', rating: 5.0, totalTrips: 0, todayEarnings: 0, totalEarnings: 0,
+        currentLocality: params.locality, registeredAt: new Date().toISOString(),
       };
       setDeliveryAgents(prev => [newAgent, ...prev]);
       bazaarApi.registerDeliveryAgent(newAgent);
     }
 
     const updatedUser: UserProfile = {
-      email: trimmedEmail || undefined,
-      name: params.name,
-      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(params.name)}&backgroundColor=0284c7,f59e0b,10b981`,
-      phone: cleanPhone || undefined,
-      locality: params.locality,
-      address: params.address || '',
-      sellerId,
-      deliveryAgentId,
-      role: effectiveRole,
-      isSignedIn: true,
-      phoneVerified: !isEmail || Boolean(cleanPhone),
-      emailVerified: isEmail,
+      email: trimmedEmail || undefined, name: params.serverUser.name || params.name,
+      avatarUrl: params.serverUser.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(params.name)}&backgroundColor=0284c7,f59e0b,10b981`,
+      phone: cleanPhone || undefined, locality: params.serverUser.locality || params.locality,
+      address: params.serverUser.address || params.address || '', sellerId, deliveryAgentId,
+      role: effectiveRole, isSignedIn: true, phoneVerified: Boolean(cleanPhone),
+      emailVerified: Boolean(trimmedEmail), isAdmin: Number(params.serverUser.isAdmin) === 1 || effectiveRole === 'admin',
       authMethod: 'otp',
     };
 
     setUser(updatedUser);
     setRoleState(effectiveRole);
     localStorage.setItem('kurali_auth_session', JSON.stringify(updatedUser));
-    if (params.token) {
-      localStorage.setItem('kurali_auth_token', params.token);
-    }
+    localStorage.setItem('kurali_auth_token', params.token);
 
-    return {
-      success: true,
-      message: isRoot
-        ? `Root Master Administrator registered and verified via OTP!`
-        : `Registration and OTP verification successful! Welcome ${params.name}.`,
-      role: effectiveRole,
-    };
-  };
-
-  // Google / Gmail Authentication
-  const loginWithGoogle = (
-    email: string,
-    name: string,
-    targetRole: UserRole,
-    phone?: string,
-    locality?: string,
-    address?: string
-  ) => {
-    const isRoot = isRootAdminEmail(email);
-    const effectiveRole: UserRole = isRoot ? 'admin' : targetRole;
-
-    const existingSeller = sellers.find(s => s.email.toLowerCase() === email.toLowerCase());
-    const existingAgent = deliveryAgents.find(a => (a.email || '').toLowerCase() === email.toLowerCase());
-
-    const updatedUser: UserProfile = {
-      email,
-      name,
-      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=0284c7,f59e0b,10b981`,
-      phone: phone || user.phone || '',
-      locality: locality || user.locality || 'Main Bazaar',
-      address: address || user.address || '',
-      sellerId: existingSeller?.id,
-      deliveryAgentId: existingAgent?.id,
-      role: effectiveRole,
-      isSignedIn: true,
-      phoneVerified: true,
-      emailVerified: true,
-      authMethod: 'google',
-    };
-
-    setUser(updatedUser);
-    setRoleState(effectiveRole);
-    localStorage.setItem('kurali_auth_session', JSON.stringify(updatedUser));
-
-    showToast(
-      isRoot
-        ? `Root Administrator Verified! Welcome ${name}.`
-        : `Signed in successfully (${effectiveRole.toUpperCase()})`,
-      'success'
-    );
-  };
-
-  // Register Buyer
-  const registerBuyer = (data: { name: string; email: string; phone: string; locality: string; address: string }) => {
-    const isRoot = isRootAdminEmail(data.email);
-    const updatedUser: UserProfile = {
-      email: data.email,
-      name: data.name,
-      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(data.name)}&backgroundColor=0284c7,f59e0b,10b981`,
-      phone: data.phone,
-      locality: data.locality,
-      address: data.address,
-      role: isRoot ? 'admin' : 'buyer',
-      isSignedIn: true,
-      phoneVerified: true,
-      emailVerified: true,
-      authMethod: 'otp',
-    };
-    setUser(updatedUser);
-    setRoleState(isRoot ? 'admin' : 'buyer');
-    localStorage.setItem('kurali_auth_session', JSON.stringify(updatedUser));
-    showToast(`Buyer registration complete! Welcome to KuraliUpdates Bazaar, ${data.name}.`, 'success');
+    return { success: true, message: `Registration and OTP verification successful! Welcome ${updatedUser.name}.`, role: effectiveRole };
   };
 
   const logout = () => {
