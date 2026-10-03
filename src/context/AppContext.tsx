@@ -195,11 +195,6 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Load state from localStorage or fallback
-  const [role, setRoleState] = useState<UserRole>(() => {
-    return (localStorage.getItem('kurali_role') as UserRole) || 'buyer';
-  });
-
   const [user, setUser] = useState<UserProfile>(() => {
     const session = localStorage.getItem('kurali_auth_session');
     if (session) {
@@ -224,6 +219,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       emailVerified: false,
     };
   });
+
+  // Load role directly from signed-in user's role
+  const [role, setRoleState] = useState<UserRole>(() => {
+    const session = localStorage.getItem('kurali_auth_session');
+    if (session) {
+      try {
+        const parsed = JSON.parse(session);
+        if (parsed.isSignedIn && parsed.role) {
+          return parsed.role;
+        }
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    return (localStorage.getItem('kurali_role') as UserRole) || 'buyer';
+  });
+
+  // Automatically sync UI to user's assigned role upon sign-in
+  useEffect(() => {
+    if (user.isSignedIn && user.role) {
+      if (user.role !== 'admin') {
+        setRoleState(user.role);
+        localStorage.setItem('kurali_role', user.role);
+      }
+    }
+  }, [user.isSignedIn, user.role]);
 
   const [sellers, setSellers] = useState<Seller[]>(() => {
     const saved = localStorage.getItem('kurali_sellers');

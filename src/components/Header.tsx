@@ -121,24 +121,33 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-3 text-[11px] shrink-0">
-            <span className="hidden md:inline-flex items-center gap-1 opacity-90">
-              <Truck className="w-3.5 h-3.5" /> 25-Min Delivery
+          <div className="flex items-center gap-2 sm:gap-3 text-[11px] shrink-0 font-medium">
+            <span className="hidden sm:inline-flex items-center gap-1 opacity-90">
+              <Truck className="w-3.5 h-3.5" /> 25-Min Express Delivery
             </span>
-            <button
-              onClick={() => setIsSellerRegisterOpen(true)}
-              className="font-bold underline hover:text-amber-100 flex items-center gap-1 cursor-pointer whitespace-nowrap"
-            >
-              <PlusCircle className="w-3 h-3" />
-              <span className="hidden xs:inline">Register</span> Shop
-            </button>
-            <button
-              onClick={() => setIsDeliveryRegisterOpen(true)}
-              className="font-bold underline hover:text-amber-100 flex items-center gap-1 cursor-pointer whitespace-nowrap"
-            >
-              <Bike className="w-3 h-3" />
-              Join Fleet
-            </button>
+            <span className="inline-flex items-center gap-1 bg-white/15 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">
+              {user.role === 'seller' ? (
+                <>
+                  <Store className="w-3 h-3 text-amber-200" />
+                  <span>Merchant: {currentSeller?.name || user.name}</span>
+                </>
+              ) : user.role === 'delivery' ? (
+                <>
+                  <Bike className="w-3 h-3 text-emerald-200" />
+                  <span>Fleet Partner: {user.name}</span>
+                </>
+              ) : user.role === 'admin' ? (
+                <>
+                  <ShieldCheck className="w-3 h-3 text-purple-200" />
+                  <span>City Admin: {user.name}</span>
+                </>
+              ) : (
+                <>
+                  <ShoppingBag className="w-3 h-3 text-amber-200" />
+                  <span>Shopper: {user.name}</span>
+                </>
+              )}
+            </span>
           </div>
         </div>
       </div>
@@ -229,33 +238,70 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right Section: Role Tabs (Desktop) + Actions (Mobile & Desktop) */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Desktop Role Switcher */}
-            <div className="hidden sm:flex bg-slate-100 p-1 rounded-xl items-center gap-1 border border-slate-200/80">
-              {roleConfigs.map(item => {
-                const Icon = item.icon;
-                const isActive = role === item.id;
-                return (
+            {/* Desktop Role View / Switcher based on User Role */}
+            {user.role === 'admin' ? (
+              <div className="hidden sm:flex bg-slate-100 p-1 rounded-xl items-center gap-1 border border-slate-200/80">
+                {roleConfigs.map(item => {
+                  const Icon = item.icon;
+                  const isActive = role === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setRole(item.id)}
+                      className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                      }`}
+                    >
+                      <Icon className={`w-3.5 h-3.5 ${item.color}`} />
+                      <span className="hidden lg:inline">{item.label}</span>
+                      <span className="lg:hidden">{item.shortLabel}</span>
+                      {item.badge !== undefined && (
+                        <span className="ml-0.5 px-1.5 py-0.2 bg-rose-500 text-white text-[10px] font-bold rounded-full">
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : user.role === 'seller' ? (
+              <div className="hidden sm:flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-200">
+                <Store className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-bold text-blue-900">Merchant Portal</span>
+                {role === 'seller' ? (
                   <button
-                    key={item.id}
-                    onClick={() => setRole(item.id)}
-                    className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                      isActive
-                        ? 'bg-white text-slate-900 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                    }`}
+                    onClick={() => setRole('buyer')}
+                    className="ml-1 px-2 py-0.5 rounded-lg bg-white text-blue-700 hover:bg-blue-100 border border-blue-200 text-[11px] font-semibold cursor-pointer"
                   >
-                    <Icon className={`w-3.5 h-3.5 ${item.color}`} />
-                    <span className="hidden lg:inline">{item.label}</span>
-                    <span className="lg:hidden">{item.shortLabel}</span>
-                    {item.badge !== undefined && (
-                      <span className="ml-0.5 px-1.5 py-0.2 bg-rose-500 text-white text-[10px] font-bold rounded-full">
-                        {item.badge}
-                      </span>
-                    )}
+                    View Storefront
                   </button>
-                );
-              })}
-            </div>
+                ) : (
+                  <button
+                    onClick={() => setRole('seller')}
+                    className="ml-1 px-2 py-0.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-[11px] font-semibold cursor-pointer"
+                  >
+                    Back to Dashboard
+                  </button>
+                )}
+              </div>
+            ) : user.role === 'delivery' ? (
+              <div className="hidden sm:flex items-center gap-1.5 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+                <Bike className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs font-bold text-emerald-900">Delivery Fleet</span>
+                {availableJobsCount > 0 && (
+                  <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[10px] font-bold rounded-full">
+                    {availableJobsCount}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="hidden sm:flex items-center gap-1.5 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200">
+                <ShoppingBag className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-bold text-amber-900">Buyer Marketplace</span>
+              </div>
+            )}
 
             {/* Bargain Negotiation Chat Trigger */}
             <button
@@ -311,10 +357,10 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in">
                     <div className="px-4 py-2 border-b border-slate-100">
                       <p className="text-xs font-semibold text-slate-900">{user.name}</p>
-                      <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{user.email || user.phone}</p>
                       <div className="mt-1 flex items-center gap-1.5">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                          <Sparkles className="w-2.5 h-2.5" /> Gmail Verified
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 uppercase">
+                          <Sparkles className="w-2.5 h-2.5" /> {user.role} Account
                         </span>
                         {isRootAdmin && (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
@@ -324,36 +370,23 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                     </div>
 
-                    <div className="py-1">
-                      <button
-                        onClick={() => {
-                          setIsBuyerRegisterOpen(true);
-                          setIsProfileDropdownOpen(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                      >
-                        <User className="w-4 h-4 text-amber-500" /> Buyer Profile / Address
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setIsSellerRegisterOpen(true);
-                          setIsProfileDropdownOpen(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                      >
-                        <Store className="w-4 h-4 text-blue-500" /> Register Store in Kurali
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setIsDeliveryRegisterOpen(true);
-                          setIsProfileDropdownOpen(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                      >
-                        <Bike className="w-4 h-4 text-emerald-500" /> Join as Delivery Agent
-                      </button>
+                    <div className="py-2 px-4 space-y-1.5 text-xs text-slate-700">
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                        <span className="text-slate-500">Account Type</span>
+                        <span className="font-bold uppercase text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md text-[10px]">
+                          {user.role}
+                        </span>
+                      </div>
+                      {user.phone && (
+                        <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                          <span className="text-slate-500">Mobile</span>
+                          <span className="font-bold text-slate-800 text-[11px]">+91 {user.phone}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                        <span className="text-slate-500">Locality</span>
+                        <span className="font-bold text-slate-800 text-[11px] truncate max-w-[130px]">{user.locality}</span>
+                      </div>
 
                       {isRootAdmin && (
                         <button
@@ -361,21 +394,11 @@ export const Header: React.FC<HeaderProps> = ({
                             setRole('admin');
                             setIsProfileDropdownOpen(false);
                           }}
-                          className="w-full text-left px-4 py-2 text-xs text-purple-700 hover:bg-purple-50 flex items-center gap-2 font-bold cursor-pointer"
+                          className="w-full text-left py-1 text-xs text-purple-700 hover:text-purple-900 flex items-center gap-1.5 font-bold cursor-pointer"
                         >
                           <ShieldCheck className="w-4 h-4 text-purple-600" /> Open Root Admin Desk
                         </button>
                       )}
-
-                      <button
-                        onClick={() => {
-                          setIsGmailAuthOpen(true);
-                          setIsProfileDropdownOpen(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                      >
-                        <Sparkles className="w-4 h-4 text-blue-500" /> Switch Gmail Account
-                      </button>
                     </div>
 
                     <div className="border-t border-slate-100 pt-1">
@@ -448,35 +471,67 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* MOBILE ROLE NAVIGATION SEGMENTS */}
       <div className="sm:hidden px-3 pb-2 pt-0.5 border-t border-slate-100 bg-white">
-        <div className={`grid ${roleConfigs.length === 4 ? 'grid-cols-4' : 'grid-cols-3'} gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80`}>
-          {roleConfigs.map(item => {
-            const Icon = item.icon;
-            const isActive = role === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setRole(item.id)}
-                className={`relative flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                  isActive
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Icon className={`w-3.5 h-3.5 ${item.color}`} />
-                <span className="truncate max-w-full mt-0.5 leading-tight">{item.shortLabel}</span>
-                {item.badge !== undefined && (
-                  <span className="absolute top-1 right-1.5 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        {user.role === 'admin' ? (
+          <div className={`grid ${roleConfigs.length === 4 ? 'grid-cols-4' : 'grid-cols-3'} gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80`}>
+            {roleConfigs.map(item => {
+              const Icon = item.icon;
+              const isActive = role === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setRole(item.id)}
+                  className={`relative flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon className={`w-3.5 h-3.5 ${item.color}`} />
+                  <span className="truncate max-w-full mt-0.5 leading-tight">{item.shortLabel}</span>
+                  {item.badge !== undefined && (
+                    <span className="absolute top-1 right-1.5 w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ) : user.role === 'seller' ? (
+          <div className="flex items-center justify-between p-1.5 bg-blue-50 rounded-xl border border-blue-200 text-xs">
+            <span className="font-bold text-blue-900 flex items-center gap-1.5">
+              <Store className="w-3.5 h-3.5 text-blue-600" /> Merchant Portal
+            </span>
+            <button
+              onClick={() => setRole(role === 'seller' ? 'buyer' : 'seller')}
+              className="px-2 py-1 bg-white text-blue-700 font-bold rounded-lg border border-blue-200 text-[11px] cursor-pointer"
+            >
+              {role === 'seller' ? 'View Storefront' : 'Back to Dashboard'}
+            </button>
+          </div>
+        ) : user.role === 'delivery' ? (
+          <div className="flex items-center justify-between p-1.5 bg-emerald-50 rounded-xl border border-emerald-200 text-xs">
+            <span className="font-bold text-emerald-900 flex items-center gap-1.5">
+              <Bike className="w-3.5 h-3.5 text-emerald-600" /> Delivery Fleet Partner
+            </span>
+            {availableJobsCount > 0 && (
+              <span className="px-2 py-0.5 bg-emerald-600 text-white font-bold rounded-full text-[10px]">
+                {availableJobsCount} Jobs Active
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-between p-1.5 bg-amber-50 rounded-xl border border-amber-200 text-xs">
+            <span className="font-bold text-amber-900 flex items-center gap-1.5">
+              <ShoppingBag className="w-3.5 h-3.5 text-amber-600" /> Buyer Marketplace
+            </span>
+            <span className="text-[10px] text-amber-700 font-semibold">25-Min Delivery</span>
+          </div>
+        )}
 
         {/* Mobile Signed-in Quick Bar with Direct Logout */}
         {user.isSignedIn && (
           <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
             <span className="text-slate-500 truncate max-w-[180px]">
-              Signed in: <strong className="text-slate-800">{user.name.split(' ')[0]}</strong>
+              {user.name.split(' ')[0]} &bull; <strong className="text-slate-800 uppercase text-[10px]">{user.role}</strong>
             </span>
             <button
               onClick={logout}

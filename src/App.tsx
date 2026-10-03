@@ -6,22 +6,13 @@ import { CartDrawer } from './components/Buyer/CartDrawer';
 import { CheckoutModal } from './components/Buyer/CheckoutModal';
 import { OrderTrackingModal } from './components/Buyer/OrderTrackingModal';
 import { NegotiationChatModal } from './components/Buyer/NegotiationChatModal';
-import { BuyerRegistrationModal } from './components/Buyer/BuyerRegistrationModal';
 import { SellerDashboard } from './components/Seller/SellerDashboard';
-import { SellerRegistrationModal } from './components/Seller/SellerRegistrationModal';
 import { DeliveryDashboard } from './components/Delivery/DeliveryDashboard';
-import { DeliveryRegistrationModal } from './components/Delivery/DeliveryRegistrationModal';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
-import { GmailAuthModal } from './components/Auth/GmailAuthModal';
 import { AuthPage } from './components/Auth/AuthPage';
-import { ROOT_ADMIN_EMAIL, isRootAdminEmail } from './data/initialData';
+import { isRootAdminEmail } from './data/initialData';
 import {
-  Store,
   MapPin,
-  Truck,
-  Percent,
-  MessageSquare,
-  ShieldCheck,
   CheckCircle2,
   AlertCircle,
   Info,
@@ -32,16 +23,9 @@ const MainLayout: React.FC = () => {
     role,
     setRole,
     user,
+    logout,
     trackingOrderId,
     setTrackingOrderId,
-    isSellerRegisterOpen,
-    setIsSellerRegisterOpen,
-    isBuyerRegisterOpen,
-    setIsBuyerRegisterOpen,
-    isDeliveryRegisterOpen,
-    setIsDeliveryRegisterOpen,
-    isGmailAuthOpen,
-    setIsGmailAuthOpen,
     toast,
   } = useApp();
 
@@ -61,7 +45,7 @@ const MainLayout: React.FC = () => {
         setSelectedCategory={setSelectedCategory}
       />
 
-      {/* Main Body */}
+      {/* Main Body - Render Portal According to User Role */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {role === 'buyer' && (
           <BuyerHome
@@ -97,7 +81,7 @@ const MainLayout: React.FC = () => {
         </div>
       )}
 
-      {/* Global Modals */}
+      {/* Global Modals for Active Operations */}
       <CartDrawer onProceedToCheckout={() => setIsCheckoutOpen(true)} />
       {isCheckoutOpen && (
         <CheckoutModal onClose={() => setIsCheckoutOpen(false)} />
@@ -109,18 +93,6 @@ const MainLayout: React.FC = () => {
         />
       )}
       <NegotiationChatModal />
-      {isBuyerRegisterOpen && (
-        <BuyerRegistrationModal onClose={() => setIsBuyerRegisterOpen(false)} />
-      )}
-      {isSellerRegisterOpen && (
-        <SellerRegistrationModal onClose={() => setIsSellerRegisterOpen(false)} />
-      )}
-      {isDeliveryRegisterOpen && (
-        <DeliveryRegistrationModal onClose={() => setIsDeliveryRegisterOpen(false)} />
-      )}
-      {isGmailAuthOpen && (
-        <GmailAuthModal onClose={() => setIsGmailAuthOpen(false)} />
-      )}
 
       {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 text-xs border-t border-slate-800 mt-auto">
@@ -184,35 +156,37 @@ const MainLayout: React.FC = () => {
 
             <div>
               <h4 className="font-extrabold text-white text-xs uppercase tracking-wider mb-3">
-                Portal Operations
+                Your Account Session
               </h4>
-              <div className="space-y-2">
-                <button
-                  onClick={() => setIsBuyerRegisterOpen(true)}
-                  className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                >
-                  🛍️ Register as Buyer
-                </button>
-                <button
-                  onClick={() => setIsSellerRegisterOpen(true)}
-                  className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                >
-                  🏪 Register Kurali Shop
-                </button>
-                <button
-                  onClick={() => setIsDeliveryRegisterOpen(true)}
-                  className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                >
-                  🛵 Join as Delivery Rider
-                </button>
+              <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">User:</span>
+                  <span className="font-bold text-white truncate max-w-[130px]">{user.name}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Role:</span>
+                  <span className="font-bold uppercase text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded text-[10px]">
+                    {user.role}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Locality:</span>
+                  <span className="font-bold text-slate-300 text-[11px] truncate max-w-[120px]">{user.locality}</span>
+                </div>
                 {isRootAdmin && (
                   <button
                     onClick={() => setRole('admin')}
-                    className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 text-purple-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    className="w-full mt-2 py-1.5 bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-700/60 rounded-xl text-xs font-bold transition-colors cursor-pointer text-center"
                   >
-                    🛡️ Admin Approval Desk
+                    🛡️ Open Admin Desk
                   </button>
                 )}
+                <button
+                  onClick={logout}
+                  className="w-full mt-1 py-1.5 bg-rose-900/40 hover:bg-rose-900/80 text-rose-300 border border-rose-800/60 rounded-xl text-xs font-bold transition-colors cursor-pointer text-center"
+                >
+                  Sign Out
+                </button>
               </div>
             </div>
           </div>
