@@ -228,7 +228,9 @@ export const DeliveryDashboard: React.FC = () => {
                       </div>
                       <div className="mt-2 space-y-1 text-xs text-slate-600">
                         <p className="flex items-center gap-1 font-semibold text-slate-800">
-                          <Store className="w-3.5 h-3.5 text-blue-600" /> Store: {job.sellerNames.join(', ')}
+                          <Store className="w-3.5 h-3.5 text-blue-600" /> Store: {(job.sellerNames && Array.isArray(job.sellerNames) && job.sellerNames.length > 0)
+                            ? job.sellerNames.join(', ')
+                            : (job.sellerName || 'Local Kurali Store')}
                         </p>
                         <p className="flex items-center gap-1">
                           <MapPin className="w-3.5 h-3.5 text-amber-600" /> Deliver To: {job.deliveryAddress}

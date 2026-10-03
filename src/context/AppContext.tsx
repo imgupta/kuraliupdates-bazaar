@@ -609,6 +609,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newOrderId = `ORD-KUR-${Math.floor(100000 + Math.random() * 900000)}`;
     const sellerIds = Array.from(new Set(cart.map(c => c.product.sellerId)));
     const sellerNames = Array.from(new Set(cart.map(c => c.product.sellerName)));
+    const primarySellerName = sellerNames[0] || 'Local Kurali Store';
+    const primarySellerId = sellerIds[0] || 'seller-kurali';
+    const primarySellerLocality = cart[0]?.product.sellerLocality || 'Main Bazaar';
 
     const newOrder: Order = {
       id: newOrderId,
@@ -617,13 +620,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       buyerPhone: orderData.deliveryPhone,
       deliveryAddress: orderData.deliveryAddress,
       deliveryLocality: user.locality || 'Main Bazaar',
+      sellerId: primarySellerId,
+      sellerName: primarySellerName,
+      sellerLocality: primarySellerLocality,
       sellerIds,
       sellerNames,
       items: [...cart],
+      subtotal: cartCalculations.itemSubtotal,
       itemSubtotal: cartCalculations.itemSubtotal,
+      billDiscountAmount: cartCalculations.totalBillDiscount,
       billDiscount: cartCalculations.totalBillDiscount,
+      couponDiscountAmount: cartCalculations.couponDiscount,
       couponDiscount: cartCalculations.couponDiscount,
       deliveryFee: cartCalculations.deliveryFee,
+      isFreeDelivery: cartCalculations.isFreeDelivery,
       totalAmount: cartCalculations.finalTotal,
       paymentMethod: orderData.paymentMethod,
       paymentStatus: orderData.paymentMethod === 'UPI' ? 'paid' : 'pending',

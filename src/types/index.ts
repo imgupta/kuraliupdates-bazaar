@@ -113,15 +113,20 @@ export interface Order {
   sellerId: string;
   sellerName: string;
   sellerLocality: string;
+  sellerIds?: string[];
+  sellerNames?: string[];
   subtotal: number;
+  itemSubtotal?: number;
   billDiscountAmount: number;
+  billDiscount?: number;
   couponDiscountAmount: number;
+  couponDiscount?: number;
   couponCode?: string;
   deliveryFee: number;
   isFreeDelivery: boolean;
   totalAmount: number;
-  paymentMethod: 'UPI' | 'Card' | 'COD' | 'NetBanking';
-  paymentStatus: 'paid' | 'pending_cod';
+  paymentMethod: 'UPI' | 'Card' | 'COD' | 'NetBanking' | 'StorePay';
+  paymentStatus: 'paid' | 'pending_cod' | 'pending';
   status: OrderStatus;
   placedAt: string;
   deliveryAgentId?: string;
@@ -130,7 +135,9 @@ export interface Order {
   deliveryAgentVehicle?: string;
   deliveryOtp: string;
   distanceKm: number;
-  estimatedDeliveryMins: number;
+  estimatedDeliveryMins?: number;
+  estimatedDeliveryTime?: string;
+  customerNotes?: string;
   statusUpdates: {
     status: OrderStatus;
     timestamp: string;

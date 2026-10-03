@@ -119,7 +119,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
             <div className="flex items-center justify-between text-[11px] mt-2 font-medium">
               <div className="flex items-center gap-1 text-amber-300">
                 <Store className="w-4 h-4" />
-                <span>{order.sellerName.split(' ')[0]}</span>
+                <span>{(order.sellerName || order.sellerNames?.[0] || 'Store').split(' ')[0]}</span>
               </div>
               <div className="flex items-center gap-1 text-slate-300">
                 <span>Morinda Rd / Chowk</span>
