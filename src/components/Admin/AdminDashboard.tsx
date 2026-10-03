@@ -15,6 +15,7 @@ import {
   Sparkles,
   BarChart3,
   Layers,
+  Download,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MarketTrendsVisualization } from './MarketTrendsVisualization';
@@ -55,18 +56,31 @@ export const AdminDashboard: React.FC = () => {
           </p>
         </div>
 
-        {/* Pending Badge Highlight */}
-        <div
-          onClick={() => setActiveAdminTab('approvals')}
-          className="bg-white/10 hover:bg-white/15 cursor-pointer transition-colors backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center min-w-[150px]"
-        >
-          <span className="text-xs font-bold text-purple-200 uppercase">Pending Approvals</span>
-          <p className="text-3xl font-black text-amber-300 mt-0.5">
-            {pendingSellers.length}
-          </p>
-          <span className="text-[10px] text-amber-200 block mt-0.5 font-medium underline">
-            Review Applications &rarr;
-          </span>
+        {/* Actions & Pending Badge */}
+        <div className="flex items-center gap-3">
+          <a
+            href="/kuraliupdates-bazaar.zip"
+            download="kuraliupdates-bazaar.zip"
+            className="bg-white/10 hover:bg-white/20 text-white border border-white/25 px-4 py-3 rounded-2xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 shadow-xs cursor-pointer text-center"
+            title="Download full project ZIP to upload to GitHub"
+          >
+            <Download className="w-4 h-4 text-amber-300" />
+            <span>Download Repo ZIP</span>
+            <span className="text-[10px] text-purple-200 font-mono">For imgupta/kuraliupdates-bazaar</span>
+          </a>
+
+          <div
+            onClick={() => setActiveAdminTab('approvals')}
+            className="bg-white/10 hover:bg-white/15 cursor-pointer transition-colors backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center min-w-[140px]"
+          >
+            <span className="text-xs font-bold text-purple-200 uppercase">Pending Approvals</span>
+            <p className="text-3xl font-black text-amber-300 mt-0.5">
+              {pendingSellers.length}
+            </p>
+            <span className="text-[10px] text-amber-200 block mt-0.5 font-medium underline">
+              Review Applications &rarr;
+            </span>
+          </div>
         </div>
       </div>
 
