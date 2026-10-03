@@ -407,8 +407,13 @@ export const bazaarApi = {
         body: JSON.stringify({ identifier, type, mode }),
       });
       clearTimeout(timeoutId);
-      const data = await res.json().catch(() => ({ success: false, message: 'Invalid authentication response' }));
-      if (!res.ok) return { success: false, message: data.message || 'Unable to send verification code' };
+      const data = await res.json().catch(() => ({ success: false, message: '' }));
+      if (!res.ok) {
+        if (mode === 'LOGIN' && res.status === 404) {
+          return { success: false, message: 'No registered account was found. Please register first.' };
+        }
+        return { success: false, message: data.message || 'Unable to send verification code' };
+      }
       return data;
     } catch (err: any) {
       return { success: false, message: err.name === 'AbortError' ? 'Authentication service timed out' : 'Authentication service is unavailable' };
