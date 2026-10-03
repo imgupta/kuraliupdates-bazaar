@@ -53,6 +53,7 @@ interface AppContextType {
     targetRole?: UserRole;
     locality?: string;
     address?: string;
+    token?: string;
   }) => { success: boolean; message: string; role: UserRole };
   registerUserWithOtp: (params: {
     name: string;
@@ -61,6 +62,7 @@ interface AppContextType {
     locality: string;
     role: UserRole;
     address?: string;
+    token?: string;
   }) => { success: boolean; message: string; role: UserRole };
   loginWithGoogle: (
     email: string,
@@ -392,6 +394,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     syncWithBackend();
     const interval = setInterval(syncWithBackend, 45000);
+
+    // Live session token check against Oracle DB / Spring Boot backend
+    const savedToken = localStorage.getItem('kurali_auth_token');
+    if (savedToken) {
+      bazaarApi.getMe(savedToken).then(res => {
+        if (res.authenticated && res.user) {
+          const u = res.user;
+          const isRoot = isRootAdminEmail(u.email);
+          const effectiveRole: UserRole = isRoot ? 'admin' : (u.role?.toLowerCase() as UserRole) || 'buyer';
+          setUser(prev => ({
+            ...prev,
+            email: u.email,
+            name: u.name,
+            phone: u.phone,
+            locality: u.locality || prev.locality,
+            address: u.address || prev.address,
+            role: effectiveRole,
+            isSignedIn: true,
+            phoneVerified: true,
+            emailVerified: true,
+          }));
+          setRoleState(effectiveRole);
+        }
+      });
+    }
+
     return () => clearInterval(interval);
   }, [backendUrl]);
 
@@ -414,6 +442,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     targetRole?: UserRole;
     locality?: string;
     address?: string;
+    token?: string;
   }) => {
     const trimmedEmail = params.email.trim().toLowerCase();
     const isRoot = isRootAdminEmail(trimmedEmail);
@@ -454,6 +483,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser(updatedUser);
     setRoleState(effectiveRole);
     localStorage.setItem('kurali_auth_session', JSON.stringify(updatedUser));
+    if (params.token) {
+      localStorage.setItem('kurali_auth_token', params.token);
+    }
 
     return {
       success: true,
@@ -472,6 +504,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     locality: string;
     role: UserRole;
     address?: string;
+    token?: string;
   }) => {
     const trimmedEmail = params.email.trim().toLowerCase();
     const isRoot = isRootAdminEmail(trimmedEmail);
@@ -549,6 +582,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser(updatedUser);
     setRoleState(effectiveRole);
     localStorage.setItem('kurali_auth_session', JSON.stringify(updatedUser));
+    if (params.token) {
+      localStorage.setItem('kurali_auth_token', params.token);
+    }
 
     return {
       success: true,
@@ -625,6 +661,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = () => {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (token) {
+      bazaarApi.logout(token);
+    }
+    localStorage.removeItem('kurali_auth_token');
     localStorage.removeItem('kurali_auth_session');
     localStorage.removeItem('kurali_user');
     setUser({

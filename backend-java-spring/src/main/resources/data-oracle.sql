@@ -40,4 +40,20 @@ VALUES ('c-1', 'KURALI50', 'ALL', 'FLAT', 50.00, 399.00, TO_DATE('2026-12-31', '
 INSERT INTO DELIVERY_AGENTS (AGENT_ID, FULL_NAME, PHONE, EMAIL, AVATAR_URL, VEHICLE_TYPE, VEHICLE_NUMBER, LICENSE_NUMBER, STATUS, RATING, TOTAL_TRIPS, TODAY_EARNINGS, TOTAL_EARNINGS, CURRENT_LOCALITY)
 VALUES ('agent-1', 'Gurpreet Singh', '+91 98765 88990', 'gurpreet.rider@kuraliupdates.com', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80', 'Bike', 'PB 65 AB 4589', 'PB-65-2022-00431', 'ACTIVE', 4.90, 342, 420.00, 28450.00, 'Main Bazaar / Fountain Chowk');
 
+-- 6. Insert Verified Users & Admins
+INSERT INTO USERS (USER_ID, EMAIL, PHONE, NAME, ROLE, LOCALITY, ADDRESS, IS_VERIFIED, IS_ADMIN)
+VALUES ('user-admin-1', 'shubham.gupta180296@gmail.com', '+91 98765 00001', 'Shubham Gupta (Root Admin)', 'ADMIN', 'Main Bazaar, Kurali', 'City Administrative Office, Fountain Chowk, Kurali', 1, 1);
+
+INSERT INTO USERS (USER_ID, EMAIL, PHONE, NAME, ROLE, LOCALITY, ADDRESS, IS_VERIFIED, IS_ADMIN)
+VALUES ('user-admin-2', 'sg7508359237@gmail.com', '+91 75083 59237', 'Kurali Admin Desk', 'ADMIN', 'Main Bazaar, Kurali', 'Municipal Committee Office, Kurali', 1, 1);
+
+INSERT INTO USERS (USER_ID, EMAIL, PHONE, NAME, ROLE, LOCALITY, ADDRESS, IS_VERIFIED, IS_ADMIN)
+VALUES ('user-seller-1', 'aggarwalkirana.kurali@gmail.com', '+91 98765 43210', 'Sunil Aggarwal', 'SELLER', 'Main Bazaar, Kurali', 'Shop No. 14, Main Bazaar, Near Old Fountain Chowk', 1, 0);
+
+INSERT INTO USERS (USER_ID, EMAIL, PHONE, NAME, ROLE, LOCALITY, ADDRESS, IS_VERIFIED, IS_ADMIN)
+VALUES ('user-delivery-1', 'gurpreet.rider@kuraliupdates.com', '+91 98765 88990', 'Gurpreet Singh', 'DELIVERY', 'Main Bazaar, Kurali', 'Main Bazaar / Fountain Chowk Hub', 1, 0);
+
+INSERT INTO USERS (USER_ID, EMAIL, PHONE, NAME, ROLE, LOCALITY, ADDRESS, IS_VERIFIED, IS_ADMIN)
+VALUES ('user-buyer-1', 'customer.kurali@gmail.com', '+91 98888 12345', 'Simran Kaur', 'BUYER', 'Morinda Road, Kurali', 'House 42, Morinda Road, Kurali', 1, 0);
+
 COMMIT;

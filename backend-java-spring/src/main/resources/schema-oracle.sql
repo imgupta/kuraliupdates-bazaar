@@ -6,6 +6,21 @@
 
 -- Drop tables if exists (clean setup)
 BEGIN
+  EXECUTE IMMEDIATE 'DROP TABLE USER_SESSIONS CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+BEGIN
+  EXECUTE IMMEDIATE 'DROP TABLE AUTH_OTPS CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+BEGIN
+  EXECUTE IMMEDIATE 'DROP TABLE USERS CASCADE CONSTRAINTS';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+BEGIN
   EXECUTE IMMEDIATE 'DROP TABLE CHAT_MESSAGES CASCADE CONSTRAINTS';
 EXCEPTION WHEN OTHERS THEN NULL;
 END;
@@ -236,4 +251,53 @@ CREATE TABLE CHAT_MESSAGES (
 );
 
 CREATE INDEX IDX_MSG_CHAT ON CHAT_MESSAGES(CHAT_ID);
+
+-- ----------------------------------------------------------------------------
+-- 10. Table: USERS (Live Registered Users - Buyers, Sellers, Riders, Admin)
+-- ----------------------------------------------------------------------------
+CREATE TABLE USERS (
+    USER_ID                    VARCHAR2(64) PRIMARY KEY,
+    EMAIL                      VARCHAR2(255) NOT NULL UNIQUE,
+    PHONE                      VARCHAR2(30) NOT NULL UNIQUE,
+    NAME                       VARCHAR2(150) NOT NULL,
+    ROLE                       VARCHAR2(30) DEFAULT 'BUYER' CHECK (ROLE IN ('BUYER', 'SELLER', 'DELIVERY', 'ADMIN')),
+    LOCALITY                   VARCHAR2(150),
+    ADDRESS                    VARCHAR2(500),
+    IS_VERIFIED                NUMBER(1) DEFAULT 1 CHECK (IS_VERIFIED IN (0, 1)),
+    IS_ADMIN                   NUMBER(1) DEFAULT 0 CHECK (IS_ADMIN IN (0, 1)),
+    AVATAR_URL                 VARCHAR2(500),
+    CREATED_AT                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    LAST_LOGIN                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IDX_USERS_EMAIL ON USERS(EMAIL);
+CREATE INDEX IDX_USERS_PHONE ON USERS(PHONE);
+
+-- ----------------------------------------------------------------------------
+-- 11. Table: AUTH_OTPS (Live 6-Digit Email & Phone Verification Codes)
+-- ----------------------------------------------------------------------------
+CREATE TABLE AUTH_OTPS (
+    OTP_ID                     VARCHAR2(64) PRIMARY KEY,
+    IDENTIFIER                 VARCHAR2(255) NOT NULL,
+    OTP_CODE                   VARCHAR2(10) NOT NULL,
+    OTP_TYPE                   VARCHAR2(20) NOT NULL CHECK (OTP_TYPE IN ('EMAIL', 'PHONE')),
+    IS_USED                    NUMBER(1) DEFAULT 0 CHECK (IS_USED IN (0, 1)),
+    EXPIRES_AT                 TIMESTAMP NOT NULL,
+    CREATED_AT                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IDX_AUTH_OTPS_ID ON AUTH_OTPS(IDENTIFIER, OTP_TYPE, IS_USED);
+
+-- ----------------------------------------------------------------------------
+-- 12. Table: USER_SESSIONS (Stateful Authentication & Logout Tokens)
+-- ----------------------------------------------------------------------------
+CREATE TABLE USER_SESSIONS (
+    SESSION_TOKEN              VARCHAR2(128) PRIMARY KEY,
+    USER_ID                    VARCHAR2(64) NOT NULL REFERENCES USERS(USER_ID) ON DELETE CASCADE,
+    CREATED_AT                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    EXPIRES_AT                 TIMESTAMP NOT NULL
+);
+
+CREATE INDEX IDX_SESSIONS_USER ON USER_SESSIONS(USER_ID);
+
 COMMIT;
