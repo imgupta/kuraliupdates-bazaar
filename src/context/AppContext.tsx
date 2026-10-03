@@ -491,6 +491,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRoleState(targetRole);
   };
 
+  // Google sign-in is intentionally disabled until a server-side Google OAuth flow is configured.
+  // Do not create a local authenticated session here because authentication must remain server-authoritative.
+  const loginWithGoogle = (
+    _email: string,
+    _name: string,
+    _targetRole: UserRole,
+    _phone?: string,
+    _locality?: string,
+    _address?: string
+  ) => {
+    showToast('Google sign-in is not enabled yet. Please use Email or Mobile OTP.', 'info');
+  };
+
   // OTP-Based Authentication (Email OR Phone Verified)
   const loginWithOtp = (params: {
     identifier?: string;
