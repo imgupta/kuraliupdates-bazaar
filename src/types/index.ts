@@ -36,15 +36,17 @@ export interface BillDiscountRule {
 }
 
 export interface Coupon {
-  id: string;
+  id?: string;
   code: string;
-  sellerId: string; // 'all' for platform-wide or specific sellerId
+  sellerId?: string; // 'all' for platform-wide or specific sellerId
   sellerName?: string;
-  discountType: 'percentage' | 'flat';
-  discountValue: number;
+  discountType?: 'percentage' | 'flat';
+  discountValue?: number;
+  discountPercentage?: number;
+  flatDiscount?: number;
   minOrderValue: number;
   maxDiscount?: number;
-  expiryDate: string;
+  expiryDate?: string;
   description: string;
 }
 
@@ -55,6 +57,9 @@ export interface Product {
   sellerLocality: string;
   sellerDistanceKm: number;
   sellerRating: number;
+  rating?: number;
+  reviewCount?: number;
+  isAvailable?: boolean;
   title: string;
   category: string;
   description: string;

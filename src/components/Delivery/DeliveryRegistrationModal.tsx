@@ -1,176 +1,195 @@
 import React, { useState } from 'react';
-import { X, Bike, CheckCircle2, Phone, ShieldCheck, User } from 'lucide-react';
+import {
+  X,
+  Bike,
+  ShieldCheck,
+  CheckCircle2,
+  Phone,
+  Mail,
+  User,
+  MapPin,
+  CreditCard,
+} from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { KURALI_LOCALITIES } from '../../data/initialData';
 
 interface DeliveryRegistrationModalProps {
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 export const DeliveryRegistrationModal: React.FC<DeliveryRegistrationModalProps> = ({ onClose }) => {
-  const { registerDeliveryAgent, user } = useApp();
+  const {
+    isDeliveryRegisterOpen,
+    setIsDeliveryRegisterOpen,
+    registerDeliveryAgent,
+    user,
+    showToast,
+  } = useApp();
+
+  const handleClose = () => {
+    if (onClose) onClose();
+    setIsDeliveryRegisterOpen(false);
+  };
 
   const [name, setName] = useState(user.name || '');
-  const [phone, setPhone] = useState(user.phone || '');
   const [email, setEmail] = useState(user.email || '');
+  const [phone, setPhone] = useState(user.phone || '');
   const [vehicleType, setVehicleType] = useState<'Bike' | 'Scooter' | 'Electric Bike' | 'Auto / Van'>('Bike');
-  const [vehicleNumber, setVehicleNumber] = useState('PB 65 AB ');
-  const [licenseNumber, setLicenseNumber] = useState('PB-65-2024-');
-  const [currentLocality, setCurrentLocality] = useState(KURALI_LOCALITIES[1] || 'Main Bazaar');
+  const [vehicleNumber, setVehicleNumber] = useState('');
+  const [licenseNumber, setLicenseNumber] = useState('');
+  const [locality, setLocality] = useState(KURALI_LOCALITIES[1]);
+
+  if (!isDeliveryRegisterOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !phone.trim()) return;
+
+    if (!name.trim() || !phone.trim() || !vehicleNumber.trim()) {
+      showToast('Please fill all mandatory driver fields.', 'error');
+      return;
+    }
 
     registerDeliveryAgent({
-      name,
-      phone,
-      email,
-      avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,
+      name: name.trim(),
+      email: email.trim() || `${name.toLowerCase().replace(/\s+/g, '')}.rider@kuraliupdates.com`,
+      phone: phone.trim(),
       vehicleType,
-      vehicleNumber,
-      licenseNumber,
-      currentLocality,
+      vehicleNumber: vehicleNumber.trim().toUpperCase(),
+      licenseNumber: licenseNumber.trim().toUpperCase() || 'PB-65-2026-ACTIVE',
+      currentLocality: locality,
+      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+        name
+      )}&backgroundColor=10b981,0284c7,f59e0b`,
     });
 
-    onClose();
+    handleClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
         {/* Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-700 text-white flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white">
-              <Bike className="w-5 h-5" />
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-800 text-white p-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20">
+              <Bike className="w-5 h-5 text-emerald-200" />
             </div>
             <div>
-              <h2 className="text-base font-extrabold tracking-tight">
-                Join Kurali Express Delivery Fleet
-              </h2>
-              <p className="text-xs text-emerald-100">
-                Earn ₹45 - ₹95 per trip across Kurali city
-              </p>
+              <h3 className="font-extrabold text-base tracking-tight">Join Kurali Express Fleet</h3>
+              <p className="text-xs text-emerald-100">Earn per delivery across Kurali local routes</p>
             </div>
           </div>
           <button
-            onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-white/20 text-white transition-colors"
+            onClick={handleClose}
+            className="p-1.5 rounded-full hover:bg-white/20 text-white transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form Content */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
-          <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-start gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-            <span>
-              <strong>Flexible Payouts:</strong> Review pickup store, distance, and earnings offer before accepting any job in Kurali!
-            </span>
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 text-xs">
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-950 flex items-start gap-2.5">
+            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold">Instant Rider Activation</p>
+              <p className="text-[11px] text-emerald-800">
+                Guaranteed base payout of ₹45 - ₹75 per delivered local order + customer tips.
+              </p>
+            </div>
           </div>
 
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">
-              Full Legal Name *
+            <label className="block text-slate-700 font-bold mb-1">
+              Rider Full Name <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
-              required
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="e.g. Gurpreet Singh"
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 outline-none"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white"
+              required
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Phone Number *
+              <label className="block text-slate-700 font-bold mb-1">
+                Mobile Phone <span className="text-rose-500">*</span>
               </label>
               <input
                 type="tel"
-                required
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
-                placeholder="+91 98765 00000"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 outline-none"
+                placeholder="+91 98765 88990"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white"
+                required
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Gmail / Email
-              </label>
+              <label className="block text-slate-700 font-bold mb-1">Email Address</label>
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="rider@kuraliupdates.com"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 outline-none"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Vehicle Type *
-              </label>
+              <label className="block text-slate-700 font-bold mb-1">Vehicle Type</label>
               <select
                 value={vehicleType}
-                onChange={e => setVehicleType(e.target.value as any)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 outline-none"
+                onChange={e => setVehicleType(e.target.value as 'Bike' | 'Scooter' | 'Electric Bike' | 'Auto / Van')}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white"
               >
                 <option value="Bike">Motorcycle / Bike</option>
                 <option value="Scooter">Scooter / Activa</option>
-                <option value="Electric Bike">Electric Bike / EV</option>
+                <option value="Electric Bike">Electric Bike (EV)</option>
                 <option value="Auto / Van">Auto / Delivery Van</option>
               </select>
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Vehicle Number Plate *
+              <label className="block text-slate-700 font-bold mb-1">
+                Vehicle Registration No. <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
-                required
                 value={vehicleNumber}
-                onChange={e => setVehicleNumber(e.target.value.toUpperCase())}
-                placeholder="PB 65 AB 1234"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 outline-none uppercase font-mono font-bold"
+                onChange={e => setVehicleNumber(e.target.value)}
+                placeholder="PB 65 AB 4589"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white uppercase"
+                required
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Driving License / ID *
-              </label>
+              <label className="block text-slate-700 font-bold mb-1">Driving License Number</label>
               <input
                 type="text"
-                required
                 value={licenseNumber}
-                onChange={e => setLicenseNumber(e.target.value.toUpperCase())}
-                placeholder="PB-65-XXXX"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 outline-none font-mono"
+                onChange={e => setLicenseNumber(e.target.value)}
+                placeholder="PB-65-2022-00431"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white uppercase"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Primary Kurali Zone *
-              </label>
+              <label className="block text-slate-700 font-bold mb-1">Preferred Locality / Hub</label>
               <select
-                value={currentLocality}
-                onChange={e => setCurrentLocality(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-emerald-500 outline-none"
+                value={locality}
+                onChange={e => setLocality(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:border-emerald-500 focus:bg-white"
               >
-                {KURALI_LOCALITIES.filter(l => !l.startsWith('All')).map(loc => (
+                {KURALI_LOCALITIES.slice(1).map(loc => (
                   <option key={loc} value={loc}>
                     {loc}
                   </option>
@@ -179,14 +198,13 @@ export const DeliveryRegistrationModal: React.FC<DeliveryRegistrationModalProps>
             </div>
           </div>
 
-          <div className="pt-2">
-            <button
-              type="submit"
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer"
-            >
-              Complete Registration &amp; Start Accepting Jobs
-            </button>
-          </div>
+          <button
+            type="submit"
+            className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 mt-4"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Register &amp; Activate Driver Wallet</span>
+          </button>
         </form>
       </div>
     </div>

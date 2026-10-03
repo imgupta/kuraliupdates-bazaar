@@ -12,6 +12,7 @@ import {
   ChatMessage,
   BargainOffer,
 } from '../types';
+import { bazaarApi } from '../services/api';
 import {
   INITIAL_SELLERS,
   INITIAL_PRODUCTS,
@@ -20,6 +21,8 @@ import {
   INITIAL_ORDERS,
   INITIAL_CHATS,
   ROOT_ADMIN_EMAIL,
+  ADMIN_EMAILS,
+  isRootAdminEmail,
 } from '../data/initialData';
 
 export interface UserProfile {
@@ -33,6 +36,9 @@ export interface UserProfile {
   deliveryAgentId?: string;
   role: UserRole;
   isSignedIn: boolean;
+  phoneVerified?: boolean;
+  emailVerified?: boolean;
+  authMethod?: 'otp' | 'google';
 }
 
 interface AppContextType {
@@ -40,6 +46,22 @@ interface AppContextType {
   role: UserRole;
   setRole: (role: UserRole) => void;
   user: UserProfile;
+  loginWithOtp: (params: {
+    email: string;
+    phone: string;
+    name?: string;
+    targetRole?: UserRole;
+    locality?: string;
+    address?: string;
+  }) => { success: boolean; message: string; role: UserRole };
+  registerUserWithOtp: (params: {
+    name: string;
+    email: string;
+    phone: string;
+    locality: string;
+    role: UserRole;
+    address?: string;
+  }) => { success: boolean; message: string; role: UserRole };
   loginWithGoogle: (
     email: string,
     name: string,
@@ -81,22 +103,30 @@ interface AppContextType {
   removeCoupon: () => void;
   cartCalculations: {
     itemSubtotal: number;
+    subtotal: number;
     couponDiscount: number;
     billDiscounts: { sellerId: string; sellerName: string; amount: number; description: string }[];
     totalBillDiscount: number;
+    billDiscount: number;
     deliveryFee: number;
     isFreeDelivery: boolean;
     freeDeliveryThresholdRemaining: number;
+    amountNeededForFreeDelivery: number;
+    freeDeliveryThreshold: number;
+    activeSeller?: Seller;
     finalTotal: number;
   };
 
   // Orders
   orders: Order[];
   createOrder: (orderData: {
+    buyerName?: string;
+    buyerPhone?: string;
     deliveryAddress: string;
-    deliveryPhone: string;
+    deliveryLocality?: string;
+    deliveryPhone?: string;
     customerNotes?: string;
-    paymentMethod: 'COD' | 'UPI' | 'StorePay';
+    paymentMethod: 'COD' | 'UPI' | 'StorePay' | 'Card' | 'NetBanking';
   }) => Order;
   updateOrderStatus: (orderId: string, status: OrderStatus, note?: string) => void;
 
@@ -143,6 +173,19 @@ interface AppContextType {
   // Toast / Alerts
   toast: { message: string; type: 'success' | 'info' | 'error' } | null;
   showToast: (message: string, type?: 'success' | 'info' | 'error') => void;
+
+  // Backend & Oracle DB Sync
+  backendUrl: string;
+  setBackendUrl: (url: string) => void;
+  backendStatus: {
+    isOnline: boolean;
+    status: string;
+    database: string;
+    lastSynced?: string;
+    isLoading: boolean;
+    error?: string;
+  };
+  syncWithBackend: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -154,22 +197,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [user, setUser] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('kurali_user');
-    if (saved) {
+    const session = localStorage.getItem('kurali_auth_session');
+    if (session) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(session);
+        if (parsed.isSignedIn && parsed.email && parsed.phone) {
+          return parsed;
+        }
       } catch (e) {
         /* ignore */
       }
     }
     return {
       email: '',
-      name: 'Guest Shopper',
-      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+      name: '',
+      avatarUrl: '',
       phone: '',
-      locality: 'Main Bazaar, Kurali',
+      locality: 'Main Bazaar & Clock Tower',
       role: 'buyer',
       isSignedIn: false,
+      phoneVerified: false,
+      emailVerified: false,
     };
   });
 
@@ -277,16 +325,238 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 4000);
   };
 
-  // Secure Role Switcher: Admin is strictly restricted to ROOT_ADMIN_EMAIL
+  // Backend Sync State
+  const [backendUrl, setBackendUrlState] = useState<string>(() => {
+    return localStorage.getItem('kurali_backend_url') || 'https://kuraliupdates-bazaar.onrender.com/api/v1';
+  });
+
+  const setBackendUrl = (url: string) => {
+    setBackendUrlState(url);
+    localStorage.setItem('kurali_backend_url', url);
+  };
+
+  const [backendStatus, setBackendStatus] = useState<{
+    isOnline: boolean;
+    status: string;
+    database: string;
+    lastSynced?: string;
+    isLoading: boolean;
+    error?: string;
+  }>({
+    isOnline: false,
+    status: 'INITIALIZING',
+    database: 'Oracle Cloud Autonomous Database (ap-mumbai-1)',
+    isLoading: true,
+  });
+
+  const syncWithBackend = async () => {
+    setBackendStatus(prev => ({ ...prev, isLoading: true, error: undefined }));
+    try {
+      const health = await bazaarApi.checkHealth();
+      const isOnline = health.status === 'UP';
+      setBackendStatus({
+        isOnline,
+        status: health.status || (isOnline ? 'UP' : 'STANDALONE'),
+        database: health.database || 'Oracle Autonomous Database Connected',
+        lastSynced: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        isLoading: false,
+      });
+
+      // Synchronize Products from Oracle DB
+      const remoteProducts = await bazaarApi.searchProducts();
+      if (remoteProducts && remoteProducts.length > 0) {
+        setProducts(prev => {
+          const remoteIds = new Set(remoteProducts.map(p => p.id));
+          const localRemaining = prev.filter(p => !remoteIds.has(p.id));
+          return [...remoteProducts, ...localRemaining];
+        });
+      }
+
+      // Synchronize Available Delivery Jobs from Oracle DB if in delivery role
+      const availableJobs = await bazaarApi.getAvailableDeliveryJobs();
+      if (availableJobs && availableJobs.length > 0) {
+        console.log(`Synced ${availableJobs.length} delivery jobs from Oracle DB`);
+      }
+    } catch (err: any) {
+      console.warn('Backend sync failed:', err);
+      setBackendStatus(prev => ({
+        ...prev,
+        isOnline: false,
+        status: 'STANDALONE',
+        isLoading: false,
+        error: err.message,
+      }));
+    }
+  };
+
+  useEffect(() => {
+    syncWithBackend();
+    const interval = setInterval(syncWithBackend, 45000);
+    return () => clearInterval(interval);
+  }, [backendUrl]);
+
+  // Secure Role Switcher: Admin is strictly restricted to authorized Root Admins
   const setRole = (targetRole: UserRole) => {
     if (targetRole === 'admin') {
-      if (user.email.toLowerCase() !== ROOT_ADMIN_EMAIL.toLowerCase()) {
-        showToast(`Access Restricted: Admin portal is reserved exclusively for master root user (${ROOT_ADMIN_EMAIL})`, 'error');
-        setIsGmailAuthOpen(true);
+      if (!isRootAdminEmail(user.email)) {
+        showToast(`Access Restricted: City Admin portal is reserved exclusively for verified Root Admins.`, 'error');
         return;
       }
     }
     setRoleState(targetRole);
+  };
+
+  // OTP-Based Authentication (Email & Phone Verified)
+  const loginWithOtp = (params: {
+    email: string;
+    phone: string;
+    name?: string;
+    targetRole?: UserRole;
+    locality?: string;
+    address?: string;
+  }) => {
+    const trimmedEmail = params.email.trim().toLowerCase();
+    const isRoot = isRootAdminEmail(trimmedEmail);
+
+    const existingSeller = sellers.find(
+      s => s.email.toLowerCase() === trimmedEmail || s.phone.replace(/\D/g, '') === params.phone.replace(/\D/g, '')
+    );
+    const existingAgent = deliveryAgents.find(
+      a => (a.email || '').toLowerCase() === trimmedEmail || a.phone.replace(/\D/g, '') === params.phone.replace(/\D/g, '')
+    );
+
+    let effectiveRole: UserRole = isRoot
+      ? 'admin'
+      : existingSeller
+      ? 'seller'
+      : existingAgent
+      ? 'delivery'
+      : params.targetRole || 'buyer';
+
+    const displayName = params.name || existingSeller?.ownerName || existingAgent?.name || trimmedEmail.split('@')[0];
+
+    const updatedUser: UserProfile = {
+      email: trimmedEmail,
+      name: displayName,
+      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}&backgroundColor=0284c7,f59e0b,10b981`,
+      phone: params.phone,
+      locality: params.locality || existingSeller?.locality || existingAgent?.currentLocality || 'Main Bazaar & Clock Tower',
+      address: params.address || existingSeller?.address || '',
+      sellerId: existingSeller?.id,
+      deliveryAgentId: existingAgent?.id,
+      role: effectiveRole,
+      isSignedIn: true,
+      phoneVerified: true,
+      emailVerified: true,
+      authMethod: 'otp',
+    };
+
+    setUser(updatedUser);
+    setRoleState(effectiveRole);
+    localStorage.setItem('kurali_auth_session', JSON.stringify(updatedUser));
+
+    return {
+      success: true,
+      message: isRoot
+        ? `Root Administrator Verified via OTP! Welcome ${displayName}.`
+        : `Verified via OTP as ${effectiveRole.toUpperCase()}! Welcome to KuraliUpdates Bazaar.`,
+      role: effectiveRole,
+    };
+  };
+
+  // Register Citizen / Merchant / Rider with OTP Verification
+  const registerUserWithOtp = (params: {
+    name: string;
+    email: string;
+    phone: string;
+    locality: string;
+    role: UserRole;
+    address?: string;
+  }) => {
+    const trimmedEmail = params.email.trim().toLowerCase();
+    const isRoot = isRootAdminEmail(trimmedEmail);
+    const effectiveRole: UserRole = isRoot ? 'admin' : params.role;
+
+    let sellerId: string | undefined = undefined;
+    let deliveryAgentId: string | undefined = undefined;
+
+    if (effectiveRole === 'seller') {
+      const newSellerId = `seller-${Date.now()}`;
+      sellerId = newSellerId;
+      const newSeller: Seller = {
+        id: newSellerId,
+        name: `${params.name}'s Shop`,
+        ownerName: params.name,
+        email: trimmedEmail,
+        phone: params.phone,
+        category: 'Groceries & Daily Essentials',
+        locality: params.locality,
+        address: params.address || `${params.locality}, Kurali`,
+        distanceKm: 1.0,
+        rating: 5.0,
+        reviewCount: 0,
+        status: 'pending',
+        registeredAt: new Date().toISOString(),
+        bannerUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
+        avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(params.name)}&backgroundColor=0284c7,f59e0b,10b981`,
+        description: `Verified retail store registered in ${params.locality}, Kurali.`,
+        minOrderForFreeDelivery: 499,
+        baseDeliveryFee: 35,
+        billDiscounts: [],
+      };
+      setSellers(prev => [newSeller, ...prev]);
+      bazaarApi.registerSeller(newSeller);
+    } else if (effectiveRole === 'delivery') {
+      const newAgentId = `agent-${Date.now()}`;
+      deliveryAgentId = newAgentId;
+      const newAgent: DeliveryAgent = {
+        id: newAgentId,
+        name: params.name,
+        email: trimmedEmail,
+        phone: params.phone,
+        avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(params.name)}&backgroundColor=0284c7,f59e0b,10b981`,
+        vehicleType: 'Bike',
+        vehicleNumber: 'PB 65 TR 1001',
+        licenseNumber: 'PB-65-2026-ACTIVE',
+        status: 'active',
+        rating: 5.0,
+        totalTrips: 0,
+        todayEarnings: 0,
+        totalEarnings: 0,
+        currentLocality: params.locality,
+        registeredAt: new Date().toISOString(),
+      };
+      setDeliveryAgents(prev => [newAgent, ...prev]);
+      bazaarApi.registerDeliveryAgent(newAgent);
+    }
+
+    const updatedUser: UserProfile = {
+      email: trimmedEmail,
+      name: params.name,
+      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(params.name)}&backgroundColor=0284c7,f59e0b,10b981`,
+      phone: params.phone,
+      locality: params.locality,
+      address: params.address || '',
+      sellerId,
+      deliveryAgentId,
+      role: effectiveRole,
+      isSignedIn: true,
+      phoneVerified: true,
+      emailVerified: true,
+      authMethod: 'otp',
+    };
+
+    setUser(updatedUser);
+    setRoleState(effectiveRole);
+    localStorage.setItem('kurali_auth_session', JSON.stringify(updatedUser));
+
+    return {
+      success: true,
+      message: isRoot
+        ? `Root Master Administrator registered and verified via OTP!`
+        : `Registration and dual OTP verification successful! Welcome ${params.name}.`,
+      role: effectiveRole,
+    };
   };
 
   // Google / Gmail Authentication
@@ -298,7 +568,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     locality?: string,
     address?: string
   ) => {
-    const isRoot = email.toLowerCase() === ROOT_ADMIN_EMAIL.toLowerCase();
+    const isRoot = isRootAdminEmail(email);
     const effectiveRole: UserRole = isRoot ? 'admin' : targetRole;
 
     const existingSeller = sellers.find(s => s.email.toLowerCase() === email.toLowerCase());
@@ -315,22 +585,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deliveryAgentId: existingAgent?.id,
       role: effectiveRole,
       isSignedIn: true,
+      phoneVerified: true,
+      emailVerified: true,
+      authMethod: 'google',
     };
 
     setUser(updatedUser);
     setRoleState(effectiveRole);
+    localStorage.setItem('kurali_auth_session', JSON.stringify(updatedUser));
 
     showToast(
       isRoot
         ? `Root Administrator Verified! Welcome ${name}.`
-        : `Signed in successfully via Gmail (${effectiveRole.toUpperCase()})`,
+        : `Signed in successfully (${effectiveRole.toUpperCase()})`,
       'success'
     );
   };
 
   // Register Buyer
   const registerBuyer = (data: { name: string; email: string; phone: string; locality: string; address: string }) => {
-    const isRoot = data.email.toLowerCase() === ROOT_ADMIN_EMAIL.toLowerCase();
+    const isRoot = isRootAdminEmail(data.email);
     const updatedUser: UserProfile = {
       email: data.email,
       name: data.name,
@@ -340,24 +614,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       address: data.address,
       role: isRoot ? 'admin' : 'buyer',
       isSignedIn: true,
+      phoneVerified: true,
+      emailVerified: true,
+      authMethod: 'otp',
     };
     setUser(updatedUser);
     setRoleState(isRoot ? 'admin' : 'buyer');
+    localStorage.setItem('kurali_auth_session', JSON.stringify(updatedUser));
     showToast(`Buyer registration complete! Welcome to KuraliUpdates Bazaar, ${data.name}.`, 'success');
   };
 
   const logout = () => {
+    localStorage.removeItem('kurali_auth_session');
+    localStorage.removeItem('kurali_user');
     setUser({
       email: '',
-      name: 'Guest Shopper',
-      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+      name: '',
+      avatarUrl: '',
       phone: '',
-      locality: 'Main Bazaar, Kurali',
+      locality: 'Main Bazaar & Clock Tower',
       role: 'buyer',
       isSignedIn: false,
+      phoneVerified: false,
+      emailVerified: false,
     });
     setRoleState('buyer');
-    showToast('Signed out successfully.', 'info');
+    showToast('Signed out. Please sign in or register to continue.', 'info');
   };
 
   // Current Seller
@@ -371,7 +653,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 
   // Seller Actions
-  const registerSeller = (
+  const registerSeller = async (
     data: Omit<Seller, 'id' | 'status' | 'rating' | 'reviewCount' | 'registeredAt'>
   ) => {
     const newId = `seller-${Date.now()}`;
@@ -388,6 +670,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser(prev => ({ ...prev, sellerId: newId, role: 'seller', isSignedIn: true, email: data.email, name: data.ownerName }));
     setRoleState('seller');
     showToast('Store registered successfully! Submitted for Admin verification.', 'success');
+
+    // Async sync to Oracle DB via Render backend
+    bazaarApi.registerSeller(newSeller).then(res => {
+      if (res && res.sellerId) {
+        console.log('Seller successfully recorded in Oracle DB:', res.sellerId);
+      }
+    });
   };
 
   const approveSeller = (sellerId: string) => {
@@ -395,6 +684,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map(s => (s.id === sellerId ? { ...s, status: 'approved', approvedAt: new Date().toISOString() } : s))
     );
     showToast('Seller store approved! Now live for Kurali buyers.', 'success');
+    bazaarApi.approveSeller(sellerId);
   };
 
   const rejectSeller = (sellerId: string) => {
@@ -402,6 +692,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map(s => (s.id === sellerId ? { ...s, status: 'rejected' } : s))
     );
     showToast('Seller store rejected.', 'info');
+    bazaarApi.rejectSeller(sellerId);
   };
 
   const updateSeller = (sellerId: string, updates: Partial<Seller>) => {
@@ -424,6 +715,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setProducts(prev => [newProduct, ...prev]);
     showToast(`"${productData.title}" added to your store inventory.`, 'success');
+
+    // Async sync to Oracle DB via Render backend
+    bazaarApi.addProduct(productData.sellerId, newProduct).then(res => {
+      if (res && res.productId) {
+        console.log('Product created in Oracle DB:', res.productId);
+      }
+    });
   };
 
   const updateProduct = (productId: string, updates: Partial<Product>) => {
@@ -571,10 +869,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     let couponDiscount = 0;
     if (appliedCoupon) {
-      if (appliedCoupon.flatDiscount) {
-        couponDiscount = appliedCoupon.flatDiscount;
-      } else if (appliedCoupon.discountPercentage) {
-        couponDiscount = Math.round((itemSubtotal * appliedCoupon.discountPercentage) / 100);
+      if (appliedCoupon.discountType === 'flat' || appliedCoupon.flatDiscount) {
+        couponDiscount = appliedCoupon.flatDiscount || appliedCoupon.discountValue || 0;
+      } else if (appliedCoupon.discountType === 'percentage' || appliedCoupon.discountPercentage) {
+        const pct = appliedCoupon.discountPercentage || appliedCoupon.discountValue || 0;
+        couponDiscount = Math.round((itemSubtotal * pct) / 100);
         if (appliedCoupon.maxDiscount) {
           couponDiscount = Math.min(couponDiscount, appliedCoupon.maxDiscount);
         }
@@ -585,25 +884,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const deliveryFee = cart.length === 0 || isFreeDelivery ? 0 : baseDeliveryFee;
     const freeDeliveryThresholdRemaining = Math.max(0, highestDeliveryThreshold - itemSubtotal);
     const finalTotal = Math.max(0, itemSubtotal - totalBillDiscount - couponDiscount + deliveryFee);
+    const activeSeller = Object.values(sellerSpend)[0]?.seller;
 
     return {
       itemSubtotal,
+      subtotal: itemSubtotal,
       couponDiscount,
       billDiscounts: activeBillDiscounts,
       totalBillDiscount,
+      billDiscount: totalBillDiscount,
       deliveryFee,
       isFreeDelivery,
       freeDeliveryThresholdRemaining,
+      amountNeededForFreeDelivery: freeDeliveryThresholdRemaining,
+      freeDeliveryThreshold: highestDeliveryThreshold,
+      activeSeller,
       finalTotal,
     };
   }, [cart, sellers, appliedCoupon]);
 
   // Order Actions
   const createOrder = (orderData: {
+    buyerName?: string;
+    buyerPhone?: string;
     deliveryAddress: string;
-    deliveryPhone: string;
+    deliveryLocality?: string;
+    deliveryPhone?: string;
     customerNotes?: string;
-    paymentMethod: 'COD' | 'UPI' | 'StorePay';
+    paymentMethod: 'COD' | 'UPI' | 'StorePay' | 'Card' | 'NetBanking';
   }): Order => {
     const randomOtp = Math.floor(1000 + Math.random() * 9000).toString();
     const newOrderId = `ORD-KUR-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -615,11 +923,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newOrder: Order = {
       id: newOrderId,
-      buyerName: user.name || 'Local Shopper',
+      buyerName: orderData.buyerName || user.name || 'Local Shopper',
       buyerEmail: user.email || 'shopper@kuraliupdates.com',
-      buyerPhone: orderData.deliveryPhone,
+      buyerPhone: orderData.deliveryPhone || orderData.buyerPhone || '9876543210',
       deliveryAddress: orderData.deliveryAddress,
-      deliveryLocality: user.locality || 'Main Bazaar',
+      deliveryLocality: orderData.deliveryLocality || user.locality || 'Main Bazaar',
       sellerId: primarySellerId,
       sellerName: primarySellerName,
       sellerLocality: primarySellerLocality,
@@ -656,6 +964,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     clearCart();
     setTrackingOrderId(newOrderId);
     showToast(`Order #${newOrderId} placed successfully! 4-digit OTP: ${randomOtp}`, 'success');
+
+    // Async sync to Oracle DB via Render backend
+    bazaarApi.placeOrder(newOrder).then(res => {
+      if (res) console.log('Order sent to Oracle DB:', res);
+    });
+
     return newOrder;
   };
 
@@ -704,6 +1018,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
     showToast('Delivery order accepted! Navigate to store for pickup.', 'success');
+    bazaarApi.claimDeliveryJob(orderId, agentId);
   };
 
   const completeDelivery = (orderId: string, otp: string): { success: boolean; message: string } => {
@@ -748,6 +1063,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     }
 
+    bazaarApi.verifyDeliveryOtp(orderId, otp);
+
     return {
       success: true,
       message: `Order successfully delivered! Payout of ₹${deliveryFeePayout} credited to delivery wallet.`,
@@ -772,6 +1089,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser(prev => ({ ...prev, deliveryAgentId: newId, role: 'delivery', isSignedIn: true, email: data.email, name: data.name }));
     setRoleState('delivery');
     showToast('Delivery Partner registered successfully! Welcome to Kurali Express fleet.', 'success');
+    bazaarApi.registerDeliveryAgent(newAgent);
   };
 
   // Negotiation & Bargaining Chat
@@ -918,6 +1236,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         role,
         setRole,
         user,
+        loginWithOtp,
+        registerUserWithOtp,
         loginWithGoogle,
         logout,
         registerBuyer,
@@ -975,6 +1295,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsGmailAuthOpen,
         toast,
         showToast,
+        backendUrl,
+        setBackendUrl,
+        backendStatus,
+        syncWithBackend,
       }}
     >
       {children}

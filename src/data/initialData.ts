@@ -1,6 +1,16 @@
 import { Seller, Product, Coupon, DeliveryAgent, Order, NegotiationChat } from '../types';
 
 export const ROOT_ADMIN_EMAIL = 'sg7508359237@gmail.com';
+export const ADMIN_EMAILS = [
+  'sg7508359237@gmail.com',
+  'shubham.gupta180296@gmail.com',
+  'admin@kuraliupdates.com',
+];
+
+export const isRootAdminEmail = (email?: string): boolean => {
+  if (!email) return false;
+  return ADMIN_EMAILS.some(e => e.toLowerCase() === email.trim().toLowerCase());
+};
 
 export const KURALI_LOCALITIES = [
   'All Localities (Kurali City)',

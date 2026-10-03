@@ -13,7 +13,8 @@ import { DeliveryDashboard } from './components/Delivery/DeliveryDashboard';
 import { DeliveryRegistrationModal } from './components/Delivery/DeliveryRegistrationModal';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
 import { GmailAuthModal } from './components/Auth/GmailAuthModal';
-import { ROOT_ADMIN_EMAIL } from './data/initialData';
+import { AuthPage } from './components/Auth/AuthPage';
+import { ROOT_ADMIN_EMAIL, isRootAdminEmail } from './data/initialData';
 import {
   Store,
   MapPin,
@@ -48,7 +49,7 @@ const MainLayout: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
-  const isRootAdmin = user.email.toLowerCase() === ROOT_ADMIN_EMAIL.toLowerCase();
+  const isRootAdmin = isRootAdminEmail(user.email);
 
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 flex flex-col text-slate-900 font-sans">
@@ -232,10 +233,20 @@ const MainLayout: React.FC = () => {
   );
 };
 
+const RootNavigation: React.FC = () => {
+  const { user } = useApp();
+
+  if (!user.isSignedIn) {
+    return <AuthPage />;
+  }
+
+  return <MainLayout />;
+};
+
 export default function App() {
   return (
     <AppProvider>
-      <MainLayout />
+      <RootNavigation />
     </AppProvider>
   );
 }

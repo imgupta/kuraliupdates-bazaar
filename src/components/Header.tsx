@@ -14,10 +14,12 @@ import {
   Truck,
   Percent,
   User,
+  Database,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { KURALI_LOCALITIES, ROOT_ADMIN_EMAIL } from '../data/initialData';
+import { KURALI_LOCALITIES, ROOT_ADMIN_EMAIL, isRootAdminEmail } from '../data/initialData';
 import { UserRole } from '../types';
+import { BackendStatusModal } from './BackendStatusModal';
 
 interface HeaderProps {
   searchQuery: string;
@@ -48,10 +50,12 @@ export const Header: React.FC<HeaderProps> = ({
     setIsGmailAuthOpen,
     selectedCityLocality,
     setSelectedCityLocality,
+    backendStatus,
   } = useApp();
 
   const [isLocalityDropdownOpen, setIsLocalityDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [isBackendModalOpen, setIsBackendModalOpen] = useState(false);
 
   const cartItemCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
@@ -64,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({
   // Active chats count
   const activeChatsCount = chats.length;
 
-  const isRootAdmin = user.email.toLowerCase() === ROOT_ADMIN_EMAIL.toLowerCase();
+  const isRootAdmin = isRootAdminEmail(user.email);
 
   const baseRoleConfigs: {
     id: UserRole;
@@ -256,6 +260,27 @@ export const Header: React.FC<HeaderProps> = ({
                 );
               })}
             </div>
+
+            {/* Oracle Autonomous DB & Render Live Badge Button */}
+            <button
+              onClick={() => setIsBackendModalOpen(true)}
+              title={`Oracle DB & Render: ${backendStatus.isOnline ? 'Online' : 'Connecting / Standalone'}`}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                backendStatus.isOnline
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100 shadow-xs'
+                  : 'bg-amber-50/80 border-amber-300 text-amber-900 hover:bg-amber-100'
+              }`}
+            >
+              <Database className="w-3.5 h-3.5 text-red-600 shrink-0" />
+              <span className="hidden xl:inline text-[11px]">
+                {backendStatus.isOnline ? 'Oracle DB Live' : 'Oracle DB'}
+              </span>
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  backendStatus.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-ping'
+                }`}
+              />
+            </button>
 
             {/* Bargain Negotiation Chat Trigger */}
             <button
@@ -459,6 +484,12 @@ export const Header: React.FC<HeaderProps> = ({
           })}
         </div>
       </div>
+
+      {/* Backend & Oracle DB Connection Modal */}
+      <BackendStatusModal
+        isOpen={isBackendModalOpen}
+        onClose={() => setIsBackendModalOpen(false)}
+      />
     </header>
   );
 };

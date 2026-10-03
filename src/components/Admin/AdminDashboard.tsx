@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MarketTrendsVisualization } from './MarketTrendsVisualization';
-import { ROOT_ADMIN_EMAIL } from '../../data/initialData';
+import { ROOT_ADMIN_EMAIL, isRootAdminEmail } from '../../data/initialData';
 
 export const AdminDashboard: React.FC = () => {
   const {
@@ -37,7 +37,7 @@ export const AdminDashboard: React.FC = () => {
 
   const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet'>('trends');
 
-  const isRootAdmin = user.email.toLowerCase() === ROOT_ADMIN_EMAIL.toLowerCase();
+  const isRootAdmin = isRootAdminEmail(user.email);
 
   if (!isRootAdmin) {
     return (
