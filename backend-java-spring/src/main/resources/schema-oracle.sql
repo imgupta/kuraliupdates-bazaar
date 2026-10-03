@@ -257,8 +257,8 @@ CREATE INDEX IDX_MSG_CHAT ON CHAT_MESSAGES(CHAT_ID);
 -- ----------------------------------------------------------------------------
 CREATE TABLE USERS (
     USER_ID                    VARCHAR2(64) PRIMARY KEY,
-    EMAIL                      VARCHAR2(255) NOT NULL UNIQUE,
-    PHONE                      VARCHAR2(30) NOT NULL UNIQUE,
+    EMAIL                      VARCHAR2(255) UNIQUE,
+    PHONE                      VARCHAR2(30) UNIQUE,
     NAME                       VARCHAR2(150) NOT NULL,
     ROLE                       VARCHAR2(30) DEFAULT 'BUYER' CHECK (ROLE IN ('BUYER', 'SELLER', 'DELIVERY', 'ADMIN')),
     LOCALITY                   VARCHAR2(150),
@@ -267,7 +267,8 @@ CREATE TABLE USERS (
     IS_ADMIN                   NUMBER(1) DEFAULT 0 CHECK (IS_ADMIN IN (0, 1)),
     AVATAR_URL                 VARCHAR2(500),
     CREATED_AT                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    LAST_LOGIN                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    LAST_LOGIN                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT CHK_USER_CONTACT CHECK (EMAIL IS NOT NULL OR PHONE IS NOT NULL)
 );
 
 CREATE INDEX IDX_USERS_EMAIL ON USERS(EMAIL);

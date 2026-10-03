@@ -17,10 +17,10 @@ public class UserEntity {
     @Column(name = "USER_ID", length = 64)
     private String userId;
 
-    @Column(name = "EMAIL", nullable = false, unique = true)
+    @Column(name = "EMAIL", unique = true)
     private String email;
 
-    @Column(name = "PHONE", nullable = false, unique = true, length = 30)
+    @Column(name = "PHONE", unique = true, length = 30)
     private String phone;
 
     @Column(name = "NAME", nullable = false, length = 150)

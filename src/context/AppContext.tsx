@@ -26,10 +26,10 @@ import {
 } from '../data/initialData';
 
 export interface UserProfile {
-  email: string;
+  email?: string;
   name: string;
   avatarUrl: string;
-  phone: string;
+  phone?: string;
   locality: string;
   address?: string;
   sellerId?: string;
@@ -47,8 +47,9 @@ interface AppContextType {
   setRole: (role: UserRole) => void;
   user: UserProfile;
   loginWithOtp: (params: {
-    email: string;
-    phone: string;
+    identifier?: string;
+    email?: string;
+    phone?: string;
     name?: string;
     targetRole?: UserRole;
     locality?: string;
@@ -57,8 +58,9 @@ interface AppContextType {
   }) => { success: boolean; message: string; role: UserRole };
   registerUserWithOtp: (params: {
     name: string;
-    email: string;
-    phone: string;
+    identifier?: string;
+    email?: string;
+    phone?: string;
     locality: string;
     role: UserRole;
     address?: string;
@@ -203,7 +205,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (session) {
       try {
         const parsed = JSON.parse(session);
-        if (parsed.isSignedIn && parsed.email && parsed.phone) {
+        if (parsed.isSignedIn && (parsed.email || parsed.phone)) {
           return parsed;
         }
       } catch (e) {
@@ -434,24 +436,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRoleState(targetRole);
   };
 
-  // OTP-Based Authentication (Email & Phone Verified)
+  // OTP-Based Authentication (Email OR Phone Verified)
   const loginWithOtp = (params: {
-    email: string;
-    phone: string;
+    identifier?: string;
+    email?: string;
+    phone?: string;
     name?: string;
     targetRole?: UserRole;
     locality?: string;
     address?: string;
     token?: string;
   }) => {
-    const trimmedEmail = params.email.trim().toLowerCase();
+    const rawId = (params.identifier || params.email || params.phone || '').trim();
+    const isEmail = rawId.includes('@');
+    const trimmedEmail = isEmail ? rawId.toLowerCase() : (params.email?.trim().toLowerCase() || '');
+    const cleanPhone = !isEmail ? rawId : (params.phone?.trim() || '');
     const isRoot = isRootAdminEmail(trimmedEmail);
 
     const existingSeller = sellers.find(
-      s => s.email.toLowerCase() === trimmedEmail || s.phone.replace(/\D/g, '') === params.phone.replace(/\D/g, '')
+      s => (trimmedEmail && s.email.toLowerCase() === trimmedEmail) ||
+           (cleanPhone && s.phone.replace(/\D/g, '') === cleanPhone.replace(/\D/g, ''))
     );
     const existingAgent = deliveryAgents.find(
-      a => (a.email || '').toLowerCase() === trimmedEmail || a.phone.replace(/\D/g, '') === params.phone.replace(/\D/g, '')
+      a => (trimmedEmail && (a.email || '').toLowerCase() === trimmedEmail) ||
+           (cleanPhone && a.phone.replace(/\D/g, '') === cleanPhone.replace(/\D/g, ''))
     );
 
     let effectiveRole: UserRole = isRoot
@@ -462,21 +470,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ? 'delivery'
       : params.targetRole || 'buyer';
 
-    const displayName = params.name || existingSeller?.ownerName || existingAgent?.name || trimmedEmail.split('@')[0];
+    const displayName = params.name || existingSeller?.ownerName || existingAgent?.name || (isEmail ? trimmedEmail.split('@')[0] : 'Kurali User');
 
     const updatedUser: UserProfile = {
-      email: trimmedEmail,
+      email: trimmedEmail || undefined,
       name: displayName,
       avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}&backgroundColor=0284c7,f59e0b,10b981`,
-      phone: params.phone,
+      phone: cleanPhone || undefined,
       locality: params.locality || existingSeller?.locality || existingAgent?.currentLocality || 'Main Bazaar & Clock Tower',
       address: params.address || existingSeller?.address || '',
       sellerId: existingSeller?.id,
       deliveryAgentId: existingAgent?.id,
       role: effectiveRole,
       isSignedIn: true,
-      phoneVerified: true,
-      emailVerified: true,
+      phoneVerified: !isEmail || Boolean(cleanPhone),
+      emailVerified: isEmail,
       authMethod: 'otp',
     };
 
@@ -499,14 +507,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Register Citizen / Merchant / Rider with OTP Verification
   const registerUserWithOtp = (params: {
     name: string;
-    email: string;
-    phone: string;
+    identifier?: string;
+    email?: string;
+    phone?: string;
     locality: string;
     role: UserRole;
     address?: string;
     token?: string;
   }) => {
-    const trimmedEmail = params.email.trim().toLowerCase();
+    const rawId = (params.identifier || params.email || params.phone || '').trim();
+    const isEmail = rawId.includes('@');
+    const trimmedEmail = isEmail ? rawId.toLowerCase() : (params.email?.trim().toLowerCase() || '');
+    const cleanPhone = !isEmail ? rawId : (params.phone?.trim() || '');
     const isRoot = isRootAdminEmail(trimmedEmail);
     const effectiveRole: UserRole = isRoot ? 'admin' : params.role;
 
@@ -520,8 +532,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         id: newSellerId,
         name: `${params.name}'s Shop`,
         ownerName: params.name,
-        email: trimmedEmail,
-        phone: params.phone,
+        email: trimmedEmail || `store-${Date.now()}@kuraliupdates.com`,
+        phone: cleanPhone || '+91 98000 00000',
         category: 'Groceries & Daily Essentials',
         locality: params.locality,
         address: params.address || `${params.locality}, Kurali`,
@@ -545,8 +557,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const newAgent: DeliveryAgent = {
         id: newAgentId,
         name: params.name,
-        email: trimmedEmail,
-        phone: params.phone,
+        email: trimmedEmail || `rider-${Date.now()}@kuraliupdates.com`,
+        phone: cleanPhone || '+91 98000 00000',
         avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(params.name)}&backgroundColor=0284c7,f59e0b,10b981`,
         vehicleType: 'Bike',
         vehicleNumber: 'PB 65 TR 1001',
@@ -564,18 +576,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const updatedUser: UserProfile = {
-      email: trimmedEmail,
+      email: trimmedEmail || undefined,
       name: params.name,
       avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(params.name)}&backgroundColor=0284c7,f59e0b,10b981`,
-      phone: params.phone,
+      phone: cleanPhone || undefined,
       locality: params.locality,
       address: params.address || '',
       sellerId,
       deliveryAgentId,
       role: effectiveRole,
       isSignedIn: true,
-      phoneVerified: true,
-      emailVerified: true,
+      phoneVerified: !isEmail || Boolean(cleanPhone),
+      emailVerified: isEmail,
       authMethod: 'otp',
     };
 
@@ -590,7 +602,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       success: true,
       message: isRoot
         ? `Root Master Administrator registered and verified via OTP!`
-        : `Registration and dual OTP verification successful! Welcome ${params.name}.`,
+        : `Registration and OTP verification successful! Welcome ${params.name}.`,
       role: effectiveRole,
     };
   };
@@ -685,12 +697,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Current Seller
   const currentSeller = sellers.find(
-    s => s.id === user.sellerId || s.email.toLowerCase() === user.email.toLowerCase()
+    s => s.id === user.sellerId || (user.email && s.email.toLowerCase() === user.email.toLowerCase()) || (user.phone && s.phone === user.phone)
   );
 
   // Current Agent
   const currentAgent = deliveryAgents.find(
-    a => a.id === user.deliveryAgentId || (a.email && a.email.toLowerCase() === user.email.toLowerCase())
+    a => a.id === user.deliveryAgentId || (user.email && a.email && a.email.toLowerCase() === user.email.toLowerCase()) || (user.phone && a.phone === user.phone)
   );
 
   // Seller Actions
@@ -1152,7 +1164,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       sellerId: product.sellerId,
       sellerName: product.sellerName,
       buyerName: user.name || 'Local Kurali Buyer',
-      buyerEmail: user.email,
+      buyerEmail: user.email || (user.phone ? `${user.phone}@kuraliupdates.com` : 'shopper@kuraliupdates.com'),
       lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       messages: [
         {

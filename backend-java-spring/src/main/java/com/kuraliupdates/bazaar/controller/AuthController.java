@@ -33,29 +33,38 @@ public class AuthController {
     );
 
     public record SendOtpRequest(String identifier, String type, String role) {}
+
     public record VerifyOtpRequest(
-            String email,
-            String phone,
-            String emailOtp,
-            String phoneOtp,
-            String name,
-            String role,
+            String identifier, // Email OR Mobile number (either is valid)
+            String otp,        // 6-digit code
+            String type,       // EMAIL or PHONE (optional)
+            String name,       // Full Name for registration
+            String role,       // BUYER, SELLER, DELIVERY, ADMIN
             String locality,
-            String address
+            String address,
+            String email,      // Backward compatibility
+            String phone,      // Backward compatibility
+            String emailOtp,   // Backward compatibility
+            String phoneOtp    // Backward compatibility
     ) {}
 
     /**
-     * Generate & dispatch 6-digit live OTP for Email or Mobile Number
+     * Dispatch 6-digit live OTP for either Email OR Mobile Phone
      */
     @PostMapping("/send-otp")
     @Transactional
     public ResponseEntity<Map<String, Object>> sendOtp(@RequestBody SendOtpRequest req) {
         if (req.identifier() == null || req.identifier().trim().isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Identifier is required"));
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Please enter either your Email address or Mobile phone number"
+            ));
         }
 
-        String identifier = req.identifier().trim();
-        String type = (req.type() != null) ? req.type().toUpperCase() : "EMAIL";
+        String raw = req.identifier().trim();
+        boolean isEmail = raw.contains("@");
+        String identifier = isEmail ? raw.toLowerCase() : raw.replaceAll("[^0-9+]", "");
+        String type = (req.type() != null) ? req.type().toUpperCase() : (isEmail ? "EMAIL" : "PHONE");
 
         // Generate cryptographic 6-digit OTP
         SecureRandom random = new SecureRandom();
@@ -73,72 +82,90 @@ public class AuthController {
                 .build();
 
         authOtpRepository.save(otpEntity);
-        log.info("[KuraliUpdates Live Auth] Sent {} OTP: {} for {}", type, otpCode, identifier);
+        log.info("[Live Auth] Generated {} OTP {} for {}", type, otpCode, identifier);
 
         Map<String, Object> resp = new HashMap<>();
         resp.put("success", true);
-        resp.put("message", "6-digit OTP sent successfully to " + identifier);
+        resp.put("message", "6-digit OTP code sent successfully to " + identifier);
         resp.put("identifier", identifier);
         resp.put("type", type);
-        resp.put("otpPreview", otpCode); // Transmitted for immediate testing & SMS simulation
+        resp.put("otpPreview", otpCode); // Available for live preview / testing
         resp.put("expiresInSeconds", 600);
 
         return ResponseEntity.ok(resp);
     }
 
     /**
-     * Verify Dual OTP (Email + Mobile) and establish live authenticated user session
+     * Verify single OTP (from either Email OR Mobile Phone) and establish authenticated session
      */
     @PostMapping("/verify-otp")
     @Transactional
     public ResponseEntity<Map<String, Object>> verifyOtp(@RequestBody VerifyOtpRequest req) {
-        if (req.email() == null || req.phone() == null) {
+        // Resolve target identifier (email or phone)
+        String rawIdentifier = req.identifier();
+        if (rawIdentifier == null || rawIdentifier.trim().isEmpty()) {
+            if (req.email() != null && !req.email().trim().isEmpty()) {
+                rawIdentifier = req.email().trim();
+            } else if (req.phone() != null && !req.phone().trim().isEmpty()) {
+                rawIdentifier = req.phone().trim();
+            }
+        }
+
+        if (rawIdentifier == null || rawIdentifier.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
-                    "message", "Both Email and Mobile Phone are required for login"
+                    "message", "Please provide either an Email address or Mobile phone number"
             ));
         }
 
-        String email = req.email().trim().toLowerCase();
-        String phone = req.phone().trim();
-        String emailOtp = req.emailOtp() != null ? req.emailOtp().trim() : "";
-        String phoneOtp = req.phoneOtp() != null ? req.phoneOtp().trim() : "";
+        boolean isEmail = rawIdentifier.contains("@");
+        String identifier = isEmail ? rawIdentifier.trim().toLowerCase() : rawIdentifier.trim().replaceAll("[^0-9+]", "");
+        String type = (req.type() != null) ? req.type().toUpperCase() : (isEmail ? "EMAIL" : "PHONE");
 
-        // Verify Email OTP against DB (or allow standard preview code)
-        boolean emailVerified = false;
-        Optional<AuthOtpEntity> validEmailOtp = authOtpRepository.findValidOtp(email, "EMAIL", LocalDateTime.now());
-        if (validEmailOtp.isPresent() && validEmailOtp.get().getOtpCode().equals(emailOtp)) {
-            emailVerified = true;
-            validEmailOtp.get().setIsUsed(1);
-            authOtpRepository.save(validEmailOtp.get());
-        } else if (emailOtp.equals("583192") || emailOtp.equals("123456")) {
-            emailVerified = true;
+        // Resolve submitted OTP
+        String enteredOtp = req.otp();
+        if (enteredOtp == null || enteredOtp.trim().isEmpty()) {
+            enteredOtp = isEmail ? req.emailOtp() : req.phoneOtp();
+        }
+        if (enteredOtp == null || enteredOtp.trim().isEmpty()) {
+            enteredOtp = req.emailOtp() != null ? req.emailOtp() : req.phoneOtp();
         }
 
-        // Verify Phone OTP against DB (or allow standard preview code)
-        boolean phoneVerified = false;
-        Optional<AuthOtpEntity> validPhoneOtp = authOtpRepository.findValidOtp(phone, "PHONE", LocalDateTime.now());
-        if (validPhoneOtp.isPresent() && validPhoneOtp.get().getOtpCode().equals(phoneOtp)) {
-            phoneVerified = true;
-            validPhoneOtp.get().setIsUsed(1);
-            authOtpRepository.save(validPhoneOtp.get());
-        } else if (phoneOtp.equals("583192") || phoneOtp.equals("123456")) {
-            phoneVerified = true;
+        if (enteredOtp == null || enteredOtp.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Please enter the 6-digit OTP code"
+            ));
+        }
+        enteredOtp = enteredOtp.trim();
+
+        // Verify against database or development passcodes
+        boolean isOtpValid = false;
+        Optional<AuthOtpEntity> validOtp = authOtpRepository.findValidOtp(identifier, type, LocalDateTime.now());
+        if (validOtp.isPresent() && validOtp.get().getOtpCode().equals(enteredOtp)) {
+            isOtpValid = true;
+            validOtp.get().setIsUsed(1);
+            authOtpRepository.save(validOtp.get());
+        } else if (enteredOtp.equals("123456") || enteredOtp.equals("583192")) {
+            isOtpValid = true;
         }
 
-        if (!emailVerified || !phoneVerified) {
+        if (!isOtpValid) {
             return ResponseEntity.status(401).body(Map.of(
                     "success", false,
-                    "message", "Invalid or expired OTP. Please verify the 6-digit codes sent to your email and phone."
+                    "message", "Invalid or expired OTP code. Please check your " + (isEmail ? "Email" : "Phone") + " or request a new code."
             ));
         }
 
-        // Check if user exists or register new user
-        Optional<UserEntity> existingUser = userRepository.findByEmail(email);
+        // Authorisation: Check if user is Root Administrator
+        boolean isRootAdmin = isEmail && ROOT_ADMIN_EMAILS.contains(identifier);
+
+        // Find existing user by email or phone
+        Optional<UserEntity> existingUser = isEmail
+                ? userRepository.findByEmail(identifier)
+                : userRepository.findByPhone(identifier);
+
         UserEntity user;
-
-        boolean isRootAdmin = ROOT_ADMIN_EMAILS.contains(email);
-
         if (existingUser.isPresent()) {
             user = existingUser.get();
             user.setLastLogin(LocalDateTime.now());
@@ -151,22 +178,23 @@ public class AuthController {
             }
             userRepository.save(user);
         } else {
+            // Register new verified user
             String designatedRole = isRootAdmin ? "ADMIN" : (req.role() != null ? req.role().toUpperCase() : "BUYER");
             String displayName = req.name() != null && !req.name().trim().isEmpty()
                     ? req.name().trim()
-                    : (isRootAdmin ? "Shubham Gupta (Admin)" : "Kurali Shopper");
+                    : (isRootAdmin ? "Administrator" : (isEmail ? identifier.split("@")[0] : "Kurali User"));
 
             user = UserEntity.builder()
                     .userId("user-" + UUID.randomUUID().toString().substring(0, 8))
-                    .email(email)
-                    .phone(phone)
+                    .email(isEmail ? identifier : (req.email() != null ? req.email().trim().toLowerCase() : null))
+                    .phone(!isEmail ? identifier : (req.phone() != null ? req.phone().trim() : null))
                     .name(displayName)
                     .role(designatedRole)
-                    .locality(req.locality() != null ? req.locality() : "Main Bazaar, Kurali")
-                    .address(req.address() != null ? req.address() : "Kurali City, Punjab")
+                    .locality(req.locality() != null ? req.locality() : "Main Bazaar & Clock Tower")
+                    .address(req.address() != null ? req.address() : "Kurali, Punjab")
                     .isVerified(1)
                     .isAdmin(isRootAdmin ? 1 : 0)
-                    .avatarUrl("https://api.dicebear.com/7.x/initials/svg?seed=" + email)
+                    .avatarUrl("https://api.dicebear.com/7.x/initials/svg?seed=" + identifier)
                     .createdAt(LocalDateTime.now())
                     .lastLogin(LocalDateTime.now())
                     .build();
@@ -174,7 +202,7 @@ public class AuthController {
             userRepository.save(user);
         }
 
-        // Create live session token
+        // Create persistent session token
         String sessionToken = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
         UserSessionEntity session = UserSessionEntity.builder()
                 .sessionToken(sessionToken)
@@ -188,13 +216,13 @@ public class AuthController {
         resp.put("success", true);
         resp.put("token", sessionToken);
         resp.put("user", user);
-        resp.put("message", "Welcome to KuraliUpdates Bazaar, " + user.getName() + "!");
+        resp.put("message", "Welcome, " + user.getName() + "!");
 
         return ResponseEntity.ok(resp);
     }
 
     /**
-     * Get current user profile from active session token
+     * Session validation & user profile retrieval
      */
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> getCurrentUser(
@@ -209,7 +237,7 @@ public class AuthController {
         }
 
         if (token == null) {
-            return ResponseEntity.status(401).body(Map.of("authenticated", false, "message", "No token provided"));
+            return ResponseEntity.status(401).body(Map.of("authenticated", false, "message", "No active token"));
         }
 
         Optional<UserSessionEntity> sessionOpt = userSessionRepository.findBySessionToken(token);

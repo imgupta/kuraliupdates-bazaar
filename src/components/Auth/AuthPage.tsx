@@ -8,7 +8,6 @@ import {
   Phone,
   User,
   MapPin,
-  Lock,
   ArrowRight,
   CheckCircle2,
   AlertCircle,
@@ -16,11 +15,9 @@ import {
   RefreshCw,
   KeyRound,
   Truck,
-  Check,
-  Zap,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { KURALI_LOCALITIES, ADMIN_EMAILS, isRootAdminEmail } from '../../data/initialData';
+import { KURALI_LOCALITIES, isRootAdminEmail } from '../../data/initialData';
 import { UserRole } from '../../types';
 import { bazaarApi } from '../../services/api';
 
@@ -28,6 +25,7 @@ export const AuthPage: React.FC = () => {
   const { loginWithOtp, registerUserWithOtp, showToast } = useApp();
 
   const [authMode, setAuthMode] = useState<'signin' | 'register'>('signin');
+  const [contactMethod, setContactMethod] = useState<'email' | 'phone'>('email');
   const [step, setStep] = useState<'form' | 'otp'>('form');
 
   // Form fields
@@ -37,6 +35,9 @@ export const AuthPage: React.FC = () => {
   const [locality, setLocality] = useState(KURALI_LOCALITIES[1] || 'Main Bazaar & Clock Tower');
   const [selectedRole, setSelectedRole] = useState<UserRole>('buyer');
   const [address, setAddress] = useState('');
+
+  // Active identifier for OTP verification
+  const [activeIdentifier, setActiveIdentifier] = useState<string>('');
 
   // OTP state
   const [otpValues, setOtpValues] = useState<string[]>(['', '', '', '', '', '']);
@@ -59,28 +60,30 @@ export const AuthPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [step, countdown]);
 
-  // Generate and dispatch 6-digit live OTP via Spring Boot + Oracle DB backend
-  const triggerOtpGeneration = async (targetEmail: string, targetPhone: string) => {
+  // Dispatch 6-digit live OTP via Spring Boot + Oracle DB backend
+  const triggerOtpDispatch = async (identifier: string) => {
     setIsLoading(true);
+    setValidationError(null);
     try {
-      const emailRes = await bazaarApi.sendOtp(targetEmail, 'EMAIL', selectedRole);
-      const phoneRes = await bazaarApi.sendOtp(targetPhone, 'PHONE', selectedRole);
-      const code = emailRes.otpPreview || phoneRes.otpPreview || Math.floor(100000 + Math.random() * 900000).toString();
+      const type = contactMethod === 'email' ? 'EMAIL' : 'PHONE';
+      const res = await bazaarApi.sendOtp(identifier, type, selectedRole);
 
+      const code = res.otpPreview || Math.floor(100000 + Math.random() * 900000).toString();
       setGeneratedOtp(code);
+      setActiveIdentifier(identifier);
       setCountdown(60);
       setCanResend(false);
       setOtpValues(['', '', '', '', '', '']);
       setStep('otp');
 
-      showToast(`Live 6-digit OTP dispatched to ${targetEmail} and ${targetPhone}`, 'info');
+      showToast(`6-digit verification code sent to ${identifier}`, 'info');
 
       // Auto-focus first input
       setTimeout(() => {
         otpInputRefs.current[0]?.focus();
       }, 150);
     } catch (err: any) {
-      showToast('Error requesting OTP from auth service', 'error');
+      setValidationError('Failed to dispatch verification code. Please check your connection and retry.');
     } finally {
       setIsLoading(false);
     }
@@ -91,28 +94,34 @@ export const AuthPage: React.FC = () => {
     e.preventDefault();
     setValidationError(null);
 
-    // Validation
-    const trimmedEmail = email.trim().toLowerCase();
-    const cleanPhone = phone.replace(/\D/g, '');
+    let identifier = '';
 
-    if (!trimmedEmail) {
-      setValidationError('Email address is mandatory');
-      return;
+    if (contactMethod === 'email') {
+      const trimmedEmail = email.trim().toLowerCase();
+      if (!trimmedEmail) {
+        setValidationError('Please enter your email address');
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        setValidationError('Please enter a valid email address (e.g. name@domain.com)');
+        return;
+      }
+      identifier = trimmedEmail;
+    } else {
+      const cleanPhone = phone.replace(/\D/g, '');
+      if (!cleanPhone || cleanPhone.length < 10) {
+        setValidationError('Please enter a valid 10-digit mobile number');
+        return;
+      }
+      identifier = cleanPhone;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      setValidationError('Please enter a valid email address');
-      return;
-    }
-    if (!cleanPhone || cleanPhone.length < 10) {
-      setValidationError('Mandatory 10-digit mobile phone number is required');
-      return;
-    }
+
     if (authMode === 'register' && !name.trim()) {
       setValidationError('Full Name is required for registration');
       return;
     }
 
-    await triggerOtpGeneration(trimmedEmail, cleanPhone);
+    await triggerOtpDispatch(identifier);
   };
 
   // Handle OTP Box Input
@@ -151,7 +160,7 @@ export const AuthPage: React.FC = () => {
     otpInputRefs.current[focusIdx]?.focus();
   };
 
-  // Auto-fill OTP simulation
+  // Auto-fill OTP
   const handleAutoFillOtp = () => {
     if (!generatedOtp) return;
     const digits = generatedOtp.split('');
@@ -170,25 +179,25 @@ export const AuthPage: React.FC = () => {
       return;
     }
 
-    if (enteredOtp !== generatedOtp && enteredOtp !== '583192' && enteredOtp !== '123456') {
-      setValidationError('Invalid OTP. Please check the code received or click resend.');
+    if (enteredOtp !== generatedOtp && enteredOtp !== '123456' && enteredOtp !== '583192') {
+      setValidationError('Invalid code. Please enter the 6-digit code received or request a new code.');
       return;
     }
 
     setIsLoading(true);
-    const cleanPhone = phone.replace(/\D/g, '');
-    const trimmedEmail = email.trim().toLowerCase();
 
     try {
-      const verifyRes = await bazaarApi.verifyDualOtp({
-        email: trimmedEmail,
-        phone: cleanPhone,
-        emailOtp: enteredOtp,
-        phoneOtp: enteredOtp,
-        name: name.trim() || trimmedEmail.split('@')[0],
+      const type = contactMethod === 'email' ? 'EMAIL' : 'PHONE';
+      const verifyRes = await bazaarApi.verifyOtp({
+        identifier: activeIdentifier,
+        otp: enteredOtp,
+        type,
+        name: name.trim() || undefined,
         role: selectedRole,
         locality,
-        address: address.trim(),
+        address: address.trim() || undefined,
+        email: contactMethod === 'email' ? activeIdentifier : undefined,
+        phone: contactMethod === 'phone' ? activeIdentifier : undefined,
       });
 
       if (!verifyRes.success) {
@@ -200,8 +209,9 @@ export const AuthPage: React.FC = () => {
       if (authMode === 'register') {
         const res = registerUserWithOtp({
           name: name.trim(),
-          email: trimmedEmail,
-          phone: cleanPhone,
+          identifier: activeIdentifier,
+          email: contactMethod === 'email' ? activeIdentifier : undefined,
+          phone: contactMethod === 'phone' ? activeIdentifier : undefined,
           locality,
           role: selectedRole,
           address: address.trim(),
@@ -210,9 +220,10 @@ export const AuthPage: React.FC = () => {
         showToast(res.message, 'success');
       } else {
         const res = loginWithOtp({
-          email: trimmedEmail,
-          phone: cleanPhone,
-          name: name.trim() || trimmedEmail.split('@')[0],
+          identifier: activeIdentifier,
+          email: contactMethod === 'email' ? activeIdentifier : undefined,
+          phone: contactMethod === 'phone' ? activeIdentifier : undefined,
+          name: name.trim() || undefined,
           targetRole: selectedRole,
           locality,
           token: verifyRes.token,
@@ -226,26 +237,7 @@ export const AuthPage: React.FC = () => {
     }
   };
 
-  // Quick Demo Profiles
-  const fillQuickProfile = (profile: {
-    name: string;
-    email: string;
-    phone: string;
-    role: UserRole;
-    locality: string;
-  }) => {
-    setName(profile.name);
-    setEmail(profile.email);
-    setPhone(profile.phone);
-    setSelectedRole(profile.role);
-    setLocality(profile.locality);
-    setValidationError(null);
-
-    // Instantly simulate OTP flow
-    triggerOtpGeneration(profile.email, profile.phone);
-  };
-
-  const isCurrentEmailRoot = isRootAdminEmail(email);
+  const isCurrentEmailRoot = contactMethod === 'email' && isRootAdminEmail(email);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-amber-950 flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans">
@@ -255,39 +247,35 @@ export const AuthPage: React.FC = () => {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-orange-600/10 rounded-full blur-3xl"></div>
       </div>
 
-      <div className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden grid lg:grid-cols-12 min-h-[640px]">
-        {/* Left Column: Visual Branding & Kurali Community Highlights */}
+      <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden grid lg:grid-cols-12 min-h-[580px]">
+        {/* Left Column: Visual Branding & City Ecosystem */}
         <div className="lg:col-span-5 bg-gradient-to-br from-amber-600 via-orange-600 to-amber-700 text-white p-6 sm:p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden">
-          {/* Subtle watermark pattern */}
           <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
             <Store className="w-80 h-80" />
           </div>
 
           <div>
-            {/* Header Badge */}
             <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold tracking-wide mb-6">
               <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-              <span>Official Kurali City Portal</span>
+              <span>Official Kurali Marketplace</span>
             </div>
 
-            {/* Title */}
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
               Kurali<span className="text-amber-200">Updates</span>
               <br />
               Bazaar &bull; ਕੁਰਾਲੀ
             </h1>
             <p className="mt-3 text-xs sm:text-sm text-amber-100/90 leading-relaxed font-medium">
-              Hyperlocal commerce platform empowering local merchants, fast 25-minute deliveries, and live shop bargaining in Kurali.
+              Hyperlocal commerce platform connecting local Kurali merchants, neighborhood buyers, and 25-minute fast deliveries.
             </p>
 
-            {/* Feature List */}
-            <div className="mt-8 space-y-4 text-xs font-semibold">
+            <div className="mt-8 space-y-3.5 text-xs font-semibold">
               <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
                 <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
                   <Truck className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="font-bold text-white">25-Min Kurali Express</p>
+                  <p className="font-bold text-white">25-Min Express Delivery</p>
                   <p className="text-[11px] text-amber-100/80">From Main Bazaar to Morinda &amp; Siswan Roads</p>
                 </div>
               </div>
@@ -298,7 +286,7 @@ export const AuthPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="font-bold text-white">Verified Local Merchants</p>
-                  <p className="text-[11px] text-amber-100/80">100% Genuine wholesale &amp; retail store prices</p>
+                  <p className="text-[11px] text-amber-100/80">Authentic store prices and fresh daily staples</p>
                 </div>
               </div>
 
@@ -307,17 +295,16 @@ export const AuthPage: React.FC = () => {
                   <ShieldCheck className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="font-bold text-white">Dual Verification Security</p>
-                  <p className="text-[11px] text-amber-100/80">Mandatory Email &amp; Phone OTP Verification</p>
+                  <p className="font-bold text-white">Direct OTP Sign In</p>
+                  <p className="text-[11px] text-amber-100/80">Login via Email OR Mobile Phone Number</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Bottom Domain Branding */}
-          <div className="pt-8 border-t border-white/20 mt-8 flex items-center justify-between text-[11px] text-amber-100/80">
-            <span>kuraliupdates.com &bull; kuraliupdate.com</span>
-            <span className="font-mono">Mohali, Punjab</span>
+          <div className="pt-6 border-t border-white/20 mt-8 flex items-center justify-between text-[11px] text-amber-100/80">
+            <span>kuraliupdates.com</span>
+            <span className="font-mono">Kurali, Punjab</span>
           </div>
         </div>
 
@@ -329,12 +316,12 @@ export const AuthPage: React.FC = () => {
               <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-6">
                 <div>
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                    {authMode === 'signin' ? 'Sign In to Bazaar' : 'Create Citizen Account'}
+                    {authMode === 'signin' ? 'Sign In to Bazaar' : 'Create Account'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {authMode === 'signin'
-                      ? 'Enter your mandatory email and mobile phone number for OTP verification.'
-                      : 'Register your details to order, sell, or deliver in Kurali City.'}
+                      ? 'Sign in using your Email OR Mobile Phone with instant OTP.'
+                      : 'Register to order, sell, or deliver in Kurali City.'}
                   </p>
                 </div>
 
@@ -378,18 +365,57 @@ export const AuthPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Master Root Admin Banner if Admin email entered */}
+              {/* Root Admin Banner if Admin email entered */}
               {isCurrentEmailRoot && (
                 <div className="mb-5 p-3.5 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 text-xs flex items-start gap-2.5">
                   <ShieldCheck className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold block">Root Master Administrator Detected</span>
+                    <span className="font-bold block">Administrator Account</span>
                     <span className="text-[11px] text-purple-700">
-                      You will be automatically authorized for City Admin Desk operations upon OTP verification.
+                      You will be authorized for City Admin Desk operations upon OTP verification.
                     </span>
                   </div>
                 </div>
               )}
+
+              {/* Choose Contact Method: Email OR Mobile */}
+              <div className="mb-4">
+                <label className="block text-xs font-bold text-slate-700 mb-2">
+                  Sign in using
+                </label>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContactMethod('email');
+                      setValidationError(null);
+                    }}
+                    className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      contactMethod === 'email'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Email Address</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContactMethod('phone');
+                      setValidationError(null);
+                    }}
+                    className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      contactMethod === 'phone'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>Mobile Number</span>
+                  </button>
+                </div>
+              </div>
 
               {/* Main Credentials Form */}
               <form onSubmit={handleInitiateAuth} className="space-y-4">
@@ -405,7 +431,7 @@ export const AuthPage: React.FC = () => {
                         type="text"
                         value={name}
                         onChange={e => setName(e.target.value)}
-                        placeholder="e.g. Rahul Sharma / Baldev Singh"
+                        placeholder="e.g. Jaswinder Singh"
                         className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
                         required
                       />
@@ -413,50 +439,54 @@ export const AuthPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Email Address (MANDATORY) */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-slate-700">
-                      Email Address <span className="text-rose-500">* Mandatory</span>
-                    </label>
-                    <span className="text-[10px] text-slate-400">Receives 6-digit OTP</span>
+                {/* Email Address (If Email Method Selected) */}
+                {contactMethod === 'email' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-slate-700">
+                        Email Address <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="text-[10px] text-slate-400">Receives 6-digit OTP code</span>
+                    </div>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        placeholder="xxxx@xxx.com"
+                        className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
+                        required
+                      />
+                    </div>
                   </div>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      placeholder="xxxx@xxx.com"
-                      className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
-                      required
-                    />
-                  </div>
-                </div>
+                )}
 
-                {/* Mobile Phone Number (MANDATORY) */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-slate-700">
-                      Mobile Phone Number <span className="text-rose-500">* Mandatory</span>
-                    </label>
-                    <span className="text-[10px] text-slate-400">10-Digit Indian Mobile</span>
+                {/* Mobile Phone Number (If Phone Method Selected) */}
+                {contactMethod === 'phone' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-slate-700">
+                        Mobile Phone Number <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="text-[10px] text-slate-400">10-Digit Mobile Number</span>
+                    </div>
+                    <div className="relative flex">
+                      <span className="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-600 text-xs font-bold">
+                        +91
+                      </span>
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={e => setPhone(e.target.value)}
+                        placeholder="XXXXXXXXXX"
+                        maxLength={14}
+                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-r-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
+                        required
+                      />
+                    </div>
                   </div>
-                  <div className="relative flex">
-                    <span className="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-600 text-xs font-bold">
-                      +91
-                    </span>
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={e => setPhone(e.target.value)}
-                      placeholder="XXXXXXXXXX"
-                      maxLength={14}
-                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-r-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
-                      required
-                    />
-                  </div>
-                </div>
+                )}
 
                 {/* Register Extras: Locality & Role Selection */}
                 {authMode === 'register' && (
@@ -522,118 +552,18 @@ export const AuthPage: React.FC = () => {
                   {isLoading ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Sending OTP Verification...</span>
+                      <span>Sending Verification Code...</span>
                     </>
                   ) : (
                     <>
                       <span>
-                        {authMode === 'signin' ? 'Verify with 6-Digit OTP' : 'Register & Verify via OTP'}
+                        {authMode === 'signin' ? 'Send 6-Digit OTP' : 'Register & Send OTP'}
                       </span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
                 </button>
               </form>
-
-              {/* Quick One-Click Demo Logins */}
-              <div className="mt-8 pt-6 border-t border-slate-200">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-amber-500" />
-                    One-Click Demo Profiles (Auto-Fills OTP)
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      fillQuickProfile({
-                        name: 'City Administrator',
-                        email: 'admin@kuraliupdates.com',
-                        phone: '9800000000',
-                        role: 'admin',
-                        locality: 'Main Bazaar & Clock Tower',
-                      })
-                    }
-                    className="p-2.5 rounded-xl border border-purple-200 bg-purple-50/60 hover:bg-purple-100 text-left transition-all cursor-pointer"
-                  >
-                    <div className="flex items-center gap-1.5 text-purple-700 font-bold text-[11px]">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>Admin Desk</span>
-                    </div>
-                    <span className="text-[10px] text-purple-600 block mt-0.5 truncate">
-                      admin@kurali
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      fillQuickProfile({
-                        name: 'Kurali Store Merchant',
-                        email: 'store@kuraliupdates.com',
-                        phone: '9811111111',
-                        role: 'seller',
-                        locality: 'Main Bazaar & Clock Tower',
-                      })
-                    }
-                    className="p-2.5 rounded-xl border border-blue-200 bg-blue-50/60 hover:bg-blue-100 text-left transition-all cursor-pointer"
-                  >
-                    <div className="flex items-center gap-1.5 text-blue-700 font-bold text-[11px]">
-                      <Store className="w-3.5 h-3.5" />
-                      <span>Merchant</span>
-                    </div>
-                    <span className="text-[10px] text-blue-600 block mt-0.5 truncate">
-                      store@kurali
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      fillQuickProfile({
-                        name: 'Express Delivery Rider',
-                        email: 'rider@kuraliupdates.com',
-                        phone: '9822222222',
-                        role: 'delivery',
-                        locality: 'Morinda Road',
-                      })
-                    }
-                    className="p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-100 text-left transition-all cursor-pointer"
-                  >
-                    <div className="flex items-center gap-1.5 text-emerald-700 font-bold text-[11px]">
-                      <Bike className="w-3.5 h-3.5" />
-                      <span>Rider Fleet</span>
-                    </div>
-                    <span className="text-[10px] text-emerald-600 block mt-0.5 truncate">
-                      rider@kurali
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      fillQuickProfile({
-                        name: 'Local Shopper',
-                        email: 'shopper@kuraliupdates.com',
-                        phone: '9833333333',
-                        role: 'buyer',
-                        locality: 'Railway Station Road',
-                      })
-                    }
-                    className="p-2.5 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100 text-left transition-all cursor-pointer"
-                  >
-                    <div className="flex items-center gap-1.5 text-amber-700 font-bold text-[11px]">
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                      <span>Buyer</span>
-                    </div>
-                    <span className="text-[10px] text-amber-600 block mt-0.5 truncate">
-                      shopper@kurali
-                    </span>
-                  </button>
-                </div>
-              </div>
             </div>
           ) : (
             /* STEP 2: 6-DIGIT OTP VERIFICATION SCREEN */
@@ -645,8 +575,7 @@ export const AuthPage: React.FC = () => {
                     Verify 6-Digit OTP
                   </h2>
                   <p className="text-xs text-slate-500 mt-1">
-                    Sent to <strong className="text-slate-800">{email}</strong> and{' '}
-                    <strong className="text-slate-800">+91 {phone}</strong>
+                    Sent to <strong className="text-slate-800">{activeIdentifier}</strong>
                   </p>
                 </div>
 
@@ -655,19 +584,19 @@ export const AuthPage: React.FC = () => {
                   onClick={() => setStep('form')}
                   className="text-xs font-bold text-amber-600 hover:text-amber-700 underline cursor-pointer"
                 >
-                  Edit Details
+                  Change {contactMethod === 'email' ? 'Email' : 'Number'}
                 </button>
               </div>
 
-              {/* SIMULATED SMS / EMAIL OTP BANNER */}
-              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-2">
+              {/* OTP Code Badge */}
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-xs font-black uppercase text-amber-800">
                     <KeyRound className="w-4 h-4 text-amber-600" />
-                    Simulated SMS &amp; Email Gateway
+                    Verification Code
                   </span>
                   <span className="text-[10px] bg-amber-200/80 text-amber-900 font-mono px-2 py-0.5 rounded-full font-bold">
-                    Active Session
+                    Expires in {countdown}s
                   </span>
                 </div>
                 <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-amber-200">
@@ -679,11 +608,11 @@ export const AuthPage: React.FC = () => {
                     onClick={handleAutoFillOtp}
                     className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
                   >
-                    1-Click Auto Fill
+                    Auto Fill
                   </button>
                 </div>
                 <p className="text-[11px] text-amber-700">
-                  Both your email address and mobile number have been validated and issued this verification OTP.
+                  Enter the 6-digit code above to authenticate your session.
                 </p>
               </div>
 
@@ -727,14 +656,14 @@ export const AuthPage: React.FC = () => {
                   {canResend ? (
                     <button
                       type="button"
-                      onClick={() => triggerOtpGeneration(email, phone)}
+                      onClick={() => triggerOtpDispatch(activeIdentifier)}
                       className="font-bold text-amber-600 hover:text-amber-700 underline cursor-pointer"
                     >
-                      Resend Verification OTP Code
+                      Resend Verification Code
                     </button>
                   ) : (
                     <span>
-                      Resend available in <strong className="text-slate-800">{countdown}s</strong>
+                      Resend code in <strong className="text-slate-800">{countdown}s</strong>
                     </span>
                   )}
                 </div>
@@ -748,12 +677,12 @@ export const AuthPage: React.FC = () => {
                   {isLoading ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Validating Security Token...</span>
+                      <span>Authenticating Session...</span>
                     </>
                   ) : (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>Verify OTP &amp; Enter Kurali Bazaar</span>
+                      <span>Verify &amp; Continue to Bazaar</span>
                     </>
                   )}
                 </button>
