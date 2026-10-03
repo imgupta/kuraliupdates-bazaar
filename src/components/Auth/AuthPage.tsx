@@ -339,6 +339,7 @@ export const AuthPage: React.FC = () => {
           role: authDetails.selectedRole,
           address: authDetails.address.trim(),
           token: verifyRes.token,
+          serverUser: verifyRes.user,
         });
         showToast(res.message, 'success');
       } else {
