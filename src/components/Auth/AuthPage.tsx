@@ -263,76 +263,85 @@ export const AuthPage: React.FC = () => {
 
   const isCurrentEmailRoot = (authMode === 'register' || contactMethod === 'email') && isRootAdminEmail(email);
 
+  // Keep static visual sections out of the controlled-input render path.
+  const decorativeBackground = React.useMemo(() => (
+    <>
+      {/* Decorative Blur Backgro      {decorativeBackground}ingPanel = React.useMemo(() => (
+    <>
+      {/* Left Column: Visual Branding & City Ecosystem */}
+      <div className="lg:col-span-5 bg-gradient-to-br from-amber-600 via-orange-600 to-amber-700 text-white p-6 sm:p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden">
+        <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
+          <Store className="w-80 h-80" />
+        </div>
+
+        <div>
+          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold tracking-wide mb-6">
+            <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+            <span>Official Kurali Marketplace</span>
+          </div>
+
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
+            Kurali<span className="text-amber-200">Updates</span>
+            <br />
+            Bazaar &bull; ਕੁਰਾਲੀ
+          </h1>
+          <p className="mt-3 text-xs sm:text-sm text-amber-100/90 leading-relaxed font-medium">
+            Hyperlocal commerce platform connecting local Kurali merchants, neighborhood buyers, and 25-minute fast deliveries.
+          </p>
+
+          <div className="mt-8 space-y-3.5 text-xs font-semibold">
+            <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                <Truck className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="font-bold text-white">25-Min Express Delivery</p>
+                <p className="text-[11px] text-amber-100/80">From Main Bazaar to Morinda &amp; Siswan Roads</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                <Store className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="font-bold text-white">Verified Local Merchants</p>
+                <p className="text-[11px] text-amber-100/80">Authentic store prices and fresh daily staples</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="font-bold text-white">Secure OTP Verification</p>
+                <p className="text-[11px] text-amber-100/80">
+                  Sign in with either Email or Phone &bull; Register with both
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-6 border-t border-white/20 mt-8 flex items-center justify-between text-[11px] text-amber-100/80">
+          <span>kuraliupdates.com</span>
+          <span className="font-mono">Kurali, Punjab</span>
+        </div>
+      </div>
+    </>
+  ), []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-amber-950 flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans">
       {/* Decorative Blur Backgrounds */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl "></div>
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-orange-600/10 rounded-full blur-3xl"></div>
       </div>
 
       <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden grid lg:grid-cols-12 min-h-[580px]">
-        {/* Left Column: Visual Branding & City Ecosystem */}
-        <div className="lg:col-span-5 bg-gradient-to-br from-amber-600 via-orange-600 to-amber-700 text-white p-6 sm:p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
-            <Store className="w-80 h-80" />
-          </div>
-
-          <div>
-            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold tracking-wide mb-6">
-              <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-              <span>Official Kurali Marketplace</span>
-            </div>
-
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
-              Kurali<span className="text-amber-200">Updates</span>
-              <br />
-              Bazaar &bull; ਕੁਰਾਲੀ
-            </h1>
-            <p className="mt-3 text-xs sm:text-sm text-amber-100/90 leading-relaxed font-medium">
-              Hyperlocal commerce platform connecting local Kurali merchants, neighborhood buyers, and 25-minute fast deliveries.
-            </p>
-
-            <div className="mt-8 space-y-3.5 text-xs font-semibold">
-              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                  <Truck className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold text-white">25-Min Express Delivery</p>
-                  <p className="text-[11px] text-amber-100/80">From Main Bazaar to Morinda &amp; Siswan Roads</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                  <Store className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold text-white">Verified Local Merchants</p>
-                  <p className="text-[11px] text-amber-100/80">Authentic store prices and fresh daily staples</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/10">
-                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold text-white">Secure OTP Verification</p>
-                  <p className="text-[11px] text-amber-100/80">
-                    Sign in with either Email or Phone &bull; Register with both
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-6 border-t border-white/20 mt-8 flex items-center justify-between text-[11px] text-amber-100/80">
-            <span>kuraliupdates.com</span>
-            <span className="font-mono">Kurali, Punjab</span>
-          </div>
-        </div>
+        {brandingPanel}
 
         {/* Right Column: Dynamic Form / OTP Screen */}
         <div className="lg:col-span-7 p-6 sm:p-8 lg:p-10 flex flex-col justify-center bg-white">
@@ -577,7 +586,7 @@ export const AuthPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full mt-2 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full mt-2 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold rounded-xl text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isLoading ? (
                     <>
@@ -687,7 +696,7 @@ export const AuthPage: React.FC = () => {
                         value={val}
                         onChange={e => handleOtpChange(idx, e.target.value)}
                         onKeyDown={e => handleOtpKeyDown(idx, e)}
-                        className="w-11 h-13 sm:w-12 sm:h-14 text-center font-mono text-xl font-black bg-slate-50 border-2 border-slate-300 rounded-2xl text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white transition-all shadow-xs"
+                        className="w-11 h-13 sm:w-12 sm:h-14 text-center font-mono text-xl font-black bg-slate-50 border-2 border-slate-300 rounded-2xl text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white transition-colors shadow-xs"
                       />
                     ))}
                   </div>
