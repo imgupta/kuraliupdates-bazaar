@@ -197,9 +197,48 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const safeStorageGet = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const safeStorageJson = <T,>(key: string, fallback: T): T => {
+  const raw = safeStorageGet(key);
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    try {
+      safeStorageRemove(key);
+    } catch {
+      // Ignore storage cleanup failures.
+    }
+    return fallback;
+  }
+};
+
+const safeStorageRemove = (key: string) => {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Ignore unavailable browser storage.
+  }
+};
+
+const safeStorageSet = (key: string, value: string) => {
+  try {
+    safeStorageSet(key, value);
+  } catch {
+    // Ignore unavailable/full browser storage so the UI can still render.
+  }
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile>(() => {
-    const session = localStorage.getItem('kurali_auth_session');
+    const session = safeStorageGet('kurali_auth_session');
     if (session) {
       try {
         const parsed = JSON.parse(session);
@@ -225,7 +264,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Load role directly from signed-in user's role
   const [role, setRoleState] = useState<UserRole>(() => {
-    const session = localStorage.getItem('kurali_auth_session');
+    const session = safeStorageGet('kurali_auth_session');
     if (session) {
       try {
         const parsed = JSON.parse(session);
@@ -236,7 +275,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         /* ignore */
       }
     }
-    return (localStorage.getItem('kurali_role') as UserRole) || 'buyer';
+    return (safeStorageGet('kurali_role') as UserRole) || 'buyer';
   });
 
   // Automatically sync UI to user's assigned role upon sign-in
@@ -244,49 +283,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (user.isSignedIn && user.role) {
       if (user.role !== 'admin') {
         setRoleState(user.role);
-        localStorage.setItem('kurali_role', user.role);
+        safeStorageSet('kurali_role', user.role);
       }
     }
   }, [user.isSignedIn, user.role]);
 
   const [sellers, setSellers] = useState<Seller[]>(() => {
-    const saved = localStorage.getItem('kurali_sellers');
-    return saved ? JSON.parse(saved) : INITIAL_SELLERS;
+    return safeStorageJson('kurali_sellers', INITIAL_SELLERS);
   });
 
   const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('kurali_products');
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+    return safeStorageJson('kurali_products', INITIAL_PRODUCTS);
   });
 
   const [coupons, setCoupons] = useState<Coupon[]>(() => {
-    const saved = localStorage.getItem('kurali_coupons');
-    return saved ? JSON.parse(saved) : INITIAL_COUPONS;
+    return safeStorageJson('kurali_coupons', INITIAL_COUPONS);
   });
 
   const [deliveryAgents, setDeliveryAgents] = useState<DeliveryAgent[]>(() => {
-    const saved = localStorage.getItem('kurali_delivery_agents');
-    return saved ? JSON.parse(saved) : INITIAL_DELIVERY_AGENTS;
+    return safeStorageJson('kurali_delivery_agents', INITIAL_DELIVERY_AGENTS);
   });
 
   const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('kurali_orders');
-    return saved ? JSON.parse(saved) : INITIAL_ORDERS;
+    return safeStorageJson('kurali_orders', INITIAL_ORDERS);
   });
 
   const [chats, setChats] = useState<NegotiationChat[]>(() => {
-    const saved = localStorage.getItem('kurali_chats');
-    return saved ? JSON.parse(saved) : INITIAL_CHATS;
+    return safeStorageJson('kurali_chats', INITIAL_CHATS);
   });
 
   const [cart, setCart] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem('kurali_cart');
-    return saved ? JSON.parse(saved) : [];
+    return safeStorageJson('kurali_cart', []);
   });
 
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(() => {
-    const saved = localStorage.getItem('kurali_applied_coupon');
-    return saved ? JSON.parse(saved) : null;
+    return safeStorageJson('kurali_applied_coupon', null);
   });
 
   // UI state
@@ -303,46 +334,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sync with localStorage
   useEffect(() => {
-    localStorage.setItem('kurali_role', role);
+    safeStorageSet('kurali_role', role);
   }, [role]);
 
   useEffect(() => {
-    localStorage.setItem('kurali_user', JSON.stringify(user));
+    safeStorageSet('kurali_user', JSON.stringify(user));
   }, [user]);
 
   useEffect(() => {
-    localStorage.setItem('kurali_sellers', JSON.stringify(sellers));
+    safeStorageSet('kurali_sellers', JSON.stringify(sellers));
   }, [sellers]);
 
   useEffect(() => {
-    localStorage.setItem('kurali_products', JSON.stringify(products));
+    safeStorageSet('kurali_products', JSON.stringify(products));
   }, [products]);
 
   useEffect(() => {
-    localStorage.setItem('kurali_coupons', JSON.stringify(coupons));
+    safeStorageSet('kurali_coupons', JSON.stringify(coupons));
   }, [coupons]);
 
   useEffect(() => {
-    localStorage.setItem('kurali_delivery_agents', JSON.stringify(deliveryAgents));
+    safeStorageSet('kurali_delivery_agents', JSON.stringify(deliveryAgents));
   }, [deliveryAgents]);
 
   useEffect(() => {
-    localStorage.setItem('kurali_orders', JSON.stringify(orders));
+    safeStorageSet('kurali_orders', JSON.stringify(orders));
   }, [orders]);
 
   useEffect(() => {
-    localStorage.setItem('kurali_chats', JSON.stringify(chats));
+    safeStorageSet('kurali_chats', JSON.stringify(chats));
   }, [chats]);
 
   useEffect(() => {
-    localStorage.setItem('kurali_cart', JSON.stringify(cart));
+    safeStorageSet('kurali_cart', JSON.stringify(cart));
   }, [cart]);
 
   useEffect(() => {
     if (appliedCoupon) {
-      localStorage.setItem('kurali_applied_coupon', JSON.stringify(appliedCoupon));
+      safeStorageSet('kurali_applied_coupon', JSON.stringify(appliedCoupon));
     } else {
-      localStorage.removeItem('kurali_applied_coupon');
+      safeStorageRemove('kurali_applied_coupon');
     }
   }, [appliedCoupon]);
 
@@ -355,12 +386,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Backend Sync State
   const [backendUrl, setBackendUrlState] = useState<string>(() => {
-    return localStorage.getItem('kurali_backend_url') || 'https://kuraliupdates-bazaar.onrender.com/api/v1';
+    return safeStorageGet('kurali_backend_url') || 'https://kuraliupdates-bazaar.onrender.com/api/v1';
   });
 
   const setBackendUrl = (url: string) => {
     setBackendUrlState(url);
-    localStorage.setItem('kurali_backend_url', url);
+    safeStorageSet('kurali_backend_url', url);
   };
 
   const [backendStatus, setBackendStatus] = useState<{
@@ -515,8 +546,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setUser(updatedUser);
     setRoleState(effectiveRole);
-    localStorage.setItem('kurali_auth_session', JSON.stringify(updatedUser));
-    localStorage.setItem('kurali_auth_token', params.token);
+    safeStorageSet('kurali_auth_session', JSON.stringify(updatedUser));
+    safeStorageSet('kurali_auth_token', params.token);
 
     return {
       success: true,
@@ -592,8 +623,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setUser(updatedUser);
     setRoleState(effectiveRole);
-    localStorage.setItem('kurali_auth_session', JSON.stringify(updatedUser));
-    localStorage.setItem('kurali_auth_token', params.token);
+    safeStorageSet('kurali_auth_session', JSON.stringify(updatedUser));
+    safeStorageSet('kurali_auth_token', params.token);
 
     return { success: true, message: `Registration and OTP verification successful! Welcome ${updatedUser.name}.`, role: effectiveRole };
   };
@@ -603,9 +634,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (token) {
       bazaarApi.logout(token);
     }
-    localStorage.removeItem('kurali_auth_token');
-    localStorage.removeItem('kurali_auth_session');
-    localStorage.removeItem('kurali_user');
+    safeStorageRemove('kurali_auth_token');
+    safeStorageRemove('kurali_auth_session');
+    safeStorageRemove('kurali_user');
     setUser({
       email: '',
       name: '',
