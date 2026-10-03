@@ -394,54 +394,47 @@ export const bazaarApi = {
   },
 
   /**
-   * Live Authentication: Dispatch 6-digit OTP to Email OR Mobile Phone
+   * Request a real OTP from the backend. There is deliberately no client-side fallback.
    */
-  async sendOtp(identifier: string, type?: 'EMAIL' | 'PHONE', role?: string): Promise<{ success: boolean; message: string; otpPreview?: string; identifier?: string }> {
-    const isEmail = identifier.includes('@');
-    const resolvedType = type || (isEmail ? 'EMAIL' : 'PHONE');
+  async sendOtp(identifier: string, type: 'EMAIL' | 'PHONE', mode: 'LOGIN' | 'REGISTER'): Promise<{ success: boolean; message: string }> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
       const res = await fetch(`${API_BASE_URL}/auth/send-otp`, {
         method: 'POST',
         signal: controller.signal,
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ identifier, type: resolvedType, role }),
+        body: JSON.stringify({ identifier, type, mode }),
       });
       clearTimeout(timeoutId);
-      if (res.ok) {
-        return await res.json();
-      }
+      const data = await res.json().catch(() => ({ success: false, message: 'Invalid authentication response' }));
+      if (!res.ok) return { success: false, message: data.message || 'Unable to send verification code' };
+      return data;
     } catch (err: any) {
-      console.warn('Backend sendOtp:', err.message || err);
+      return { success: false, message: err.name === 'AbortError' ? 'Authentication service timed out' : 'Authentication service is unavailable' };
     }
-    // High availability OTP generation
-    const randomOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    return {
-      success: true,
-      message: `6-digit OTP code dispatched to ${identifier}`,
-      otpPreview: randomOtp,
-      identifier,
-    };
   },
 
   /**
-   * Live Authentication: Verify 6-digit OTP (Email OR Mobile Phone) and retrieve session token
+   * Verify a real OTP. Backend is the only authority for authentication.
    */
   async verifyOtp(payload: {
-    identifier: string;
-    otp: string;
+    identifier?: string;
+    otp?: string;
     type?: 'EMAIL' | 'PHONE';
+    mode: 'LOGIN' | 'REGISTER';
     name?: string;
     role?: string;
     locality?: string;
     address?: string;
     email?: string;
     phone?: string;
+    emailOtp?: string;
+    phoneOtp?: string;
   }): Promise<{ success: boolean; token?: string; user?: any; message: string }> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
       const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
         method: 'POST',
         signal: controller.signal,
@@ -449,47 +442,12 @@ export const bazaarApi = {
         body: JSON.stringify(payload),
       });
       clearTimeout(timeoutId);
-      if (res.ok) {
-        return await res.json();
-      }
+      const data = await res.json().catch(() => ({ success: false, message: 'Invalid authentication response' }));
+      if (!res.ok) return { success: false, message: data.message || 'OTP verification failed' };
+      return data;
     } catch (err: any) {
-      console.warn('Backend verifyOtp:', err.message || err);
+      return { success: false, message: err.name === 'AbortError' ? 'Authentication service timed out' : 'Authentication service is unavailable' };
     }
-
-    const isEmail = payload.identifier.includes('@');
-    const isRootAdmin =
-      isEmail && (
-        payload.identifier.toLowerCase() === 'shubham.gupta180296@gmail.com' ||
-        payload.identifier.toLowerCase() === 'sg7508359237@gmail.com' ||
-        payload.identifier.toLowerCase() === 'admin@kuraliupdates.com'
-      );
-
-    const token = 'kurali_sess_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
-    return {
-      success: true,
-      token,
-      user: {
-        userId: 'user-' + Date.now(),
-        email: isEmail ? payload.identifier : (payload.email || ''),
-        phone: !isEmail ? payload.identifier : (payload.phone || ''),
-        name: payload.name || (isRootAdmin ? 'Administrator' : 'Kurali User'),
-        role: isRootAdmin ? 'ADMIN' : (payload.role || 'BUYER'),
-        locality: payload.locality || 'Main Bazaar & Clock Tower',
-        address: payload.address || 'Kurali, Punjab',
-        isVerified: 1,
-        isAdmin: isRootAdmin ? 1 : 0,
-      },
-      message: 'Verified successfully',
-    };
-  },
-
-  /**
-   * Backward-compatible alias for verifyDualOtp
-   */
-  async verifyDualOtp(payload: any) {
-    const id = payload.identifier || payload.email || payload.phone;
-    const code = payload.otp || payload.emailOtp || payload.phoneOtp;
-    return this.verifyOtp({ ...payload, identifier: id, otp: code });
   },
 
   /**
