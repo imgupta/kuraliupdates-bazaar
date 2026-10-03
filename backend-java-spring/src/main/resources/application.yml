@@ -6,6 +6,17 @@ server:
 spring:
   application:
     name: kuraliupdates-bazaar-service
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:true}
   datasource:
     driver-class-name: oracle.jdbc.OracleDriver
     url: ${ORACLE_JDBC_URL:jdbc:oracle:thin:@jkphg8mg7fvt8c2n_high?TNS_ADMIN=/app/wallet}
@@ -40,6 +51,13 @@ spring:
       mode: always
 
 app:
+  otp:
+    email:
+      from: ${OTP_EMAIL_FROM:}
+    msg91:
+      auth-key: ${MSG91_AUTH_KEY:}
+      template-id: ${MSG91_TEMPLATE_ID:}
+      country-code: ${MSG91_COUNTRY_CODE:91}
   cors:
     allowed-origins: "http://localhost:4200,https://kuraliupdates.com,https://www.kuraliupdates.com,https://*.vercel.app,*"
   jwt:
