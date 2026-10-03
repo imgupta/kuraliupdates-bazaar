@@ -266,14 +266,14 @@ export const AuthPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-amber-950 flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans">
       {/* Decorative Blur Backgrounds */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl animate-pulse"></div>
+      <div className="fixed inset-0 pointer-events-none overflow-hidden [contain:paint]">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-orange-600/10 rounded-full blur-3xl"></div>
       </div>
 
       <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden grid lg:grid-cols-12 min-h-[580px]">
         {/* Left Column: Visual Branding & City Ecosystem */}
-        <div className="lg:col-span-5 bg-gradient-to-br from-amber-600 via-orange-600 to-amber-700 text-white p-6 sm:p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden">
+        <div className="lg:col-span-5 [contain:layout_paint] bg-gradient-to-br from-amber-600 via-orange-600 to-amber-700 text-white p-6 sm:p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden">
           <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
             <Store className="w-80 h-80" />
           </div>
