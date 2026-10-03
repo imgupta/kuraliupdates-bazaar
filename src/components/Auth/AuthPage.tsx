@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Store,
   ShieldCheck,
-  Bike,
-  ShoppingBag,
   Mail,
   Phone,
   User,
@@ -65,7 +63,7 @@ export const AuthPage: React.FC = () => {
     setIsLoading(true);
     setValidationError(null);
     try {
-      const type = contactMethod === 'email' ? 'EMAIL' : 'PHONE';
+      const type = identifier.includes('@') ? 'EMAIL' : 'PHONE';
       const res = await bazaarApi.sendOtp(identifier, type, selectedRole);
 
       const code = res.otpPreview || Math.floor(100000 + Math.random() * 900000).toString();
@@ -94,34 +92,56 @@ export const AuthPage: React.FC = () => {
     e.preventDefault();
     setValidationError(null);
 
-    let identifier = '';
-
-    if (contactMethod === 'email') {
+    // REGISTRATION MODE: BOTH Email AND Mobile are mandatory
+    if (authMode === 'register') {
+      const trimmedName = name.trim();
       const trimmedEmail = email.trim().toLowerCase();
+      const cleanPhone = phone.replace(/\D/g, '');
+
+      if (!trimmedName) {
+        setValidationError('Full Name is required for registration');
+        return;
+      }
       if (!trimmedEmail) {
-        setValidationError('Please enter your email address');
+        setValidationError('Email Address is mandatory for registration');
         return;
       }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
         setValidationError('Please enter a valid email address (e.g. name@domain.com)');
         return;
       }
-      identifier = trimmedEmail;
-    } else {
-      const cleanPhone = phone.replace(/\D/g, '');
       if (!cleanPhone || cleanPhone.length < 10) {
-        setValidationError('Please enter a valid 10-digit mobile number');
+        setValidationError('10-Digit Mobile Phone Number is mandatory for registration');
         return;
       }
-      identifier = cleanPhone;
-    }
 
-    if (authMode === 'register' && !name.trim()) {
-      setValidationError('Full Name is required for registration');
-      return;
-    }
+      // Dispatch OTP to primary contact for registration verification
+      await triggerOtpDispatch(trimmedEmail);
+    } else {
+      // SIGN IN MODE: Either Email OR Mobile is mandatory
+      let identifier = '';
+      if (contactMethod === 'email') {
+        const trimmedEmail = email.trim().toLowerCase();
+        if (!trimmedEmail) {
+          setValidationError('Please enter your email address to sign in');
+          return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+          setValidationError('Please enter a valid email address');
+          return;
+        }
+        identifier = trimmedEmail;
+      } else {
+        const cleanPhone = phone.replace(/\D/g, '');
+        if (!cleanPhone || cleanPhone.length < 10) {
+          setValidationError('Please enter your 10-digit mobile phone number to sign in');
+          return;
+        }
+        identifier = cleanPhone;
+      }
 
-    await triggerOtpDispatch(identifier);
+      await triggerOtpDispatch(identifier);
+    }
   };
 
   // Handle OTP Box Input
@@ -187,7 +207,9 @@ export const AuthPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const type = contactMethod === 'email' ? 'EMAIL' : 'PHONE';
+      const isEmail = activeIdentifier.includes('@');
+      const type = isEmail ? 'EMAIL' : 'PHONE';
+
       const verifyRes = await bazaarApi.verifyOtp({
         identifier: activeIdentifier,
         otp: enteredOtp,
@@ -196,8 +218,8 @@ export const AuthPage: React.FC = () => {
         role: selectedRole,
         locality,
         address: address.trim() || undefined,
-        email: contactMethod === 'email' ? activeIdentifier : undefined,
-        phone: contactMethod === 'phone' ? activeIdentifier : undefined,
+        email: authMode === 'register' ? email.trim().toLowerCase() : (isEmail ? activeIdentifier : undefined),
+        phone: authMode === 'register' ? phone.replace(/\D/g, '') : (!isEmail ? activeIdentifier : undefined),
       });
 
       if (!verifyRes.success) {
@@ -207,11 +229,12 @@ export const AuthPage: React.FC = () => {
       }
 
       if (authMode === 'register') {
+        // Register user with BOTH email and mobile phone
         const res = registerUserWithOtp({
           name: name.trim(),
           identifier: activeIdentifier,
-          email: contactMethod === 'email' ? activeIdentifier : undefined,
-          phone: contactMethod === 'phone' ? activeIdentifier : undefined,
+          email: email.trim().toLowerCase(),
+          phone: phone.replace(/\D/g, ''),
           locality,
           role: selectedRole,
           address: address.trim(),
@@ -219,10 +242,11 @@ export const AuthPage: React.FC = () => {
         });
         showToast(res.message, 'success');
       } else {
+        // Sign in user with either email or mobile phone
         const res = loginWithOtp({
           identifier: activeIdentifier,
-          email: contactMethod === 'email' ? activeIdentifier : undefined,
-          phone: contactMethod === 'phone' ? activeIdentifier : undefined,
+          email: isEmail ? activeIdentifier : undefined,
+          phone: !isEmail ? activeIdentifier : undefined,
           name: name.trim() || undefined,
           targetRole: selectedRole,
           locality,
@@ -237,7 +261,7 @@ export const AuthPage: React.FC = () => {
     }
   };
 
-  const isCurrentEmailRoot = contactMethod === 'email' && isRootAdminEmail(email);
+  const isCurrentEmailRoot = (authMode === 'register' || contactMethod === 'email') && isRootAdminEmail(email);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-amber-950 flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans">
@@ -295,8 +319,10 @@ export const AuthPage: React.FC = () => {
                   <ShieldCheck className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="font-bold text-white">Direct OTP Sign In</p>
-                  <p className="text-[11px] text-amber-100/80">Login via Email OR Mobile Phone Number</p>
+                  <p className="font-bold text-white">Secure OTP Verification</p>
+                  <p className="text-[11px] text-amber-100/80">
+                    Sign in with either Email or Phone &bull; Register with both
+                  </p>
                 </div>
               </div>
             </div>
@@ -316,12 +342,12 @@ export const AuthPage: React.FC = () => {
               <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-6">
                 <div>
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                    {authMode === 'signin' ? 'Sign In to Bazaar' : 'Create Account'}
+                    {authMode === 'signin' ? 'Sign In to Bazaar' : 'Create Citizen Account'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {authMode === 'signin'
-                      ? 'Sign in using your Email OR Mobile Phone with instant OTP.'
-                      : 'Register to order, sell, or deliver in Kurali City.'}
+                      ? 'Sign in using either your Email OR Mobile Phone.'
+                      : 'Both Email and Mobile Phone are required for new registration.'}
                   </p>
                 </div>
 
@@ -378,44 +404,46 @@ export const AuthPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Choose Contact Method: Email OR Mobile */}
-              <div className="mb-4">
-                <label className="block text-xs font-bold text-slate-700 mb-2">
-                  Sign in using
-                </label>
-                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setContactMethod('email');
-                      setValidationError(null);
-                    }}
-                    className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      contactMethod === 'email'
-                        ? 'bg-white text-slate-900 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-900'
-                    }`}
-                  >
-                    <Mail className="w-3.5 h-3.5" />
-                    <span>Email Address</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setContactMethod('phone');
-                      setValidationError(null);
-                    }}
-                    className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      contactMethod === 'phone'
-                        ? 'bg-white text-slate-900 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-900'
-                    }`}
-                  >
-                    <Phone className="w-3.5 h-3.5" />
-                    <span>Mobile Number</span>
-                  </button>
+              {/* FOR SIGN IN ONLY: Choose Contact Method Toggle (Email OR Mobile) */}
+              {authMode === 'signin' && (
+                <div className="mb-4">
+                  <label className="block text-xs font-bold text-slate-700 mb-2">
+                    Sign in using
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setContactMethod('email');
+                        setValidationError(null);
+                      }}
+                      className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        contactMethod === 'email'
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      <span>Email Address</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setContactMethod('phone');
+                        setValidationError(null);
+                      }}
+                      className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        contactMethod === 'phone'
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>Mobile Number</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Main Credentials Form */}
               <form onSubmit={handleInitiateAuth} className="space-y-4">
@@ -423,7 +451,7 @@ export const AuthPage: React.FC = () => {
                 {authMode === 'register' && (
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Full Name <span className="text-rose-500">*</span>
+                      Full Name <span className="text-rose-500">* Mandatory</span>
                     </label>
                     <div className="relative">
                       <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -439,14 +467,15 @@ export const AuthPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Email Address (If Email Method Selected) */}
-                {contactMethod === 'email' && (
+                {/* Email Address Field */}
+                {/* Visible in Register mode (mandatory), or Sign In mode if Email selected */}
+                {(authMode === 'register' || contactMethod === 'email') && (
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-xs font-bold text-slate-700">
-                        Email Address <span className="text-rose-500">*</span>
+                        Email Address <span className="text-rose-500">* Mandatory</span>
                       </label>
-                      <span className="text-[10px] text-slate-400">Receives 6-digit OTP code</span>
+                      <span className="text-[10px] text-slate-400">Receives 6-digit OTP</span>
                     </div>
                     <div className="relative">
                       <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -462,14 +491,15 @@ export const AuthPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Mobile Phone Number (If Phone Method Selected) */}
-                {contactMethod === 'phone' && (
+                {/* Mobile Phone Number Field */}
+                {/* Visible in Register mode (mandatory), or Sign In mode if Phone selected */}
+                {(authMode === 'register' || contactMethod === 'phone') && (
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-xs font-bold text-slate-700">
-                        Mobile Phone Number <span className="text-rose-500">*</span>
+                        Mobile Phone Number <span className="text-rose-500">* Mandatory</span>
                       </label>
-                      <span className="text-[10px] text-slate-400">10-Digit Mobile Number</span>
+                      <span className="text-[10px] text-slate-400">10-Digit Indian Mobile</span>
                     </div>
                     <div className="relative flex">
                       <span className="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-600 text-xs font-bold">
@@ -494,7 +524,7 @@ export const AuthPage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1">
-                          Kurali Locality <span className="text-rose-500">*</span>
+                          Kurali Locality <span className="text-rose-500">* Mandatory</span>
                         </label>
                         <div className="relative">
                           <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -575,7 +605,19 @@ export const AuthPage: React.FC = () => {
                     Verify 6-Digit OTP
                   </h2>
                   <p className="text-xs text-slate-500 mt-1">
-                    Sent to <strong className="text-slate-800">{activeIdentifier}</strong>
+                    {authMode === 'register' ? (
+                      <>
+                        Sent to <strong className="text-slate-800">{email}</strong> and{' '}
+                        <strong className="text-slate-800">+91 {phone}</strong>
+                      </>
+                    ) : (
+                      <>
+                        Sent to{' '}
+                        <strong className="text-slate-800">
+                          {contactMethod === 'phone' ? `+91 ${activeIdentifier}` : activeIdentifier}
+                        </strong>
+                      </>
+                    )}
                   </p>
                 </div>
 
@@ -584,7 +626,7 @@ export const AuthPage: React.FC = () => {
                   onClick={() => setStep('form')}
                   className="text-xs font-bold text-amber-600 hover:text-amber-700 underline cursor-pointer"
                 >
-                  Change {contactMethod === 'email' ? 'Email' : 'Number'}
+                  Edit Details
                 </button>
               </div>
 
