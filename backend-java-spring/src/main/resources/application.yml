@@ -1,49 +1,44 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
   servlet:
     context-path: /api/v1
 
 spring:
   application:
     name: kuraliupdates-bazaar-service
-
   datasource:
     driver-class-name: oracle.jdbc.OracleDriver
-    url: ${ORACLE_JDBC_URL:jdbc:oracle:thin:@localhost:1521/XEPDB1}
-    username: ${ORACLE_USERNAME:kurali_admin}
-    password: ${ORACLE_PASSWORD:kurali_secure_pwd}
+    url: ${ORACLE_JDBC_URL:jdbc:oracle:thin:@jkphg8mg7fvt8c2n_high?TNS_ADMIN=/app/wallet}
+    username: ${ORACLE_USERNAME:ADMIN}
+    password: ${ORACLE_PASSWORD}
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
+      maximum-pool-size: 10
+      minimum-idle: 2
       idle-timeout: 300000
-      connection-timeout: 20000
+      connection-timeout: 30000
       max-lifetime: 1200000
       pool-name: KuraliHikariPool
-
   jpa:
     database-platform: org.hibernate.dialect.OracleDialect
     hibernate:
-      ddl-auto: update # or 'validate' in production
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
         format_sql: true
         jdbc:
           batch_size: 25
-
   sql:
     init:
-      mode: always # runs schema-oracle.sql and data-oracle.sql on first startup
+      mode: always
 
-# Security & CORS configuration for Angular frontend
 app:
   cors:
-    allowed-origins: "http://localhost:4200,https://kuraliupdates.com,https://www.kuraliupdates.com"
+    allowed-origins: "http://localhost:4200,https://kuraliupdates.com,https://www.kuraliupdates.com,https://*.vercel.app,*"
   jwt:
     secret: "KuraliBazaarSecretKey2026PunjabLocalCommerceSecureJWTKeyMustBeAtLeast256Bits"
-    expiration-ms: 86400000 # 24 hours
+    expiration-ms: 86400000
 
-# Swagger / OpenAPI documentation
 springdoc:
   api-docs:
     path: /v3/api-docs
