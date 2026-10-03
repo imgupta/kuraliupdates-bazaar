@@ -350,6 +350,7 @@ export const AuthPage: React.FC = () => {
           targetRole: authDetails.selectedRole,
           locality: authDetails.locality,
           token: verifyRes.token,
+          serverUser: verifyRes.user,
         });
         showToast(res.message, 'success');
       }
