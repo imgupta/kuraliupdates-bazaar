@@ -643,7 +643,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = () => {
-    const token = localStorage.getItem('kurali_auth_token');
+    const token = safeStorageGet('kurali_auth_token');
     if (token) {
       bazaarApi.logout(token);
     }
@@ -663,6 +663,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     setRoleState('buyer');
     showToast('Signed out. Please sign in or register to continue.', 'info');
+  };
+
+  const registerBuyer = (data: { name: string; email: string; phone: string; locality: string; address: string }) => {
+    const cleanPhone = data.phone.replace(/\D/g, '');
+    const buyer: UserProfile = {
+      email: data.email.trim().toLowerCase(),
+      name: data.name.trim(),
+      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(data.name.trim())}&backgroundColor=0284c7,f59e0b,10b981`,
+      phone: cleanPhone,
+      locality: data.locality,
+      address: data.address,
+      role: 'buyer',
+      isSignedIn: true,
+      phoneVerified: false,
+      emailVerified: false,
+      authMethod: 'otp',
+      isAdmin: false,
+    };
+    setUser(buyer);
+    setRoleState('buyer');
+    safeStorageSet('kurali_auth_session', JSON.stringify(buyer));
+    showToast('Buyer profile created. Please use OTP sign-in for verified authentication.', 'success');
   };
 
   // Current Seller
