@@ -90,12 +90,24 @@ export const AuthPage: React.FC = () => {
   const [step, setStep] = useState<'form' | 'otp'>('form');
 
   // Form fields
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [locality, setLocality] = useState(KURALI_LOCALITIES[1] || 'Main Bazaar & Clock Tower');
-  const [selectedRole, setSelectedRole] = useState<UserRole>('buyer');
-  const [address, setAddress] = useState('');
+  // Keep credential fields in refs so typing does not trigger an AuthPage re-render.
+  // The values are read only when the form is submitted.
+  const nameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const localityRef = useRef<HTMLSelectElement>(null);
+  const selectedRoleRef = useRef<HTMLSelectElement>(null);
+  const addressRef = useRef<HTMLInputElement>(null);
+
+  const [authDetails, setAuthDetails] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    locality: KURALI_LOCALITIES[1] || 'Main Bazaar & Clock Tower',
+    selectedRole: 'buyer' as UserRole,
+    address: '',
+  });
+  const [isCurrentEmailRoot, setIsCurrentEmailRoot] = useState(false);
 
   // Active identifier for OTP verification
   const [activeIdentifier, setActiveIdentifier] = useState<string>('');
@@ -127,7 +139,7 @@ export const AuthPage: React.FC = () => {
     setValidationError(null);
     try {
       const type = identifier.includes('@') ? 'EMAIL' : 'PHONE';
-      const res = await bazaarApi.sendOtp(identifier, type, selectedRole);
+      const res = await bazaarApi.sendOtp(identifier, type, (selectedRoleRef.current?.value as UserRole) || authDetails.selectedRole);
 
       const code = res.otpPreview || Math.floor(100000 + Math.random() * 900000).toString();
       setGeneratedOtp(code);
@@ -157,9 +169,25 @@ export const AuthPage: React.FC = () => {
 
     // REGISTRATION MODE: BOTH Email AND Mobile are mandatory
     if (authMode === 'register') {
-      const trimmedName = name.trim();
-      const trimmedEmail = email.trim().toLowerCase();
-      const cleanPhone = phone.replace(/\D/g, '');
+      const currentName = nameRef.current?.value || '';
+      const currentEmail = emailRef.current?.value || '';
+      const currentPhone = phoneRef.current?.value || '';
+      const currentLocality = localityRef.current?.value || KURALI_LOCALITIES[1] || 'Main Bazaar & Clock Tower';
+      const currentRole = (selectedRoleRef.current?.value as UserRole) || 'buyer';
+      const currentAddress = addressRef.current?.value || '';
+
+      setAuthDetails({
+        name: currentName,
+        email: currentEmail,
+        phone: currentPhone,
+        locality: currentLocality,
+        selectedRole: currentRole,
+        address: currentAddress,
+      });
+
+      const trimmedName = currentName.trim();
+      const trimmedEmail = currentEmail.trim().toLowerCase();
+      const cleanPhone = currentPhone.replace(/\D/g, '');
 
       if (!trimmedName) {
         setValidationError('Full Name is required for registration');
@@ -184,7 +212,7 @@ export const AuthPage: React.FC = () => {
       // SIGN IN MODE: Either Email OR Mobile is mandatory
       let identifier = '';
       if (contactMethod === 'email') {
-        const trimmedEmail = email.trim().toLowerCase();
+        const trimmedEmail = (emailRef.current?.value || '').trim().toLowerCase();
         if (!trimmedEmail) {
           setValidationError('Please enter your email address to sign in');
           return;
@@ -195,7 +223,7 @@ export const AuthPage: React.FC = () => {
         }
         identifier = trimmedEmail;
       } else {
-        const cleanPhone = phone.replace(/\D/g, '');
+        const cleanPhone = (phoneRef.current?.value || '').replace(/\D/g, '');
         if (!cleanPhone || cleanPhone.length < 10) {
           setValidationError('Please enter your 10-digit mobile phone number to sign in');
           return;
@@ -277,12 +305,12 @@ export const AuthPage: React.FC = () => {
         identifier: activeIdentifier,
         otp: enteredOtp,
         type,
-        name: name.trim() || undefined,
-        role: selectedRole,
-        locality,
-        address: address.trim() || undefined,
-        email: authMode === 'register' ? email.trim().toLowerCase() : (isEmail ? activeIdentifier : undefined),
-        phone: authMode === 'register' ? phone.replace(/\D/g, '') : (!isEmail ? activeIdentifier : undefined),
+        name: authDetails.name.trim() || undefined,
+        role: authDetails.selectedRole,
+        locality: authDetails.locality,
+        address: authDetails.address.trim() || undefined,
+        email: authMode === 'register' ? authDetails.email.trim().toLowerCase() : (isEmail ? activeIdentifier : undefined),
+        phone: authMode === 'register' ? authDetails.phone.replace(/\D/g, '') : (!isEmail ? activeIdentifier : undefined),
       });
 
       if (!verifyRes.success) {
@@ -294,13 +322,13 @@ export const AuthPage: React.FC = () => {
       if (authMode === 'register') {
         // Register user with BOTH email and mobile phone
         const res = registerUserWithOtp({
-          name: name.trim(),
+          name: authDetails.name.trim(),
           identifier: activeIdentifier,
-          email: email.trim().toLowerCase(),
-          phone: phone.replace(/\D/g, ''),
-          locality,
-          role: selectedRole,
-          address: address.trim(),
+          email: authDetails.email.trim().toLowerCase(),
+          phone: authDetails.phone.replace(/\D/g, ''),
+          locality: authDetails.locality,
+          role: authDetails.selectedRole,
+          address: authDetails.address.trim(),
           token: verifyRes.token,
         });
         showToast(res.message, 'success');
@@ -310,9 +338,9 @@ export const AuthPage: React.FC = () => {
           identifier: activeIdentifier,
           email: isEmail ? activeIdentifier : undefined,
           phone: !isEmail ? activeIdentifier : undefined,
-          name: name.trim() || undefined,
-          targetRole: selectedRole,
-          locality,
+          name: authDetails.name.trim() || undefined,
+          targetRole: authDetails.selectedRole,
+          locality: authDetails.locality,
           token: verifyRes.token,
         });
         showToast(res.message, 'success');
@@ -324,7 +352,7 @@ export const AuthPage: React.FC = () => {
     }
   };
 
-  const isCurrentEmailRoot = (authMode === 'register' || contactMethod === 'email') && isRootAdminEmail(email);
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-amber-950 flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans">
@@ -459,9 +487,8 @@ export const AuthPage: React.FC = () => {
                     <div className="relative">
                       <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                       <input
-                        type="text"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
+                        ref={nameRef}
+                        type="text"}
                         placeholder="e.g. Jaswinder Singh"
                         className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
                         required
@@ -483,9 +510,9 @@ export const AuthPage: React.FC = () => {
                     <div className="relative">
                       <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                       <input
+                        ref={emailRef}
                         type="email"
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
+                        onBlur={() => setIsCurrentEmailRoot(isRootAdminEmail(emailRef.current?.value || ''))}}
                         placeholder="xxxx@xxx.com"
                         className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
                         required
@@ -509,9 +536,8 @@ export const AuthPage: React.FC = () => {
                         +91
                       </span>
                       <input
-                        type="tel"
-                        value={phone}
-                        onChange={e => setPhone(e.target.value)}
+                        ref={phoneRef}
+                        type="tel"}
                         placeholder="XXXXXXXXXX"
                         maxLength={14}
                         className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-r-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
@@ -532,8 +558,8 @@ export const AuthPage: React.FC = () => {
                         <div className="relative">
                           <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                           <select
-                            value={locality}
-                            onChange={e => setLocality(e.target.value)}
+                            ref={localityRef}
+                            defaultValue={authDetails.locality}}
                             className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
                           >
                             {KURALI_LOCALITIES.slice(1).map(loc => (
@@ -550,8 +576,8 @@ export const AuthPage: React.FC = () => {
                           Account Profile Type
                         </label>
                         <select
-                          value={selectedRole}
-                          onChange={e => setSelectedRole(e.target.value as UserRole)}
+                          ref={selectedRoleRef}
+                          defaultValue={authDetails.selectedRole}}
                           className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
                         >
                           <option value="buyer">Shopper / Local Buyer</option>
@@ -566,9 +592,8 @@ export const AuthPage: React.FC = () => {
                         Street Address / Landmark (Optional)
                       </label>
                       <input
-                        type="text"
-                        value={address}
-                        onChange={e => setAddress(e.target.value)}
+                        ref={addressRef}
+                        type="text"}
                         placeholder="House / Shop No., Near Fountain Chowk"
                         className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-amber-500 focus:bg-white"
                       />
@@ -610,8 +635,8 @@ export const AuthPage: React.FC = () => {
                   <p className="text-xs text-slate-500 mt-1">
                     {authMode === 'register' ? (
                       <>
-                        Sent to <strong className="text-slate-800">{email}</strong> and{' '}
-                        <strong className="text-slate-800">+91 {phone}</strong>
+                        Sent to <strong className="text-slate-800">{authDetails.email}</strong> and{' '}
+                        <strong className="text-slate-800">+91 {authDetails.phone}</strong>
                       </>
                     ) : (
                       <>
