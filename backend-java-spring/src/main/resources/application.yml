@@ -4,20 +4,11 @@ server:
 spring:
   application:
     name: kuraliupdates-bazaar-service
-  mail:
-    host: ${MAIL_HOST:}
-    port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
-    properties:
-      mail:
-        smtp:
-          auth: ${MAIL_SMTP_AUTH:true}
-          starttls:
-            enable: ${MAIL_SMTP_STARTTLS:true}
-          connectiontimeout: 10000
-          timeout: 10000
-          writetimeout: 10000
+  main:
+    lazy-initialization: false
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     driver-class-name: oracle.jdbc.OracleDriver
     url: ${ORACLE_JDBC_URL:jdbc:oracle:thin:@jkphg8mg7fvt8c2n_high?TNS_ADMIN=/app/wallet}
@@ -25,9 +16,10 @@ spring:
     password: ${ORACLE_PASSWORD}
     hikari:
       maximum-pool-size: 10
-      minimum-idle: 2
+      minimum-idle: 1
       idle-timeout: 300000
       connection-timeout: 30000
+      initialization-fail-timeout: 30000
       max-lifetime: 1200000
       pool-name: KuraliHikariPool
       data-source-properties:
@@ -40,11 +32,11 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.OracleDialect
     hibernate:
-      ddl-auto: update
-    show-sql: false
+      ddl-auto: none
+    open-in-view: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
         jdbc:
           batch_size: 25
   sql:
