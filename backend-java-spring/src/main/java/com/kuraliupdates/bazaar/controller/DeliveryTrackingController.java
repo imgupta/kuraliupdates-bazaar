@@ -24,7 +24,9 @@ public class DeliveryTrackingController {
     @PostMapping("/delivery/{agentId}/location")
     public ResponseEntity<Map<String, Object>> updateDeliveryLocation(
             @PathVariable String agentId,
-            @RequestBody LocationRequest request) {
+            @RequestBody LocationRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        if (!isDeliverySessionForAgent(agentId, authorization)) return error(HttpStatus.UNAUTHORIZED, "Valid delivery session required");
         if (!validCoordinate(request.latitude(), request.longitude())) {
             return error(HttpStatus.BAD_REQUEST, "Valid latitude and longitude are required");
         }
@@ -46,9 +48,11 @@ public class DeliveryTrackingController {
     }
 
     @GetMapping("/orders/{orderId}")
-    public ResponseEntity<Map<String, Object>> getOrderTracking(@PathVariable String orderId) {
+    public ResponseEntity<Map<String, Object>> getOrderTracking(@PathVariable String orderId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
         OrderEntity order = orderRepository.findById(orderId).orElse(null);
         if (order == null) return error(HttpStatus.NOT_FOUND, "Order not found");
+        if (!isAuthorizedForOrder(order, authorization)) return error(HttpStatus.FORBIDDEN, "You are not authorized to track this order");
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("success", true);
@@ -67,6 +71,33 @@ public class DeliveryTrackingController {
             result.put("agentLocationUpdatedAt", agent.getLocationUpdatedAt());
         }
         return ResponseEntity.ok(result);
+    }
+
+    private boolean isDeliverySessionForAgent(String agentId, String authorization) {
+        String token = extractToken(authorization);
+        if (token == null) return false;
+        return userSessionRepository.findBySessionToken(token)
+                .filter(s -> s.getExpiresAt().isAfter(LocalDateTime.now()))
+                .flatMap(s -> deliveryAgentRepository.findById(agentId)
+                        .map(agent -> agent.getEmail().equalsIgnoreCase(findUserEmail(s.getUserId()))))
+                .orElse(false);
+    }
+
+    private boolean isAuthorizedForOrder(OrderEntity order, String authorization) {
+        String token = extractToken(authorization);
+        if (token == null) return false;
+        return userSessionRepository.findBySessionToken(token)
+                .filter(s -> s.getExpiresAt().isAfter(LocalDateTime.now()))
+                .map(s -> order.getBuyerEmail() != null && order.getBuyerEmail().equalsIgnoreCase(findUserEmail(s.getUserId())))
+                .orElse(false);
+    }
+
+    private String findUserEmail(String userId) {
+        return userRepository.findById(userId).map(u -> u.getEmail()).orElse("");
+    }
+
+    private String extractToken(String authorization) {
+        return authorization != null && authorization.startsWith("Bearer ") ? authorization.substring(7).trim() : null;
     }
 
     private boolean validCoordinate(Double lat, Double lng) {
