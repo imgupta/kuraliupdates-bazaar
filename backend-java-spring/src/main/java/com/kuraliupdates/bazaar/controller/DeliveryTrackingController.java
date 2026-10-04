@@ -4,6 +4,8 @@ import com.kuraliupdates.bazaar.entity.DeliveryAgentEntity;
 import com.kuraliupdates.bazaar.entity.OrderEntity;
 import com.kuraliupdates.bazaar.repository.DeliveryAgentRepository;
 import com.kuraliupdates.bazaar.repository.OrderRepository;
+import com.kuraliupdates.bazaar.repository.UserSessionRepository;
+import com.kuraliupdates.bazaar.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +22,8 @@ import java.util.Map;
 public class DeliveryTrackingController {
     private final DeliveryAgentRepository deliveryAgentRepository;
     private final OrderRepository orderRepository;
+    private final UserSessionRepository userSessionRepository;
+    private final UserRepository userRepository;
 
     @PostMapping("/delivery/{agentId}/location")
     public ResponseEntity<Map<String, Object>> updateDeliveryLocation(
