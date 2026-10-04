@@ -32,6 +32,12 @@ export interface UserProfile {
   phone?: string;
   locality: string;
   address?: string;
+  addressLine1?: string;
+  landmark?: string;
+  formattedAddress?: string;
+  placeId?: string;
+  latitude?: number;
+  longitude?: number;
   sellerId?: string;
   deliveryAgentId?: string;
   role: UserRole;
@@ -55,6 +61,12 @@ interface AppContextType {
     targetRole?: UserRole;
     locality?: string;
     address?: string;
+    addressLine1?: string;
+    landmark?: string;
+    formattedAddress?: string;
+    placeId?: string;
+    latitude?: number;
+    longitude?: number;
     token?: string;
     serverUser?: any;
   }) => { success: boolean; message: string; role: UserRole };
@@ -66,6 +78,12 @@ interface AppContextType {
     locality: string;
     role: UserRole;
     address?: string;
+    addressLine1?: string;
+    landmark?: string;
+    formattedAddress?: string;
+    placeId?: string;
+    latitude?: number;
+    longitude?: number;
     token?: string;
     serverUser?: any;
   }) => { success: boolean; message: string; role: UserRole };
@@ -524,6 +542,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             phone: u.phone,
             locality: u.locality || prev.locality,
             address: u.address || prev.address,
+            addressLine1: u.addressLine1 || prev.addressLine1,
+            landmark: u.landmark || prev.landmark,
+            formattedAddress: u.formattedAddress || prev.formattedAddress,
+            placeId: u.placeId || prev.placeId,
+            latitude: u.latitude ?? prev.latitude,
+            longitude: u.longitude ?? prev.longitude,
             role: effectiveRole,
             isSignedIn: true,
             phoneVerified: true,
@@ -656,7 +680,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       email: trimmedEmail || undefined, name: params.serverUser.name || params.name,
       avatarUrl: params.serverUser.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(params.name)}&backgroundColor=0284c7,f59e0b,10b981`,
       phone: cleanPhone || undefined, locality: params.serverUser.locality || params.locality,
-      address: params.serverUser.address || params.address || '', sellerId, deliveryAgentId,
+      address: params.serverUser.address || params.address || '',
+      addressLine1: params.serverUser.addressLine1 || params.addressLine1,
+      landmark: params.serverUser.landmark || params.landmark,
+      formattedAddress: params.serverUser.formattedAddress || params.formattedAddress,
+      placeId: params.serverUser.placeId || params.placeId,
+      latitude: params.serverUser.latitude ?? params.latitude,
+      longitude: params.serverUser.longitude ?? params.longitude,
+      sellerId, deliveryAgentId,
       role: effectiveRole, isSignedIn: true, phoneVerified: Boolean(cleanPhone),
       emailVerified: Boolean(trimmedEmail), isAdmin: Number(params.serverUser.isAdmin) === 1 || effectiveRole === 'admin',
       authMethod: 'otp',
