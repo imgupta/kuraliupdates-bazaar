@@ -114,6 +114,9 @@ export interface Order {
   buyerEmail: string;
   deliveryAddress: string;
   deliveryLocality: string;
+  deliveryLatitude?: number;
+  deliveryLongitude?: number;
+  deliveryPlaceId?: string;
   items: CartItem[];
   sellerId: string;
   sellerName: string;
