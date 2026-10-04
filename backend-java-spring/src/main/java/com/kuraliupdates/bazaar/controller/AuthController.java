@@ -119,7 +119,7 @@ public class AuthController {
         Optional<UserEntity> userOpt = findUser(identifier, type);
         if (userOpt.isEmpty()) return error(HttpStatus.NOT_FOUND, "No registered account was found. Please register first.");
 
-        Optional<AuthOtpEntity> otpOpt = authOtpRepository.findValidOtp(identifier, type, LocalDateTime.now());
+        Optional<AuthOtpEntity> otpOpt = authOtpRepository.findFirstByIdentifierAndOtpTypeAndIsUsedAndAttemptsLessThanAndExpiresAtAfter(identifier, type, 0, 5, LocalDateTime.now());
         if (otpOpt.isEmpty() || !matchesOtp(req.otp().trim(), otpOpt.get().getOtpCode())) {
             registerFailedAttempt(otpOpt.orElse(null));
             return error(HttpStatus.UNAUTHORIZED, "Invalid or expired OTP. Please request a new code.");
@@ -160,7 +160,7 @@ public class AuthController {
             return error(HttpStatus.CONFLICT, "An account already exists with this email or mobile number. Please sign in instead.");
         }
 
-        Optional<AuthOtpEntity> emailRecord = authOtpRepository.findValidOtp(email, "EMAIL", LocalDateTime.now());
+        Optional<AuthOtpEntity> emailRecord = authOtpRepository.findFirstByIdentifierAndOtpTypeAndIsUsedAndAttemptsLessThanAndExpiresAtAfter(email, "EMAIL", 0, 5, LocalDateTime.now());
         if (emailRecord.isEmpty() || !matchesOtp(emailOtp, emailRecord.get().getOtpCode())) {
             registerFailedAttempt(emailRecord.orElse(null));
             return error(HttpStatus.UNAUTHORIZED, "Email OTP is invalid or expired");
