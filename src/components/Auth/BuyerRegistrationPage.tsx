@@ -98,7 +98,7 @@ export const BuyerRegistrationPage: React.FC = () => {
   };
 
   if (step === 'done') {
-    return <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 flex items-center justify-center p-4"><div className="w-full max-w-xl rounded-3xl bg-white p-8 text-center shadow-2xl"><CheckCircle2 className="w-14 h-14 mx-auto text-emerald-600" /><h1 className="mt-4 text-2xl font-black text-slate-900">Welcome to KuraliUpdates Bazaar</h1><p className="mt-2 text-sm text-slate-600">Your precise delivery location is saved. You can now shop from local merchants with accurate doorstep delivery.</p><a href="/" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-xs font-black text-white"><ArrowLeft className="w-4 h-4" /> Continue to Bazaar</a></div></div>;
+    return <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 flex items-center justify-center p-4"><div className="w-full max-w-xl rounded-3xl bg-white p-8 text-center shadow-2xl"><CheckCircle2 className="w-14 h-14 mx-auto text-emerald-600" /><h1 className="mt-4 text-2xl font-black text-slate-900">Welcome to KuraliUpdates Bazaar</h1><p className="mt-2 text-sm text-slate-600">Your buyer account is ready. You can add a precise delivery location anytime from My Account.</p><a href="/" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-xs font-black text-white"><ArrowLeft className="w-4 h-4" /> Continue to Bazaar</a></div></div>;
   }
 
   return (
