@@ -115,7 +115,6 @@ export const AuthPage: React.FC = () => {
   // OTP state
   const [otpValues, setOtpValues] = useState<string[]>(['', '', '', '', '', '']);
   const [emailOtpValues, setEmailOtpValues] = useState<string[]>(['', '', '', '', '', '']);
-  const [phoneOtpValues, setPhoneOtpValues] = useState<string[]>(['', '', '', '', '', '']);
   const [countdown, setCountdown] = useState<number>(60);
   const [canResend, setCanResend] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -134,14 +133,13 @@ export const AuthPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [step, countdown]);
 
-  // Request real OTPs from the backend. Registration verifies both email and phone.
+  // Request real OTPs from the backend. Registration currently verifies email only.
   const triggerOtpDispatch = async (identifier?: string) => {
     setIsLoading(true);
     setValidationError(null);
     try {
       if (authMode === 'register') {
         const email = (emailRef.current?.value || authDetails.email).trim().toLowerCase();
-        const phone = (phoneRef.current?.value || authDetails.phone).replace(/\D/g, '');
         const emailRes = await bazaarApi.sendOtp(email, 'EMAIL', 'REGISTER');
         if (!emailRes.success) throw new Error(emailRes.message);
       } else {
@@ -156,11 +154,10 @@ export const AuthPage: React.FC = () => {
       setCanResend(false);
       setOtpValues(['', '', '', '', '', '']);
       setEmailOtpValues(['', '', '', '', '', '']);
-      setPhoneOtpValues(['', '', '', '', '', '']);
       setStep('otp');
       showToast(
         authMode === 'register'
-          ? 'Verification codes sent to your email and mobile number'
+          ? 'Verification code sent to your email'
           : 'Verification code sent successfully',
         'info'
       );
@@ -289,7 +286,6 @@ export const AuthPage: React.FC = () => {
     const isRegister = authMode === 'register';
     const enteredOtp = otpValues.join('');
     const emailOtp = emailOtpValues.join('');
-    const phoneOtp = phoneOtpValues.join('');
 
     if (isRegister) {
       if (emailOtp.length !== 6) {
@@ -708,32 +704,6 @@ export const AuthPage: React.FC = () => {
                               if (value && idx < 5) document.getElementById(`email-otp-${idx + 1}`)?.focus();
                             }}
                             id={`email-otp-${idx}`}
-                            className="w-10 h-12 sm:w-11 sm:h-13 text-center font-mono text-lg font-black bg-slate-50 border-2 border-slate-300 rounded-2xl text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white"
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-center text-xs font-bold text-slate-700 mb-3">
-                        Mobile verification code
-                      </label>
-                      <div className="flex items-center justify-center gap-2 sm:gap-3">
-                        {phoneOtpValues.map((val, idx) => (
-                          <input
-                            key={idx}
-                            type="text"
-                            inputMode="numeric"
-                            maxLength={1}
-                            value={val}
-                            onChange={e => {
-                              const value = e.target.value;
-                              if (!/^\d*$/.test(value)) return;
-                              const next = [...phoneOtpValues];
-                              next[idx] = value.slice(-1);
-                              setPhoneOtpValues(next);
-                              if (value && idx < 5) document.getElementById(`phone-otp-${idx + 1}`)?.focus();
-                            }}
-                            id={`phone-otp-${idx}`}
                             className="w-10 h-12 sm:w-11 sm:h-13 text-center font-mono text-lg font-black bg-slate-50 border-2 border-slate-300 rounded-2xl text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white"
                           />
                         ))}
