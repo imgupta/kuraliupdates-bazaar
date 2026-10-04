@@ -24,7 +24,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({ orderId, fallbackBuy
       if (!window.google?.maps) {
         await new Promise<void>((resolve, reject) => {
           const script = document.createElement('script');
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places`;
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}`;
           script.async = true;
           script.defer = true;
           script.onload = () => resolve();
@@ -58,8 +58,12 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({ orderId, fallbackBuy
 
   useEffect(() => {
     if (!map.current || !window.google?.maps || !tracking) return;
-    const buyer = tracking.buyerLatitude ? { lat: Number(tracking.buyerLatitude), lng: Number(tracking.buyerLongitude) } : null;
-    const rider = tracking.agentLatitude ? { lat: Number(tracking.agentLatitude), lng: Number(tracking.agentLongitude) } : null;
+    const buyer = Number.isFinite(Number(tracking.buyerLatitude)) && Number.isFinite(Number(tracking.buyerLongitude))
+      ? { lat: Number(tracking.buyerLatitude), lng: Number(tracking.buyerLongitude) }
+      : null;
+    const rider = Number.isFinite(Number(tracking.agentLatitude)) && Number.isFinite(Number(tracking.agentLongitude))
+      ? { lat: Number(tracking.agentLatitude), lng: Number(tracking.agentLongitude) }
+      : null;
     if (buyer) {
       if (!buyerMarker.current) buyerMarker.current = new window.google.maps.Marker({ map: map.current, position: buyer, label: 'B', title: 'Delivery address' });
       else buyerMarker.current.setPosition(buyer);
