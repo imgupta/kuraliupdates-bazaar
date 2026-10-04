@@ -42,6 +42,9 @@ public class BuyerController {
         order.setDeliveryOtp(randomOtp);
         order.setStatus("PLACED");
         order.setPlacedAt(LocalDateTime.now());
+        if (order.getDeliveryLatitude() == null || order.getDeliveryLongitude() == null) {
+            return ResponseEntity.badRequest().build();
+        }
         OrderEntity saved = orderRepository.save(order);
         return ResponseEntity.ok(saved);
     }
