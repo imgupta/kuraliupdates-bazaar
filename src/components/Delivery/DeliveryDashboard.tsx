@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Bike,
   MapPin,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Order } from '../../types';
+import { bazaarApi } from '../../services/api';
 
 export const DeliveryDashboard: React.FC = () => {
   const {
@@ -30,6 +31,22 @@ export const DeliveryDashboard: React.FC = () => {
   const [otpInputs, setOtpInputs] = useState<{ [orderId: string]: string }>({});
 
   const agent = currentAgent || deliveryAgents[0];
+
+  useEffect(() => {
+    if (!agent?.id || !navigator.geolocation) return;
+    const publish = () => {
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          bazaarApi.updateDeliveryLocation(agent.id, position.coords.latitude, position.coords.longitude);
+        },
+        () => undefined,
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
+      );
+    };
+    publish();
+    const timer = window.setInterval(publish, 10000);
+    return () => window.clearInterval(timer);
+  }, [agent?.id]);
 
   // Available jobs in Kurali
   const availableOrders = orders.filter(
