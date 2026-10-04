@@ -10,6 +10,8 @@ import com.kuraliupdates.bazaar.repository.DeliveryAgentRepository;
 import com.kuraliupdates.bazaar.repository.AuthOtpRepository;
 import com.kuraliupdates.bazaar.repository.UserRepository;
 import com.kuraliupdates.bazaar.repository.UserSessionRepository;
+import com.kuraliupdates.bazaar.repository.UserAddressRepository;
+import com.kuraliupdates.bazaar.entity.UserAddressEntity;
 import com.kuraliupdates.bazaar.service.OtpDeliveryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +33,7 @@ public class AuthController {
     private final UserRepository userRepository;
     private final AuthOtpRepository authOtpRepository;
     private final UserSessionRepository userSessionRepository;
+    private final UserAddressRepository userAddressRepository;
     private final OtpDeliveryService otpDeliveryService;
     private final SellerRepository sellerRepository;
     private final DeliveryAgentRepository deliveryAgentRepository;
@@ -48,6 +51,8 @@ public class AuthController {
             String formattedAddress, String placeId, Double latitude, Double longitude,
             String email, String phone, String emailOtp, String phoneOtp,
             String storeName, String category, String vehicleType, String vehicleNumber, String licenseNumber) {}
+    public record ProfileUpdateRequest(String name, String phone, String locality, String address, String addressLine1, String landmark, String formattedAddress, String placeId, Double latitude, Double longitude) {}
+    public record AddressRequest(String label, String addressLine1, String landmark, String formattedAddress, String placeId, Double latitude, Double longitude, Boolean isDefault) {}
 
     @PostMapping("/send-otp")
     @Transactional
@@ -283,7 +288,98 @@ public class AuthController {
         }
         Optional<UserEntity> user = userRepository.findById(session.get().getUserId());
         if (user.isEmpty()) return error(HttpStatus.UNAUTHORIZED, "User not found");
-        return ResponseEntity.ok(Map.of("authenticated", true, "user", user.get()));
+        return currentUserResponse(user.get());
+    }
+
+    @PutMapping("/me")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> updateCurrentUser(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody ProfileUpdateRequest req) {
+        Optional<UserEntity> userOpt = authenticateUser(authHeader);
+        if (userOpt.isEmpty()) return error(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
+        UserEntity user = userOpt.get();
+        if (req.name() != null && !req.name().isBlank()) user.setName(req.name().trim());
+        if (req.phone() != null && !req.phone().isBlank()) {
+            String phone = normalizeIdentifier(req.phone(), "PHONE");
+            if (!phone.matches("\\d{10}")) return error(HttpStatus.BAD_REQUEST, "Please enter a valid 10-digit mobile number");
+            Optional<UserEntity> duplicate = userRepository.findByPhone(phone);
+            if (duplicate.isPresent() && !duplicate.get().getUserId().equals(user.getUserId())) {
+                return error(HttpStatus.CONFLICT, "This mobile number is already registered to another account");
+            }
+            user.setPhone(phone);
+        }
+        if (req.locality() != null) user.setLocality(req.locality().trim());
+        if (req.address() != null) user.setAddress(req.address().trim());
+        if (req.addressLine1() != null) user.setAddressLine1(req.addressLine1().trim());
+        if (req.landmark() != null) user.setLandmark(req.landmark().trim());
+        if (req.formattedAddress() != null) user.setFormattedAddress(req.formattedAddress().trim());
+        if (req.placeId() != null) user.setPlaceId(req.placeId().trim());
+        if (req.latitude() != null) user.setLatitude(latitudeOrNull(req.latitude()));
+        if (req.longitude() != null) user.setLongitude(longitudeOrNull(req.longitude()));
+        userRepository.save(user);
+        return currentUserResponse(user);
+    }
+
+    @GetMapping("/me/addresses")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getAddresses(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        Optional<UserEntity> user = authenticateUser(authHeader);
+        if (user.isEmpty()) return error(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
+        return ResponseEntity.ok(userAddressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc(user.get().getUserId()));
+    }
+
+    @PostMapping("/me/addresses")
+    @Transactional
+    public ResponseEntity<?> createAddress(@RequestHeader(value = "Authorization", required = false) String authHeader, @RequestBody AddressRequest req) {
+        Optional<UserEntity> userOpt = authenticateUser(authHeader);
+        if (userOpt.isEmpty()) return error(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
+        if (req.addressLine1() == null || req.addressLine1().isBlank()) return error(HttpStatus.BAD_REQUEST, "Address details are required");
+        String userId = userOpt.get().getUserId();
+        boolean makeDefault = Boolean.TRUE.equals(req.isDefault()) || userAddressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc(userId).isEmpty();
+        if (makeDefault) clearDefault(userId);
+        UserAddressEntity address = UserAddressEntity.builder()
+                .addressId("addr-" + UUID.randomUUID().toString().substring(0, 8))
+                .userId(userId).label(req.label() == null || req.label().isBlank() ? "Home" : req.label().trim())
+                .addressLine1(req.addressLine1().trim()).landmark(trim(req.landmark())).formattedAddress(trim(req.formattedAddress()))
+                .placeId(trim(req.placeId())).latitude(latitudeOrNull(req.latitude())).longitude(longitudeOrNull(req.longitude()))
+                .isDefault(makeDefault ? 1 : 0).createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+        UserAddressEntity saved = userAddressRepository.save(address);
+        if (makeDefault) syncPrimaryAddress(userOpt.get(), saved);
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+    }
+
+    @PutMapping("/me/addresses/{addressId}")
+    @Transactional
+    public ResponseEntity<?> updateAddress(@RequestHeader(value = "Authorization", required = false) String authHeader, @PathVariable String addressId, @RequestBody AddressRequest req) {
+        Optional<UserEntity> userOpt = authenticateUser(authHeader);
+        if (userOpt.isEmpty()) return error(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
+        Optional<UserAddressEntity> addressOpt = userAddressRepository.findByAddressIdAndUserId(addressId, userOpt.get().getUserId());
+        if (addressOpt.isEmpty()) return ResponseEntity.notFound().build();
+        UserAddressEntity a = addressOpt.get();
+        if (req.addressLine1() == null || req.addressLine1().isBlank()) return error(HttpStatus.BAD_REQUEST, "Address details are required");
+        a.setLabel(req.label() == null || req.label().isBlank() ? a.getLabel() : req.label().trim());
+        a.setAddressLine1(req.addressLine1().trim()); a.setLandmark(trim(req.landmark())); a.setFormattedAddress(trim(req.formattedAddress()));
+        a.setPlaceId(trim(req.placeId())); a.setLatitude(latitudeOrNull(req.latitude())); a.setLongitude(longitudeOrNull(req.longitude()));
+        a.setUpdatedAt(LocalDateTime.now());
+        boolean makeDefault = Boolean.TRUE.equals(req.isDefault());
+        if (makeDefault) { clearDefault(a.getUserId()); a.setIsDefault(1); }
+        UserAddressEntity saved = userAddressRepository.save(a);
+        if (saved.getIsDefault() == 1) syncPrimaryAddress(userOpt.get(), saved);
+        return ResponseEntity.ok(saved);
+    }
+
+    @PutMapping("/me/addresses/{addressId}/default")
+    @Transactional
+    public ResponseEntity<?> setDefaultAddress(@RequestHeader(value = "Authorization", required = false) String authHeader, @PathVariable String addressId) {
+        Optional<UserEntity> userOpt = authenticateUser(authHeader);
+        if (userOpt.isEmpty()) return error(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
+        Optional<UserAddressEntity> addressOpt = userAddressRepository.findByAddressIdAndUserId(addressId, userOpt.get().getUserId());
+        if (addressOpt.isEmpty()) return ResponseEntity.notFound().build();
+        clearDefault(userOpt.get().getUserId());
+        UserAddressEntity a = addressOpt.get(); a.setIsDefault(1); a.setUpdatedAt(LocalDateTime.now());
+        userAddressRepository.save(a); syncPrimaryAddress(userOpt.get(), a);
+        return ResponseEntity.ok(a);
     }
 
     @PostMapping("/logout")
@@ -296,6 +392,35 @@ public class AuthController {
         if (token != null && !token.isBlank()) userSessionRepository.deleteBySessionToken(token);
         return ResponseEntity.ok(Map.of("success", true, "message", "Successfully logged out"));
     }
+
+    private Optional<UserEntity> authenticateUser(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) return Optional.empty();
+        String token = authHeader.substring(7).trim();
+        if (token.isBlank()) return Optional.empty();
+        Optional<UserSessionEntity> session = userSessionRepository.findBySessionToken(token);
+        if (session.isEmpty() || session.get().getExpiresAt().isBefore(LocalDateTime.now())) return Optional.empty();
+        return userRepository.findById(session.get().getUserId());
+    }
+
+    private ResponseEntity<Map<String, Object>> currentUserResponse(UserEntity user) {
+        List<UserAddressEntity> addresses = userAddressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc(user.getUserId());
+        return ResponseEntity.ok(Map.of("authenticated", true, "user", user, "addresses", addresses));
+    }
+
+    private void clearDefault(String userId) {
+        userAddressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc(userId).forEach(a -> {
+            if (a.getIsDefault() != 0) { a.setIsDefault(0); a.setUpdatedAt(LocalDateTime.now()); userAddressRepository.save(a); }
+        });
+    }
+
+    private void syncPrimaryAddress(UserEntity user, UserAddressEntity a) {
+        user.setAddress(String.join(", ", java.util.stream.Stream.of(a.getAddressLine1(), a.getLandmark(), a.getFormattedAddress()).filter(v -> v != null && !v.isBlank()).toList()));
+        user.setAddressLine1(a.getAddressLine1()); user.setLandmark(a.getLandmark()); user.setFormattedAddress(a.getFormattedAddress());
+        user.setPlaceId(a.getPlaceId()); user.setLatitude(a.getLatitude()); user.setLongitude(a.getLongitude());
+        userRepository.save(user);
+    }
+
+    private String trim(String value) { return value == null ? null : value.trim(); }
 
     private Optional<UserEntity> findUser(String identifier, String type) {
         return "EMAIL".equals(type) ? userRepository.findByEmail(identifier) : userRepository.findByPhone(identifier);
