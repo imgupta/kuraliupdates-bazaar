@@ -415,7 +415,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
               Kurali's Local Online Marketplace is Live!
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              No products are listed yet. Are you a local shop owner in Kurali? Register your store, list your groceries or products, and start receiving orders from local neighborhood shoppers!
+              No products are available in your selected area yet. Try another locality, search term, or category. New local deals will appear here as soon as they go live.
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
