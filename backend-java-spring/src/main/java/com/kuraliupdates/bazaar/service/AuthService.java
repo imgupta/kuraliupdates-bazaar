@@ -190,11 +190,11 @@ public class AuthService {
         if (req.name() == null || req.name().isBlank() || email.isBlank() || phone.isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Full name, email and mobile number are required for registration");
         }
-        if (!email.matches("^[^\\\s@]+@[^\\\s@]+\\.[^\\\s@]+$")) {
         if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Please enter a valid email address");
         }
-        if (!phone.matches("\\\d{10}")) {
         if (!phone.matches("\\d{10}")) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Please enter a valid 10-digit mobile number");
         }
     }
 
