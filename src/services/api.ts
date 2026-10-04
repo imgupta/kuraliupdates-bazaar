@@ -335,6 +335,9 @@ export const bazaarApi = {
           finalPayable: order.totalAmount,
           paymentMethod: order.paymentMethod,
           distanceKm: order.distanceKm || 1.5,
+          deliveryLatitude: (order as any).deliveryLatitude,
+          deliveryLongitude: (order as any).deliveryLongitude,
+          deliveryPlaceId: (order as any).deliveryPlaceId,
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -358,6 +361,33 @@ export const bazaarApi = {
     } catch (err) {
       console.warn('Backend trackOrder failed:', err);
       return null;
+    }
+  },
+
+  async getLiveTracking(orderId: string): Promise<any> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tracking/orders/${encodeURIComponent(orderId)}`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getLiveTracking failed:', err);
+      return null;
+    }
+  },
+
+  async updateDeliveryLocation(agentId: string, latitude: number, longitude: number): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tracking/delivery/${encodeURIComponent(agentId)}/location`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ latitude, longitude }),
+      });
+      return res.ok;
+    } catch (err) {
+      console.warn('Backend updateDeliveryLocation failed:', err);
+      return false;
     }
   },
 
