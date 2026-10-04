@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { OrderStatus } from '../../types';
+import { LiveOrderMap } from './LiveOrderMap';
 
 interface OrderTrackingModalProps {
   orderId: string;
@@ -80,67 +81,8 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
           </button>
         </div>
 
-        {/* Real-time Visual Simulation Map */}
-        <div className="relative bg-slate-900 text-white h-52 p-4 flex flex-col justify-between overflow-hidden">
-          {/* Subtle stylized city road grid pattern */}
-          <div className="absolute inset-0 opacity-20 pointer-events-none">
-            <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#fff" strokeWidth="1" />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#grid)" />
-            </svg>
-          </div>
-
-          {/* Map Top Bar */}
-          <div className="relative z-10 flex items-center justify-between">
-            <div className="flex items-center gap-2 bg-slate-800/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700 text-xs">
-              <Navigation className="w-3.5 h-3.5 text-amber-400" />
-              <span>Route: <strong>{order.sellerLocality}</strong> &rarr; <strong>{order.deliveryLocality}</strong></span>
-            </div>
-            <div className="flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-xl text-xs font-bold">
-              <Clock className="w-3.5 h-3.5" />
-              ETA: {order.status === 'delivered' ? 'Delivered' : `${order.estimatedDeliveryMins} mins`}
-            </div>
-          </div>
-
-          {/* Interactive animated delivery progress visual on Kurali Map */}
-          <div className="relative z-10 my-auto py-2">
-            <div className="relative h-2 bg-slate-800 rounded-full border border-slate-700/80 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-emerald-400 transition-all duration-700 ease-out"
-                style={{ width: `${progressPercent}%` }}
-              ></div>
-            </div>
-
-            {/* Pins on the route */}
-            <div className="flex items-center justify-between text-[11px] mt-2 font-medium">
-              <div className="flex items-center gap-1 text-amber-300">
-                <Store className="w-4 h-4" />
-                <span>{(order.sellerName || order.sellerNames?.[0] || 'Store').split(' ')[0]}</span>
-              </div>
-              <div className="flex items-center gap-1 text-slate-300">
-                <span>Morinda Rd / Chowk</span>
-              </div>
-              <div className="flex items-center gap-1 text-emerald-400">
-                <MapPin className="w-4 h-4" />
-                <span>Your Location</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom live notification bar */}
-          <div className="relative z-10 flex items-center justify-between text-xs bg-slate-800/70 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-slate-700">
-            <span className="text-slate-300">
-              {order.statusUpdates[order.statusUpdates.length - 1]?.note || 'In transit within Kurali'}
-            </span>
-            <span className="text-amber-400 font-mono text-[11px]">
-              {order.statusUpdates[order.statusUpdates.length - 1]?.timestamp}
-            </span>
-          </div>
-        </div>
+        {/* Live Google Maps tracking */}
+        <LiveOrderMap orderId={order.id} fallbackBuyer={{ latitude: order.deliveryLatitude, longitude: order.deliveryLongitude }} />
 
         {/* Scrollable Content Body */}
         <div className="p-6 overflow-y-auto space-y-6">
