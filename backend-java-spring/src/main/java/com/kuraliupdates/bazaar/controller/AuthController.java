@@ -169,6 +169,7 @@ public class AuthController {
 
         String requestedRole = req.role() == null ? "BUYER" : req.role().trim().toUpperCase();
         if (!Set.of("BUYER", "SELLER", "DELIVERY").contains(requestedRole)) requestedRole = "BUYER";
+        String registrationLocality = req.locality() == null || req.locality().isBlank() ? "Main Bazaar & Clock Tower" : req.locality().trim();
 
         UserEntity user = UserEntity.builder()
                 .userId("user-" + UUID.randomUUID().toString().substring(0, 8))
@@ -194,8 +195,8 @@ public class AuthController {
                     .email(email)
                     .phone(phone)
                     .category(req.category() == null || req.category().isBlank() ? "General" : req.category().trim())
-                    .address(req.address() == null || req.address().isBlank() ? req.locality().trim() + ", Kurali" : req.address().trim())
-                    .locality(req.locality() == null || req.locality().isBlank() ? "Main Bazaar & Clock Tower" : req.locality().trim())
+                    .address(req.address() == null || req.address().isBlank() ? registrationLocality + ", Kurali" : req.address().trim())
+                    .locality(registrationLocality)
                     .distanceKm(java.math.BigDecimal.ONE)
                     .rating(java.math.BigDecimal.ZERO)
                     .reviewCount(0)
@@ -220,7 +221,7 @@ public class AuthController {
                     .totalTrips(0)
                     .todayEarnings(java.math.BigDecimal.ZERO)
                     .totalEarnings(java.math.BigDecimal.ZERO)
-                    .currentLocality(req.locality() == null || req.locality().isBlank() ? "Main Bazaar & Clock Tower" : req.locality().trim())
+                    .currentLocality(registrationLocality)
                     .registeredAt(LocalDateTime.now())
                     .build();
             deliveryAgentRepository.save(agent);
