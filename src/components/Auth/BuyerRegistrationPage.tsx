@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertCircle, ArrowLeft, CheckCircle2, Mail, MapPin, Phone, ShieldCheck, ShoppingBag, Sparkles, User } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { bazaarApi } from '../../services/api';
@@ -6,11 +6,11 @@ import { DeliveryLocation, LocationPicker } from './LocationPicker';
 
 export const BuyerRegistrationPage: React.FC = () => {
   const { registerUserWithOtp, showToast } = useApp();
-  const nameRef = useRef<HTMLInputElement>(null);
-  const emailRef = useRef<HTMLInputElement>(null);
-  const phoneRef = useRef<HTMLInputElement>(null);
-  const addressRef = useRef<HTMLInputElement>(null);
-  const landmarkRef = useRef<HTMLInputElement>(null);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [addressLine, setAddressLine] = useState('');
+  const [landmark, setLandmark] = useState('');
   const [location, setLocation] = useState<DeliveryLocation | null>(null);
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'form' | 'otp' | 'done'>('form');
@@ -26,20 +26,20 @@ export const BuyerRegistrationPage: React.FC = () => {
 
   const sendOtp = async () => {
     setError('');
-    const name = nameRef.current?.value.trim() || '';
-    const email = emailRef.current?.value.trim().toLowerCase() || '';
-    const phone = phoneRef.current?.value.replace(/\D/g, '') || '';
-    const addressLine = addressRef.current?.value.trim() || '';
-    const landmark = landmarkRef.current?.value.trim() || '';
+    const normalizedName = name.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPhone = phone.replace(/\D/g, '');
+    const normalizedAddressLine = addressLine.trim();
+    const normalizedLandmark = landmark.trim();
 
-    if (!name) return setError('Please enter your full name.');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError('Please enter a valid email address.');
-    if (!/^\d{10}$/.test(phone)) return setError('Please enter a valid 10-digit mobile number.');
-    if (!addressLine) return setError('Please enter your house / flat / building details.');
-    if (!landmark) return setError('Please enter a nearby landmark so our rider can find you easily.');
+    if (!normalizedName) return setError('Please enter your full name.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) return setError('Please enter a valid email address.');
+    if (!/^\d{10}$/.test(normalizedPhone)) return setError('Please enter a valid 10-digit mobile number.');
+    if (!normalizedAddressLine) return setError('Please enter your house / flat / building details.');
+    if (!normalizedLandmark) return setError('Please enter a nearby landmark so our rider can find you easily.');
 
     setLoading(true);
-    const response = await bazaarApi.sendOtp(email, 'EMAIL', 'REGISTER');
+    const response = await bazaarApi.sendOtp(normalizedEmail, 'EMAIL', 'REGISTER');
     setLoading(false);
     if (!response.success) {
       setError(response.message);
@@ -53,22 +53,22 @@ export const BuyerRegistrationPage: React.FC = () => {
   const verify = async () => {
     const code = otp.replace(/\D/g, '');
     if (code.length !== 6) return setError('Enter the complete 6-digit OTP.');
-    const name = nameRef.current?.value.trim() || '';
-    const email = emailRef.current?.value.trim().toLowerCase() || '';
-    const phone = phoneRef.current?.value.replace(/\D/g, '') || '';
-    const addressLine = addressRef.current?.value.trim() || '';
-    const landmark = landmarkRef.current?.value.trim() || '';
+    const normalizedName = name.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPhone = phone.replace(/\D/g, '');
+    const normalizedAddressLine = addressLine.trim();
+    const normalizedLandmark = landmark.trim();
     setLoading(true);
     const response = await bazaarApi.verifyOtp({
       mode: 'REGISTER',
       role: 'BUYER',
-      name,
-      email,
-      phone,
+      name: normalizedName,
+      email: normalizedEmail,
+      phone: normalizedPhone,
       locality: 'Kurali',
-      address: [addressLine, landmark, location?.formattedAddress].filter(Boolean).join(', '),
-      addressLine1: addressLine,
-      landmark,
+      address: [normalizedAddressLine, normalizedLandmark, location?.formattedAddress].filter(Boolean).join(', '),
+      addressLine1: normalizedAddressLine,
+      landmark: normalizedLandmark,
       formattedAddress: location?.formattedAddress,
       placeId: location?.placeId,
       latitude: location?.latitude,
@@ -84,9 +84,9 @@ export const BuyerRegistrationPage: React.FC = () => {
 
     registerUserWithOtp({
       name,
-      identifier: email,
-      email,
-      phone,
+      identifier: normalizedEmail,
+      email: normalizedEmail,
+      phone: normalizedPhone,
       locality: 'Kurali',
       role: 'buyer',
       address: [addressLine, landmark, location?.formattedAddress].filter(Boolean).join(', '),
@@ -118,14 +118,14 @@ export const BuyerRegistrationPage: React.FC = () => {
           {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-900 flex gap-2"><AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />{error}</div>}
           {step === 'form' ? <>
             <div className="grid md:grid-cols-3 gap-4">
-              <Field icon={<User />} label="Full name" ref={nameRef} placeholder="Your full name" />
-              <Field icon={<Mail />} label="Email" ref={emailRef} placeholder="name@example.com" type="email" />
-              <Field icon={<Phone />} label="Mobile" ref={phoneRef} placeholder="10-digit mobile" inputMode="numeric" />
+              <Field icon={<User />} label="Full name" value={name} onChange={e => setName(e.target.value)} placeholder="Your full name" />
+              <Field icon={<Mail />} label="Email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@example.com" type="email" />
+              <Field icon={<Phone />} label="Mobile" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="10-digit mobile" inputMode="numeric" />
             </div>
             <div><LocationPicker value={location} onChange={setLocation} /><p className="mt-2 text-[11px] text-slate-500">Optional during registration. You can add or change your delivery location later from My Account.</p></div>
             <div className="grid md:grid-cols-2 gap-4">
-              <Field icon={<MapPin />} label="House / Flat / Building" ref={addressRef} placeholder="Flat 201, House 14, Building name" />
-              <Field icon={<MapPin />} label="Nearby landmark" ref={landmarkRef} placeholder="Near Gurudwara / school / market" />
+              <Field icon={<MapPin />} label="House / Flat / Building" value={addressLine} onChange={e => setAddressLine(e.target.value)} placeholder="Flat 201, House 14, Building name" />
+              <Field icon={<MapPin />} label="Nearby landmark" value={landmark} onChange={e => setLandmark(e.target.value)} placeholder="Near Gurudwara / school / market" />
             </div>
             <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 flex gap-3">
               <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
