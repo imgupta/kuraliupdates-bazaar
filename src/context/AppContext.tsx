@@ -431,6 +431,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       }
 
+      // Synchronize pending seller and delivery approvals from Oracle DB
+      const [remotePendingSellers, remotePendingAgents] = await Promise.all([
+        bazaarApi.getPendingSellers(),
+        bazaarApi.getPendingDeliveryAgents(),
+      ]);
+      if (remotePendingSellers?.length) {
+        setSellers(prev => {
+          const mapped = remotePendingSellers.map((s: any) => ({
+            id: s.sellerId,
+            name: s.storeName,
+            ownerName: s.ownerName,
+            email: s.email,
+            phone: s.phone,
+            avatarUrl: s.avatarUrl || '',
+            category: s.category || 'General',
+            address: s.address,
+            locality: s.locality,
+            distanceKm: Number(s.distanceKm || 1),
+            rating: Number(s.rating || 0),
+            reviewCount: Number(s.reviewCount || 0),
+            status: String(s.status || 'PENDING').toLowerCase(),
+            registeredAt: s.registeredAt,
+            approvedAt: s.approvedAt,
+            description: s.description || '',
+            minOrderForFreeDelivery: Number(s.minOrderForFreeDelivery || 499),
+            baseDeliveryFee: Number(s.baseDeliveryFee || 35),
+            billDiscounts: [],
+          })) as Seller[];
+          const remoteIds = new Set(mapped.map(s => s.id));
+          return [...mapped, ...prev.filter(s => !remoteIds.has(s.id))];
+        });
+      }
+      if (remotePendingAgents?.length) {
+        setDeliveryAgents(prev => {
+          const mapped = remotePendingAgents.map((a: any) => ({
+            id: a.agentId,
+            name: a.fullName,
+            email: a.email,
+            phone: a.phone,
+            avatarUrl: a.avatarUrl || '',
+            vehicleType: a.vehicleType,
+            vehicleNumber: a.vehicleNumber,
+            licenseNumber: a.licenseNumber,
+            status: String(a.status || 'PENDING').toLowerCase(),
+            rating: Number(a.rating || 0),
+            totalTrips: Number(a.totalTrips || 0),
+            todayEarnings: Number(a.todayEarnings || 0),
+            totalEarnings: Number(a.totalEarnings || 0),
+            currentLocality: a.currentLocality,
+            registeredAt: a.registeredAt,
+          })) as DeliveryAgent[];
+          const remoteIds = new Set(mapped.map(a => a.id));
+          return [...mapped, ...prev.filter(a => !remoteIds.has(a.id))];
+        });
+      }
+
       // Synchronize Available Delivery Jobs from Oracle DB if in delivery role
       const availableJobs = await bazaarApi.getAvailableDeliveryJobs();
       if (availableJobs && availableJobs.length > 0) {
@@ -593,36 +649,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     let sellerId: string | undefined;
     let deliveryAgentId: string | undefined;
-
-    if (effectiveRole === 'seller') {
-      const newSellerId = `seller-${Date.now()}`;
-      sellerId = newSellerId;
-      const newSeller: Seller = {
-        id: newSellerId, name: `${params.name}'s Shop`, ownerName: params.name,
-        email: trimmedEmail, phone: cleanPhone, category: 'Groceries & Daily Essentials',
-        locality: params.locality, address: params.address || `${params.locality}, Kurali`,
-        distanceKm: 1.0, rating: 5.0, reviewCount: 0, status: 'pending',
-        registeredAt: new Date().toISOString(),
-        bannerUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
-        avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(params.name)}&backgroundColor=0284c7,f59e0b,10b981`,
-        description: `Verified retail store registered in ${params.locality}, Kurali.`,
-        minOrderForFreeDelivery: 499, baseDeliveryFee: 35, billDiscounts: [],
-      };
-      setSellers(prev => [newSeller, ...prev]);
-      bazaarApi.registerSeller(newSeller);
-    } else if (effectiveRole === 'delivery') {
-      const newAgentId = `agent-${Date.now()}`;
-      deliveryAgentId = newAgentId;
-      const newAgent: DeliveryAgent = {
-        id: newAgentId, name: params.name, email: trimmedEmail, phone: cleanPhone,
-        avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(params.name)}&backgroundColor=0284c7,f59e0b,10b981`,
-        vehicleType: 'Bike', vehicleNumber: 'PB 65 TR 1001', licenseNumber: 'PB-65-2026-ACTIVE',
-        status: 'active', rating: 5.0, totalTrips: 0, todayEarnings: 0, totalEarnings: 0,
-        currentLocality: params.locality, registeredAt: new Date().toISOString(),
-      };
-      setDeliveryAgents(prev => [newAgent, ...prev]);
-      bazaarApi.registerDeliveryAgent(newAgent);
-    }
 
     const updatedUser: UserProfile = {
       email: trimmedEmail || undefined, name: params.serverUser.name || params.name,
