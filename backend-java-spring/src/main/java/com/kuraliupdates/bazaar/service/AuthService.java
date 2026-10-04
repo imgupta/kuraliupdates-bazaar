@@ -42,7 +42,7 @@ public class AuthService {
     private final BuyerAddressService addressService;
 
     @Transactional
-    public void sendOtp(String rawIdentifier, String requestedType, String mode) {
+    public OtpSendResult sendOtp(String rawIdentifier, String requestedType, String mode) {
         String raw = rawIdentifier == null ? "" : rawIdentifier.trim();
         if (raw.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "Email address or mobile phone number is required");
 
@@ -268,10 +268,10 @@ public class AuthService {
         return value == null ? null : BigDecimal.valueOf(value);
     }
 
-    private String defaultString(String value) {
+    private String mask(String value) {\n        if (value.contains("@")) { int at = value.indexOf("@"); return value.charAt(0) + "***" + value.substring(Math.max(at - 1, 1)); }\n        return value.length() <= 4 ? "****" : "******" + value.substring(value.length() - 4);\n    }\n\n    private String defaultString(String value) {
         return value == null ? "" : value.trim();
     }
 
-    public record AuthResult(String token, UserResponse user, String message) {}
+    public record OtpSendResult(String identifier, String type, int expiresInSeconds) {}\n\n    public record AuthResult(String token, UserResponse user, String message) {}
     public record OnboardingStatus(String role, String status) {}
 }
