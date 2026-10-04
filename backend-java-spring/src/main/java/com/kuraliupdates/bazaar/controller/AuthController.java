@@ -34,6 +34,7 @@ public class AuthController {
     private final AuthOtpRepository authOtpRepository;
     private final UserSessionRepository userSessionRepository;
     private final UserAddressRepository userAddressRepository;
+    private final com.kuraliupdates.bazaar.service.BuyerAddressService buyerAddressService;
     private final OtpDeliveryService otpDeliveryService;
     private final SellerRepository sellerRepository;
     private final DeliveryAgentRepository deliveryAgentRepository;
@@ -326,60 +327,47 @@ public class AuthController {
     public ResponseEntity<?> getAddresses(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         Optional<UserEntity> user = authenticateUser(authHeader);
         if (user.isEmpty()) return error(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
-        return ResponseEntity.ok(userAddressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc(user.get().getUserId()));
+        return ResponseEntity.ok(buyerAddressService.findByUserId(user.get().getUserId()));
     }
 
     @PostMapping("/me/addresses")
     @Transactional
     public ResponseEntity<?> createAddress(@RequestHeader(value = "Authorization", required = false) String authHeader, @RequestBody AddressRequest req) {
-        Optional<UserEntity> userOpt = authenticateUser(authHeader);
-        if (userOpt.isEmpty()) return error(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
+        Optional<UserEntity> user = authenticateUser(authHeader);
+        if (user.isEmpty()) return error(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
         if (req.addressLine1() == null || req.addressLine1().isBlank()) return error(HttpStatus.BAD_REQUEST, "Address details are required");
-        String userId = userOpt.get().getUserId();
-        boolean makeDefault = Boolean.TRUE.equals(req.isDefault()) || userAddressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc(userId).isEmpty();
-        if (makeDefault) clearDefault(userId);
-        UserAddressEntity address = UserAddressEntity.builder()
-                .addressId("addr-" + UUID.randomUUID().toString().substring(0, 8))
-                .userId(userId).label(req.label() == null || req.label().isBlank() ? "Home" : req.label().trim())
-                .addressLine1(req.addressLine1().trim()).landmark(trim(req.landmark())).formattedAddress(trim(req.formattedAddress()))
-                .placeId(trim(req.placeId())).latitude(latitudeOrNull(req.latitude())).longitude(longitudeOrNull(req.longitude()))
-                .isDefault(makeDefault ? 1 : 0).createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
-        UserAddressEntity saved = userAddressRepository.save(address);
-        if (makeDefault) syncPrimaryAddress(userOpt.get(), saved);
+
+        UserAddressEntity saved = buyerAddressService.create(
+                user.get(), req.label(), req.addressLine1(), req.landmark(), req.formattedAddress(),
+                req.placeId(), req.latitude(), req.longitude(), Boolean.TRUE.equals(req.isDefault()));
+
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     @PutMapping("/me/addresses/{addressId}")
     @Transactional
     public ResponseEntity<?> updateAddress(@RequestHeader(value = "Authorization", required = false) String authHeader, @PathVariable String addressId, @RequestBody AddressRequest req) {
-        Optional<UserEntity> userOpt = authenticateUser(authHeader);
-        if (userOpt.isEmpty()) return error(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
-        Optional<UserAddressEntity> addressOpt = userAddressRepository.findByAddressIdAndUserId(addressId, userOpt.get().getUserId());
-        if (addressOpt.isEmpty()) return ResponseEntity.notFound().build();
-        UserAddressEntity a = addressOpt.get();
+        Optional<UserEntity> user = authenticateUser(authHeader);
+        if (user.isEmpty()) return error(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
         if (req.addressLine1() == null || req.addressLine1().isBlank()) return error(HttpStatus.BAD_REQUEST, "Address details are required");
-        a.setLabel(req.label() == null || req.label().isBlank() ? a.getLabel() : req.label().trim());
-        a.setAddressLine1(req.addressLine1().trim()); a.setLandmark(trim(req.landmark())); a.setFormattedAddress(trim(req.formattedAddress()));
-        a.setPlaceId(trim(req.placeId())); a.setLatitude(latitudeOrNull(req.latitude())); a.setLongitude(longitudeOrNull(req.longitude()));
-        a.setUpdatedAt(LocalDateTime.now());
-        boolean makeDefault = Boolean.TRUE.equals(req.isDefault());
-        if (makeDefault) { clearDefault(a.getUserId()); a.setIsDefault(1); }
-        UserAddressEntity saved = userAddressRepository.save(a);
-        if (saved.getIsDefault() == 1) syncPrimaryAddress(userOpt.get(), saved);
-        return ResponseEntity.ok(saved);
+
+        Optional<UserAddressEntity> saved = buyerAddressService.update(
+                user.get(), addressId, req.label(), req.addressLine1(), req.landmark(), req.formattedAddress(),
+                req.placeId(), req.latitude(), req.longitude(), Boolean.TRUE.equals(req.isDefault()));
+
+        return saved.<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PutMapping("/me/addresses/{addressId}/default")
     @Transactional
     public ResponseEntity<?> setDefaultAddress(@RequestHeader(value = "Authorization", required = false) String authHeader, @PathVariable String addressId) {
-        Optional<UserEntity> userOpt = authenticateUser(authHeader);
-        if (userOpt.isEmpty()) return error(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
-        Optional<UserAddressEntity> addressOpt = userAddressRepository.findByAddressIdAndUserId(addressId, userOpt.get().getUserId());
-        if (addressOpt.isEmpty()) return ResponseEntity.notFound().build();
-        clearDefault(userOpt.get().getUserId());
-        UserAddressEntity a = addressOpt.get(); a.setIsDefault(1); a.setUpdatedAt(LocalDateTime.now());
-        userAddressRepository.save(a); syncPrimaryAddress(userOpt.get(), a);
-        return ResponseEntity.ok(a);
+        Optional<UserEntity> user = authenticateUser(authHeader);
+        if (user.isEmpty()) return error(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
+
+        Optional<UserAddressEntity> saved = buyerAddressService.setDefault(user.get(), addressId);
+        return saved.<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping("/logout")
