@@ -329,6 +329,8 @@ export const bazaarApi = {
           buyerPhone: order.buyerPhone,
           deliveryAddress: order.deliveryAddress,
           deliveryLocality: order.deliveryLocality,
+          sellerId: order.sellerId,
+          subtotal: order.itemSubtotal || order.subtotal || order.totalAmount,
           totalAmount: order.totalAmount,
           discountAmount: (order.billDiscountAmount || 0) + (order.couponDiscountAmount || 0),
           deliveryFee: order.deliveryFee,
@@ -353,8 +355,9 @@ export const bazaarApi = {
    */
   async trackOrder(orderId: string): Promise<any> {
     try {
+      const token = localStorage.getItem('kurali_auth_token');
       const res = await fetch(`${API_BASE_URL}/buyers/orders/${encodeURIComponent(orderId)}/track`, {
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
