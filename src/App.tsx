@@ -11,6 +11,7 @@ import { DeliveryDashboard } from './components/Delivery/DeliveryDashboard';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
 import { AuthPageV2 } from './components/Auth/AuthPageV2';
 import { BuyerRegistrationPage } from './components/Auth/BuyerRegistrationPage';
+import { BuyerAccountPage } from './components/Buyer/BuyerAccountPage';
 import { isRootAdminEmail } from './data/initialData';
 import {
   MapPin,
@@ -214,6 +215,7 @@ const RootNavigation: React.FC = () => {
   if (pathname === '/register/seller') return <AuthPageV2 registrationRole="seller" />;
   if (pathname === '/register/delivery') return <AuthPageV2 registrationRole="delivery" />;
   if (pathname === '/register/buyer') return <BuyerRegistrationPage />;
+  if (pathname === '/account') return user.isSignedIn && user.role === 'buyer' ? <BuyerAccountPage /> : <AuthPageV2 />;
 
   return user.isSignedIn ? <MainLayout /> : <AuthPageV2 />;
 };
