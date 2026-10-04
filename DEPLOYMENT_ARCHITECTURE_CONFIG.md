@@ -137,3 +137,8 @@ Resend domain requirement: verify `kuraliupdates.com` in Resend and configure `O
 4. [x] **Render Web Service:** Live and responding with HTTP 200 on `/api/v1/health`.
 5. [x] **Vercel Frontend:** Live and serving React SPA with HTTP 200.
 6. [x] **GoDaddy DNS:** `www.kuraliupdates.com` CNAME active and SSL certified.
+
+
+## Automatic Database Migrations
+
+The Spring Boot backend uses Flyway for production schema management. Versioned migrations live under `backend-java-spring/src/main/resources/db/migration` and are executed automatically during application startup. Existing production schemas are baselined automatically; destructive Flyway clean operations are disabled and migration validation is enabled. Never modify an already-applied migration—add a new versioned migration instead.
