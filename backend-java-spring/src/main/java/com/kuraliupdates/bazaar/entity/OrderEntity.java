@@ -33,6 +33,15 @@ public class OrderEntity {
     @Column(name = "DELIVERY_LOCALITY", nullable = false, length = 150)
     private String deliveryLocality;
 
+    @Column(name = "DELIVERY_LATITUDE", precision = 10, scale = 7)
+    private BigDecimal deliveryLatitude;
+
+    @Column(name = "DELIVERY_LONGITUDE", precision = 10, scale = 7)
+    private BigDecimal deliveryLongitude;
+
+    @Column(name = "DELIVERY_PLACE_ID", length = 255)
+    private String deliveryPlaceId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "SELLER_ID", nullable = false)
     private SellerEntity seller;
