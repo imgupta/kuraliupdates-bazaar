@@ -261,6 +261,11 @@ public class AuthService {
         return "EMAIL".equals(type) ? value.trim().toLowerCase() : value.trim().replaceAll("\\\\D", "");
     }
 
+    private String normalizeIdentifier(String value, String type) {
+        if (value == null) return "";
+        return "EMAIL".equals(type) ? value.trim().toLowerCase() : value.trim().replaceAll("\\D", "");
+    }
+
     private boolean isRootAdminEmail(String email) {
         return email != null && ROOT_ADMIN_EMAILS.contains(email.toLowerCase());
     }
