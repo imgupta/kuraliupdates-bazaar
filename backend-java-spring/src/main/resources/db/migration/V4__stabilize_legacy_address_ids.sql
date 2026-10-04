@@ -1,10 +1,9 @@
--- Replace the short legacy IDs created by V3 with stable user-based IDs.
+-- Replace the short legacy IDs created by V3 with deterministic collision-safe IDs.
 -- V3 is already applied in production and must remain unchanged.
--- User IDs are UUIDs in the current schema, so the resulting IDs remain within
--- the ADDRESS_ID VARCHAR2(64) limit and are deterministic and unique.
+-- SHA-1 produces 40 hex characters; with the prefix this stays within VARCHAR2(64).
 
 UPDATE USER_ADDRESSES a
-SET ADDRESS_ID = 'addr-legacy-' || REPLACE(a.USER_ID, '-', '')
+SET ADDRESS_ID = 'addr-legacy-' || STANDARD_HASH(a.USER_ID, 'SHA1')
 WHERE a.ADDRESS_ID LIKE 'addr-%'
   AND a.ADDRESS_ID NOT LIKE 'addr-legacy-%'
   AND EXISTS (
