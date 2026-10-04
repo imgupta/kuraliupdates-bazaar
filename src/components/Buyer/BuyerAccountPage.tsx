@@ -14,6 +14,7 @@ export const BuyerAccountPage: React.FC = () => {
   const [profileName, setProfileName] = useState(user.name);
   const [profilePhone, setProfilePhone] = useState(user.phone || '');
   const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
+  const [isAddingAddress, setIsAddingAddress] = useState(false);
   const [location, setLocation] = useState<DeliveryLocation | null>(emptyLocation);
   const [addressLine, setAddressLine] = useState('');
   const [landmark, setLandmark] = useState('');
@@ -42,6 +43,7 @@ export const BuyerAccountPage: React.FC = () => {
 
   const openNewAddress = () => {
     setEditingAddress(null);
+    setIsAddingAddress(true);
     setLabel('Home');
     setAddressLine('');
     setLandmark('');
@@ -51,6 +53,7 @@ export const BuyerAccountPage: React.FC = () => {
 
   const openEditAddress = (address: SavedAddress) => {
     setEditingAddress(address);
+    setIsAddingAddress(false);
     setLabel(address.label);
     setAddressLine(address.addressLine1);
     setLandmark(address.landmark || '');
@@ -83,6 +86,7 @@ export const BuyerAccountPage: React.FC = () => {
         return;
       }
       setEditingAddress(null);
+      setIsAddingAddress(false);
       setLocation(null);
       setAddressLine('');
       setLandmark('');
@@ -128,7 +132,7 @@ export const BuyerAccountPage: React.FC = () => {
           <main className="rounded-3xl bg-white border border-slate-200 shadow-sm p-5 sm:p-7">
             {section === 'overview' && <Overview user={user} addresses={addresses} currentOrders={currentOrders} onSection={setSection} />}
             {section === 'profile' && <section><Title icon={<User />} title="Update profile" /><div className="max-w-xl space-y-4"><Field label="Full name" value={profileName} onChange={setProfileName} /><Field label="Mobile number" value={profilePhone} onChange={setProfilePhone} /><div><label className="text-xs font-bold text-slate-700">Email</label><input value={user.email || ''} disabled className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500" /></div><button onClick={saveProfile} disabled={savingProfile} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 text-white px-4 py-2.5 text-xs font-black disabled:opacity-60 disabled:cursor-not-allowed"><Save className="w-4 h-4" /> {savingProfile ? 'Saving...' : 'Save profile'}</button></div></section>}
-            {section === 'addresses' && <Addresses addresses={addresses} editingAddress={editingAddress} label={label} setLabel={setLabel} addressLine={addressLine} setAddressLine={setAddressLine} landmark={landmark} setLandmark={setLandmark} location={location} setLocation={setLocation} onNew={openNewAddress} onEdit={openEditAddress} onSave={saveAddress} savingAddress={savingAddress} onDefault={setDefaultAddress} onCancel={() => { setEditingAddress(null); setLocation(null); setAddressLine(''); setLandmark(''); }} />}
+            {section === 'addresses' && <Addresses addresses={addresses} editingAddress={editingAddress} label={label} setLabel={setLabel} addressLine={addressLine} setAddressLine={setAddressLine} landmark={landmark} setLandmark={setLandmark} location={location} setLocation={setLocation} onNew={openNewAddress} onEdit={openEditAddress} onSave={saveAddress} savingAddress={savingAddress} onDefault={setDefaultAddress} onCancel={() => { setEditingAddress(null); setIsAddingAddress(false); setLocation(null); setAddressLine(''); setLandmark(''); }} />}
             {section === 'orders' && <Orders orders={buyerOrders} onTrack={setTrackingOrderId} title="Order history" />}
             {section === 'current' && <Orders orders={currentOrders} onTrack={setTrackingOrderId} title="Current order" current />}
             {section === 'help' && <section><Title icon={<HelpCircle />} title="Help" /><div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center"><HelpCircle className="w-10 h-10 mx-auto text-slate-300" /><h3 className="mt-3 font-black text-slate-900">Help center coming soon</h3><p className="mt-1 text-xs text-slate-500">Support, FAQs, refunds and order assistance will be added here.</p></div></section>}
@@ -155,7 +159,7 @@ const Overview = ({ user, addresses, currentOrders, onSection }: any) => (
 const Card = ({ icon, title, value, action, onClick }: any) => <button onClick={onClick} className="text-left rounded-2xl border border-slate-200 p-5 hover:border-amber-300 hover:shadow-sm transition-all"><div className="flex items-center gap-2 text-amber-600">{icon}<span className="text-xs font-black uppercase tracking-wide">{title}</span></div><p className="mt-3 text-sm font-bold text-slate-800 line-clamp-2">{value}</p><span className="mt-4 inline-flex items-center gap-1 text-[11px] font-black text-amber-700">{action}<ChevronRight className="w-3 h-3" /></span></button>;
 
 const Addresses = (p: any) => <section><div className="flex items-center justify-between mb-6"><Title icon={<MapPin />} title="My addresses" /><button onClick={p.onNew} className="inline-flex items-center gap-1.5 rounded-xl bg-slate-950 text-white px-3 py-2 text-xs font-black"><Plus className="w-4 h-4" /> Add new address</button></div>
-  {p.editingAddress !== null || p.addressLine ? <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/50 p-4 space-y-3"><div className="flex justify-between"><p className="text-xs font-black">{p.editingAddress ? 'Update address' : 'Add new address'}</p><button onClick={p.onCancel}><X className="w-4 h-4" /></button></div><div className="grid sm:grid-cols-2 gap-3"><Field label="Label" value={p.label} onChange={p.setLabel} /><Field label="House / Flat / Building" value={p.addressLine} onChange={p.setAddressLine} /><Field label="Nearby landmark" value={p.landmark} onChange={p.setLandmark} /></div><LocationPicker value={p.location} onChange={p.setLocation} /><button onClick={p.onSave} disabled={p.savingAddress} className="inline-flex items-center gap-2 rounded-xl bg-amber-600 text-white px-4 py-2.5 text-xs font-black disabled:opacity-60 disabled:cursor-not-allowed"><Save className="w-4 h-4" /> {p.savingAddress ? 'Saving...' : 'Save address'}</button></div> : null}
+  {p.isAddingAddress || p.editingAddress !== null ? <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/50 p-4 space-y-3"><div className="flex justify-between"><p className="text-xs font-black">{p.editingAddress ? 'Update address' : 'Add new address'}</p><button onClick={p.onCancel}><X className="w-4 h-4" /></button></div><div className="grid sm:grid-cols-2 gap-3"><Field label="Label" value={p.label} onChange={p.setLabel} /><Field label="House / Flat / Building" value={p.addressLine} onChange={p.setAddressLine} /><Field label="Nearby landmark" value={p.landmark} onChange={p.setLandmark} /></div><LocationPicker value={p.location} onChange={p.setLocation} /><button onClick={p.onSave} disabled={p.savingAddress} className="inline-flex items-center gap-2 rounded-xl bg-amber-600 text-white px-4 py-2.5 text-xs font-black disabled:opacity-60 disabled:cursor-not-allowed"><Save className="w-4 h-4" /> {p.savingAddress ? 'Saving...' : 'Save address'}</button></div> : null}
   {p.addresses.length === 0 && <div className="rounded-2xl bg-slate-50 p-8 text-center text-xs text-slate-500">No saved addresses yet. Add one for faster checkout.</div>}
   <div className="space-y-3">{p.addresses.map((a: SavedAddress) => <div key={a.id} className="rounded-2xl border border-slate-200 p-4 flex gap-3"><MapPin className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" /><div className="flex-1 min-w-0"><div className="flex items-center gap-2"><b className="text-sm">{a.label}</b>{a.isDefault && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">DEFAULT</span>}</div><p className="mt-1 text-xs text-slate-600">{[a.addressLine1, a.landmark, a.formattedAddress].filter(Boolean).join(', ')}</p><div className="mt-3 flex gap-2"><button onClick={() => p.onEdit(a)} className="inline-flex items-center gap-1 text-[11px] font-black text-amber-700"><Pencil className="w-3 h-3" /> Edit</button>{!a.isDefault && <button onClick={() => p.onDefault(a.id)} className="text-[11px] font-black text-slate-600">Make default</button>}</div></div></div>)}</div>
 </section>;
