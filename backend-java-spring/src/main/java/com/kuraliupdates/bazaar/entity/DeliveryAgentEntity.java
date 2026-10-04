@@ -57,6 +57,15 @@ public class DeliveryAgentEntity {
     @Column(name = "CURRENT_LOCALITY", nullable = false, length = 150)
     private String currentLocality;
 
+    @Column(name = "CURRENT_LATITUDE", precision = 10, scale = 7)
+    private BigDecimal currentLatitude;
+
+    @Column(name = "CURRENT_LONGITUDE", precision = 10, scale = 7)
+    private BigDecimal currentLongitude;
+
+    @Column(name = "LOCATION_UPDATED_AT")
+    private LocalDateTime locationUpdatedAt;
+
     @Column(name = "REGISTERED_AT")
     private LocalDateTime registeredAt;
 }
