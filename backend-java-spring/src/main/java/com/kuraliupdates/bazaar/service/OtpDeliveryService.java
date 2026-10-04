@@ -1,6 +1,7 @@
 package com.kuraliupdates.bazaar.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -10,9 +11,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OtpDeliveryService {
     @Value("${app.otp.email.from:}") private String emailFrom;
     @Value("${app.otp.resend.api-key:}") private String resendApiKey;
@@ -21,7 +24,7 @@ public class OtpDeliveryService {
     @Value("${app.otp.msg91.country-code:91}") private String countryCode;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(java.time.Duration.ofSeconds(10))
+            .connectTimeout(Duration.ofSeconds(10))
             .build();
 
     public void sendOtp(String identifier, String type, String otp, int expiryMinutes) throws Exception {
@@ -51,7 +54,7 @@ public class OtpDeliveryService {
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.resend.com/emails"))
-                .timeout(java.time.Duration.ofSeconds(10))
+                .timeout(Duration.ofSeconds(10))
                 .header("Authorization", "Bearer " + resendApiKey)
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json")
@@ -62,8 +65,17 @@ public class OtpDeliveryService {
                 request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() / 100 != 2) {
-            throw new IllegalStateException("Email provider rejected OTP request");
+            String providerBody = response.body() == null ? "" : response.body().trim();
+            if (providerBody.length() > 500) {
+                providerBody = providerBody.substring(0, 500);
+            }
+            log.warn("Resend rejected OTP email: status={}, response={}",
+                    response.statusCode(), providerBody);
+            throw new IllegalStateException(
+                    "Email provider rejected OTP request (HTTP " + response.statusCode() + ")");
         }
+
+        log.info("Resend accepted OTP email for recipient={}", maskEmail(email));
     }
 
     private void sendSms(String phone, String otp, int expiryMinutes) throws Exception {
@@ -83,7 +95,7 @@ public class OtpDeliveryService {
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://control.msg91.com/api/v5/otp?" + query))
-                .timeout(java.time.Duration.ofSeconds(10))
+                .timeout(Duration.ofSeconds(10))
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json")
                 .POST(HttpRequest.BodyPublishers.noBody())
@@ -109,5 +121,13 @@ public class OtpDeliveryService {
                 .replace("\"", "\\\"")
                 .replace("\r", "\\r")
                 .replace("\n", "\\n");
+    }
+
+    private String maskEmail(String email) {
+        int at = email.indexOf('@');
+        if (at <= 1) {
+            return "***";
+        }
+        return email.charAt(0) + "***" + email.substring(at);
     }
 }
