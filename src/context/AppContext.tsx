@@ -25,6 +25,18 @@ import {
   isRootAdminEmail,
 } from '../data/initialData';
 
+export interface SavedAddress {
+  id: string;
+  label: string;
+  addressLine1: string;
+  landmark?: string;
+  formattedAddress?: string;
+  placeId?: string;
+  latitude?: number;
+  longitude?: number;
+  isDefault?: boolean;
+}
+
 export interface UserProfile {
   email?: string;
   name: string;
@@ -46,6 +58,7 @@ export interface UserProfile {
   emailVerified?: boolean;
   authMethod?: 'otp' | 'google';
   isAdmin?: boolean;
+  savedAddresses?: SavedAddress[];
 }
 
 interface AppContextType {
@@ -96,6 +109,7 @@ interface AppContextType {
     address?: string
   ) => void;
   logout: () => void;
+  updateUserProfile: (updates: Partial<UserProfile>) => void;
   registerBuyer: (data: { name: string; email: string; phone: string; locality: string; address: string }) => void;
 
   // Sellers
@@ -307,6 +321,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
   }, [user.isSignedIn, user.role]);
+
+  const updateUserProfile = (updates: Partial<UserProfile>) => {
+    setUser(prev => {
+      const next = { ...prev, ...updates };
+      safeStorageSet('kurali_auth_session', JSON.stringify(next));
+      return next;
+    });
+  };
 
   const [sellers, setSellers] = useState<Seller[]>(() => {
     return safeStorageJson('kurali_sellers', INITIAL_SELLERS);
@@ -1369,6 +1391,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         registerUserWithOtp,
         loginWithGoogle,
         logout,
+        updateUserProfile,
         registerBuyer,
         sellers,
         currentSeller,
