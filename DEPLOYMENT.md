@@ -1,31 +1,32 @@
 # Deployment
 
 ## Topology
-- Frontend: Vercel
-- Backend: Render Docker web service
-- Database: Oracle Autonomous Database
-- Domain: www.kuraliupdates.com
+- Vercel: React web.
+- Render: Spring Boot Docker service.
+- Oracle: application database.
+- Domain: www.kuraliupdates.com.
 - API: https://kuraliupdates-bazaar.onrender.com/api/v1
 
-## Configuration
-Frontend: VITE_API_BASE_URL.
+## Environment
+Frontend: `VITE_API_BASE_URL`.
+Backend: Oracle/wallet settings plus provider credentials.
+Never commit secrets.
 
-Backend secrets include Oracle connection/wallet settings, Resend credentials and MSG91 credentials. Never commit secrets.
-
-## Database
-Flyway creates the complete schema on a clean database. Production startup must not drop tables. Destructive rebuild is an explicit database operation, not application startup behavior.
+## Clean database rebuild
+The rebuild is intentional and destructive. Database reset must be performed as an explicit controlled operation before the fresh Flyway baseline is deployed.
+Application startup must never drop production tables.
 
 ## Release order
-1. Backend tests/build.
-2. Deploy backend.
-3. Confirm Flyway success and health.
-4. Frontend build/deploy.
-5. Smoke-test auth, buyer account/address, orders and tracking.
-6. Declare production ready.
+1. Run backend tests.
+2. Build backend.
+3. Reset/recreate the target database under explicit approval.
+4. Deploy backend and verify Flyway baseline + health.
+5. Build/deploy React.
+6. Smoke-test auth, address CRUD/default, orders and tracking.
 
 ## Rollback
-Prefer application rollback. Schema migrations should be backward-compatible for rolling releases.
+Rollback application code first. Do not rewrite applied Flyway migrations.
+For schema rollback, use a forward migration or restore a known database backup.
 
-## Services
-Render: kuraliupdates-bazaar.
-Vercel: kuraliupdates-bazaar.
+## Context rule
+Keep this file operational. Put design decisions in ARCHITECTURE.md; put implementation detail in code. Do not paste long incident histories here.
