@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 public record ProfileUpdateRequest(
         @Size(max = 150, message = "Name must be at most 150 characters")
         String name,
-        @Pattern(regexp = "\d{10}", message = "Please enter a valid 10-digit mobile number")
+        @Pattern(regexp = "\\d{10}", message = "Please enter a valid 10-digit mobile number")
         String phone,
         @Size(max = 150, message = "Locality must be at most 150 characters")
         String locality,
