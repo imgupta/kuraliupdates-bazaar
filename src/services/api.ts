@@ -476,6 +476,12 @@ export const bazaarApi = {
     role?: string;
     locality?: string;
     address?: string;
+    addressLine1?: string;
+    landmark?: string;
+    formattedAddress?: string;
+    placeId?: string;
+    latitude?: number;
+    longitude?: number;
     storeName?: string;
     category?: string;
     vehicleType?: string;
