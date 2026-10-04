@@ -1076,6 +1076,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       placedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       estimatedDeliveryTime: '30-45 mins (Local Express)',
       distanceKm: 1.4,
+      deliveryLatitude: user.latitude,
+      deliveryLongitude: user.longitude,
+      deliveryPlaceId: user.placeId,
       statusUpdates: [
         {
           status: 'placed',
