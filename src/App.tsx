@@ -211,7 +211,7 @@ const RootNavigation: React.FC = () => {
   const { user } = useApp();
 
   if (!user.isSignedIn) {
-    return <AuthPage />;
+    return <AuthPage registrationRole="buyer" />;
   }
 
   return <MainLayout />;
