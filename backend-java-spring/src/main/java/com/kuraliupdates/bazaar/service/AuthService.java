@@ -191,10 +191,10 @@ public class AuthService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Full name, email and mobile number are required for registration");
         }
         if (!email.matches("^[^\\\s@]+@[^\\\s@]+\\.[^\\\s@]+$")) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Please enter a valid email address");
+        if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
         }
         if (!phone.matches("\\\d{10}")) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Please enter a valid 10-digit mobile number");
+        if (!phone.matches("\\d{10}")) {
         }
     }
 
@@ -268,7 +268,7 @@ public class AuthService {
     private BigDecimal toDecimal(Double value) {
         return value == null ? null : BigDecimal.valueOf(value);
     }
-
+        return "EMAIL".equals(type) ? value.trim().toLowerCase() : value.trim().replaceAll("\\D", "");
     private String mask(String value) {
         if (value.contains("@")) { int at = value.indexOf("@"); return value.charAt(0) + "***" + value.substring(Math.max(at - 1, 1)); }
         return value.length() <= 4 ? "****" : "******" + value.substring(value.length() - 4);
