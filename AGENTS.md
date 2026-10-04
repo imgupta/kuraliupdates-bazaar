@@ -1,15 +1,20 @@
-# Agent Context
+# Agent Rules
 
-Read README.md and ARCHITECTURE.md first. Inspect only task-relevant files.
+Read `ARCHITECTURE.md` first. Do not scan the whole repository unless required.
 
-- React only; remove/ignore Angular.
-- Spring Boot service-layer architecture.
-- Flyway owns schema.
-- Never edit an applied migration.
-- Keep changes focused.
-- Never commit secrets.
-- Validate with npm run build and/or mvn clean verify.
+## Must
+- Keep React as the only frontend.
+- Keep backend layers thin and feature-oriented.
+- Use DTOs at API boundaries.
+- Put transactions in services.
+- Use Flyway for schema changes.
+- Prefer small, focused changes.
+- Run frontend and backend quality gates before declaring completion.
 
-Current rebuild: the database is intentionally reset and rebuilt from a fresh schema baseline. Legacy V1–V4 address migrations are not the target architecture.
+## Database rebuild
+The old address migration chain is retired. Do not restore V1/V2/V3/V4 compatibility logic.
+New schema design must be authoritative and internally consistent.
 
-Keep this file short; durable design belongs in ARCHITECTURE.md.
+## Context discipline
+Do not copy long logs or historical debugging into markdown.
+Document decisions, contracts and invariants only.
