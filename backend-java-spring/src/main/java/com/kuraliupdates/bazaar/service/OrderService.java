@@ -1,6 +1,7 @@
 package com.kuraliupdates.bazaar.service;
 
-import com.kuraliupdates.bazaar.dto.order.OrderResponse;\nimport com.kuraliupdates.bazaar.dto.order.OrderPlacementResponse;
+import com.kuraliupdates.bazaar.dto.order.OrderResponse;
+import com.kuraliupdates.bazaar.dto.order.OrderPlacementResponse;
 import com.kuraliupdates.bazaar.dto.order.PlaceOrderRequest;
 import com.kuraliupdates.bazaar.entity.OrderEntity;
 import com.kuraliupdates.bazaar.entity.SellerEntity;
@@ -60,7 +61,8 @@ public class OrderService {
                 .updatedAt(now)
                 .build();
 
-        OrderEntity saved = orderRepository.save(order);\n        return new OrderPlacementResponse(OrderResponse.from(saved), saved.getDeliveryOtp());
+        OrderEntity saved = orderRepository.save(order);
+        return new OrderPlacementResponse(OrderResponse.from(saved), saved.getDeliveryOtp());
     }
 
     @Transactional(readOnly = true)
