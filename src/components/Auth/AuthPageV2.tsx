@@ -33,6 +33,11 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
   const phoneRef = useRef<HTMLInputElement>(null);
   const localityRef = useRef<HTMLSelectElement>(null);
   const addressRef = useRef<HTMLInputElement>(null);
+  const storeNameRef = useRef<HTMLInputElement>(null);
+  const categoryRef = useRef<HTMLInputElement>(null);
+  const vehicleNumberRef = useRef<HTMLInputElement>(null);
+  const licenseNumberRef = useRef<HTMLInputElement>(null);
+  const vehicleTypeRef = useRef<HTMLSelectElement>(null);
   const otpRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -147,6 +152,11 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
           role: registrationRole,
           locality,
           address,
+          storeName: storeNameRef.current?.value.trim(),
+          category: categoryRef.current?.value.trim(),
+          vehicleType: vehicleTypeRef.current?.value,
+          vehicleNumber: vehicleNumberRef.current?.value.trim(),
+          licenseNumber: licenseNumberRef.current?.value.trim(),
           email,
           phone,
           emailOtp: code,
@@ -348,6 +358,36 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
                       <label className="block mb-1 text-xs font-bold text-slate-700">Address <span className="font-normal text-slate-400">(optional)</span></label>
                       <input ref={addressRef} type="text" placeholder="House / shop / landmark" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white" />
                     </div>
+                    {registrationRole === 'seller' && (
+                      <>
+                        <div>
+                          <label className="block mb-1 text-xs font-bold text-slate-700">Shop name <span className="text-rose-500">*</span></label>
+                          <input ref={storeNameRef} type="text" placeholder="Your shop name" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-xs font-bold text-slate-700">Business category <span className="text-rose-500">*</span></label>
+                          <input ref={categoryRef} type="text" placeholder="Groceries, pharmacy, electronics..." className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white" />
+                        </div>
+                      </>
+                    )}
+                    {registrationRole === 'delivery' && (
+                      <>
+                        <div>
+                          <label className="block mb-1 text-xs font-bold text-slate-700">Vehicle type <span className="text-rose-500">*</span></label>
+                          <select ref={vehicleTypeRef} defaultValue="Bike" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white">
+                            <option>Bike</option><option>EV Bike</option><option>Scooter</option><option>Car</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-xs font-bold text-slate-700">Vehicle number <span className="text-rose-500">*</span></label>
+                          <input ref={vehicleNumberRef} type="text" placeholder="PB65AB1234" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm uppercase outline-none focus:border-amber-500 focus:bg-white" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-xs font-bold text-slate-700">Driving licence number <span className="text-rose-500">*</span></label>
+                          <input ref={licenseNumberRef} type="text" placeholder="Licence number" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white" />
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
               </div>
