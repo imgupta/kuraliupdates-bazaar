@@ -35,7 +35,6 @@ export const BuyerRegistrationPage: React.FC = () => {
     if (!name) return setError('Please enter your full name.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError('Please enter a valid email address.');
     if (!/^\d{10}$/.test(phone)) return setError('Please enter a valid 10-digit mobile number.');
-    if (!location) return setError('Please select your exact delivery location on the map.');
     if (!addressLine) return setError('Please enter your house / flat / building details.');
     if (!landmark) return setError('Please enter a nearby landmark so our rider can find you easily.');
 
@@ -59,8 +58,6 @@ export const BuyerRegistrationPage: React.FC = () => {
     const phone = phoneRef.current?.value.replace(/\D/g, '') || '';
     const addressLine = addressRef.current?.value.trim() || '';
     const landmark = landmarkRef.current?.value.trim() || '';
-    if (!location) return setError('Delivery location is missing.');
-
     setLoading(true);
     const response = await bazaarApi.verifyOtp({
       mode: 'REGISTER',
@@ -69,13 +66,13 @@ export const BuyerRegistrationPage: React.FC = () => {
       email,
       phone,
       locality: 'Kurali',
-      address: [addressLine, landmark, location.formattedAddress].filter(Boolean).join(', '),
+      address: [addressLine, landmark, location?.formattedAddress].filter(Boolean).join(', '),
       addressLine1: addressLine,
       landmark,
-      formattedAddress: location.formattedAddress,
-      placeId: location.placeId,
-      latitude: location.latitude,
-      longitude: location.longitude,
+      formattedAddress: location?.formattedAddress,
+      placeId: location?.placeId,
+      latitude: location?.latitude,
+      longitude: location?.longitude,
       emailOtp: code,
     } as any);
     setLoading(false);
@@ -92,11 +89,11 @@ export const BuyerRegistrationPage: React.FC = () => {
       phone,
       locality: 'Kurali',
       role: 'buyer',
-      address: [addressLine, landmark, location.formattedAddress].filter(Boolean).join(', '),
+      address: [addressLine, landmark, location?.formattedAddress].filter(Boolean).join(', '),
       token: response.token,
       serverUser: response.user,
     });
-    showToast('Buyer account created. Your delivery location is saved.', 'success');
+    showToast(location ? 'Buyer account created. Delivery location saved.' : 'Buyer account created. You can add a delivery location anytime from My Account.', 'success');
     setStep('done');
   };
 
@@ -110,7 +107,7 @@ export const BuyerRegistrationPage: React.FC = () => {
         <div className="bg-gradient-to-r from-amber-600 to-orange-600 p-6 sm:p-8 text-white">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-black"><Sparkles className="w-3.5 h-3.5" /> Kurali Express Delivery</div>
           <h1 className="mt-4 text-2xl sm:text-3xl font-black">Set up your doorstep delivery</h1>
-          <p className="mt-2 text-sm text-amber-50 max-w-2xl">One precise location powers local inventory, delivery fees, ETA and live rider tracking.</p>
+          <p className="mt-2 text-sm text-amber-50 max-w-2xl">Add your delivery location now or skip it and add it later from My Account.</p>
         </div>
         <div className="p-5 sm:p-8 space-y-6">
           <div className="flex justify-end">
@@ -125,7 +122,7 @@ export const BuyerRegistrationPage: React.FC = () => {
               <Field icon={<Mail />} label="Email" ref={emailRef} placeholder="name@example.com" type="email" />
               <Field icon={<Phone />} label="Mobile" ref={phoneRef} placeholder="10-digit mobile" inputMode="numeric" />
             </div>
-            <LocationPicker value={location} onChange={setLocation} />
+            <div><LocationPicker value={location} onChange={setLocation} /><p className="mt-2 text-[11px] text-slate-500">Optional during registration. You can add or change your delivery location later from My Account.</p></div>
             <div className="grid md:grid-cols-2 gap-4">
               <Field icon={<MapPin />} label="House / Flat / Building" ref={addressRef} placeholder="Flat 201, House 14, Building name" />
               <Field icon={<MapPin />} label="Nearby landmark" ref={landmarkRef} placeholder="Near Gurudwara / school / market" />
@@ -134,7 +131,7 @@ export const BuyerRegistrationPage: React.FC = () => {
               <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
               <div><p className="text-xs font-black text-emerald-900">Why we need precise location</p><p className="text-[11px] text-emerald-800 mt-1">Your address pin helps us show nearby stores, calculate delivery distance and give riders a reliable doorstep destination. We only use it for marketplace and delivery services.</p></div>
             </div>
-            <button type="button" onClick={sendOtp} disabled={loading} className="w-full rounded-2xl bg-slate-950 py-3.5 text-sm font-black text-white hover:bg-black disabled:opacity-50"><ShoppingBag className="inline w-4 h-4 mr-2" /> {loading ? 'Sending verification code…' : 'Save location & send email OTP'}</button>
+            <button type="button" onClick={sendOtp} disabled={loading} className="w-full rounded-2xl bg-slate-950 py-3.5 text-sm font-black text-white hover:bg-black disabled:opacity-50"><ShoppingBag className="inline w-4 h-4 mr-2" /> {loading ? 'Sending verification code…' : 'Continue & send email OTP'}</button>
           </> : <div className="max-w-md mx-auto text-center py-8">
             <div className="mx-auto w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center"><Mail className="w-7 h-7 text-amber-700" /></div>
             <h2 className="mt-4 text-xl font-black text-slate-900">Verify your email</h2>
