@@ -24,6 +24,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [duplicatePrompt, setDuplicatePrompt] = useState(false);
+  const [applicationSubmitted, setApplicationSubmitted] = useState(false);
 
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -170,6 +171,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
         });
 
         showToast(result.message, 'success');
+        setApplicationSubmitted(true);
         return;
       }
 
@@ -202,6 +204,31 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
       setLoading(false);
     }
   };
+
+  if (applicationSubmitted) {
+    const isSeller = registrationRole === 'seller';
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 flex items-center justify-center p-4">
+        <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl border border-slate-200 p-7 sm:p-10 text-center">
+          <div className={\`mx-auto flex h-16 w-16 items-center justify-center rounded-3xl \${isSeller ? 'bg-blue-100' : 'bg-emerald-100'}\`}>
+            {isSeller ? <Store className="h-8 w-8 text-blue-700" /> : <Truck className="h-8 w-8 text-emerald-700" />}
+          </div>
+          <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-[11px] font-black text-amber-800">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Application submitted
+          </div>
+          <h1 className="mt-4 text-2xl sm:text-3xl font-black text-slate-900">{isSeller ? 'Your merchant application is under review' : 'Your delivery partner application is under review'}</h1>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600">{isSeller ? 'Thanks for joining KuraliUpdates Bazaar. Our team will review your shop details before activating your merchant account.' : 'Thanks for applying to Kurali Express. Our team will review your delivery details before activating your partner account.'}</p>
+          <div className="mt-7 grid gap-3 text-left sm:grid-cols-3">
+            <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-black text-slate-900">1. Submitted</p><p className="mt-1 text-[11px] text-slate-500">Details received</p></div>
+            <div className="rounded-2xl bg-amber-50 p-4"><p className="text-xs font-black text-amber-900">2. Review</p><p className="mt-1 text-[11px] text-amber-700">Team verification</p></div>
+            <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-black text-slate-900">3. Activation</p><p className="mt-1 text-[11px] text-slate-500">Access after approval</p></div>
+          </div>
+          <p className="mt-6 text-xs text-slate-500">You do not need to register again. Keep your email and mobile number available for future updates.</p>
+          <a href="/" className="mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 py-3 text-xs font-black text-white hover:bg-black"><ArrowLeft className="h-4 w-4" /> Return to Bazaar</a>
+        </div>
+      </div>
+    );
+  }
 
   const title = authMode === 'signin'
     ? 'Welcome back'
