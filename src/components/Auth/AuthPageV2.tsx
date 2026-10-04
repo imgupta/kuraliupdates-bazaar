@@ -83,9 +83,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
       window.location.href = '/register/delivery';
       return;
     }
-    setAuthMode('register');
-    setStep('form');
-    setError('');
+    window.location.href = '/register/buyer';
   };
 
   const handleSendOtp = async () => {
