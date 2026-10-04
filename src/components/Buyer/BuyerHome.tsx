@@ -1,10 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
   Search,
-  Filter,
-  ArrowUpDown,
-  Tag,
-  MapPin,
   Star,
   Truck,
   MessageSquare,
@@ -12,8 +8,6 @@ import {
   ShoppingBag,
   SlidersHorizontal,
   TrendingDown,
-  ShieldCheck,
-  CheckCircle,
   Store,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -44,10 +38,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
     selectedCityLocality,
     comparingProduct,
     setComparingProduct,
-    setIsCartOpen,
-    setIsSellerRegisterOpen,
-    setIsBuyerRegisterOpen,
-    setIsDeliveryRegisterOpen,
+    setIsCartOpen
   } = useApp();
 
   const [sortBy, setSortBy] = useState<'price_asc' | 'distance_asc' | 'discount_desc' | 'featured'>('featured');
@@ -133,6 +124,20 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
         return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
       });
   }, [products, sellers, selectedCategory, selectedCityLocality, searchQuery, onlyInStock, maxPrice, sortBy]);
+
+  // Precompute related-product counts once instead of filtering the full catalog inside every card render.
+  const relatedProductCountById = useMemo(() => {
+    const counts = new Map<string, number>();
+    products.forEach(product => {
+      const count = products.filter(
+        candidate =>
+          candidate.id !== product.id &&
+          (candidate.title === product.title || candidate.category === product.category)
+      ).length;
+      counts.set(product.id, count);
+    });
+    return counts;
+  }, [products]);
 
   // Check if any recent active order exists for quick tracking
   const latestActiveOrder = orders.find(
@@ -355,6 +360,33 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
         </div>
       )}
 
+      {/* Applied filter summary keeps the current shopping scope visible while browsing. */}
+      {(searchQuery.trim() || selectedCategory !== 'All Categories' || onlyInStock || maxPrice < 3000) && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <span className="text-[11px] font-bold text-slate-500 shrink-0">Active:</span>
+          {searchQuery.trim() && (
+            <button onClick={() => setSearchQuery('')} className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-semibold whitespace-nowrap cursor-pointer">
+              Search: “{searchQuery.trim()}” ×
+            </button>
+          )}
+          {selectedCategory !== 'All Categories' && (
+            <button onClick={() => setSelectedCategory('All Categories')} className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold whitespace-nowrap cursor-pointer">
+              {selectedCategory} ×
+            </button>
+          )}
+          {onlyInStock && (
+            <button onClick={() => setOnlyInStock(false)} className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-semibold whitespace-nowrap cursor-pointer">
+              In stock ×
+            </button>
+          )}
+          {maxPrice < 3000 && (
+            <button onClick={() => setMaxPrice(3000)} className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold whitespace-nowrap cursor-pointer">
+              Up to ₹{maxPrice} ×
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Product Grid */}
       {products.length === 0 ? (
         <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-slate-200 shadow-xs space-y-6">
@@ -372,25 +404,15 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
               No products are listed yet. Are you a local shop owner in Kurali? Register your store, list your groceries or products, and start receiving orders from local neighborhood shoppers!
             </p>
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <button
-              onClick={() => setIsSellerRegisterOpen(true)}
-              className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <Store className="w-4 h-4" /> Register Your Store
-            </button>
-            <button
-              onClick={() => setIsBuyerRegisterOpen(true)}
-              className="px-5 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <ShoppingBag className="w-4 h-4" /> Register as Buyer
-            </button>
-            <button
-              onClick={() => setIsDeliveryRegisterOpen(true)}
-              className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <Truck className="w-4 h-4" /> Join Delivery Fleet
-            </button>
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-semibold">
+              <Search className="w-3.5 h-3.5 text-amber-600" />
+              Search products above
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-semibold">
+              <ShoppingBag className="w-3.5 h-3.5 text-amber-600" />
+              Add to cart when stores go live
+            </span>
           </div>
         </div>
       ) : filteredProducts.length === 0 ? (
@@ -421,9 +443,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
             const totalPercentOff = Math.round((totalSavings / product.mrp) * 100);
 
             // Check if there are other sellers selling this same or similar item
-            const otherSellersCount = products.filter(
-              p => p.id !== product.id && (p.title === product.title || p.category === product.category)
-            ).length;
+            const otherSellersCount = relatedProductCountById.get(product.id) || 0;
 
             return (
               <div
