@@ -545,6 +545,76 @@ export const bazaarApi = {
   /**
    * Live Authentication: Verify active session token on app boot
    */
+  async updateCurrentUser(token: string, updates: Record<string, any>): Promise<{ success: boolean; user?: any; addresses?: any[]; message?: string }> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/me`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(updates),
+      });
+      const data = await res.json().catch(() => ({ success: false, message: 'Invalid response' }));
+      if (!res.ok) return { success: false, message: data.message || 'Unable to update profile' };
+      return data;
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Unable to update profile' };
+    }
+  },
+
+  async getBuyerAddresses(token: string): Promise<any[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/me/addresses`, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } });
+      if (!res.ok) return [];
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getBuyerAddresses failed:', err);
+      return [];
+    }
+  },
+
+  async createBuyerAddress(token: string, address: Record<string, any>): Promise<any> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/me/addresses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(address),
+      });
+      const data = await res.json().catch(() => null);
+      return res.ok ? data : null;
+    } catch (err) {
+      console.warn('Backend createBuyerAddress failed:', err);
+      return null;
+    }
+  },
+
+  async updateBuyerAddress(token: string, addressId: string, address: Record<string, any>): Promise<any> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/me/addresses/${encodeURIComponent(addressId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(address),
+      });
+      const data = await res.json().catch(() => null);
+      return res.ok ? data : null;
+    } catch (err) {
+      console.warn('Backend updateBuyerAddress failed:', err);
+      return null;
+    }
+  },
+
+  async setDefaultBuyerAddress(token: string, addressId: string): Promise<any> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/me/addresses/${encodeURIComponent(addressId)}/default`, {
+        method: 'PUT',
+        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => null);
+      return res.ok ? data : null;
+    } catch (err) {
+      console.warn('Backend setDefaultBuyerAddress failed:', err);
+      return null;
+    }
+  },
+
   async getMe(token: string): Promise<{ authenticated: boolean; user?: any }> {
     try {
       const controller = new AbortController();
