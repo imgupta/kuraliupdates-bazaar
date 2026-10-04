@@ -3,9 +3,9 @@ package com.kuraliupdates.bazaar.controller;
 import com.kuraliupdates.bazaar.dto.order.OrderResponse;
 import com.kuraliupdates.bazaar.dto.order.OrderPlacementResponse;
 import com.kuraliupdates.bazaar.dto.order.PlaceOrderRequest;
-import com.kuraliupdates.bazaar.entity.ProductEntity;
-import com.kuraliupdates.bazaar.repository.ProductRepository;
+import com.kuraliupdates.bazaar.dto.product.ProductResponse;
 import com.kuraliupdates.bazaar.service.OrderService;
+import com.kuraliupdates.bazaar.service.ProductService;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,16 +20,13 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(name = "Buyer API", description = "Product search, checkout and order tracking")
 public class BuyerController {
-    private final ProductRepository productRepository;
+    private final ProductService productService;
     private final OrderService orderService;
 
     @GetMapping("/products/search")
     @Operation(summary = "Search products across approved Kurali sellers")
-    public ResponseEntity<List<ProductEntity>> searchProducts(@RequestParam(defaultValue = "") String query) {
-        String normalized = query == null ? "" : query.trim();
-        return ResponseEntity.ok(normalized.isEmpty()
-                ? productRepository.findAllApprovedSortedByLowestPrice()
-                : productRepository.searchProductsAcrossSellers(normalized));
+    public ResponseEntity<List<ProductResponse>> searchProducts(@RequestParam(defaultValue = "") String query) {
+        return ResponseEntity.ok(productService.search(query));
     }
 
     @PostMapping("/orders")
