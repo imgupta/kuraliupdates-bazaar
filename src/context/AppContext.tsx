@@ -109,7 +109,10 @@ interface AppContextType {
     address?: string
   ) => void;
   logout: () => void;
-  updateUserProfile: (updates: Partial<UserProfile>) => void;
+  updateUserProfile: (updates: Partial<UserProfile>) => Promise<boolean>;
+  createBuyerAddress: (address: SavedAddress) => Promise<SavedAddress | null>;
+  updateBuyerAddress: (address: SavedAddress) => Promise<SavedAddress | null>;
+  setDefaultBuyerAddress: (addressId: string) => Promise<SavedAddress | null>;
   registerBuyer: (data: { name: string; email: string; phone: string; locality: string; address: string }) => void;
 
   // Sellers
@@ -322,12 +325,100 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [user.isSignedIn, user.role]);
 
-  const updateUserProfile = (updates: Partial<UserProfile>) => {
+  const updateUserProfile = async (updates: Partial<UserProfile>): Promise<boolean> => {
+    const token = safeStorageGet('kurali_auth_token');
+    if (!token || !user.isSignedIn) {
+      showToast('Your session has expired. Please sign in again.', 'error');
+      return false;
+    }
+    const result = await bazaarApi.updateCurrentUser(token, updates);
+    if (!result.success || !result.user) {
+      showToast(result.message || 'Unable to save your changes.', 'error');
+      return false;
+    }
     setUser(prev => {
-      const next = { ...prev, ...updates };
+      const next = {
+        ...prev,
+        ...updates,
+        ...mapServerUser(result.user, prev),
+        savedAddresses: prev.savedAddresses,
+      };
       safeStorageSet('kurali_auth_session', JSON.stringify(next));
       return next;
     });
+    return true;
+  };
+
+  const mapServerUser = (serverUser: any, previous: UserProfile): UserProfile => ({
+    ...previous,
+    email: serverUser.email ?? previous.email,
+    name: serverUser.name ?? previous.name,
+    phone: serverUser.phone ?? previous.phone,
+    locality: serverUser.locality ?? previous.locality,
+    address: serverUser.address ?? previous.address,
+    addressLine1: serverUser.addressLine1 ?? previous.addressLine1,
+    landmark: serverUser.landmark ?? previous.landmark,
+    formattedAddress: serverUser.formattedAddress ?? previous.formattedAddress,
+    placeId: serverUser.placeId ?? previous.placeId,
+    latitude: serverUser.latitude ?? previous.latitude,
+    longitude: serverUser.longitude ?? previous.longitude,
+  });
+
+  const toSavedAddress = (a: any): SavedAddress => ({
+    id: a.addressId || a.id,
+    label: a.label || 'Home',
+    addressLine1: a.addressLine1 || '',
+    landmark: a.landmark || undefined,
+    formattedAddress: a.formattedAddress || undefined,
+    placeId: a.placeId || undefined,
+    latitude: a.latitude ?? undefined,
+    longitude: a.longitude ?? undefined,
+    isDefault: Number(a.isDefault) === 1 || a.isDefault === true,
+  });
+
+  const createBuyerAddress = async (address: SavedAddress): Promise<SavedAddress | null> => {
+    const token = safeStorageGet('kurali_auth_token');
+    if (!token) return null;
+    const saved = await bazaarApi.createBuyerAddress(token, address);
+    if (!saved) return null;
+    const next = toSavedAddress(saved);
+    setUser(prev => {
+      const addresses = [...(prev.savedAddresses || []).filter(a => a.id !== next.id), next]
+        .map(a => ({ ...a, isDefault: next.isDefault ? a.id === next.id : a.isDefault }));
+      const updated = { ...prev, savedAddresses: addresses };
+      safeStorageSet('kurali_auth_session', JSON.stringify(updated));
+      return updated;
+    });
+    return next;
+  };
+
+  const updateBuyerAddress = async (address: SavedAddress): Promise<SavedAddress | null> => {
+    const token = safeStorageGet('kurali_auth_token');
+    if (!token) return null;
+    const saved = await bazaarApi.updateBuyerAddress(token, address.id, address);
+    if (!saved) return null;
+    const next = toSavedAddress(saved);
+    setUser(prev => {
+      const addresses = (prev.savedAddresses || []).map(a => a.id === next.id ? next : a);
+      const updated = { ...prev, savedAddresses: addresses };
+      safeStorageSet('kurali_auth_session', JSON.stringify(updated));
+      return updated;
+    });
+    return next;
+  };
+
+  const setDefaultBuyerAddress = async (addressId: string): Promise<SavedAddress | null> => {
+    const token = safeStorageGet('kurali_auth_token');
+    if (!token) return null;
+    const saved = await bazaarApi.setDefaultBuyerAddress(token, addressId);
+    if (!saved) return null;
+    const next = toSavedAddress(saved);
+    setUser(prev => {
+      const updated = { ...prev, savedAddresses: (prev.savedAddresses || []).map(a => ({ ...a, isDefault: a.id === addressId })) };
+      safeStorageSet('kurali_auth_session', JSON.stringify(updated));
+      return updated;
+    });
+    return next;
   };
 
   const [sellers, setSellers] = useState<Seller[]>(() => {
@@ -563,7 +654,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             name: u.name,
             phone: u.phone,
             locality: u.locality || prev.locality,
-            address: u.address || prev.address,
+            address: u.address || prev.address,\n            savedAddresses: Array.isArray(res.addresses) ? res.addresses.map(toSavedAddress) : prev.savedAddresses,
             addressLine1: u.addressLine1 || prev.addressLine1,
             landmark: u.landmark || prev.landmark,
             formattedAddress: u.formattedAddress || prev.formattedAddress,
@@ -1392,6 +1483,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loginWithGoogle,
         logout,
         updateUserProfile,
+        createBuyerAddress,
+        updateBuyerAddress,
+        setDefaultBuyerAddress,
         registerBuyer,
         sellers,
         currentSeller,
