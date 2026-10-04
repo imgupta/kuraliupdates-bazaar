@@ -127,16 +127,25 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
 
   // Precompute related-product counts once instead of filtering the full catalog inside every card render.
   const relatedProductCountById = useMemo(() => {
-    const counts = new Map<string, number>();
+    const titleCounts = new Map<string, number>();
+    const categoryCounts = new Map<string, number>();
+
     products.forEach(product => {
-      const count = products.filter(
-        candidate =>
-          candidate.id !== product.id &&
-          (candidate.title === product.title || candidate.category === product.category)
-      ).length;
-      counts.set(product.id, count);
+      titleCounts.set(product.title, (titleCounts.get(product.title) || 0) + 1);
+      categoryCounts.set(product.category, (categoryCounts.get(product.category) || 0) + 1);
     });
-    return counts;
+
+    return new Map(
+      products.map(product => [
+        product.id,
+        Math.max(
+          0,
+          (titleCounts.get(product.title) || 0) +
+            (categoryCounts.get(product.category) || 0) -
+            2
+        ),
+      ])
+    );
   }, [products]);
 
   // Check if any recent active order exists for quick tracking
