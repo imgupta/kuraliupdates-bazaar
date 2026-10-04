@@ -21,7 +21,6 @@ import {
 const MainLayout: React.FC = () => {
   const {
     role,
-    setRole,
     user,
     logout,
     trackingOrderId,
@@ -133,7 +132,7 @@ const MainLayout: React.FC = () => {
                 <li className="hover:text-white cursor-pointer" onClick={() => setRole('buyer')}>
                   &bull; Real-Time Order &amp; Rider Tracking
                 </li>
-                <li className="hover:text-white cursor-pointer" onClick={() => setRole('seller')}>
+                <li className="hover:text-white cursor-pointer" onClick={() => undefined}>
                   &bull; Total Bill Discounts &amp; Coupons
                 </li>
               </ul>
