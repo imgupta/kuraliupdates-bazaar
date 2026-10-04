@@ -88,6 +88,14 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
         if (!name) throw new Error('Please enter your name');
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Please enter a valid email address');
         if (!/^\d{10}$/.test(phone)) throw new Error('Please enter a valid 10-digit mobile number');
+        if (registrationRole === 'seller') {
+          if (!(storeNameRef.current?.value || '').trim()) throw new Error('Please enter your shop name');
+          if (!(categoryRef.current?.value || '').trim()) throw new Error('Please enter your business category');
+        }
+        if (registrationRole === 'delivery') {
+          if (!(vehicleNumberRef.current?.value || '').trim()) throw new Error('Please enter your vehicle number');
+          if (!(licenseNumberRef.current?.value || '').trim()) throw new Error('Please enter your driving licence number');
+        }
 
         const response = await bazaarApi.sendOtp(email, 'EMAIL', 'REGISTER');
         if (!response.success) {
