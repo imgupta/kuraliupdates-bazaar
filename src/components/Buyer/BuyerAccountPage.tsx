@@ -2,11 +2,13 @@ import React, { useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, ChevronRight, HelpCircle, MapPin, Package, Pencil, Plus, Save, ShoppingBag, User, X } from 'lucide-react';
 import { useApp, SavedAddress } from '../../context/AppContext';
 import { LocationPicker, DeliveryLocation } from '../Auth/LocationPicker';
+import { OrderTrackingModal } from './OrderTrackingModal';
 
 const emptyLocation = null;
 
 export const BuyerAccountPage: React.FC = () => {
   const { user, orders, updateUserProfile, setTrackingOrderId, showToast } = useApp();
+  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [section, setSection] = useState<'overview' | 'profile' | 'addresses' | 'orders' | 'current' | 'help'>('overview');
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileName, setProfileName] = useState(user.name);
@@ -134,6 +136,7 @@ export const BuyerAccountPage: React.FC = () => {
           </main>
         </div>
       </div>
+      {trackingOrderId && <OrderTrackingModal orderId={trackingOrderId} onClose={() => setTrackingOrderId(null)} />}
     </div>
   );
 };
