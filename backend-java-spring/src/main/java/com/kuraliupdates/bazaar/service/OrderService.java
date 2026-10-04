@@ -1,6 +1,6 @@
 package com.kuraliupdates.bazaar.service;
 
-import com.kuraliupdates.bazaar.dto.order.OrderResponse;
+import com.kuraliupdates.bazaar.dto.order.OrderResponse;\nimport com.kuraliupdates.bazaar.dto.order.OrderPlacementResponse;
 import com.kuraliupdates.bazaar.dto.order.PlaceOrderRequest;
 import com.kuraliupdates.bazaar.entity.OrderEntity;
 import com.kuraliupdates.bazaar.entity.SellerEntity;
@@ -25,7 +25,7 @@ public class OrderService {
     private final SecureRandom random = new SecureRandom();
 
     @Transactional
-    public OrderResponse placeOrder(PlaceOrderRequest request) {
+    public OrderPlacementResponse placeOrder(PlaceOrderRequest request) {
         SellerEntity seller = sellerRepository.findById(request.sellerId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Seller not found"));
 
@@ -60,7 +60,7 @@ public class OrderService {
                 .updatedAt(now)
                 .build();
 
-        return OrderResponse.from(orderRepository.save(order));
+        OrderEntity saved = orderRepository.save(order);\n        return new OrderPlacementResponse(OrderResponse.from(saved), saved.getDeliveryOtp());
     }
 
     @Transactional(readOnly = true)
