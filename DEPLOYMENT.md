@@ -1,32 +1,20 @@
 # Deployment
 
-## Topology
-- Vercel: React web.
-- Render: Spring Boot Docker service.
-- Oracle: application database.
-- Domain: www.kuraliupdates.com.
-- API: https://kuraliupdates-bazaar.onrender.com/api/v1
+## Web
+Vercel builds the repository root with the Vite frontend.
 
-## Environment
-Frontend: `VITE_API_BASE_URL`.
-Backend: Oracle/wallet settings plus provider credentials.
-Never commit secrets.
+## API
+Render builds `backend-java-spring/` using its Dockerfile.
 
-## Clean database rebuild
-The rebuild is intentional and destructive. Database reset must be performed as an explicit controlled operation before the fresh Flyway baseline is deployed.
-Application startup must never drop production tables.
-
-## Release order
-1. Run backend tests.
-2. Build backend.
-3. Reset/recreate the target database under explicit approval.
-4. Deploy backend and verify Flyway baseline + health.
-5. Build/deploy React.
-6. Smoke-test auth, address CRUD/default, orders and tracking.
+## Release gate
+1. Frontend lint/build passes.
+2. Backend tests/build passes.
+3. Flyway starts cleanly against the target Oracle schema.
+4. Backend health endpoint responds.
+5. Authentication and address smoke tests pass.
+6. Production frontend loads and reaches the API.
 
 ## Rollback
-Rollback application code first. Do not rewrite applied Flyway migrations.
-For schema rollback, use a forward migration or restore a known database backup.
+Rollback the application deployment to the last known-good commit. Do not repair or rewrite Flyway history to make a deployment pass.
 
-## Context rule
-Keep this file operational. Put design decisions in ARCHITECTURE.md; put implementation detail in code. Do not paste long incident histories here.
+Keep secrets in hosting environment variables, never in Git.
