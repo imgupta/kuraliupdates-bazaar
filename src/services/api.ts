@@ -475,7 +475,7 @@ export const bazaarApi = {
   async sendOtp(identifier: string, type: 'EMAIL' | 'PHONE', mode: 'LOGIN' | 'REGISTER'): Promise<{ success: boolean; message: string }> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       const res = await fetch(`${API_BASE_URL}/auth/send-otp`, {
         method: 'POST',
         signal: controller.signal,
