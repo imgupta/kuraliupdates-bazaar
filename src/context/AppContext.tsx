@@ -86,6 +86,8 @@ interface AppContextType {
   registerSeller: (sellerData: Omit<Seller, 'id' | 'status' | 'rating' | 'reviewCount' | 'registeredAt'>) => void;
   approveSeller: (sellerId: string) => void;
   rejectSeller: (sellerId: string) => void;
+  approveDeliveryAgent: (agentId: string) => void;
+  rejectDeliveryAgent: (agentId: string) => void;
   updateSeller: (sellerId: string, updates: Partial<Seller>) => void;
 
   // Products
@@ -766,6 +768,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     bazaarApi.rejectSeller(sellerId);
   };
 
+  const approveDeliveryAgent = (agentId: string) => {
+    bazaarApi.approveDeliveryAgent(agentId).then(ok => {
+      if (!ok) {
+        showToast('Unable to approve delivery partner in backend.', 'error');
+        return;
+      }
+      setDeliveryAgents(prev => prev.map(a => a.id === agentId ? { ...a, status: 'active' } : a));
+      showToast('Delivery partner approved and activated.', 'success');
+    });
+  };
+
+  const rejectDeliveryAgent = (agentId: string) => {
+    bazaarApi.rejectDeliveryAgent(agentId).then(ok => {
+      if (!ok) {
+        showToast('Unable to reject delivery partner in backend.', 'error');
+        return;
+      }
+      setDeliveryAgents(prev => prev.map(a => a.id === agentId ? { ...a, status: 'rejected' } : a));
+      showToast('Delivery partner application rejected.', 'info');
+    });
+  };
+
   const updateSeller = (sellerId: string, updates: Partial<Seller>) => {
     setSellers(prev =>
       prev.map(s => (s.id === sellerId ? { ...s, ...updates } : s))
@@ -1317,6 +1341,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         registerSeller,
         approveSeller,
         rejectSeller,
+        approveDeliveryAgent,
+        rejectDeliveryAgent,
         updateSeller,
         products,
         addProduct,
