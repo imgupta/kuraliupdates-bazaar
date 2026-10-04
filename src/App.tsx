@@ -213,8 +213,9 @@ const RootNavigation: React.FC = () => {
 
   if (pathname === '/register/seller') return <AuthPageV2 registrationRole="seller" />;
   if (pathname === '/register/delivery') return <AuthPageV2 registrationRole="delivery" />;
+  if (pathname === '/register/buyer') return <BuyerRegistrationPage />;
 
-  return user.isSignedIn ? <MainLayout /> : <BuyerRegistrationPage />;
+  return user.isSignedIn ? <MainLayout /> : <AuthPageV2 />;
 };
 
 export default function App() {
