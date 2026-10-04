@@ -15,7 +15,9 @@ Hyperlocal eCommerce, merchant empowerment, and fast 25-minute delivery ecosyste
   - **Bill-level Discounts**: Milestones for orders (e.g., 5% off over ₹500, flat ₹100 off over ₹1,200).
   - **Custom Store Coupons**: Promo codes (e.g. `KURALI50`, `WELCOME10`) with minimum order value rules.
 
-- **Buyer Experience, Price Match & Live Bargaining**:
+- **Buyer Experience, Smart Discovery & Live Bargaining**:
+  - **Smart Search & Discovery**: autocomplete suggestions across products, categories, sellers, and tags.
+  - **Product Details & Buy Now**: reusable product cards, detailed product view, quick add-to-cart, and Buy Now checkout flow.
   - **Compare Sellers for Lowest Price & Distance**: Side-by-side comparison matrix of Kurali merchants carrying the item.
   - **Real-Time Price Bargaining Chat**: Direct negotiation between buyer and seller with preset percentage offers and instant *"Add to Cart at Negotiated Price"*.
   - **Free Express Delivery Progress**: Dynamic cart threshold bar unlocking free delivery when minimum basket value is reached.
@@ -35,6 +37,14 @@ Hyperlocal eCommerce, merchant empowerment, and fast 25-minute delivery ecosyste
   - 24-hour city shopping activity curve.
 
 ---
+
+## 🏗️ Architecture
+
+The application follows a modular React + Spring Boot architecture with reusable presentation components, centralized application state, a frontend API client, and backend service/repository separation. Buyer discovery is split into reusable `ProductCard`, `SearchSuggestions`, and `ProductDetailsModal` components rather than concentrating UI logic in the page component.
+
+**Email OTP:** Resend is the HTTPS email delivery provider for email OTPs. MSG91 remains the SMS OTP provider for mobile login and future mobile registration. OTP generation, hashing, expiry, attempt limits, persistence, and session creation remain server-side.
+
+See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the component/data-flow design, deployment topology, OTP sequence, coding patterns, and extension guidelines.
 
 ## 🛠️ Local Development & Build
 
