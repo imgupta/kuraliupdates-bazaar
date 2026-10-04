@@ -55,6 +55,8 @@ app:
   otp:
     email:
       from: ${OTP_EMAIL_FROM:}
+    resend:
+      api-key: ${RESEND_API_KEY:}
     msg91:
       auth-key: ${MSG91_AUTH_KEY:}
       template-id: ${MSG91_TEMPLATE_ID:}
