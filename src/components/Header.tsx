@@ -355,39 +355,11 @@ export const Header: React.FC<HeaderProps> = ({
 
                 {isProfileDropdownOpen && (
                   <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in">
-                    <div className="px-4 py-2 border-b border-slate-100">
-                      <p className="text-xs font-semibold text-slate-900">{user.name}</p>
-                      <p className="text-[11px] text-slate-500 truncate">{user.email || user.phone}</p>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 uppercase">
-                          <Sparkles className="w-2.5 h-2.5" /> {user.role} Account
-                        </span>
-                        {isRootAdmin && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
-                            Root Admin
-                          </span>
-                        )}
-                      </div>
+                    <div className="px-4 py-3 border-b border-slate-100">
+                      <p className="text-sm font-black text-slate-900">{user.name}</p>
                     </div>
 
                     <div className="py-2 px-4 space-y-1.5 text-xs text-slate-700">
-                      <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Account Type</span>
-                        <span className="font-bold uppercase text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md text-[10px]">
-                          {user.role}
-                        </span>
-                      </div>
-                      {user.phone && (
-                        <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                          <span className="text-slate-500">Mobile</span>
-                          <span className="font-bold text-slate-800 text-[11px]">+91 {user.phone}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">Locality</span>
-                        <span className="font-bold text-slate-800 text-[11px] truncate max-w-[130px]">{user.locality}</span>
-                      </div>
-
                       {isRootAdmin && (
                         <button
                           onClick={() => {
@@ -531,7 +503,7 @@ export const Header: React.FC<HeaderProps> = ({
         {user.isSignedIn && (
           <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
             <span className="text-slate-500 truncate max-w-[180px]">
-              {user.name.split(' ')[0]} &bull; <strong className="text-slate-800 uppercase text-[10px]">{user.role}</strong>
+              {user.name}
             </span>
             <button
               onClick={logout}
