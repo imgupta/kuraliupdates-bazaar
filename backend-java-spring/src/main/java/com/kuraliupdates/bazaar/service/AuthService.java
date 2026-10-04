@@ -258,11 +258,6 @@ public class AuthService {
 
     private String normalizeIdentifier(String value, String type) {
         if (value == null) return "";
-        return "EMAIL".equals(type) ? value.trim().toLowerCase() : value.trim().replaceAll("\\\\D", "");
-    }
-
-    private String normalizeIdentifier(String value, String type) {
-        if (value == null) return "";
         return "EMAIL".equals(type) ? value.trim().toLowerCase() : value.trim().replaceAll("\\D", "");
     }
 
@@ -273,9 +268,12 @@ public class AuthService {
     private BigDecimal toDecimal(Double value) {
         return value == null ? null : BigDecimal.valueOf(value);
     }
-        return "EMAIL".equals(type) ? value.trim().toLowerCase() : value.trim().replaceAll("\\D", "");
+
     private String mask(String value) {
-        if (value.contains("@")) { int at = value.indexOf("@"); return value.charAt(0) + "***" + value.substring(Math.max(at - 1, 1)); }
+        if (value.contains("@")) {
+            int at = value.indexOf("@");
+            return value.charAt(0) + "***" + value.substring(Math.max(at - 1, 1));
+        }
         return value.length() <= 4 ? "****" : "******" + value.substring(value.length() - 4);
     }
 
