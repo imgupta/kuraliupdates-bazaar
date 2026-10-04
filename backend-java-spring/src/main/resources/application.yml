@@ -49,7 +49,6 @@ spring:
     baseline-version: 0
     validate-on-migrate: true
     clean-disabled: true
-    ignore-migration-patterns: "versioned:missing"
 
 app:
   flyway:
