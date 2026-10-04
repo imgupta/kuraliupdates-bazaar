@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { KURALI_LOCALITIES, ROOT_ADMIN_EMAIL, isRootAdminEmail } from '../data/initialData';
-import { UserRole, Product } from '../types';
+import { UserRole } from '../types';
 import { SearchSuggestions } from './Buyer/SearchSuggestions';
 
 interface HeaderProps {
