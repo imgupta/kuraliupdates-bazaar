@@ -3,34 +3,35 @@
 Hyperlocal marketplace and delivery platform for Kurali.
 
 ## Stack
-- Web: React 19 + TypeScript + Vite + Tailwind.
-- API: Java 21 + Spring Boot + REST + JPA.
-- DB: Oracle + Flyway.
-- Hosting: Vercel + Render.
+- Web: React 19 + TypeScript + Vite + Tailwind
+- API: Java + Spring Boot + REST + JPA
+- Database: Oracle + Flyway
+- Hosting: Vercel + Render
 
 ## Structure
-- `src/` — React app.
-- `backend-java-spring/` — Spring Boot API.
-- `backend-java-spring/src/main/resources/db/migration/` — schema migrations.
-- `ARCHITECTURE.md` — compact technical source of truth.
-- `DEPLOYMENT.md` — release/runbook rules.
+- `src/` — React application
+- `backend-java-spring/` — Spring Boot API
+- `backend-java-spring/src/main/resources/db/migration/` — authoritative schema
+- `ARCHITECTURE.md` — architecture source of truth
+- `docs/` — compact API/database/development notes
 
-## Rules
-React only. Angular is retired and must not be reintroduced.
-Backend uses Controller → Service → Domain/DTO → Repository → Oracle.
-Keep controllers thin, entities internal, DTOs as API contracts, and business logic in services/domain code.
-Use Strategy/Adapter for interchangeable external providers; Factory only when construction genuinely varies.
-
-Flyway owns schema creation. The clean rebuild uses a new baseline migration; do not edit applied migrations.
-
-## Commands
+## Development
 ```bash
 npm install
+npm run lint
 npm run build
+
 cd backend-java-spring
 mvn clean verify
 ```
 
-Production:
+## Rules
+React is the only frontend. Do not add Angular.
+Flyway owns schema creation. Never edit an applied migration.
+Controllers stay thin; services own use cases/transactions; repositories own persistence.
+Use DTOs at API boundaries. Keep entities internal.
+Prefer simple composition. Add Strategy/Adapter only for genuinely interchangeable providers.
+
+## Production
 - Web: https://www.kuraliupdates.com
 - API: https://kuraliupdates-bazaar.onrender.com/api/v1
