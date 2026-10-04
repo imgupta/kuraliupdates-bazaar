@@ -1,6 +1,6 @@
 # Architecture
 
-**Source of truth:** this file. Keep it short.
+**Source of truth. Keep short.**
 
 ## Runtime
 Browser → React/Vite → REST → Spring Boot → Oracle.
@@ -8,41 +8,32 @@ Browser → React/Vite → REST → Spring Boot → Oracle.
 ## Frontend
 Feature-oriented React:
 - `components/` — UI
-- `context/` — shared application state
-- `services/` — HTTP/API clients
-- `types/` — shared TypeScript contracts
-- `data/` — static/demo data only
+- `context/` — shared state
+- `services/` — API clients
+- `types/` — contracts
+- `data/` — static/demo data
 
-Rules:
-- React only; no Angular/RxJS/Angular CLI.
-- Controlled forms and one source of truth for state.
-- API calls stay out of presentational components.
-- Avoid duplicate client/server state.
+React is the only frontend. No Angular/RxJS/Angular CLI.
 
 ## Backend
-Feature-oriented Spring Boot:
-`Controller → Application Service → Domain/DTO → Repository → Oracle`
+`Controller → Service → DTO/Domain → Repository → Oracle`
 
-- Controllers: HTTP mapping, authentication context, validation.
-- Services: use cases, transactions, orchestration.
-- Domain: business rules/invariants when complexity warrants it.
-- Repositories: persistence only.
-- DTOs: API contracts; never expose JPA entities.
-- Adapters: external systems such as email/maps.
-- Strategy: interchangeable provider/policy behavior only.
-- Factory: only when construction actually varies.
+- Controller: HTTP/auth/validation only.
+- Service: use case + transaction boundary.
+- Domain: business rules when needed.
+- Repository: persistence only.
+- DTO: public API contract; never expose JPA entities.
+- Adapter/Strategy: only for genuinely interchangeable external behavior.
 
 ## Database
-Flyway is the only schema owner.
-The rebuild uses a fresh schema baseline; legacy address/backfill migrations are retired.
-Use stable IDs, explicit FK/unique/check constraints, and indexes for real access paths.
-One authoritative table/model per business concept.
+Flyway owns schema.
+`V5__reset_application_schema.sql` is the clean application-schema reset: it drops the discarded application tables and recreates the current model.
+Historical V1–V3 files are retained only as Flyway history; do not reuse or modify them.
+Use stable IDs, FK/unique/check constraints and query-driven indexes.
 
-## Quality gate
+## Quality
 ```bash
 npm run lint
 npm run build
 cd backend-java-spring && mvn clean verify
 ```
-
-Smoke test: health → register/OTP → sign-in → profile/address CRUD → default address → order → tracking.
