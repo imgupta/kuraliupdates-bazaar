@@ -52,6 +52,7 @@ public class AuthController {
         if (identifier.isEmpty()) return error(HttpStatus.BAD_REQUEST, "Please enter a valid " + (type.equals("EMAIL") ? "email address" : "mobile number"));
 
         String mode = normalizeMode(req.mode());
+        log.info("OTP request received: mode={}, type={}, identifier={}", mode, type, mask(identifier));
         Optional<UserEntity> existing = findUser(identifier, type);
         if ("LOGIN".equals(mode) && existing.isEmpty()) {
             return error(HttpStatus.NOT_FOUND, "No registered account was found. Please register first.");
@@ -80,6 +81,7 @@ public class AuthController {
         try {
             otpDeliveryService.sendOtp(identifier, type, otp, 10);
             authOtpRepository.save(entity);
+            log.info("OTP delivered successfully: mode={}, type={}, identifier={}", mode, type, mask(identifier));
         } catch (Exception ex) {
             log.warn("OTP delivery failed for type={} identifier={}: {}", type, mask(identifier), ex.getMessage());
             return error(HttpStatus.BAD_GATEWAY, "Unable to deliver the verification code right now. Please try again later.");
@@ -124,11 +126,13 @@ public class AuthController {
             user.setIsAdmin(1);
         }
         userRepository.save(user);
+        log.info("Registration completed successfully: userId={}, email={}, role={}", user.getUserId(), mask(user.getEmail()), user.getRole());
         return createSessionResponse(user);
     }
 
     private ResponseEntity<Map<String, Object>> verifyRegistration(VerifyOtpRequest req) {
         String email = normalizeIdentifier(req.email(), "EMAIL");
+        log.info("Registration verification request received: email={}, phone={}", mask(email), mask(normalizeIdentifier(req.phone(), "PHONE")));
         String phone = normalizeIdentifier(req.phone(), "PHONE");
         String emailOtp = req.emailOtp() == null ? "" : req.emailOtp().trim();
         String phoneOtp = req.phoneOtp() == null ? "" : req.phoneOtp().trim();
