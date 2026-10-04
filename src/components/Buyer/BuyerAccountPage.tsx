@@ -7,7 +7,7 @@ import { OrderTrackingModal } from './OrderTrackingModal';
 const emptyLocation = null;
 
 export const BuyerAccountPage: React.FC = () => {
-  const { user, orders, updateUserProfile, setTrackingOrderId, showToast } = useApp();
+  const { user, orders, updateUserProfile, showToast } = useApp();
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [section, setSection] = useState<'overview' | 'profile' | 'addresses' | 'orders' | 'current' | 'help'>('overview');
   const [editingProfile, setEditingProfile] = useState(false);
