@@ -1,0 +1,365 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Mail, MapPin, Phone, RefreshCw, ShieldCheck, Sparkles, Store, Truck, User } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+import { KURALI_LOCALITIES } from '../../data/initialData';
+import { UserRole } from '../../types';
+import { bazaarApi } from '../../services/api';
+
+type AuthMode = 'signin' | 'register';
+type ContactMethod = 'email' | 'phone';
+
+interface AuthPageV2Props {
+  registrationRole?: UserRole;
+}
+
+export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer' }) => {
+  const { loginWithOtp, registerUserWithOtp, showToast } = useApp();
+  const roleRegistration = registrationRole === 'seller' || registrationRole === 'delivery';
+
+  const [authMode, setAuthMode] = useState<AuthMode>(roleRegistration ? 'register' : 'signin');
+  const [contactMethod, setContactMethod] = useState<ContactMethod>('email');
+  const [step, setStep] = useState<'form' | 'otp'>('form');
+  const [otp, setOtp] = useState('');
+  const [countdown, setCountdown] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [duplicatePrompt, setDuplicatePrompt] = useState(false);
+
+  const nameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const localityRef = useRef<HTMLSelectElement>(null);
+  const addressRef = useRef<HTMLInputElement>(null);
+  const otpRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!countdown) return;
+    const timer = window.setTimeout(() => setCountdown(value => value - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [countdown]);
+
+  useEffect(() => {
+    if (step === 'otp') window.setTimeout(() => otpRef.current?.focus(), 100);
+  }, [step]);
+
+  const goLogin = () => {
+    setDuplicatePrompt(false);
+    setAuthMode('signin');
+    setStep('form');
+    setOtp('');
+    setError('');
+    setCountdown(0);
+    window.history.pushState({}, '', '/');
+    window.setTimeout(() => emailRef.current?.focus(), 100);
+  };
+
+  const openRegister = (role: UserRole = 'buyer') => {
+    if (role === 'seller') {
+      window.location.href = '/register/seller';
+      return;
+    }
+    if (role === 'delivery') {
+      window.location.href = '/register/delivery';
+      return;
+    }
+    setAuthMode('register');
+    setStep('form');
+    setError('');
+  };
+
+  const handleSendOtp = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      if (authMode === 'register') {
+        const email = (emailRef.current?.value || '').trim().toLowerCase();
+        const phone = (phoneRef.current?.value || '').replace(/\D/g, '');
+        const name = (nameRef.current?.value || '').trim();
+
+        if (!name) throw new Error('Please enter your name');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Please enter a valid email address');
+        if (!/^\d{10}$/.test(phone)) throw new Error('Please enter a valid 10-digit mobile number');
+
+        const response = await bazaarApi.sendOtp(email, 'EMAIL', 'REGISTER');
+        if (!response.success) {
+          if (/already exists/i.test(response.message)) {
+            setDuplicatePrompt(true);
+            return;
+          }
+          throw new Error(response.message);
+        }
+        setCountdown(60);
+        setOtp('');
+        setStep('otp');
+        showToast('Verification code sent to your email', 'info');
+        return;
+      }
+
+      const identifier = contactMethod === 'email'
+        ? (emailRef.current?.value || '').trim().toLowerCase()
+        : (phoneRef.current?.value || '').replace(/\D/g, '');
+
+      if (contactMethod === 'email') {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) throw new Error('Please enter a valid email address');
+      } else if (!/^\d{10}$/.test(identifier)) {
+        throw new Error('Please enter your 10-digit mobile number');
+      }
+
+      const response = await bazaarApi.sendOtp(identifier, contactMethod === 'email' ? 'EMAIL' : 'PHONE', 'LOGIN');
+      if (!response.success) throw new Error(response.message);
+
+      setCountdown(60);
+      setOtp('');
+      setStep('otp');
+      showToast('Verification code sent successfully', 'info');
+    } catch (err: any) {
+      setError(err?.message || 'Unable to send verification code. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    const code = otp.replace(/\D/g, '');
+    if (code.length !== 6) {
+      setError('Please enter the complete 6-digit verification code');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+
+    try {
+      if (authMode === 'register') {
+        const email = (emailRef.current?.value || '').trim().toLowerCase();
+        const phone = (phoneRef.current?.value || '').replace(/\D/g, '');
+        const name = (nameRef.current?.value || '').trim();
+        const locality = localityRef.current?.value || KURALI_LOCALITIES[1] || 'Main Bazaar & Clock Tower';
+        const address = (addressRef.current?.value || '').trim();
+
+        const response = await bazaarApi.verifyOtp({
+          mode: 'REGISTER',
+          name,
+          role: registrationRole,
+          locality,
+          address,
+          email,
+          phone,
+          emailOtp: code,
+        });
+
+        if (!response.success || !response.token || !response.user) {
+          if (/already exists/i.test(response.message || '')) {
+            setDuplicatePrompt(true);
+            return;
+          }
+          throw new Error(response.message || 'Registration verification failed');
+        }
+
+        const result = registerUserWithOtp({
+          name,
+          identifier: email,
+          email,
+          phone,
+          locality,
+          role: registrationRole,
+          address,
+          token: response.token,
+          serverUser: response.user,
+        });
+
+        showToast(result.message, 'success');
+        return;
+      }
+
+      const identifier = contactMethod === 'email'
+        ? (emailRef.current?.value || '').trim().toLowerCase()
+        : (phoneRef.current?.value || '').replace(/\D/g, '');
+
+      const response = await bazaarApi.verifyOtp({
+        mode: 'LOGIN',
+        identifier,
+        otp: code,
+        type: contactMethod === 'email' ? 'EMAIL' : 'PHONE',
+      });
+
+      if (!response.success || !response.token || !response.user) {
+        throw new Error(response.message || 'OTP verification failed');
+      }
+
+      const result = loginWithOtp({
+        identifier,
+        email: contactMethod === 'email' ? identifier : undefined,
+        phone: contactMethod === 'phone' ? identifier : undefined,
+        token: response.token,
+        serverUser: response.user,
+      });
+      showToast(result.message, 'success');
+    } catch (err: any) {
+      setError(err?.message || 'Verification failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const title = authMode === 'signin'
+    ? 'Welcome back'
+    : registrationRole === 'seller'
+      ? 'Join as a Kurali Merchant'
+      : registrationRole === 'delivery'
+        ? 'Join Kurali Express'
+        : 'Create your buyer account';
+
+  const subtitle = authMode === 'signin'
+    ? 'Sign in securely with a one-time verification code.'
+    : registrationRole === 'seller'
+      ? 'Register your shop. Your merchant profile will be reviewed by the Kurali admin team.'
+      : registrationRole === 'delivery'
+        ? 'Register as a delivery partner. Your fleet profile will be reviewed before activation.'
+        : 'Start shopping across Kurali with email verification.';
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 flex items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200 grid lg:grid-cols-5">
+        <div className="lg:col-span-2 hidden lg:flex bg-gradient-to-br from-amber-600 via-orange-600 to-amber-700 text-white p-8 flex-col justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold">
+              <Sparkles className="w-3.5 h-3.5" /> Official Kurali Marketplace
+            </div>
+            <h1 className="mt-6 text-3xl font-black leading-tight">Kurali<span className="text-amber-200">Updates</span><br />Bazaar • ਕੁਰਾਲੀ</h1>
+            <p className="mt-4 text-sm text-amber-100/90 leading-relaxed">A simple local marketplace for Kurali shoppers, merchants and delivery partners.</p>
+            <div className="mt-8 space-y-3 text-xs font-semibold">
+              <div className="flex gap-3 rounded-2xl bg-white/10 p-3"><ShieldCheck className="w-5 h-5 shrink-0" /><span>Secure email OTP registration</span></div>
+              <div className="flex gap-3 rounded-2xl bg-white/10 p-3"><Store className="w-5 h-5 shrink-0" /><span>Verified local merchants</span></div>
+              <div className="flex gap-3 rounded-2xl bg-white/10 p-3"><Truck className="w-5 h-5 shrink-0" /><span>Fast local delivery</span></div>
+            </div>
+          </div>
+          <div className="text-[11px] text-amber-100/80">kuraliupdates.com • Kurali, Punjab</div>
+        </div>
+
+        <div className="lg:col-span-3 p-6 sm:p-9">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-5">
+            <div>
+              <h2 className="text-2xl font-black text-slate-900">{title}</h2>
+              <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
+            </div>
+            {roleRegistration ? (
+              <a href="/" className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 hover:text-amber-800 whitespace-nowrap"><ArrowLeft className="w-3.5 h-3.5" /> Buyer sign in</a>
+            ) : (
+              <div className="flex rounded-xl bg-slate-100 p-1">
+                <button type="button" onClick={() => { setAuthMode('signin'); setStep('form'); setError(''); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${authMode === 'signin' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>Sign In</button>
+                <button type="button" onClick={() => openRegister('buyer')} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${authMode === 'register' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>Register</button>
+              </div>
+            )}
+          </div>
+
+          {error && (
+            <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-900 flex gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" /> <span>{error}</span>
+            </div>
+          )}
+
+          {step === 'form' ? (
+            <div className="mt-6 space-y-5">
+              {authMode === 'signin' && (
+                <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
+                  <button type="button" onClick={() => { setContactMethod('email'); setError(''); }} className={`py-2 rounded-lg text-xs font-bold ${contactMethod === 'email' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}><Mail className="inline w-3.5 h-3.5 mr-1" /> Email</button>
+                  <button type="button" onClick={() => { setContactMethod('phone'); setError(''); }} className={`py-2 rounded-lg text-xs font-bold ${contactMethod === 'phone' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}><Phone className="inline w-3.5 h-3.5 mr-1" /> Mobile</button>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {authMode === 'register' && (
+                  <div>
+                    <label className="block mb-1 text-xs font-bold text-slate-700">Name <span className="text-rose-500">*</span></label>
+                    <div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input ref={nameRef} type="text" placeholder="Your full name" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-amber-500 focus:bg-white" /></div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block mb-1 text-xs font-bold text-slate-700">{authMode === 'register' || contactMethod === 'email' ? 'Email address' : 'Mobile number'} <span className="text-rose-500">*</span></label>
+                  {authMode === 'register' || contactMethod === 'email' ? (
+                    <div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input ref={emailRef} type="email" autoComplete="email" placeholder="name@example.com" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-amber-500 focus:bg-white" /></div>
+                  ) : (
+                    <div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input ref={phoneRef} type="tel" inputMode="numeric" maxLength={10} placeholder="10-digit mobile number" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-amber-500 focus:bg-white" /></div>
+                  )}
+                </div>
+
+                {authMode === 'register' && (
+                  <>
+                    <div>
+                      <label className="block mb-1 text-xs font-bold text-slate-700">Mobile number <span className="text-rose-500">*</span></label>
+                      <div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input ref={phoneRef} type="tel" inputMode="numeric" maxLength={10} placeholder="10-digit mobile number" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-amber-500 focus:bg-white" /></div>
+                      <p className="mt-1 text-[10px] text-slate-400">Used for your account and future mobile OTP sign-in.</p>
+                    </div>
+                    <div>
+                      <label className="block mb-1 text-xs font-bold text-slate-700">Locality</label>
+                      <div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><select ref={localityRef} defaultValue={KURALI_LOCALITIES[1] || 'Main Bazaar & Clock Tower'} className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-amber-500 focus:bg-white">{KURALI_LOCALITIES.map(locality => <option key={locality}>{locality}</option>)}</select></div>
+                    </div>
+                    <div>
+                      <label className="block mb-1 text-xs font-bold text-slate-700">Address <span className="font-normal text-slate-400">(optional)</span></label>
+                      <input ref={addressRef} type="text" placeholder="House / shop / landmark" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white" />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <button type="button" onClick={handleSendOtp} disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-xs font-black text-white shadow-md disabled:opacity-50 flex items-center justify-center gap-2">
+                {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                {loading ? 'Sending verification code...' : authMode === 'signin' ? 'Send 6-Digit OTP' : 'Register with Email OTP'}
+              </button>
+
+              {authMode === 'register' && registrationRole === 'buyer' && (
+                <div className="text-center text-[11px] text-slate-500">
+                  <a href="/register/seller" className="font-bold text-blue-700 hover:underline">Register as a Merchant</a>
+                  <span className="mx-2 text-slate-300">•</span>
+                  <a href="/register/delivery" className="font-bold text-emerald-700 hover:underline">Join as Delivery Partner</a>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="mt-7">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-xs font-black text-amber-900">Verification code sent</p>
+                <p className="mt-1 text-[11px] text-amber-700">
+                  {authMode === 'register' ? `Enter the 6-digit code sent to ${emailRef.current?.value || 'your email'}.` : `Enter the 6-digit code sent to your registered ${contactMethod}.`}
+                </p>
+              </div>
+              <div className="mt-6">
+                <label className="block mb-2 text-xs font-bold text-slate-700">6-digit verification code</label>
+                <input ref={otpRef} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} onKeyDown={e => { if (e.key === 'Enter') handleVerify(); }} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="••••••" className="w-full rounded-2xl border-2 border-slate-300 bg-slate-50 py-4 text-center font-mono text-2xl font-black tracking-[0.5em] outline-none focus:border-amber-500 focus:bg-white" />
+              </div>
+              <button type="button" onClick={handleVerify} disabled={loading} className="mt-5 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3.5 text-xs font-black text-white shadow-md disabled:opacity-50 flex items-center justify-center gap-2">
+                {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                {loading ? 'Verifying...' : 'Verify & Continue'}
+              </button>
+              <div className="mt-4 flex items-center justify-between text-[11px]">
+                <button type="button" onClick={() => { setStep('form'); setOtp(''); setError(''); }} className="font-bold text-slate-600 hover:text-slate-900">Edit details</button>
+                {countdown ? <span className="text-slate-400">Resend in {countdown}s</span> : <button type="button" onClick={handleSendOtp} className="font-bold text-amber-700 hover:underline">Resend code</button>}
+              </div>
+            </div>
+          )}
+
+          {authMode === 'signin' && step === 'form' && (
+            <p className="mt-7 text-center text-[11px] text-slate-500">New to KuraliUpdates? <button type="button" onClick={() => openRegister('buyer')} className="font-bold text-amber-700 hover:underline">Create a buyer account</button></p>
+          )}
+        </div>
+      </div>
+
+      {duplicatePrompt && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-slate-200">
+            <div className="w-11 h-11 rounded-2xl bg-amber-100 flex items-center justify-center"><AlertCircle className="w-5 h-5 text-amber-600" /></div>
+            <h3 className="mt-4 text-lg font-black text-slate-900">Account already registered</h3>
+            <p className="mt-2 text-sm text-slate-600">An account already exists with this email or mobile number. Please sign in instead.</p>
+            <div className="mt-6 flex gap-2">
+              <button type="button" onClick={() => setDuplicatePrompt(false)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-700">Stay here</button>
+              <button type="button" onClick={goLogin} className="flex-1 rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white">Go to Sign In</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
