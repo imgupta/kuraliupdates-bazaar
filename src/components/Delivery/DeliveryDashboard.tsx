@@ -34,18 +34,57 @@ export const DeliveryDashboard: React.FC = () => {
 
   useEffect(() => {
     if (!agent?.id || !navigator.geolocation) return;
-    const publish = () => {
-      navigator.geolocation.getCurrentPosition(
-        position => {
-          bazaarApi.updateDeliveryLocation(agent.id, position.coords.latitude, position.coords.longitude);
-        },
-        () => undefined,
-        { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
-      );
+
+    // GPS is collected locally and sent directly to our backend.
+    // Google Maps is NOT involved in rider-location updates.
+    const MIN_SEND_INTERVAL_MS = 10_000;
+    const MIN_MOVEMENT_METERS = 15;
+    const MAX_HEARTBEAT_INTERVAL_MS = 30_000;
+
+    let lastSentAt = 0;
+    let lastLatitude: number | null = null;
+    let lastLongitude: number | null = null;
+
+    const distanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      const earthRadius = 6_371_000;
+      const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+      const dLat = toRadians(lat2 - lat1);
+      const dLon = toRadians(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRadians(lat1)) *
+          Math.cos(toRadians(lat2)) *
+          Math.sin(dLon / 2) ** 2;
+      return 2 * earthRadius * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     };
-    publish();
-    const timer = window.setInterval(publish, 10000);
-    return () => window.clearInterval(timer);
+
+    const publish = (position: GeolocationPosition) => {
+      const { latitude, longitude } = position.coords;
+      const now = Date.now();
+
+      const movedEnough =
+        lastLatitude === null ||
+        lastLongitude === null ||
+        distanceMeters(lastLatitude, lastLongitude, latitude, longitude) >= MIN_MOVEMENT_METERS;
+
+      const heartbeatDue = now - lastSentAt >= MAX_HEARTBEAT_INTERVAL_MS;
+      const sendDue = now - lastSentAt >= MIN_SEND_INTERVAL_MS && (movedEnough || heartbeatDue);
+
+      if (!sendDue) return;
+
+      lastSentAt = now;
+      lastLatitude = latitude;
+      lastLongitude = longitude;
+      void bazaarApi.updateDeliveryLocation(agent.id, latitude, longitude);
+    };
+
+    const watchId = navigator.geolocation.watchPosition(
+      publish,
+      () => undefined,
+      { enableHighAccuracy: true, maximumAge: 5_000, timeout: 15_000 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
   }, [agent?.id]);
 
   // Available jobs in Kurali
