@@ -1153,8 +1153,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     customerNotes?: string;
     paymentMethod: 'COD' | 'UPI' | 'StorePay' | 'Card' | 'NetBanking';
   }): Order => {
-    const randomOtp = Math.floor(1000 + Math.random() * 9000).toString();
-    const newOrderId = `ORD-KUR-${Math.floor(100000 + Math.random() * 900000)}`;
+        const newOrderId = `ORD-KUR-${Math.floor(100000 + Math.random() * 900000)}`;
     const sellerIds = Array.from(new Set(cart.map(c => c.product.sellerId)));
     const sellerNames = Array.from(new Set(cart.map(c => c.product.sellerName)));
     const primarySellerName = sellerNames[0] || 'Local Kurali Store';
@@ -1186,7 +1185,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       paymentMethod: orderData.paymentMethod,
       paymentStatus: orderData.paymentMethod === 'UPI' ? 'paid' : 'pending',
       status: 'placed',
-      deliveryOtp: randomOtp,
+      deliveryOtp: '',
       placedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       estimatedDeliveryTime: '30-45 mins (Local Express)',
       distanceKm: 1.4,
@@ -1206,11 +1205,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setOrders(prev => [newOrder, ...prev]);
     clearCart();
     setTrackingOrderId(newOrderId);
-    showToast(`Order #${newOrderId} placed successfully! 4-digit OTP: ${randomOtp}`, 'success');
+    showToast(`Order #${newOrderId} placed successfully!`, 'success');
 
     // Async sync to Oracle DB via Render backend
     bazaarApi.placeOrder(newOrder).then(res => {
-      if (res) console.log('Order sent to Oracle DB:', res);
+      const placedOrder = res?.order;
+      const serverOtp = res?.deliveryOtp;
+      if (!placedOrder) {
+        showToast('Order could not be synchronized with the Bazaar server.', 'error');
+        return;
+      }
+      setOrders(prev => prev.map(order => order.id === newOrderId
+        ? { ...order, deliveryOtp: serverOtp || order.deliveryOtp }
+        : order
+      ));
+      if (serverOtp) showToast(`Delivery OTP for order #${newOrderId}: ${serverOtp}`, 'info');
     });
 
     return newOrder;
