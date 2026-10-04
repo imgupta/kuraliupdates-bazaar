@@ -16,7 +16,7 @@ INSERT INTO USER_ADDRESSES (
     UPDATED_AT
 )
 SELECT
-    'addr-legacy-' || SUBSTR(REPLACE(u.USER_ID, '-', ''), 1, 52),
+    'addr-' || SUBSTR(REPLACE(u.USER_ID, '-', ''), 1, 12),
     u.USER_ID,
     'Home',
     COALESCE(u.ADDRESS_LINE1, u.ADDRESS),
