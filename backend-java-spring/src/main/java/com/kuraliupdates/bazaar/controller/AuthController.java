@@ -247,7 +247,7 @@ public class AuthController {
         userSessionRepository.save(UserSessionEntity.builder()
                 .sessionToken(token).userId(user.getUserId())
                 .createdAt(LocalDateTime.now()).expiresAt(LocalDateTime.now().plusDays(30)).build());
-        return ResponseEntity.ok(Map.of("success", true, "token", token, "user", user, "message", "Welcome, " + user.getName() + "!"));
+        return currentUserResponseWithToken(user, token);
     }
 
     @GetMapping("/onboarding-status")
@@ -402,9 +402,14 @@ public class AuthController {
         return userRepository.findById(session.get().getUserId());
     }
 
+    private ResponseEntity<Map<String, Object>> currentUserResponseWithToken(UserEntity user, String token) {
+        List<UserAddressEntity> addresses = userAddressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc(user.getUserId());
+        return ResponseEntity.ok(Map.of("success", true, "authenticated", true, "token", token, "user", user, "addresses", addresses, "message", "Welcome, " + user.getName() + "!"));
+    }
+
     private ResponseEntity<Map<String, Object>> currentUserResponse(UserEntity user) {
         List<UserAddressEntity> addresses = userAddressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc(user.getUserId());
-        return ResponseEntity.ok(Map.of("authenticated", true, "user", user, "addresses", addresses));
+        return ResponseEntity.ok(Map.of("success", true, "authenticated", true, "user", user, "addresses", addresses));
     }
 
     private void clearDefault(String userId) {
