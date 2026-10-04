@@ -20,7 +20,7 @@ public record VerifyOtpRequest(
         Double longitude,
         @Email(message = "Please enter a valid email address")
         String email,
-        @Pattern(regexp = "\d{10}", message = "Please enter a valid 10-digit mobile number")
+        @Pattern(regexp = "\\d{10}", message = "Please enter a valid 10-digit mobile number")
         String phone,
         String emailOtp,
         String phoneOtp,
