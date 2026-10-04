@@ -228,6 +228,50 @@ export const bazaarApi = {
   /**
    * Admin approves seller in Oracle DB
    */
+  async getPendingDeliveryAgents(): Promise<any[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/delivery/pending`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getPendingDeliveryAgents failed:', err);
+      return [];
+    }
+  },
+
+  async approveDeliveryAgent(agentId: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/delivery/${encodeURIComponent(agentId)}/approve`, { method: 'POST' });
+      return res.ok;
+    } catch (err) {
+      console.warn('Backend approveDeliveryAgent failed:', err);
+      return false;
+    }
+  },
+
+  async rejectDeliveryAgent(agentId: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/delivery/${encodeURIComponent(agentId)}/reject`, { method: 'POST' });
+      return res.ok;
+    } catch (err) {
+      console.warn('Backend rejectDeliveryAgent failed:', err);
+      return false;
+    }
+  },
+
+  async getOnboardingStatus(token: string): Promise<{ success: boolean; role?: string; status?: 'PENDING' | 'APPROVED' | 'REJECTED'; message?: string }> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/onboarding-status`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      });
+      const data = await res.json().catch(() => ({ success: false }));
+      if (!res.ok) return { success: false, message: data.message || 'Unable to load onboarding status' };
+      return data;
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Unable to load onboarding status' };
+    }
+  },
+
   async approveSeller(sellerId: string): Promise<boolean> {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/sellers/${encodeURIComponent(sellerId)}/approve`, {
@@ -432,6 +476,11 @@ export const bazaarApi = {
     role?: string;
     locality?: string;
     address?: string;
+    storeName?: string;
+    category?: string;
+    vehicleType?: string;
+    vehicleNumber?: string;
+    licenseNumber?: string;
     email?: string;
     phone?: string;
     emailOtp?: string;
