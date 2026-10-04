@@ -1,5 +1,6 @@
 server:
   port: ${PORT:8080}
+  address: 0.0.0.0
 
 spring:
   application:
@@ -30,7 +31,6 @@ spring:
         javax.net.ssl.keyStore: /app/wallet/keystore.jks
         javax.net.ssl.keyStorePassword: ${WALLET_PASSWORD:Vasu@123!2026}
   jpa:
-    database-platform: org.hibernate.dialect.OracleDialect
     hibernate:
       ddl-auto: none
     open-in-view: false
