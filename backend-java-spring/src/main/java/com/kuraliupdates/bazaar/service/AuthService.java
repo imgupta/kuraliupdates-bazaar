@@ -149,7 +149,7 @@ public class AuthService {
             user.setIsAdmin(1);
         }
         userRepository.save(user);
-        return new AuthResult(createSession(user), user, "Welcome, " + user.getName() + "!");
+        return new AuthResult(createSession(user), UserResponse.from(user, addressService.findByUserId(user.getUserId())), "Welcome, " + user.getName() + "!");
     }
 
     private AuthResult register(VerifyOtpRequest req) {
@@ -182,7 +182,7 @@ public class AuthService {
         userRepository.save(user);
 
         provisionRole(user, req, locality, now);
-        return new AuthResult(createSession(user), user, "Welcome, " + user.getName() + "!");
+        return new AuthResult(createSession(user), UserResponse.from(user, addressService.findByUserId(user.getUserId())), "Welcome, " + user.getName() + "!");
     }
 
     private void validateRegistration(VerifyOtpRequest req, String email, String phone) {
@@ -272,6 +272,6 @@ public class AuthService {
         return value == null ? "" : value.trim();
     }
 
-    public record AuthResult(String token, UserEntity user, String message) {}
+    public record AuthResult(String token, UserResponse user, String message) {}
     public record OnboardingStatus(String role, String status) {}
 }
