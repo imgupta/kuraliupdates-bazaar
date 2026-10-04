@@ -52,6 +52,8 @@ spring:
     ignore-migration-patterns: "versioned:missing"
 
 app:
+  flyway:
+    repair-before-migrate: ${FLYWAY_REPAIR_BEFORE_MIGRATE:false}
   otp:
     email:
       from: ${OTP_EMAIL_FROM:}
