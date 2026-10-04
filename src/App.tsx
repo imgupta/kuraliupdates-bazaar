@@ -54,6 +54,10 @@ const MainLayout: React.FC = () => {
             selectedCategory={selectedCategory}
             setSelectedCategory={setSelectedCategory}
             onOpenTracking={(orderId) => setTrackingOrderId(orderId)}
+            onBuyNow={(product) => {
+              setIsCheckoutOpen(false);
+              setIsCheckoutOpen(true);
+            }}
           />
         )}
         {role === 'seller' && <SellerDashboard />}
