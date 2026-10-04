@@ -210,7 +210,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 flex items-center justify-center p-4">
         <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl border border-slate-200 p-7 sm:p-10 text-center">
-          <div className={\`mx-auto flex h-16 w-16 items-center justify-center rounded-3xl \${isSeller ? 'bg-blue-100' : 'bg-emerald-100'}\`}>
+          <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-3xl ${isSeller ? 'bg-blue-100' : 'bg-emerald-100'}`}>
             {isSeller ? <Store className="h-8 w-8 text-blue-700" /> : <Truck className="h-8 w-8 text-emerald-700" />}
           </div>
           <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-[11px] font-black text-amber-800">
