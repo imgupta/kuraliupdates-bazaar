@@ -1,6 +1,6 @@
 package com.kuraliupdates.bazaar.controller;
 
-import com.kuraliupdates.bazaar.dto.order.OrderResponse;
+import com.kuraliupdates.bazaar.dto.order.OrderResponse;\nimport com.kuraliupdates.bazaar.dto.order.OrderPlacementResponse;
 import com.kuraliupdates.bazaar.dto.order.PlaceOrderRequest;
 import com.kuraliupdates.bazaar.entity.ProductEntity;
 import com.kuraliupdates.bazaar.repository.ProductRepository;
@@ -33,7 +33,7 @@ public class BuyerController {
 
     @PostMapping("/orders")
     @Operation(summary = "Place a validated buyer order")
-    public ResponseEntity<OrderResponse> placeOrder(@Valid @RequestBody PlaceOrderRequest request) {
+    public ResponseEntity<OrderPlacementResponse> placeOrder(@Valid @RequestBody PlaceOrderRequest request) {
         return ResponseEntity.ok(orderService.placeOrder(request));
     }
 
