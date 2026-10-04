@@ -21,6 +21,7 @@ import {
 const MainLayout: React.FC = () => {
   const {
     role,
+    setRole,
     user,
     logout,
     trackingOrderId,
@@ -120,19 +121,19 @@ const MainLayout: React.FC = () => {
                 Key Features
               </h4>
               <ul className="space-y-2 text-xs">
-                <li className="hover:text-white cursor-pointer" onClick={() => setRole('buyer')}>
+                <li>
                   &bull; Compare Sellers for Low Price
                 </li>
-                <li className="hover:text-white cursor-pointer" onClick={() => setRole('buyer')}>
+                <li>
                   &bull; Direct Price Negotiation Chat
                 </li>
-                <li className="hover:text-white cursor-pointer" onClick={() => setRole('buyer')}>
+                <li>
                   &bull; Free Delivery Above Min Threshold
                 </li>
-                <li className="hover:text-white cursor-pointer" onClick={() => setRole('buyer')}>
+                <li>
                   &bull; Real-Time Order &amp; Rider Tracking
                 </li>
-                <li className="hover:text-white cursor-pointer" onClick={() => undefined}>
+                <li>
                   &bull; Total Bill Discounts &amp; Coupons
                 </li>
               </ul>
