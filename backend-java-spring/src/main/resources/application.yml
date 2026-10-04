@@ -15,6 +15,9 @@ spring:
           auth: ${MAIL_SMTP_AUTH:true}
           starttls:
             enable: ${MAIL_SMTP_STARTTLS:true}
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
   datasource:
     driver-class-name: oracle.jdbc.OracleDriver
     url: ${ORACLE_JDBC_URL:jdbc:oracle:thin:@jkphg8mg7fvt8c2n_high?TNS_ADMIN=/app/wallet}
