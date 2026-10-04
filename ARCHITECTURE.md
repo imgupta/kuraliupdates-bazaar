@@ -1,47 +1,41 @@
 # Architecture
 
-## System
-Browser → React 19/Vite → Spring Boot REST API → Oracle.
+## Runtime
+Browser → React/Vite → Spring Boot REST → Oracle.
 
-React is the only frontend. Angular is retired.
+React is the only UI. Angular/RxJS/Angular CLI are retired.
 
 ## Backend
 Controller → Application Service → Domain/DTO → Repository → Oracle.
 
-Use Service Layer for use cases and transactions; Strategy for interchangeable policies/providers; Factory for provider-specific creation; Adapter for Resend, MSG91, Google Maps and other external APIs; Repository for persistence. Use Specification only when composable search rules add value.
+- Service: use cases, transactions, orchestration.
+- Domain: business rules/invariants.
+- Repository: persistence only.
+- Adapter: Resend, MSG91, Google Maps, and other external APIs.
+- Strategy: interchangeable provider/policy behavior.
+- Factory: only where object creation varies.
 
-Keep controllers thin, entities internal, DTOs as API contracts, and business rules in services/domain code.
-
-## Database
-Flyway is the single schema owner. The rebuild creates a fresh baseline migration representing the current schema. Legacy V1–V4 address migrations and backfill logic are removed.
-
-Use stable IDs, explicit FK/unique/check constraints, and indexes for user/order/search access paths. One authoritative persistence path must exist for each business concept.
+Rules:
+- Controllers contain HTTP mapping/validation, not business workflows.
+- DTOs cross API boundaries; do not expose JPA entities.
+- Keep transactions at service/use-case boundaries.
+- Prefer composition over inheritance.
+- Keep modules small and feature-oriented.
 
 ## Frontend
-Feature-oriented React:
-```
-src/
-  components/
-  context/
-  services/
-  types/
-  data/
-```
+Feature-oriented React. API calls live in `src/services`; shared state in Context/hooks; UI in components; types in `src/types`.
+Use controlled React forms and avoid duplicated state.
+Do not create Angular modules/services/components or a second frontend.
 
-API access stays in service modules. Shared state belongs in Context/hooks. Forms are controlled React state. Avoid duplicated state and page-sized business logic.
-
-No Angular, RxJS, Angular CLI, Angular Material, or Angular-style service architecture.
-
-## Core flows
-React UI → API client → Controller → Service → Repository → Oracle.
-
-OTP generation, hashing, expiry and verification remain server-side. Delivery uses adapters/strategies: Email → Resend; SMS → MSG91.
-
-Addresses are normalized in USER_ADDRESSES. One default address per user is enforced by service logic plus database constraints/indexing.
+## Database
+Flyway is the schema owner.
+The rebuild will create a fresh baseline schema. Legacy address migrations/backfills are removed.
+Use stable IDs, explicit FK/unique/check constraints, and indexes for primary access paths.
+Keep one authoritative persistence model per business concept.
 
 ## Quality gates
-```
+```bash
 mvn clean verify
 npm run build
 ```
-Then verify Flyway on a clean database, health, authentication, registration, address CRUD/default, checkout and tracking smoke tests.
+Then smoke-test: health → registration/OTP → sign-in → profile/address CRUD → default address → order → tracking.
