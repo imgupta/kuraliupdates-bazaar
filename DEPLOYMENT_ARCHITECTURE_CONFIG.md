@@ -53,7 +53,7 @@ This document contains the complete configuration, environment variables, creden
 * **Service Name:** `g3efe1bee8dcec6_jkphg8mg7fvt8c2n_high.adb.oraclecloud.com`
 * **Database Username:** `ADMIN`
 * **Wallet File:** `backend-java-spring/Wallet_JKPHG8MG7FVT8C2N.zip`
-* **Wallet & Keystore Password:** `Vasu@123!2026`
+* **Wallet & Keystore Password:** Managed as a Render secret; never store the value in documentation or source control.
 * **Security Dependencies:** `ojdbc11`, `oraclepki`, `osdt_cert`, `osdt_core`
 
 ---
@@ -69,9 +69,21 @@ This document contains the complete configuration, environment variables, creden
   | Variable | Value | Notes |
   | :--- | :--- | :--- |
   | `ORACLE_PASSWORD` | `<your-db-admin-password>` | Set in Render Environment tab |
-  | `WALLET_PASSWORD` | `Vasu@123!2026` | Decrypts JKS keystore & truststore |
+  | `WALLET_PASSWORD` | `<secret>` | Decrypts JKS keystore & truststore; keep only in Render secrets |
   | `TNS_ADMIN` | `/app/wallet` | Pre-configured in Dockerfile |
   | `ORACLE_JDBC_URL` | `jdbc:oracle:thin:@jkphg8mg7fvt8c2n_high?TNS_ADMIN=/app/wallet` | Built-in default |
+  | `OTP_EMAIL_FROM` | `noreply@kuraliupdates.com` | Verified Resend sender domain |
+  | `RESEND_API_KEY` | `<secret>` | Resend API key; Render secret only |
+  | `MSG91_AUTH_KEY` | `<secret>` | SMS OTP provider credential; Render secret only |
+  | `MSG91_TEMPLATE_ID` | `<template-id>` | SMS OTP template configuration |
+
+---
+
+### B1. OTP Provider Configuration
+
+Email OTP uses **Resend over HTTPS** through `OtpDeliveryService`. The backend sends email OTPs only after server-side validation and stores the hashed OTP after provider acceptance. SMS OTP remains isolated behind the same service and uses MSG91.
+
+Resend domain requirement: verify `kuraliupdates.com` in Resend and configure `OTP_EMAIL_FROM` with an address on that verified domain. Do not use a personal Gmail sender in production.
 
 ---
 
