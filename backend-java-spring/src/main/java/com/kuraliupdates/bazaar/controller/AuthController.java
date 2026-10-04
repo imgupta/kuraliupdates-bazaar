@@ -3,6 +3,10 @@ package com.kuraliupdates.bazaar.controller;
 import com.kuraliupdates.bazaar.entity.AuthOtpEntity;
 import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.entity.UserSessionEntity;
+import com.kuraliupdates.bazaar.entity.SellerEntity;
+import com.kuraliupdates.bazaar.entity.DeliveryAgentEntity;
+import com.kuraliupdates.bazaar.repository.SellerRepository;
+import com.kuraliupdates.bazaar.repository.DeliveryAgentRepository;
 import com.kuraliupdates.bazaar.repository.AuthOtpRepository;
 import com.kuraliupdates.bazaar.repository.UserRepository;
 import com.kuraliupdates.bazaar.repository.UserSessionRepository;
@@ -28,6 +32,8 @@ public class AuthController {
     private final AuthOtpRepository authOtpRepository;
     private final UserSessionRepository userSessionRepository;
     private final OtpDeliveryService otpDeliveryService;
+    private final SellerRepository sellerRepository;
+    private final DeliveryAgentRepository deliveryAgentRepository;
 
     private static final List<String> ROOT_ADMIN_EMAILS = List.of(
             "shubham.gupta180296@gmail.com",
@@ -39,7 +45,8 @@ public class AuthController {
     public record VerifyOtpRequest(
             String identifier, String otp, String type, String mode,
             String name, String role, String locality, String address,
-            String email, String phone, String emailOtp, String phoneOtp) {}
+            String email, String phone, String emailOtp, String phoneOtp,
+            String storeName, String category, String vehicleType, String vehicleNumber, String licenseNumber) {}
 
     @PostMapping("/send-otp")
     @Transactional
@@ -178,6 +185,47 @@ public class AuthController {
                 .lastLogin(LocalDateTime.now())
                 .build();
         userRepository.save(user);
+
+        if ("SELLER".equals(requestedRole)) {
+            SellerEntity seller = SellerEntity.builder()
+                    .sellerId("seller-" + UUID.randomUUID().toString().substring(0, 8))
+                    .storeName(req.storeName() == null || req.storeName().isBlank() ? req.name().trim() + "'s Shop" : req.storeName().trim())
+                    .ownerName(req.name().trim())
+                    .email(email)
+                    .phone(phone)
+                    .category(req.category() == null || req.category().isBlank() ? "General" : req.category().trim())
+                    .address(req.address() == null || req.address().isBlank() ? req.locality().trim() + ", Kurali" : req.address().trim())
+                    .locality(req.locality() == null || req.locality().isBlank() ? "Main Bazaar & Clock Tower" : req.locality().trim())
+                    .distanceKm(java.math.BigDecimal.ONE)
+                    .rating(java.math.BigDecimal.ZERO)
+                    .reviewCount(0)
+                    .status("PENDING")
+                    .registeredAt(LocalDateTime.now())
+                    .minOrderForFreeDelivery(java.math.BigDecimal.valueOf(499))
+                    .baseDeliveryFee(java.math.BigDecimal.valueOf(35))
+                    .description("Merchant application awaiting Kurali admin approval.")
+                    .build();
+            sellerRepository.save(seller);
+        } else if ("DELIVERY".equals(requestedRole)) {
+            DeliveryAgentEntity agent = DeliveryAgentEntity.builder()
+                    .agentId("agent-" + UUID.randomUUID().toString().substring(0, 8))
+                    .fullName(req.name().trim())
+                    .phone(phone)
+                    .email(email)
+                    .vehicleType(req.vehicleType() == null || req.vehicleType().isBlank() ? "Bike" : req.vehicleType().trim())
+                    .vehicleNumber(req.vehicleNumber() == null || req.vehicleNumber().isBlank() ? "PENDING" : req.vehicleNumber().trim())
+                    .licenseNumber(req.licenseNumber() == null || req.licenseNumber().isBlank() ? "PENDING" : req.licenseNumber().trim())
+                    .status("PENDING")
+                    .rating(java.math.BigDecimal.ZERO)
+                    .totalTrips(0)
+                    .todayEarnings(java.math.BigDecimal.ZERO)
+                    .totalEarnings(java.math.BigDecimal.ZERO)
+                    .currentLocality(req.locality() == null || req.locality().isBlank() ? "Main Bazaar & Clock Tower" : req.locality().trim())
+                    .registeredAt(LocalDateTime.now())
+                    .build();
+            deliveryAgentRepository.save(agent);
+        }
+
         return createSessionResponse(user);
     }
 
@@ -187,6 +235,31 @@ public class AuthController {
                 .sessionToken(token).userId(user.getUserId())
                 .createdAt(LocalDateTime.now()).expiresAt(LocalDateTime.now().plusDays(30)).build());
         return ResponseEntity.ok(Map.of("success", true, "token", token, "user", user, "message", "Welcome, " + user.getName() + "!"));
+    }
+
+    @GetMapping("/onboarding-status")
+    @Transactional(readOnly = true)
+    public ResponseEntity<Map<String, Object>> getOnboardingStatus(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestParam(value = "token", required = false) String tokenParam) {
+        String token = authHeader != null && authHeader.startsWith("Bearer ")
+                ? authHeader.substring(7).trim() : tokenParam;
+        if (token == null || token.isBlank()) return error(HttpStatus.UNAUTHORIZED, "No active token");
+        Optional<UserSessionEntity> session = userSessionRepository.findBySessionToken(token);
+        if (session.isEmpty() || session.get().getExpiresAt().isBefore(LocalDateTime.now())) {
+            return error(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
+        }
+        Optional<UserEntity> userOpt = userRepository.findById(session.get().getUserId());
+        if (userOpt.isEmpty()) return error(HttpStatus.UNAUTHORIZED, "User not found");
+        UserEntity user = userOpt.get();
+        String role = user.getRole() == null ? "BUYER" : user.getRole().toUpperCase();
+        String status = "APPROVED";
+        if ("SELLER".equals(role)) {
+            status = sellerRepository.findByEmail(user.getEmail()).map(SellerEntity::getStatus).orElse("PENDING");
+        } else if ("DELIVERY".equals(role)) {
+            status = deliveryAgentRepository.findByEmail(user.getEmail()).map(DeliveryAgentEntity::getStatus).orElse("PENDING");
+        }
+        return ResponseEntity.ok(Map.of("success", true, "role", role, "status", status));
     }
 
     @GetMapping("/me")
