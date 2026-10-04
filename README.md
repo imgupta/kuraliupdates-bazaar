@@ -1,100 +1,58 @@
-# KuraliUpdates Bazaar (`kuraliupdates.com` / `kuraliupdate.com`)
+# KuraliUpdates Bazaar
 
-Hyperlocal eCommerce, merchant empowerment, and fast 25-minute delivery ecosystem for **Kurali City (Punjab)**.
+Hyperlocal marketplace and delivery platform for Kurali.
 
-## 🚀 Key Platform Features
+## Stack
+- Frontend: React 19 + TypeScript + Vite + Tailwind CSS.
+- Backend: Java 21 + Spring Boot + REST + JPA + Flyway.
+- Database: Oracle.
+- Hosting: Vercel (frontend) + Render (backend).
 
-- **Merchant Registration & Admin Approval**:
-  - Local Kurali shopkeepers submit shop information, category, locality, and license.
-  - New stores enter a pending state until approved by the City Admin Desk.
-  - Gmail authentication for shopkeepers to manage their storefront.
-
-- **Inventory, Pricing & Discounts Architecture**:
-  - Upload products with printed **MRP**, base **Seller Price**, and **Additional Discount (%)**.
-  - Automatic calculation of effective buyer prices and rupee savings.
-  - **Bill-level Discounts**: Milestones for orders (e.g., 5% off over ₹500, flat ₹100 off over ₹1,200).
-  - **Custom Store Coupons**: Promo codes (e.g. `KURALI50`, `WELCOME10`) with minimum order value rules.
-
-- **Buyer Experience, Smart Discovery & Live Bargaining**:
-  - **Smart Search & Discovery**: autocomplete suggestions across products, categories, sellers, and tags.
-  - **Product Details & Buy Now**: reusable product cards, detailed product view, quick add-to-cart, and Buy Now checkout flow.
-  - **Compare Sellers for Lowest Price & Distance**: Side-by-side comparison matrix of Kurali merchants carrying the item.
-  - **Real-Time Price Bargaining Chat**: Direct negotiation between buyer and seller with preset percentage offers and instant *"Add to Cart at Negotiated Price"*.
-  - **Free Express Delivery Progress**: Dynamic cart threshold bar unlocking free delivery when minimum basket value is reached.
-  - **Secure Payments**: UPI (GPay/PhonePe/Paytm QR), Cards, and Cash on Delivery.
-  - **Live Order & Rider Tracking**: Visual map tracking with ETA, rider phone contact, and a 4-digit security OTP.
-
-- **Delivery Fleet (Kurali Express)**:
-  - Driver onboarding (Vehicle type, license plate, Kurali sector).
-  - Price-based Delivery Jobs Board with payout offers (₹45 – ₹95+).
-  - Step-by-step pickup & delivery completion via OTP verification.
-  - Daily & all-time earnings dashboard with instant withdrawal simulation.
-
-- **Admin Operations & Visual Analytics**:
-  - Review & 1-click Approve/Reject pending seller applications.
-  - Visual charts showing trending search queries in Kurali with volume, growth, and locality hotspots.
-  - Market share segmented bars & revenue metrics across categories.
-  - 24-hour city shopping activity curve.
-
----
-
-## 🏗️ Architecture
-
-The application follows a modular React + Spring Boot architecture with reusable presentation components, centralized application state, a frontend API client, and backend service/repository separation. Buyer discovery is split into reusable `ProductCard`, `SearchSuggestions`, and `ProductDetailsModal` components rather than concentrating UI logic in the page component.
-
-**Email OTP:** Resend is the HTTPS email delivery provider for email OTPs. MSG91 remains the SMS OTP provider for mobile login and future mobile registration. OTP generation, hashing, expiry, attempt limits, persistence, and session creation remain server-side.
-
-See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the component/data-flow design, deployment topology, OTP sequence, coding patterns, and extension guidelines.
-
-## 🛠️ Local Development & Build
-
-```bash
-# 1. Install dependencies
-npm install
-
-# 2. Run local development server
-npm run dev
-
-# 3. Build for production
-npm run build
-
-# 4. Preview production build
-npm run preview
+## Repository structure
+```
+src/                         React application
+backend-java-spring/         Spring Boot API
+backend-java-spring/.../migration/  Flyway schema
+docs/                        Architecture and operational notes
 ```
 
----
+## Architecture
+The system is a modular monolith: React is the only web UI; Spring Boot owns API, business rules, persistence, authentication, OTP, ordering and delivery workflows.
 
-## 🌐 Custom Domain Setup (`kuraliupdates.com` / `kuraliupdate.com`)
+Backend layers:
+**Controller → Application Service → Domain/Model → Repository → Oracle**
 
-### Option A: Vercel (Recommended - Zero Configuration)
-1. Push your repository to GitHub (see steps below).
-2. Go to [vercel.com](https://vercel.com) and click **"Add New Project"** -> Import this Git repository.
-3. Keep Framework Preset as **Vite** and click **Deploy**.
-4. In your Vercel Project Settings &rarr; **Domains**:
-   - Add `kuraliupdates.com` and `www.kuraliupdates.com` (or `kuraliupdate.com`).
-5. Add these DNS records at your domain registrar (GoDaddy, Namecheap, Hostinger, etc.):
-   - **Type A**: `@` &rarr; `76.76.21.21`
-   - **Type CNAME**: `www` &rarr; `cname.vercel-dns.com`
-   - SSL certificates are issued automatically within minutes.
+Use dependency inversion at service boundaries and keep controllers free of business logic. Use Strategy where behavior varies (OTP/email/SMS, pricing/discount rules), Factory where object creation varies, and transactional services for multi-step database operations.
 
-### Option B: Cloudflare Pages
-1. In Cloudflare Dashboard, go to **Workers & Pages** &rarr; **Create application** &rarr; **Pages** &rarr; **Connect to Git**.
-2. Build Settings:
-   - Build command: `npm run build`
-   - Build output directory: `dist`
-3. In **Custom Domains**, add `kuraliupdates.com`. Cloudflare automatically handles DNS routing and SSL.
+## Database
+Flyway owns the schema. For the clean rebuild, the schema is recreated from a new baseline migration; legacy V1–V4 address migrations are not part of the new schema.
 
-### Option C: Google Cloud Run (Hosting on GCP)
-If using the AI Studio Cloud Run service:
-1. Open Google Cloud Console &rarr; **Cloud Run** &rarr; select service.
-2. Click **Manage Custom Domains** &rarr; **Add Mapping**.
-3. Select domain `kuraliupdates.com` and add the provided DNS records at your domain registrar.
+Never edit an applied migration. For intentional schema changes, add the next migration.
 
----
+## Frontend
+React only. Do not add Angular components, modules, services, RxJS, Angular CLI, or a second frontend framework.
 
-## 📦 Tech Stack
+Keep API access in `src/services`, shared state in context/hooks, and reusable UI in components. Prefer small feature modules over large page components.
 
-- **Frontend**: React 19, TypeScript, Vite
-- **Styling**: Tailwind CSS v4, Lucide Icons
-- **Animation & Effects**: Canvas Confetti, CSS keyframes
-- **State & Storage**: React Context + Reactive LocalStorage sync
+## Local development
+```bash
+npm install
+npm run dev
+npm run build
+```
+
+Backend:
+```bash
+cd backend-java-spring
+mvn clean verify
+mvn spring-boot:run
+```
+
+## Production
+- Web: https://www.kuraliupdates.com
+- API: https://kuraliupdates-bazaar.onrender.com/api/v1
+- Frontend deployment: Vercel
+- Backend deployment: Render
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the concise technical source of truth.
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for deployment and environment rules.
