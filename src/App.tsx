@@ -26,6 +26,7 @@ const MainLayout: React.FC = () => {
     logout,
     trackingOrderId,
     setTrackingOrderId,
+    addToCart,
     toast,
   } = useApp();
 
@@ -55,7 +56,7 @@ const MainLayout: React.FC = () => {
             setSelectedCategory={setSelectedCategory}
             onOpenTracking={(orderId) => setTrackingOrderId(orderId)}
             onBuyNow={(product) => {
-              setIsCheckoutOpen(false);
+              addToCart(product, 1);
               setIsCheckoutOpen(true);
             }}
           />
