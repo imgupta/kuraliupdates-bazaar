@@ -9,7 +9,7 @@ import { NegotiationChatModal } from './components/Buyer/NegotiationChatModal';
 import { SellerDashboard } from './components/Seller/SellerDashboard';
 import { DeliveryDashboard } from './components/Delivery/DeliveryDashboard';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
-import { AuthPage } from './components/Auth/AuthPage';
+import { AuthPageV2 } from './components/Auth/AuthPageV2';
 import { isRootAdminEmail } from './data/initialData';
 import {
   MapPin,
@@ -209,12 +209,12 @@ const MainLayout: React.FC = () => {
 
 const RootNavigation: React.FC = () => {
   const { user } = useApp();
+  const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
 
-  if (!user.isSignedIn) {
-    return <AuthPage registrationRole="buyer" />;
-  }
+  if (pathname === '/register/seller') return <AuthPageV2 registrationRole="seller" />;
+  if (pathname === '/register/delivery') return <AuthPageV2 registrationRole="delivery" />;
 
-  return <MainLayout />;
+  return user.isSignedIn ? <MainLayout /> : <AuthPageV2 registrationRole="buyer" />;
 };
 
 export default function App() {
