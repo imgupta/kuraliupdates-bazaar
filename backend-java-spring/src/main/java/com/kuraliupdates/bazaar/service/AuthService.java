@@ -63,6 +63,7 @@ public class AuthService {
         }
 
         otpService.send(identifier, type);
+        return new OtpSendResult(mask(identifier), type, 600);
     }
 
     @Transactional
@@ -257,7 +258,7 @@ public class AuthService {
 
     private String normalizeIdentifier(String value, String type) {
         if (value == null) return "";
-        return "EMAIL".equals(type) ? value.trim().toLowerCase() : value.trim().replaceAll("\\\D", "");
+        return "EMAIL".equals(type) ? value.trim().toLowerCase() : value.trim().replaceAll("\\\\D", "");
     }
 
     private boolean isRootAdminEmail(String email) {
@@ -268,10 +269,17 @@ public class AuthService {
         return value == null ? null : BigDecimal.valueOf(value);
     }
 
-    private String mask(String value) {\n        if (value.contains("@")) { int at = value.indexOf("@"); return value.charAt(0) + "***" + value.substring(Math.max(at - 1, 1)); }\n        return value.length() <= 4 ? "****" : "******" + value.substring(value.length() - 4);\n    }\n\n    private String defaultString(String value) {
+    private String mask(String value) {
+        if (value.contains("@")) { int at = value.indexOf("@"); return value.charAt(0) + "***" + value.substring(Math.max(at - 1, 1)); }
+        return value.length() <= 4 ? "****" : "******" + value.substring(value.length() - 4);
+    }
+
+    private String defaultString(String value) {
         return value == null ? "" : value.trim();
     }
 
-    public record OtpSendResult(String identifier, String type, int expiresInSeconds) {}\n\n    public record AuthResult(String token, UserResponse user, String message) {}
+    public record OtpSendResult(String identifier, String type, int expiresInSeconds) {}
+
+    public record AuthResult(String token, UserResponse user, String message) {}
     public record OnboardingStatus(String role, String status) {}
 }
