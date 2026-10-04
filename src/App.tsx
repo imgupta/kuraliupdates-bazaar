@@ -164,12 +164,6 @@ const MainLayout: React.FC = () => {
                   <span className="font-bold text-white truncate max-w-[130px]">{user.name}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Role:</span>
-                  <span className="font-bold uppercase text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded text-[10px]">
-                    {user.role}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
                   <span className="text-slate-400">Locality:</span>
                   <span className="font-bold text-slate-300 text-[11px] truncate max-w-[120px]">{user.locality}</span>
                 </div>
