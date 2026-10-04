@@ -17,7 +17,8 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { KURALI_LOCALITIES, ROOT_ADMIN_EMAIL, isRootAdminEmail } from '../data/initialData';
-import { UserRole } from '../types';
+import { UserRole, Product } from '../types';
+import { SearchSuggestions } from './Buyer/SearchSuggestions';
 
 interface HeaderProps {
   searchQuery: string;
@@ -48,6 +49,7 @@ export const Header: React.FC<HeaderProps> = ({
     setIsGmailAuthOpen,
     selectedCityLocality,
     setSelectedCityLocality,
+    products,
   } = useApp();
 
   const [isLocalityDropdownOpen, setIsLocalityDropdownOpen] = useState(false);
@@ -232,6 +234,11 @@ export const Header: React.FC<HeaderProps> = ({
                     &times;
                   </button>
                 )}
+                <SearchSuggestions
+                  query={searchQuery}
+                  products={products}
+                  onSelect={setSearchQuery}
+                />
               </div>
             </div>
           )}
@@ -436,6 +443,7 @@ export const Header: React.FC<HeaderProps> = ({
                   Clear
                 </button>
               )}
+              <SearchSuggestions query={searchQuery} products={products} onSelect={setSearchQuery} />
             </div>
           </div>
         )}
