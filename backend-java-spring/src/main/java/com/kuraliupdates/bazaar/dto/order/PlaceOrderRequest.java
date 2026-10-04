@@ -27,7 +27,7 @@ public record PlaceOrderRequest(
         @NotNull @DecimalMin(value = "0.00", inclusive = true) BigDecimal finalPayable,
         @NotBlank(message = "Payment method is required") String paymentMethod,
         @DecimalMin(value = "0.0", inclusive = true) BigDecimal distanceKm,
-        @NotNull @DecimalMin(value = "-90.0") @DecimalMax(value = "90.0") Double deliveryLatitude,
-        @NotNull @DecimalMin(value = "-180.0") @DecimalMax(value = "180.0") Double deliveryLongitude,
+        @DecimalMin(value = "-90.0") @DecimalMax(value = "90.0") Double deliveryLatitude,
+        @DecimalMin(value = "-180.0") @DecimalMax(value = "180.0") Double deliveryLongitude,
         @Size(max = 255) String deliveryPlaceId
 ) {}
