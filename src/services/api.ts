@@ -366,8 +366,9 @@ export const bazaarApi = {
 
   async getLiveTracking(orderId: string): Promise<any> {
     try {
+      const token = localStorage.getItem('kurali_auth_token');
       const res = await fetch(`${API_BASE_URL}/tracking/orders/${encodeURIComponent(orderId)}`, {
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) return null;
       return await res.json();
@@ -379,9 +380,10 @@ export const bazaarApi = {
 
   async updateDeliveryLocation(agentId: string, latitude: number, longitude: number): Promise<boolean> {
     try {
+      const token = localStorage.getItem('kurali_auth_token');
       const res = await fetch(`${API_BASE_URL}/tracking/delivery/${encodeURIComponent(agentId)}/location`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ latitude, longitude }),
       });
       return res.ok;
