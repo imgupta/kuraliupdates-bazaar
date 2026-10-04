@@ -37,9 +37,34 @@ public class DeliveryTrackingController {
         DeliveryAgentEntity agent = deliveryAgentRepository.findById(agentId).orElse(null);
         if (agent == null) return error(HttpStatus.NOT_FOUND, "Delivery partner not found");
 
-        agent.setCurrentLatitude(BigDecimal.valueOf(request.latitude()));
-        agent.setCurrentLongitude(BigDecimal.valueOf(request.longitude()));
-        agent.setLocationUpdatedAt(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        BigDecimal latitude = BigDecimal.valueOf(request.latitude());
+        BigDecimal longitude = BigDecimal.valueOf(request.longitude());
+
+        // Protect the database even if a client sends GPS updates more frequently
+        // than the frontend policy. Skip writes for tiny movements within 10 seconds.
+        if (agent.getCurrentLatitude() != null
+                && agent.getCurrentLongitude() != null
+                && agent.getLocationUpdatedAt() != null
+                && agent.getLocationUpdatedAt().plusSeconds(10).isAfter(now)
+                && distanceMeters(
+                        agent.getCurrentLatitude().doubleValue(),
+                        agent.getCurrentLongitude().doubleValue(),
+                        request.latitude(),
+                        request.longitude()) < 15) {
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "agentId", agentId,
+                    "latitude", agent.getCurrentLatitude(),
+                    "longitude", agent.getCurrentLongitude(),
+                    "updatedAt", agent.getLocationUpdatedAt(),
+                    "stored", false
+            ));
+        }
+
+        agent.setCurrentLatitude(latitude);
+        agent.setCurrentLongitude(longitude);
+        agent.setLocationUpdatedAt(now);
         deliveryAgentRepository.save(agent);
 
         return ResponseEntity.ok(Map.of(
@@ -47,7 +72,8 @@ public class DeliveryTrackingController {
                 "agentId", agentId,
                 "latitude", request.latitude(),
                 "longitude", request.longitude(),
-                "updatedAt", agent.getLocationUpdatedAt()
+                "updatedAt", agent.getLocationUpdatedAt(),
+                "stored", true
         ));
     }
 
@@ -106,6 +132,20 @@ public class DeliveryTrackingController {
 
     private boolean validCoordinate(Double lat, Double lng) {
         return lat != null && lng != null && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+    }
+
+    private double distanceMeters(double lat1, double lon1, double lat2, double lon2) {
+        final double earthRadiusMeters = 6_371_000;
+        double lat1Rad = Math.toRadians(lat1);
+        double lat2Rad = Math.toRadians(lat2);
+        double deltaLat = Math.toRadians(lat2 - lat1);
+        double deltaLon = Math.toRadians(lon2 - lon1);
+
+        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
+                + Math.cos(lat1Rad) * Math.cos(lat2Rad)
+                * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+
+        return 2 * earthRadiusMeters * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     private ResponseEntity<Map<String, Object>> error(HttpStatus status, String message) {
