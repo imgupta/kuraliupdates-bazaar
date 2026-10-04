@@ -28,6 +28,8 @@ export const AdminDashboard: React.FC = () => {
     sellers,
     approveSeller,
     rejectSeller,
+    approveDeliveryAgent,
+    rejectDeliveryAgent,
     deliveryAgents,
     orders,
     products,
@@ -66,6 +68,7 @@ export const AdminDashboard: React.FC = () => {
   }
 
   const pendingSellers = sellers.filter(s => s.status === 'pending');
+  const pendingDeliveryAgents = deliveryAgents.filter(a => a.status === 'pending');
   const approvedSellers = sellers.filter(s => s.status === 'approved');
   const rejectedSellers = sellers.filter(s => s.status === 'rejected');
   const totalGMV = orders.reduce((sum, o) => sum + o.totalAmount, 0);
@@ -237,6 +240,42 @@ export const AdminDashboard: React.FC = () => {
                     >
                       <CheckCircle2 className="w-4 h-4" /> Approve &amp; Activate
                     </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Delivery Partner Approvals */}
+      {activeAdminTab === 'approvals' && (
+        <div className="space-y-4 mt-8">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-extrabold text-slate-900">Delivery Partner Applications ({pendingDeliveryAgents.length})</h2>
+            <p className="text-xs text-slate-500">Partners remain inactive until approved by root admin.</p>
+          </div>
+          {pendingDeliveryAgents.length === 0 ? (
+            <div className="bg-white rounded-3xl p-8 text-center border border-slate-200">
+              <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
+              <p className="text-xs font-bold text-slate-700">No delivery applications waiting for approval.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {pendingDeliveryAgents.map(agent => (
+                <div key={agent.id} className="bg-white rounded-3xl border border-emerald-200 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <h3 className="font-extrabold text-sm text-slate-900">{agent.name}</h3>
+                    <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
+                      <span><Phone className="inline w-3.5 h-3.5 mr-1" />{agent.phone}</span>
+                      <span><Mail className="inline w-3.5 h-3.5 mr-1" />{agent.email}</span>
+                      <span><Bike className="inline w-3.5 h-3.5 mr-1" />{agent.vehicleType} · {agent.vehicleNumber}</span>
+                      <span>Licence: {agent.licenseNumber}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button onClick={() => rejectDeliveryAgent(agent.id)} className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 flex items-center gap-1.5"><XCircle className="w-4 h-4" /> Reject</button>
+                    <button onClick={() => approveDeliveryAgent(agent.id)} className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> Approve &amp; Activate</button>
                   </div>
                 </div>
               ))}

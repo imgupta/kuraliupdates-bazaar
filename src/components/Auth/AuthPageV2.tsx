@@ -25,12 +25,19 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
   const [error, setError] = useState('');
   const [duplicatePrompt, setDuplicatePrompt] = useState(false);
   const [applicationSubmitted, setApplicationSubmitted] = useState(false);
+  const [onboardingStatus, setOnboardingStatus] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
+  const [pendingToken, setPendingToken] = useState('');
 
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
   const localityRef = useRef<HTMLSelectElement>(null);
   const addressRef = useRef<HTMLInputElement>(null);
+  const storeNameRef = useRef<HTMLInputElement>(null);
+  const categoryRef = useRef<HTMLInputElement>(null);
+  const vehicleNumberRef = useRef<HTMLInputElement>(null);
+  const licenseNumberRef = useRef<HTMLInputElement>(null);
+  const vehicleTypeRef = useRef<HTMLSelectElement>(null);
   const otpRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -81,6 +88,14 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
         if (!name) throw new Error('Please enter your name');
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Please enter a valid email address');
         if (!/^\d{10}$/.test(phone)) throw new Error('Please enter a valid 10-digit mobile number');
+        if (registrationRole === 'seller') {
+          if (!(storeNameRef.current?.value || '').trim()) throw new Error('Please enter your shop name');
+          if (!(categoryRef.current?.value || '').trim()) throw new Error('Please enter your business category');
+        }
+        if (registrationRole === 'delivery') {
+          if (!(vehicleNumberRef.current?.value || '').trim()) throw new Error('Please enter your vehicle number');
+          if (!(licenseNumberRef.current?.value || '').trim()) throw new Error('Please enter your driving licence number');
+        }
 
         const response = await bazaarApi.sendOtp(email, 'EMAIL', 'REGISTER');
         if (!response.success) {
@@ -145,6 +160,11 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
           role: registrationRole,
           locality,
           address,
+          storeName: storeNameRef.current?.value.trim(),
+          category: categoryRef.current?.value.trim(),
+          vehicleType: vehicleTypeRef.current?.value,
+          vehicleNumber: vehicleNumberRef.current?.value.trim(),
+          licenseNumber: licenseNumberRef.current?.value.trim(),
           email,
           phone,
           emailOtp: code,
@@ -171,6 +191,8 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
         });
 
         showToast(result.message, 'success');
+        setOnboardingStatus('PENDING');
+        setPendingToken(response.token);
         setApplicationSubmitted(true);
         return;
       }
@@ -190,6 +212,17 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
         throw new Error(response.message || 'OTP verification failed');
       }
 
+      const serverRole = (response.user.role || '').toLowerCase();
+      if ((serverRole === 'seller' || serverRole === 'delivery') && response.token) {
+        const approval = await bazaarApi.getOnboardingStatus(response.token);
+        if (approval.success && approval.status !== 'APPROVED') {
+          setOnboardingStatus(approval.status || 'PENDING');
+          setPendingToken(response.token);
+          setApplicationSubmitted(true);
+          return;
+        }
+      }
+
       const result = loginWithOtp({
         identifier,
         email: contactMethod === 'email' ? identifier : undefined,
@@ -207,6 +240,8 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
 
   if (applicationSubmitted) {
     const isSeller = registrationRole === 'seller';
+    const statusTitle = onboardingStatus === 'APPROVED' ? (isSeller ? 'Merchant account approved' : 'Delivery partner account approved') : onboardingStatus === 'REJECTED' ? (isSeller ? 'Merchant application not approved' : 'Delivery partner application not approved') : (isSeller ? 'Your merchant application is under review' : 'Your delivery partner application is under review');
+    const statusMessage = onboardingStatus === 'APPROVED' ? 'Your account is approved. You can sign in and start using KuraliUpdates Bazaar.' : onboardingStatus === 'REJECTED' ? 'Your application was not approved by the Kurali admin team. Please contact support before submitting another application.' : (isSeller ? 'Our team will review your shop details before activating your merchant account.' : 'Our team will review your delivery details before activating your partner account.');
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 flex items-center justify-center p-4">
         <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl border border-slate-200 p-7 sm:p-10 text-center">
@@ -214,16 +249,19 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
             {isSeller ? <Store className="h-8 w-8 text-blue-700" /> : <Truck className="h-8 w-8 text-emerald-700" />}
           </div>
           <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-[11px] font-black text-amber-800">
-            <CheckCircle2 className="h-3.5 w-3.5" /> Application submitted
+            <CheckCircle2 className="h-3.5 w-3.5" /> {onboardingStatus === 'APPROVED' ? 'Approved' : onboardingStatus === 'REJECTED' ? 'Rejected' : 'Application submitted'}
           </div>
-          <h1 className="mt-4 text-2xl sm:text-3xl font-black text-slate-900">{isSeller ? 'Your merchant application is under review' : 'Your delivery partner application is under review'}</h1>
-          <p className="mt-3 text-sm leading-relaxed text-slate-600">{isSeller ? 'Thanks for joining KuraliUpdates Bazaar. Our team will review your shop details before activating your merchant account.' : 'Thanks for applying to Kurali Express. Our team will review your delivery details before activating your partner account.'}</p>
+          <h1 className="mt-4 text-2xl sm:text-3xl font-black text-slate-900">{statusTitle}</h1>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600">{statusMessage}</p>
           <div className="mt-7 grid gap-3 text-left sm:grid-cols-3">
             <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-black text-slate-900">1. Submitted</p><p className="mt-1 text-[11px] text-slate-500">Details received</p></div>
             <div className="rounded-2xl bg-amber-50 p-4"><p className="text-xs font-black text-amber-900">2. Review</p><p className="mt-1 text-[11px] text-amber-700">Team verification</p></div>
             <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-black text-slate-900">3. Activation</p><p className="mt-1 text-[11px] text-slate-500">Access after approval</p></div>
           </div>
           <p className="mt-6 text-xs text-slate-500">You do not need to register again. Keep your email and mobile number available for future updates.</p>
+          {pendingToken && onboardingStatus === 'PENDING' && (
+            <button type="button" onClick={async () => { const approval = await bazaarApi.getOnboardingStatus(pendingToken); if (approval.status === 'APPROVED') { setOnboardingStatus('APPROVED'); setApplicationSubmitted(false); window.location.href = '/'; } else if (approval.status === 'REJECTED') { setOnboardingStatus('REJECTED'); } else { showToast('Your application is still under review.', 'info'); } }} className="mt-5 inline-flex items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-5 py-2.5 text-xs font-black text-amber-800">Check approval status</button>
+          )}
           <a href="/" className="mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 py-3 text-xs font-black text-white hover:bg-black"><ArrowLeft className="h-4 w-4" /> Return to Bazaar</a>
         </div>
       </div>
@@ -328,6 +366,36 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
                       <label className="block mb-1 text-xs font-bold text-slate-700">Address <span className="font-normal text-slate-400">(optional)</span></label>
                       <input ref={addressRef} type="text" placeholder="House / shop / landmark" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white" />
                     </div>
+                    {registrationRole === 'seller' && (
+                      <>
+                        <div>
+                          <label className="block mb-1 text-xs font-bold text-slate-700">Shop name <span className="text-rose-500">*</span></label>
+                          <input ref={storeNameRef} type="text" placeholder="Your shop name" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-xs font-bold text-slate-700">Business category <span className="text-rose-500">*</span></label>
+                          <input ref={categoryRef} type="text" placeholder="Groceries, pharmacy, electronics..." className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white" />
+                        </div>
+                      </>
+                    )}
+                    {registrationRole === 'delivery' && (
+                      <>
+                        <div>
+                          <label className="block mb-1 text-xs font-bold text-slate-700">Vehicle type <span className="text-rose-500">*</span></label>
+                          <select ref={vehicleTypeRef} defaultValue="Bike" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white">
+                            <option>Bike</option><option>EV Bike</option><option>Scooter</option><option>Car</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-xs font-bold text-slate-700">Vehicle number <span className="text-rose-500">*</span></label>
+                          <input ref={vehicleNumberRef} type="text" placeholder="PB65AB1234" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm uppercase outline-none focus:border-amber-500 focus:bg-white" />
+                        </div>
+                        <div>
+                          <label className="block mb-1 text-xs font-bold text-slate-700">Driving licence number <span className="text-rose-500">*</span></label>
+                          <input ref={licenseNumberRef} type="text" placeholder="Licence number" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white" />
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
               </div>

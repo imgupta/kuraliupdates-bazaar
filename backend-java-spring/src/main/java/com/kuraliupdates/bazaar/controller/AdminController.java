@@ -1,9 +1,11 @@
 package com.kuraliupdates.bazaar.controller;
 
 import com.kuraliupdates.bazaar.entity.SellerEntity;
+import com.kuraliupdates.bazaar.entity.DeliveryAgentEntity;
 import com.kuraliupdates.bazaar.repository.OrderRepository;
 import com.kuraliupdates.bazaar.repository.ProductRepository;
 import com.kuraliupdates.bazaar.repository.SellerRepository;
+import com.kuraliupdates.bazaar.repository.DeliveryAgentRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ public class AdminController {
     private final SellerRepository sellerRepository;
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
+    private final DeliveryAgentRepository deliveryAgentRepository;
 
     @GetMapping("/sellers/pending")
     @Operation(summary = "Get list of newly registered sellers waiting for Admin Approval")
@@ -46,6 +49,30 @@ public class AdminController {
         return sellerRepository.findById(sellerId).map(seller -> {
             seller.setStatus("REJECTED");
             return ResponseEntity.ok(sellerRepository.save(seller));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/delivery/pending")
+    @Operation(summary = "Get delivery partners waiting for Admin Approval")
+    public ResponseEntity<List<DeliveryAgentEntity>> getPendingDeliveryAgents() {
+        return ResponseEntity.ok(deliveryAgentRepository.findByStatus("PENDING"));
+    }
+
+    @PostMapping("/delivery/{agentId}/approve")
+    @Operation(summary = "Admin approves Kurali Express delivery partner")
+    public ResponseEntity<DeliveryAgentEntity> approveDeliveryAgent(@PathVariable String agentId) {
+        return deliveryAgentRepository.findById(agentId).map(agent -> {
+            agent.setStatus("ACTIVE");
+            return ResponseEntity.ok(deliveryAgentRepository.save(agent));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/delivery/{agentId}/reject")
+    @Operation(summary = "Admin rejects Kurali Express delivery partner")
+    public ResponseEntity<DeliveryAgentEntity> rejectDeliveryAgent(@PathVariable String agentId) {
+        return deliveryAgentRepository.findById(agentId).map(agent -> {
+            agent.setStatus("REJECTED");
+            return ResponseEntity.ok(deliveryAgentRepository.save(agent));
         }).orElse(ResponseEntity.notFound().build());
     }
 
