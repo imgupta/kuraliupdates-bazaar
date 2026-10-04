@@ -27,6 +27,19 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
   const [applicationSubmitted, setApplicationSubmitted] = useState(false);
   const [onboardingStatus, setOnboardingStatus] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [pendingToken, setPendingToken] = useState('');
+  const [pendingIdentifier, setPendingIdentifier] = useState('');
+  const [pendingRegistration, setPendingRegistration] = useState<{
+    name: string;
+    email: string;
+    phone: string;
+    locality: string;
+    address: string;
+    storeName?: string;
+    category?: string;
+    vehicleType?: string;
+    vehicleNumber?: string;
+    licenseNumber?: string;
+  } | null>(null);
 
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -105,6 +118,19 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
           }
           throw new Error(response.message);
         }
+        setPendingRegistration({
+          name,
+          email,
+          phone,
+          locality: localityRef.current?.value || KURALI_LOCALITIES[1] || 'Main Bazaar & Clock Tower',
+          address: (addressRef.current?.value || '').trim(),
+          storeName: storeNameRef.current?.value.trim(),
+          category: categoryRef.current?.value.trim(),
+          vehicleType: vehicleTypeRef.current?.value,
+          vehicleNumber: vehicleNumberRef.current?.value.trim(),
+          licenseNumber: licenseNumberRef.current?.value.trim(),
+        });
+        setPendingIdentifier(email);
         setCountdown(60);
         setOtp('');
         setStep('otp');
@@ -125,6 +151,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
       const response = await bazaarApi.sendOtp(identifier, contactMethod === 'email' ? 'EMAIL' : 'PHONE', 'LOGIN');
       if (!response.success) throw new Error(response.message);
 
+      setPendingIdentifier(identifier);
       setCountdown(60);
       setOtp('');
       setStep('otp');
@@ -148,11 +175,9 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
 
     try {
       if (authMode === 'register') {
-        const email = (emailRef.current?.value || '').trim().toLowerCase();
-        const phone = (phoneRef.current?.value || '').replace(/\D/g, '');
-        const name = (nameRef.current?.value || '').trim();
-        const locality = localityRef.current?.value || KURALI_LOCALITIES[1] || 'Main Bazaar & Clock Tower';
-        const address = (addressRef.current?.value || '').trim();
+        const registration = pendingRegistration;
+        if (!registration) throw new Error('Registration details are missing. Please start registration again.');
+        const { name, email, phone, locality, address, storeName, category, vehicleType, vehicleNumber, licenseNumber } = registration;
 
         const response = await bazaarApi.verifyOtp({
           mode: 'REGISTER',
@@ -160,11 +185,11 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
           role: registrationRole,
           locality,
           address,
-          storeName: storeNameRef.current?.value.trim(),
-          category: categoryRef.current?.value.trim(),
-          vehicleType: vehicleTypeRef.current?.value,
-          vehicleNumber: vehicleNumberRef.current?.value.trim(),
-          licenseNumber: licenseNumberRef.current?.value.trim(),
+          storeName,
+          category,
+          vehicleType,
+          vehicleNumber,
+          licenseNumber,
           email,
           phone,
           emailOtp: code,
@@ -197,9 +222,8 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
         return;
       }
 
-      const identifier = contactMethod === 'email'
-        ? (emailRef.current?.value || '').trim().toLowerCase()
-        : (phoneRef.current?.value || '').replace(/\D/g, '');
+      const identifier = pendingIdentifier;
+      if (!identifier) throw new Error('Your verification session is missing. Please request a new OTP.');
 
       const response = await bazaarApi.verifyOtp({
         mode: 'LOGIN',
