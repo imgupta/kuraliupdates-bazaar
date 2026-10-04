@@ -113,6 +113,11 @@ export const BuyerRegistrationPage: React.FC = () => {
           <p className="mt-2 text-sm text-amber-50 max-w-2xl">One precise location powers local inventory, delivery fees, ETA and live rider tracking.</p>
         </div>
         <div className="p-5 sm:p-8 space-y-6">
+          <div className="flex justify-end">
+            <a href="/" className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-amber-700">
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
+            </a>
+          </div>
           {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-900 flex gap-2"><AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />{error}</div>}
           {step === 'form' ? <>
             <div className="grid md:grid-cols-3 gap-4">
