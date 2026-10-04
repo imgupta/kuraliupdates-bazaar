@@ -615,7 +615,7 @@ export const bazaarApi = {
     }
   },
 
-  async getMe(token: string): Promise<{ authenticated: boolean; user?: any }> {
+  async getMe(token: string): Promise<{ authenticated: boolean; success?: boolean; user?: any; addresses?: any[] }> {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
