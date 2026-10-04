@@ -44,7 +44,8 @@ public class AuthController {
     public record SendOtpRequest(String identifier, String type, String mode) {}
     public record VerifyOtpRequest(
             String identifier, String otp, String type, String mode,
-            String name, String role, String locality, String address,
+            String name, String role, String locality, String address, String addressLine1, String landmark,
+            String formattedAddress, String placeId, Double latitude, Double longitude,
             String email, String phone, String emailOtp, String phoneOtp,
             String storeName, String category, String vehicleType, String vehicleNumber, String licenseNumber) {}
 
@@ -179,6 +180,12 @@ public class AuthController {
                 .role(requestedRole)
                 .locality(req.locality() == null || req.locality().isBlank() ? "Main Bazaar & Clock Tower" : req.locality().trim())
                 .address(req.address() == null ? "" : req.address().trim())
+                .addressLine1(req.addressLine1() == null ? "" : req.addressLine1().trim())
+                .landmark(req.landmark() == null ? "" : req.landmark().trim())
+                .formattedAddress(req.formattedAddress() == null ? "" : req.formattedAddress().trim())
+                .placeId(req.placeId() == null ? "" : req.placeId().trim())
+                .latitude(latitudeOrNull(req.latitude()))
+                .longitude(longitudeOrNull(req.longitude()))
                 .isVerified(1)
                 .isAdmin(0)
                 .avatarUrl("https://api.dicebear.com/7.x/initials/svg?seed=" + email)
@@ -322,6 +329,9 @@ public class AuthController {
     private ResponseEntity<Map<String, Object>> error(HttpStatus s, String m) {
         return ResponseEntity.status(s).body(Map.of("success", false, "message", m));
     }
+    private java.math.BigDecimal latitudeOrNull(Double value) { return value == null ? null : java.math.BigDecimal.valueOf(value); }
+    private java.math.BigDecimal longitudeOrNull(Double value) { return value == null ? null : java.math.BigDecimal.valueOf(value); }
+
     private String mask(String value) {
         if (value.contains("@")) { int at = value.indexOf('@'); return value.charAt(0) + "***" + value.substring(Math.max(at - 1, 1)); }
         return value.length() <= 4 ? "****" : "******" + value.substring(value.length() - 4);
