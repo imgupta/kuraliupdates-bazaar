@@ -1,6 +1,7 @@
 package com.kuraliupdates.bazaar.entity;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -19,6 +20,7 @@ public class BillDiscountEntity {
     @Column(name = "RULE_ID", length = 64)
     private String ruleId;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "SELLER_ID", nullable = false)
     private SellerEntity seller;
