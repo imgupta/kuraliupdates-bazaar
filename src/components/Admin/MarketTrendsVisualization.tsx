@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, Database, MapPin, ShoppingBag, Store, Users } from 'lucide-react';
+import { BarChart3, Database, MapPin, Search, ShoppingBag, Store, Users } from 'lucide-react';
 
 interface AdminAnalytics {
   totalStores: number;
@@ -25,10 +25,11 @@ interface AdminAnalytics {
 
 interface Props {
   analytics: AdminAnalytics | null;
+  searchTrends?: Array<{ query: string; searchCount: number }>;
   loading?: boolean;
 }
 
-export const MarketTrendsVisualization: React.FC<Props> = ({ analytics, loading }) => {
+export const MarketTrendsVisualization: React.FC<Props> = ({ analytics, searchTrends = [], loading }) => {
   if (loading || !analytics) {
     return (
       <div className="bg-white rounded-3xl p-10 border border-slate-200 text-center text-xs text-slate-500">
@@ -87,6 +88,30 @@ export const MarketTrendsVisualization: React.FC<Props> = ({ analytics, loading 
                   <div><span className="text-slate-400">Orders</span><strong className="block">{category.orderCount.toLocaleString()}</strong></div>
                   <div><span className="text-slate-400">Revenue</span><strong className="block">₹{Number(category.revenue).toLocaleString()}</strong></div>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Search className="w-4 h-4 text-purple-600" />
+          <h3 className="font-extrabold text-sm text-slate-900">Top Search Trends — Last 30 Days</h3>
+        </div>
+        {searchTrends.length === 0 ? (
+          <p className="text-xs text-slate-500 border border-dashed rounded-2xl p-6 text-center">
+            No buyer search activity has been recorded yet. Search trends will appear automatically as buyers search the marketplace.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {searchTrends.map((trend, index) => (
+              <div key={trend.query} className="flex items-center justify-between gap-3 border border-slate-200 rounded-2xl p-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-black shrink-0">{index + 1}</span>
+                  <span className="font-bold text-sm text-slate-900 truncate">{trend.query}</span>
+                </div>
+                <span className="text-xs font-bold text-slate-500 shrink-0">{Number(trend.searchCount).toLocaleString()} searches</span>
               </div>
             ))}
           </div>
