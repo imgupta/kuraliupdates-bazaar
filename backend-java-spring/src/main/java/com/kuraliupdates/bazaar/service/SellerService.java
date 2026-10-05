@@ -2,6 +2,9 @@ package com.kuraliupdates.bazaar.service;
 
 import com.kuraliupdates.bazaar.dto.product.ProductResponse;
 import com.kuraliupdates.bazaar.dto.seller.SellerProductRequest;
+import com.kuraliupdates.bazaar.dto.seller.SellerDiscountRequest;
+import com.kuraliupdates.bazaar.entity.BillDiscountEntity;
+import com.kuraliupdates.bazaar.repository.BillDiscountRepository;
 import com.kuraliupdates.bazaar.entity.OrderEntity;
 import com.kuraliupdates.bazaar.entity.ProductEntity;
 import com.kuraliupdates.bazaar.entity.SellerEntity;
@@ -27,6 +30,7 @@ public class SellerService {
     private final SellerRepository sellerRepository;
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
+    private final BillDiscountRepository billDiscountRepository;
 
     @Transactional(readOnly = true)
     public SellerEntity getCurrentSeller(String token) {
@@ -127,6 +131,39 @@ public class SellerService {
         order.setStatus(next);
         order.setUpdatedAt(LocalDateTime.now());
         return orderRepository.save(order);
+    }
+
+    @Transactional(readOnly = true)
+    public List<BillDiscountEntity> getDiscounts(String token) {
+        SellerEntity seller = getCurrentSeller(token);
+        return billDiscountRepository.findBySeller_SellerIdOrderByMinBillAmountAsc(seller.getSellerId());
+    }
+
+    @Transactional
+    public BillDiscountEntity addDiscount(String token, SellerDiscountRequest request) {
+        SellerEntity seller = requireApprovedSeller(token);
+        if ((request.discountPercentage() == null) == (request.flatDiscount() == null)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Provide either percentage or flat discount");
+        }
+        if (request.discountPercentage() != null && request.discountPercentage().compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Discount percentage cannot exceed 100%");
+        }
+        return billDiscountRepository.save(BillDiscountEntity.builder()
+                .ruleId("disc-" + UUID.randomUUID().toString().substring(0, 8))
+                .seller(seller).minBillAmount(request.minBillAmount())
+                .discountPercentage(request.discountPercentage()).flatDiscount(request.flatDiscount())
+                .description(request.description().trim()).createdAt(LocalDateTime.now()).build());
+    }
+
+    @Transactional
+    public void deleteDiscount(String token, String ruleId) {
+        SellerEntity seller = requireApprovedSeller(token);
+        BillDiscountEntity rule = billDiscountRepository.findById(ruleId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Discount rule not found"));
+        if (rule.getSeller() == null || !seller.getSellerId().equals(rule.getSeller().getSellerId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This discount does not belong to your store");
+        }
+        billDiscountRepository.delete(rule);
     }
 
     private SellerEntity requireApprovedSeller(String token) {
