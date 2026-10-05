@@ -160,25 +160,5 @@ public class AdminController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/analytics/demand-trends")
-    @Operation(summary = "Get trending search queries and category revenue breakdown in Kurali")
-    public ResponseEntity<Map<String, Object>> getDemandAnalytics() {
-        return ResponseEntity.ok(Map.of(
-                "totalStores", sellerRepository.count(),
-                "totalOrders", orderRepository.count(),
-                "topSearchQueries", List.of(
-                        Map.of("query", "Pure Desi Ghee 1L", "growthRate", "+48%", "locality", "Railway Station Road"),
-                        Map.of("query", "Fortune Basmati Rice 5kg", "growthRate", "+34%", "locality", "Main Bazaar"),
-                        Map.of("query", "boAt ANC Earbuds", "growthRate", "+54%", "locality", "Chandigarh Road"),
-                        Map.of("query", "Desi Mustard Oil", "growthRate", "+62%", "locality", "Siswan Road")
-                ),
-                "categoryShares", List.of(
-                        Map.of("category", "Groceries & Daily Essentials", "percentage", 36),
-                        Map.of("category", "Dairy, Bakery & Sweets", "percentage", 26),
-                        Map.of("category", "Fruits & Vegetables", "percentage", 18),
-                        Map.of("category", "Electronics & Mobiles", "percentage", 12),
-                        Map.of("category", "Organic & Farm Produce", "percentage", 8)
-                )
-        ));
-    }
+
 }
