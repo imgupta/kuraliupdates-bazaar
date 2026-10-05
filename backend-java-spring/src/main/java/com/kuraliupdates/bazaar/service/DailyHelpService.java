@@ -3,6 +3,7 @@ package com.kuraliupdates.bazaar.service;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpBookingRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpBookingResponse;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpStartRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpServiceResponse;
 import com.kuraliupdates.bazaar.entity.DailyHelpBookingEntity;
 import com.kuraliupdates.bazaar.entity.DailyHelpProfessionalEntity;
 import com.kuraliupdates.bazaar.entity.DailyHelpServiceEntity;
@@ -30,8 +31,8 @@ public class DailyHelpService {
     private final SecureRandom random = new SecureRandom();
 
     @Transactional(readOnly = true)
-    public List<DailyHelpServiceEntity> getActiveServices() {
-        return serviceRepository.findByActiveOrderByCategoryAscNameAsc(1);
+    public List<DailyHelpServiceResponse> getActiveServices() {
+        return serviceRepository.findByActiveOrderByCategoryAscNameAsc(1).stream().map(DailyHelpServiceResponse::from).toList();
     }
 
     @Transactional
