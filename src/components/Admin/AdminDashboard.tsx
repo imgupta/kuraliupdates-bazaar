@@ -37,11 +37,16 @@ export const AdminDashboard: React.FC = () => {
     products,
     setRole,
     setIsGmailAuthOpen,
+    showToast,
   } = useApp();
 
   const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers'>('trends');
   const [buyers, setBuyers] = useState<any[]>([]);
   const [buyersLoading, setBuyersLoading] = useState(false);
+  const [adminSellers, setAdminSellers] = useState<any[]>([]);
+  const [adminDeliveryAgents, setAdminDeliveryAgents] = useState<any[]>([]);
+  const [adminAnalytics, setAdminAnalytics] = useState<any | null>(null);
+  const [adminDataLoading, setAdminDataLoading] = useState(false);
   const isRootAdmin = isRootAdminEmail(user.email);
 
   const refreshAdminData = async () => {
