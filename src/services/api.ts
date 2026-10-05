@@ -766,4 +766,5 @@ export const bazaarApi = {
       return null;
     }
   },
-\n};
+
+};
