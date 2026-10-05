@@ -3,7 +3,7 @@ package com.kuraliupdates.bazaar.controller;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpBookingRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpBookingResponse;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpStartRequest;
-import com.kuraliupdates.bazaar.entity.DailyHelpServiceEntity;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpServiceResponse;
 import com.kuraliupdates.bazaar.service.DailyHelpService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +19,7 @@ public class DailyHelpController {
     private final DailyHelpService dailyHelpService;
 
     @GetMapping("/services")
-    public ResponseEntity<List<DailyHelpServiceEntity>> services() {
+    public ResponseEntity<List<DailyHelpServiceResponse>> services() {
         return ResponseEntity.ok(dailyHelpService.getActiveServices());
     }
 
