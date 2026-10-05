@@ -44,12 +44,52 @@ export const AdminDashboard: React.FC = () => {
   const [buyersLoading, setBuyersLoading] = useState(false);
   const isRootAdmin = isRootAdminEmail(user.email);
 
-  useEffect(() => {
-    if (isRootAdmin) {
-      setBuyersLoading(true);
-      bazaarApi.getAdminBuyers().then(setBuyers).finally(() => setBuyersLoading(false));
+  const refreshAdminData = async () => {
+    if (!isRootAdmin) return;
+    setAdminDataLoading(true);
+    try {
+      const [remoteSellers, remoteAgents, analytics, remoteBuyers] = await Promise.all([
+        bazaarApi.getAdminSellers(),
+        bazaarApi.getAdminDeliveryAgents(),
+        bazaarApi.getAdminAnalytics(),
+        bazaarApi.getAdminBuyers(),
+      ]);
+      setAdminSellers(remoteSellers);
+      setAdminDeliveryAgents(remoteAgents);
+      setAdminAnalytics(analytics);
+      setBuyers(remoteBuyers);
+    } finally {
+      setAdminDataLoading(false);
+      setBuyersLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (!isRootAdmin) return;
+    refreshAdminData();
+    const interval = setInterval(refreshAdminData, 45000);
+    return () => clearInterval(interval);
   }, [isRootAdmin]);
+
+  const handleSellerDecision = async (sellerId: string, approve: boolean) => {
+    const ok = approve ? await bazaarApi.approveSeller(sellerId) : await bazaarApi.rejectSeller(sellerId);
+    if (!ok) {
+      showToast('Unable to update seller status in the database.', 'error');
+      return;
+    }
+    showToast(approve ? 'Seller store approved.' : 'Seller store rejected.', approve ? 'success' : 'info');
+    await refreshAdminData();
+  };
+
+  const handleDeliveryDecision = async (agentId: string, approve: boolean) => {
+    const ok = approve ? await bazaarApi.approveDeliveryAgent(agentId) : await bazaarApi.rejectDeliveryAgent(agentId);
+    if (!ok) {
+      showToast('Unable to update delivery partner status in the database.', 'error');
+      return;
+    }
+    showToast(approve ? 'Delivery partner approved.' : 'Delivery partner rejected.', approve ? 'success' : 'info');
+    await refreshAdminData();
+  };
 
   if (!isRootAdmin) {
     return (
@@ -77,11 +117,11 @@ export const AdminDashboard: React.FC = () => {
     );
   }
 
-  const pendingSellers = sellers.filter(s => s.status === 'pending');
-  const pendingDeliveryAgents = deliveryAgents.filter(a => a.status === 'pending');
-  const approvedSellers = sellers.filter(s => s.status === 'approved');
-  const rejectedSellers = sellers.filter(s => s.status === 'rejected');
-  const totalGMV = orders.reduce((sum, o) => sum + o.totalAmount, 0);
+  const pendingSellers = adminSellers.filter(s => String(s.status).toLowerCase() === 'pending');
+  const pendingDeliveryAgents = adminDeliveryAgents.filter(a => String(a.status).toLowerCase() === 'pending');
+  const approvedSellers = adminSellers.filter(s => String(s.status).toLowerCase() === 'approved');
+  const rejectedSellers = adminSellers.filter(s => String(s.status).toLowerCase() === 'rejected');
+  const totalGMV = Number(adminAnalytics?.totalGmv || 0);
 
   return (
     <div className="space-y-6 pb-16">
@@ -114,7 +154,7 @@ export const AdminDashboard: React.FC = () => {
           <div className="w-px h-8 bg-white/20" />
           <div className="text-center px-2">
             <span className="text-[10px] text-purple-200 block uppercase font-bold">Active Fleet</span>
-            <span className="text-lg font-black">{deliveryAgents.length}</span>
+            <span className="text-lg font-black">{adminDeliveryAgents.filter(a => String(a.status).toLowerCase() === 'active').length}</span>
           </div>
         </div>
       </div>
@@ -178,7 +218,7 @@ export const AdminDashboard: React.FC = () => {
               : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          <Bike className="w-4 h-4" /> Delivery Fleet ({deliveryAgents.length})
+          <Bike className="w-4 h-4" /> Delivery Fleet ({adminDeliveryAgents.length})
         </button>
       </div>
 
@@ -209,13 +249,13 @@ export const AdminDashboard: React.FC = () => {
             <div className="grid grid-cols-1 gap-4">
               {pendingSellers.map(seller => (
                 <div
-                  key={seller.id}
+                  key={seller.sellerId}
                   className="bg-white rounded-3xl border border-amber-300 p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
                 >
                   <div className="flex items-start gap-4">
                     <img
                       src={seller.avatarUrl}
-                      alt={seller.name}
+                      alt={seller.storeName}
                       className="w-14 h-14 rounded-2xl object-cover border border-slate-200 shrink-0"
                     />
                     <div className="space-y-1">
@@ -250,13 +290,13 @@ export const AdminDashboard: React.FC = () => {
 
                   <div className="flex items-center gap-2 self-end md:self-center shrink-0">
                     <button
-                      onClick={() => rejectSeller(seller.id)}
+                      onClick={() => handleSellerDecision(seller.sellerId, false)}
                       className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer flex items-center gap-1.5"
                     >
                       <XCircle className="w-4 h-4" /> Reject
                     </button>
                     <button
-                      onClick={() => approveSeller(seller.id)}
+                      onClick={() => handleSellerDecision(seller.sellerId, true)}
                       className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-colors cursor-pointer flex items-center gap-1.5"
                     >
                       <CheckCircle2 className="w-4 h-4" /> Approve &amp; Activate
@@ -284,9 +324,9 @@ export const AdminDashboard: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 gap-4">
               {pendingDeliveryAgents.map(agent => (
-                <div key={agent.id} className="bg-white rounded-3xl border border-emerald-200 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div key={agent.agentId} className="bg-white rounded-3xl border border-emerald-200 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div className="space-y-1">
-                    <h3 className="font-extrabold text-sm text-slate-900">{agent.name}</h3>
+                    <h3 className="font-extrabold text-sm text-slate-900">{agent.fullName}</h3>
                     <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
                       <span><Phone className="inline w-3.5 h-3.5 mr-1" />{agent.phone}</span>
                       <span><Mail className="inline w-3.5 h-3.5 mr-1" />{agent.email}</span>
@@ -295,8 +335,8 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={() => rejectDeliveryAgent(agent.id)} className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 flex items-center gap-1.5"><XCircle className="w-4 h-4" /> Reject</button>
-                    <button onClick={() => approveDeliveryAgent(agent.id)} className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> Approve &amp; Activate</button>
+                    <button onClick={() => handleDeliveryDecision(agent.agentId, false)} className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 flex items-center gap-1.5"><XCircle className="w-4 h-4" /> Reject</button>
+                    <button onClick={() => handleDeliveryDecision(agent.agentId, true)} className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> Approve &amp; Activate</button>
                   </div>
                 </div>
               ))}
@@ -316,10 +356,10 @@ export const AdminDashboard: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {approvedSellers.map(seller => {
-              const sellerProdCount = products.filter(p => p.sellerId === seller.id).length;
+              const sellerProdCount = products.filter(p => p.sellerId === seller.sellerId).length;
               return (
                 <div
-                  key={seller.id}
+                  key={seller.sellerId}
                   className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs flex items-start gap-4"
                 >
                   <img
@@ -399,7 +439,7 @@ export const AdminDashboard: React.FC = () => {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {deliveryAgents.map(agent => (
+            {adminDeliveryAgents.map(agent => (
               <div
                 key={agent.id}
                 className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-3"
