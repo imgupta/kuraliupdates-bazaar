@@ -33,6 +33,11 @@ export const SellerDashboard: React.FC = () => {
   const [seller, setSeller] = useState<any | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [discounts, setDiscounts] = useState<any[]>([]);
+  const [discountMin, setDiscountMin] = useState('500');
+  const [discountType, setDiscountType] = useState<'percentage' | 'flat'>('percentage');
+  const [discountValue, setDiscountValue] = useState('5');
+  const [discountDescription, setDiscountDescription] = useState('');
   const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'add' | 'discounts'>('inventory');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -48,10 +53,12 @@ export const SellerDashboard: React.FC = () => {
         bazaarApi.getCurrentSeller(),
         bazaarApi.getSellerProducts(),
         bazaarApi.getSellerOrders(),
+        bazaarApi.getSellerDiscounts(),
       ]);
       setSeller(remoteSeller);
       setProducts((remoteProducts || []).map((p: any) => mapProduct(p, remoteSeller)));
       setOrders(remoteOrders || []);
+      setDiscounts((remoteDiscounts || []).map((d: any) => ({ ...d })));
       if (!remoteSeller) showToast('Seller store profile could not be loaded. Please sign in again.', 'error');
     } finally {
       setLoading(false);
@@ -111,6 +118,34 @@ export const SellerDashboard: React.FC = () => {
       setProducts(prev => prev.filter(p => p.id !== id));
       showToast('Product removed from inventory.', 'success');
     } catch (err: any) { showToast(err?.message || 'Unable to remove product.', 'error'); }
+  };
+
+  const addDiscount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const minBillAmount = Number(discountMin), value = Number(discountValue);
+    if (!Number.isFinite(minBillAmount) || minBillAmount < 0 || !Number.isFinite(value) || value <= 0) {
+      showToast('Enter valid discount values.', 'error'); return;
+    }
+    if (discountType === 'percentage' && value > 100) { showToast('Percentage cannot exceed 100%.', 'error'); return; }
+    try {
+      const saved = await bazaarApi.createSellerDiscount({
+        minBillAmount,
+        discountPercentage: discountType === 'percentage' ? value : null,
+        flatDiscount: discountType === 'flat' ? value : null,
+        description: discountDescription.trim() || (discountType === 'percentage' ? `${value}% OFF` : `₹${value} OFF`),
+      });
+      setDiscounts(prev => [...prev, saved].sort((a,b) => Number(a.minBillAmount)-Number(b.minBillAmount)));
+      setDiscountDescription('');
+      showToast('Bill discount rule added.', 'success');
+    } catch (err: any) { showToast(err?.message || 'Unable to add discount.', 'error'); }
+  };
+
+  const removeDiscount = async (ruleId: string) => {
+    try {
+      await bazaarApi.deleteSellerDiscount(ruleId);
+      setDiscounts(prev => prev.filter(d => d.ruleId !== ruleId));
+      showToast('Discount rule removed.', 'success');
+    } catch (err: any) { showToast(err?.message || 'Unable to remove discount.', 'error'); }
   };
 
   const advanceOrder = async (order: any) => {
@@ -198,7 +233,17 @@ export const SellerDashboard: React.FC = () => {
       )}
 
       {activeTab === 'discounts' && (
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 max-w-xl space-y-4"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-amber-50 flex items-center justify-center"><Percent className="w-5 h-5 text-amber-600" /></div><div><h3 className="font-extrabold text-sm">Bill Discount Configuration</h3><p className="text-xs text-slate-500">Discount rules will be managed against your store profile.</p></div></div><p className="text-xs text-slate-600 bg-slate-50 rounded-xl p-3">Product pricing and inventory are now database-backed. Store-level discount management can be enabled next without reintroducing client-only rules.</p></div>
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 max-w-xl space-y-5">
+          <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-amber-50 flex items-center justify-center"><Percent className="w-5 h-5 text-amber-600" /></div><div><h3 className="font-extrabold text-sm">Bill Discount Configuration</h3><p className="text-xs text-slate-500">These rules are stored against your seller account.</p></div></div>
+          <form onSubmit={addDiscount} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input type="number" min="0" step="1" value={discountMin} onChange={e=>setDiscountMin(e.target.value)} placeholder="Minimum bill ₹" className="px-3 py-2 bg-slate-50 border rounded-xl text-xs" />
+            <select value={discountType} onChange={e=>setDiscountType(e.target.value as any)} className="px-3 py-2 bg-slate-50 border rounded-xl text-xs"><option value="percentage">Percentage OFF</option><option value="flat">Flat ₹ OFF</option></select>
+            <input type="number" min="0.01" step="0.01" value={discountValue} onChange={e=>setDiscountValue(e.target.value)} placeholder="Discount value" className="px-3 py-2 bg-slate-50 border rounded-xl text-xs" />
+            <input value={discountDescription} onChange={e=>setDiscountDescription(e.target.value)} placeholder="Description (optional)" className="px-3 py-2 bg-slate-50 border rounded-xl text-xs" />
+            <button disabled={!isApproved} className="sm:col-span-2 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold disabled:opacity-50">Add Discount Rule</button>
+          </form>
+          <div className="space-y-2">{discounts.length === 0 ? <p className="text-xs text-slate-400 bg-slate-50 rounded-xl p-3">No discount rules configured.</p> : discounts.map(d=><div key={d.ruleId} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border"><div><p className="text-xs font-bold">Orders above ₹{Number(d.minBillAmount).toFixed(0)} → {d.discountPercentage != null ? `${d.discountPercentage}% OFF` : `₹${d.flatDiscount} OFF`}</p><p className="text-[11px] text-slate-500">{d.description}</p></div><button onClick={()=>removeDiscount(d.ruleId)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg"><Trash2 className="w-4 h-4"/></button></div>)}</div>
+        </div>
       )}
     </div>
   );
