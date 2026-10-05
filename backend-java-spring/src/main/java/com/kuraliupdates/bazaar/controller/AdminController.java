@@ -17,6 +17,8 @@ import com.kuraliupdates.bazaar.dto.admin.AdminSearchTrendResponse;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpServiceAdminRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpServiceAdminResponse;
 import com.kuraliupdates.bazaar.service.DailyHelpService;
+import com.kuraliupdates.bazaar.repository.DailyHelpProfessionalRepository;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalResponse;
 import org.springframework.data.domain.PageRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,6 +43,7 @@ public class AdminController {
     private final UserRepository userRepository;
     private final SearchTrendRepository searchTrendRepository;
     private final DailyHelpService dailyHelpService;
+    private final DailyHelpProfessionalRepository dailyHelpProfessionalRepository;
 
     @GetMapping("/buyers")
     @Operation(summary = "Get registered buyer accounts for the root admin")
@@ -181,6 +184,15 @@ public class AdminController {
             agent.setStatus("REJECTED");
             return ResponseEntity.ok(deliveryAgentRepository.save(agent));
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+
+    @GetMapping("/daily-help/helpers")
+    @Operation(summary = "Get all Daily Help professionals/helpers for admin")
+    public ResponseEntity<List<DailyHelpProfessionalResponse>> getDailyHelpHelpers() {
+        return ResponseEntity.ok(dailyHelpProfessionalRepository.findAll().stream()
+                .map(DailyHelpProfessionalResponse::from)
+                .toList());
     }
 
 
