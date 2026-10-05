@@ -130,7 +130,7 @@ public class DailyHelpService {
         if (!buyerOwns && !professionalOwns) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You do not have access to this Daily Help booking");
         }
-        return DailyHelpBookingResponse.from(booking, shouldExposeOtp(booking));
+        return DailyHelpBookingResponse.from(booking, buyerOwns && shouldExposeOtp(booking));
     }
 
     @Transactional(readOnly = true)
