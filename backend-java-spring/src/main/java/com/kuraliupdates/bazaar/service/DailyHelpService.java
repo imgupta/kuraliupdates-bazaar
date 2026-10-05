@@ -8,6 +8,8 @@ import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalEarningsRespo
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalRegistrationRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalResponse;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpServiceResponse;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpServiceAdminRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpServiceAdminResponse;
 import com.kuraliupdates.bazaar.entity.DailyHelpBookingEntity;
 import com.kuraliupdates.bazaar.entity.DailyHelpProfessionalEntity;
 import com.kuraliupdates.bazaar.entity.DailyHelpServiceEntity;
@@ -38,6 +40,37 @@ public class DailyHelpService {
     @Transactional(readOnly = true)
     public List<DailyHelpServiceResponse> getActiveServices() {
         return serviceRepository.findByActiveOrderByCategoryAscNameAsc(1).stream().map(DailyHelpServiceResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DailyHelpServiceAdminResponse> getAllServicesForAdmin() {
+        return serviceRepository.findAll(org.springframework.data.domain.Sort.by("category").ascending().and(org.springframework.data.domain.Sort.by("name").ascending()))
+                .stream().map(DailyHelpServiceAdminResponse::from).toList();
+    }
+
+    @Transactional
+    public DailyHelpServiceAdminResponse createService(DailyHelpServiceAdminRequest request) {
+        String id = "DH-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        LocalDateTime now = LocalDateTime.now();
+        DailyHelpServiceEntity service = DailyHelpServiceEntity.builder()
+                .serviceId(id).category(request.category().trim()).name(request.name().trim())
+                .description(request.description() == null ? null : request.description().trim())
+                .pricingUnit(request.pricingUnit().trim().toUpperCase()).pricePerHour(request.pricePerHour())
+                .minHours(request.minHours()).imageUrl(request.imageUrl()).active(request.active())
+                .createdAt(now).updatedAt(now).build();
+        return DailyHelpServiceAdminResponse.from(serviceRepository.save(service));
+    }
+
+    @Transactional
+    public DailyHelpServiceAdminResponse updateService(String serviceId, DailyHelpServiceAdminRequest request) {
+        DailyHelpServiceEntity service = serviceRepository.findById(serviceId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help service not found"));
+        service.setCategory(request.category().trim()); service.setName(request.name().trim());
+        service.setDescription(request.description() == null ? null : request.description().trim());
+        service.setPricingUnit(request.pricingUnit().trim().toUpperCase()); service.setPricePerHour(request.pricePerHour());
+        service.setMinHours(request.minHours()); service.setImageUrl(request.imageUrl()); service.setActive(request.active());
+        service.setUpdatedAt(LocalDateTime.now());
+        return DailyHelpServiceAdminResponse.from(serviceRepository.save(service));
     }
 
     @Transactional
