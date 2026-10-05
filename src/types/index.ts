@@ -1,4 +1,4 @@
-export type UserRole = 'buyer' | 'seller' | 'delivery' | 'admin';
+export type UserRole = 'buyer' | 'seller' | 'delivery' | 'professional' | 'admin';
 
 export type SellerStatus = 'pending' | 'approved' | 'rejected';
 
@@ -231,4 +231,22 @@ export interface DailyHelpBooking {
   otpVerifiedAt?: string;
   serviceStartedAt?: string;
   serviceCompletedAt?: string;
+}
+
+
+export interface DailyHelpProfessional {
+  professionalId: string;
+  fullName: string;
+  phone: string;
+  rating: string;
+  reviewCount: number;
+  currentLocality: string;
+  status: 'AVAILABLE' | 'OFFLINE';
+  verified: boolean;
+}
+
+export interface DailyHelpProfessionalEarnings {
+  today: number;
+  lifetime: number;
+  completedBookings: number;
 }
