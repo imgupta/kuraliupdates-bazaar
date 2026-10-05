@@ -226,6 +226,79 @@ export const bazaarApi = {
     }
   },
 
+  async getCurrentSeller(): Promise<any | null> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) return null;
+    try {
+      const res = await fetch(`${API_BASE_URL}/sellers/me`, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) { console.warn('Backend getCurrentSeller failed:', err); return null; }
+  },
+
+  async getSellerProducts(): Promise<any[]> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) return [];
+    try {
+      const res = await fetch(`${API_BASE_URL}/sellers/me/products`, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) { console.warn('Backend getSellerProducts failed:', err); return []; }
+  },
+
+  async createSellerProduct(product: Record<string, any>): Promise<any | null> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) throw new Error('Your seller session has expired. Please sign in again.');
+    const res = await fetch(`${API_BASE_URL}/sellers/me/products`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(product),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+    return data;
+  },
+
+  async updateSellerProduct(productId: string, product: Record<string, any>): Promise<any | null> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) throw new Error('Your seller session has expired. Please sign in again.');
+    const res = await fetch(`${API_BASE_URL}/sellers/me/products/${encodeURIComponent(productId)}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(product),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+    return data;
+  },
+
+  async deleteSellerProduct(productId: string): Promise<boolean> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) return false;
+    const res = await fetch(`${API_BASE_URL}/sellers/me/products/${encodeURIComponent(productId)}`, {
+      method: 'DELETE', headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) { const data = await res.json().catch(() => null); throw new Error(data?.message || `HTTP ${res.status}`); }
+    return true;
+  },
+
+  async getSellerOrders(): Promise<any[]> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) return [];
+    try {
+      const res = await fetch(`${API_BASE_URL}/sellers/me/orders`, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) { console.warn('Backend getSellerOrders failed:', err); return []; }
+  },
+
+  async updateSellerOrderStatus(orderId: string, status: string): Promise<any | null> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) throw new Error('Your seller session has expired. Please sign in again.');
+    const res = await fetch(`${API_BASE_URL}/sellers/me/orders/${encodeURIComponent(orderId)}/status?status=${encodeURIComponent(status)}`, {
+      method: 'POST', headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+    return data;
+  },
+
   async getAdminDailyHelpServices(): Promise<any[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/daily-help/services`, { headers: adminAuthHeaders() });
