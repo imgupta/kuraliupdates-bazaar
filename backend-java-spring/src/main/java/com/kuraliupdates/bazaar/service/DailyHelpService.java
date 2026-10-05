@@ -27,6 +27,7 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.Optional;
 import java.util.ArrayList;
 
 @Service
@@ -200,8 +201,13 @@ public class DailyHelpService {
     @Transactional
     public DailyHelpProfessionalResponse registerProfessional(DailyHelpProfessionalRegistrationRequest request) {
         String phone = request.phone().trim().replaceAll("\\D", "");
-        if (professionalRepository.findByPhone(phone).isPresent()) {
-            throw new ApiException(HttpStatus.CONFLICT, "A Daily Help professional already exists with this mobile number");
+        Optional<DailyHelpProfessionalEntity> existing = professionalRepository.findByPhone(phone);
+        if (existing.isPresent()) {
+            DailyHelpProfessionalEntity professional = existing.get();
+            professional.setFullName(request.name().trim());
+            professional.setCurrentLocality(request.locality().trim());
+            professional.setUpdatedAt(LocalDateTime.now());
+            return DailyHelpProfessionalResponse.from(professionalRepository.save(professional));
         }
         LocalDateTime now = LocalDateTime.now();
         DailyHelpProfessionalEntity professional = DailyHelpProfessionalEntity.builder()
