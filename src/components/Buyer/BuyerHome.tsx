@@ -1,13 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import {
   Search,
-  Star,
   Truck,
-  MessageSquare,
   Sparkles,
   ShoppingBag,
   SlidersHorizontal,
-  TrendingDown,
   Store,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -190,42 +187,6 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
           </button>
         </div>
       )}
-
-      {/* Hero Banner */}
-      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-amber-600 via-orange-600 to-amber-700 text-white shadow-xl p-6 sm:p-8">
-        <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-amber-100">
-            <Sparkles className="w-3.5 h-3.5" />
-            Kurali Direct Merchant Bazaar
-          </div>
-          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight">
-            Shop Kurali’s Best Stores. <br />
-            <span className="text-amber-200">Compare Prices &amp; Bargain Live!</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-amber-100 font-medium leading-relaxed">
-            Find the lowest local prices across Morinda Road, Main Bazaar, Railway Road and Dana Mandi. Direct store discounts, free express delivery on eligible orders, and price negotiation chat.
-          </p>
-
-          <div className="pt-2 flex flex-wrap gap-2 text-xs font-semibold">
-            <span className="bg-black/20 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-white/20 flex items-center gap-1.5">
-              <TrendingDown className="w-4 h-4 text-emerald-300" /> Best Price Guarantee
-            </span>
-            <span className="bg-black/20 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-white/20 flex items-center gap-1.5">
-              <MessageSquare className="w-4 h-4 text-amber-300" /> Direct Seller Bargaining
-            </span>
-            <span className="bg-black/20 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-white/20 flex items-center gap-1.5">
-              <Truck className="w-4 h-4 text-sky-300" /> Free Delivery over ₹499
-            </span>
-          </div>
-        </div>
-
-        {/* Decorative backdrop shapes */}
-        <div className="absolute right-0 bottom-0 top-0 w-1/2 opacity-15 pointer-events-none hidden sm:block">
-          <svg viewBox="0 0 400 400" className="w-full h-full object-cover">
-            <circle cx="200" cy="200" r="180" fill="currentColor" />
-          </svg>
-        </div>
-      </div>
 
       {/* Category Pills Slider */}
       <div className="space-y-2">
