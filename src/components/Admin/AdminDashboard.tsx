@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ShieldCheck,
   Store,
@@ -15,10 +15,12 @@ import {
   Sparkles,
   BarChart3,
   Layers,
+  Users,
   Download,
   Lock,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { bazaarApi } from '../../services/api';
 import { MarketTrendsVisualization } from './MarketTrendsVisualization';
 import { ROOT_ADMIN_EMAIL, isRootAdminEmail } from '../../data/initialData';
 
@@ -37,7 +39,16 @@ export const AdminDashboard: React.FC = () => {
     setIsGmailAuthOpen,
   } = useApp();
 
-  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet'>('trends');
+  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers'>('trends');
+  const [buyers, setBuyers] = useState<any[]>([]);
+  const [buyersLoading, setBuyersLoading] = useState(false);
+
+  useEffect(() => {
+    if (isRootAdmin) {
+      setBuyersLoading(true);
+      bazaarApi.getAdminBuyers().then(setBuyers).finally(() => setBuyersLoading(false));
+    }
+  }, [isRootAdmin]);
 
   const isRootAdmin = isRootAdminEmail(user.email);
 
@@ -147,6 +158,17 @@ export const AdminDashboard: React.FC = () => {
           }`}
         >
           <Layers className="w-4 h-4" /> All Active Stores ({approvedSellers.length})
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('buyers')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeAdminTab === 'buyers'
+              ? 'bg-purple-700 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Users className="w-4 h-4" /> Buyers ({buyers.length})
         </button>
 
         <button
@@ -323,6 +345,50 @@ export const AdminDashboard: React.FC = () => {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Tab: Buyers */}
+      {activeAdminTab === 'buyers' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900">Registered Buyer Accounts ({buyers.length})</h2>
+              <p className="text-xs text-slate-500 mt-1">Buyer profiles registered in the Bazaar user database.</p>
+            </div>
+          </div>
+          {buyersLoading ? (
+            <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 text-xs text-slate-500">Loading buyer accounts...</div>
+          ) : buyers.length === 0 ? (
+            <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 space-y-2">
+              <Users className="w-10 h-10 text-slate-300 mx-auto" />
+              <p className="text-sm font-bold text-slate-700">No buyer accounts found</p>
+              <p className="text-xs text-slate-500">New buyer registrations will appear here automatically.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {buyers.map(buyer => (
+                <div key={buyer.userId} className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="font-extrabold text-sm text-slate-900 truncate">{buyer.name}</h3>
+                      <p className="text-xs text-slate-500 mt-1 truncate">{buyer.email || buyer.phone || 'No contact details'}</p>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
+                      {Number(buyer.isVerified) === 1 ? 'Verified' : 'Unverified'}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 gap-2 text-xs text-slate-600">
+                    <div><span className="text-slate-400">Phone:</span> <strong>{buyer.phone || '—'}</strong></div>
+                    <div><span className="text-slate-400">Locality:</span> <strong>{buyer.locality || '—'}</strong></div>
+                    <div><span className="text-slate-400">Address:</span> <strong>{buyer.formattedAddress || buyer.address || '—'}</strong></div>
+                    <div><span className="text-slate-400">Registered:</span> <strong>{buyer.createdAt ? new Date(buyer.createdAt).toLocaleString() : '—'}</strong></div>
+                    <div><span className="text-slate-400">Last login:</span> <strong>{buyer.lastLogin ? new Date(buyer.lastLogin).toLocaleString() : '—'}</strong></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
