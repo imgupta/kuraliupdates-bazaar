@@ -753,6 +753,19 @@ export const bazaarApi = {
     }
   },
 
+  async getLatestDailyHelpBooking(buyerPhone: string): Promise<DailyHelpBooking | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/daily-help/bookings/latest?buyerPhone=${encodeURIComponent(buyerPhone)}`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getLatestDailyHelpBooking failed:', err);
+      return null;
+    }
+  },
+
   async getDailyHelpBooking(bookingId: string): Promise<DailyHelpBooking | null> {
     try {
       const token = localStorage.getItem('kurali_auth_token');
