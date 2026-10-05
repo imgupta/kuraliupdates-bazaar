@@ -188,43 +188,42 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
         </div>
       )}
 
-      {/* Category Pills Slider */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-extrabold text-slate-800 tracking-tight">
-            Categories
-          </h2>
-          <span className="text-xs text-slate-400 font-medium">
-            {categories.length - 1} available
-          </span>
+      {/* Category + Filter Controls */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-2">
+            <h2 className="text-sm font-extrabold text-slate-800 tracking-tight">Categories</h2>
+            <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
+              {categories.length - 1} available
+            </span>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
+                  selectedCategory === cat
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
         </div>
-
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-          {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
-                selectedCategory === cat
-                  ? 'bg-amber-600 text-white shadow-sm'
-                  : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Compact Filter & Sorting Controls */}
-      <div className="flex items-center justify-between gap-2">
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${showFilters ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+          aria-label="Filter and sort products"
+          className={`shrink-0 mt-6 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${showFilters ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
         >
           <SlidersHorizontal className="w-3.5 h-3.5 text-amber-600" />
-          Filter &amp; Sort
+          <span className="hidden sm:inline">Filter &amp; Sort</span>
+          <span className="sm:hidden">Filter</span>
         </button>
+      </div>
+      <div className="flex justify-end">
         <span className="text-xs text-slate-500">
           <strong className="text-slate-800">{filteredProducts.length}</strong> products
         </span>
