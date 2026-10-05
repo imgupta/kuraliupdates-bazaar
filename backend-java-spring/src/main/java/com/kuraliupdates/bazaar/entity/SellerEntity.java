@@ -1,6 +1,7 @@
 package com.kuraliupdates.bazaar.entity;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -32,9 +33,11 @@ public class SellerEntity {
     @Column(name = "REGISTERED_AT") private LocalDateTime registeredAt;
     @Column(name = "APPROVED_AT") private LocalDateTime approvedAt;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "seller", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default private List<ProductEntity> products = new ArrayList<>();
 
+    @JsonIgnore
     @OneToMany(mappedBy = "seller", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default private List<BillDiscountEntity> billDiscounts = new ArrayList<>();
 }
