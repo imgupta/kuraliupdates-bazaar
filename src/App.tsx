@@ -12,9 +12,7 @@ import { AdminDashboard } from './components/Admin/AdminDashboard';
 import { AuthPageV2 } from './components/Auth/AuthPageV2';
 import { BuyerRegistrationPage } from './components/Auth/BuyerRegistrationPage';
 import { BuyerAccountPage } from './components/Buyer/BuyerAccountPage';
-import { isRootAdminEmail } from './data/initialData';
 import {
-  MapPin,
   CheckCircle2,
   AlertCircle,
   Info,
@@ -23,9 +21,7 @@ import {
 const MainLayout: React.FC = () => {
   const {
     role,
-    setRole,
     user,
-    logout,
     trackingOrderId,
     setTrackingOrderId,
     addToCart,
@@ -35,8 +31,6 @@ const MainLayout: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-
-  const isRootAdmin = isRootAdminEmail(user.email);
 
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 flex flex-col text-slate-900 font-sans">
@@ -101,108 +95,9 @@ const MainLayout: React.FC = () => {
       )}
       <NegotiationChatModal />
 
-      {/* Footer */}
-      <footer className="bg-slate-900 text-slate-400 text-xs border-t border-slate-800 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 py-10">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white font-extrabold text-sm">
-                  K
-                </div>
-                <span className="font-black text-white text-base tracking-tight">
-                  kuraliupdates.com
-                </span>
-              </div>
-              <p className="text-slate-400 text-xs leading-relaxed">
-                Hyperlocal eCommerce &amp; delivery ecosystem for Kurali city, Punjab. Connecting local merchants with neighborhood buyers.
-              </p>
-              <div className="flex items-center gap-2 text-[11px] text-amber-400 font-semibold">
-                <MapPin className="w-3.5 h-3.5" />
-                <span>Rupnagar / Mohali District, Punjab</span>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-extrabold text-white text-xs uppercase tracking-wider mb-3">
-                Key Features
-              </h4>
-              <ul className="space-y-2 text-xs">
-                <li>
-                  &bull; Compare Sellers for Low Price
-                </li>
-                <li>
-                  &bull; Direct Price Negotiation Chat
-                </li>
-                <li>
-                  &bull; Free Delivery Above Min Threshold
-                </li>
-                <li>
-                  &bull; Real-Time Order &amp; Rider Tracking
-                </li>
-                <li>
-                  &bull; Total Bill Discounts &amp; Coupons
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-extrabold text-white text-xs uppercase tracking-wider mb-3">
-                Kurali Localities Covered
-              </h4>
-              <ul className="space-y-1 text-[11px] text-slate-400">
-                <li>&bull; Main Bazaar &amp; Old Fountain Chowk</li>
-                <li>&bull; Morinda Road Commercial Hub</li>
-                <li>&bull; Railway Station Road &amp; Gurudwara</li>
-                <li>&bull; Chandigarh Road &amp; Kharar Bypass</li>
-                <li>&bull; Siswan Road &amp; River Belt</li>
-                <li>&bull; Dana Mandi (Grain Market)</li>
-                <li>&bull; Shivalik City &amp; Dashmesh Nagar</li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-extrabold text-white text-xs uppercase tracking-wider mb-3">
-                Your Account Session
-              </h4>
-              <div className="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700 space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">User:</span>
-                  <span className="font-bold text-white truncate max-w-[130px]">{user.name}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Locality:</span>
-                  <span className="font-bold text-slate-300 text-[11px] truncate max-w-[120px]">{user.locality}</span>
-                </div>
-                {isRootAdmin && (
-                  <button
-                    onClick={() => setRole('admin')}
-                    className="w-full mt-2 py-1.5 bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-700/60 rounded-xl text-xs font-bold transition-colors cursor-pointer text-center"
-                  >
-                    🛡️ Open Admin Desk
-                  </button>
-                )}
-                <button
-                  onClick={logout}
-                  className="w-full mt-1 py-1.5 bg-rose-900/40 hover:bg-rose-900/80 text-rose-300 border border-rose-800/60 rounded-xl text-xs font-bold transition-colors cursor-pointer text-center"
-                >
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-8 mt-8 border-t border-slate-800 flex flex-wrap items-center justify-between gap-4 text-[11px] text-slate-500">
-            <p>&copy; 2026 kuraliupdates.com &bull; Designed for Kurali City Merchants, Shoppers &amp; Delivery Fleet.</p>
-            <div className="flex items-center gap-4">
-              <span>Admin Approved Merchants</span>
-              <span>&bull;</span>
-              <span>Express Local Delivery</span>
-              <span>&bull;</span>
-              <span>Bargain Direct</span>
-            </div>
-          </div>
-        </div>
+      {/* Minimal copyright */}
+      <footer className="mt-auto border-t border-slate-200 bg-white py-3 text-center text-[11px] text-slate-500">
+        &copy; 2026 kuraliupdates.com
       </footer>
     </div>
   );
