@@ -29,6 +29,11 @@ public class DailyHelpController {
         return ResponseEntity.ok(dailyHelpService.createBooking(request));
     }
 
+    @GetMapping("/bookings/latest")
+    public ResponseEntity<DailyHelpBookingResponse> getLatestBooking(@RequestParam String buyerPhone) {
+        return ResponseEntity.ok(dailyHelpService.getLatestBooking(buyerPhone));
+    }
+
     @GetMapping("/bookings/{bookingId}")
     public ResponseEntity<DailyHelpBookingResponse> getBooking(@PathVariable String bookingId) {
         return ResponseEntity.ok(dailyHelpService.getBooking(bookingId));
