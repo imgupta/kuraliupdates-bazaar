@@ -156,7 +156,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
   );
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className="space-y-4 sm:space-y-5 pb-12">
       {/* Active Order Live Banner if any */}
       {latestActiveOrder && (
         <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-2xl p-4 shadow-md flex flex-wrap items-center justify-between gap-3 animate-in slide-in-from-top-2">
@@ -192,10 +192,10 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-extrabold text-slate-800 tracking-tight">
-            Shop by Category in Kurali
+            Categories
           </h2>
           <span className="text-xs text-slate-400 font-medium">
-            {categories.length - 1} Departments
+            {categories.length - 1} available
           </span>
         </div>
 
@@ -204,7 +204,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
                 selectedCategory === cat
                   ? 'bg-amber-600 text-white shadow-sm'
                   : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
@@ -232,7 +232,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
 
       {/* Expanded Filter Panel */}
       {showFilters && (
-        <div className="bg-white rounded-2xl p-5 border border-amber-200 shadow-sm space-y-4 animate-in fade-in">
+        <div className="bg-white rounded-2xl p-4 border border-amber-200 shadow-sm space-y-4 animate-in fade-in">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {/* Price slider */}
             <div>
@@ -358,7 +358,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
           {filteredProducts.map(product => {
             return (
               <ProductCard
