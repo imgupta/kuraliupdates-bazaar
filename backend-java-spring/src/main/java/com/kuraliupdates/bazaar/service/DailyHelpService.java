@@ -116,6 +116,21 @@ public class DailyHelpService {
     }
 
     @Transactional(readOnly = true)
+    public DailyHelpBookingResponse getBookingForUser(String bookingId, com.kuraliupdates.bazaar.entity.UserEntity user) {
+        DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
+        String role = user.getRole() == null ? "" : user.getRole().toUpperCase();
+        boolean buyerOwns = "BUYER".equals(role) && samePhone(user.getPhone(), booking.getBuyerPhone());
+        boolean professionalOwns = "PROFESSIONAL".equals(role)
+                && booking.getProfessional() != null
+                && samePhone(user.getPhone(), booking.getProfessional().getPhone());
+        if (!buyerOwns && !professionalOwns) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You do not have access to this Daily Help booking");
+        }
+        return DailyHelpBookingResponse.from(booking, shouldExposeOtp(booking));
+    }
+
+    @Transactional(readOnly = true)
     public DailyHelpBookingResponse getBooking(String bookingId) {
         DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
@@ -286,6 +301,11 @@ public class DailyHelpService {
                 .map(DailyHelpBookingEntity::getEstimatedTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return new DailyHelpProfessionalEarningsResponse(today, lifetime, completed.size());
+    }
+
+    private boolean samePhone(String left, String right) {
+        if (left == null || right == null) return false;
+        return left.replaceAll("\\D", "").equals(right.replaceAll("\\D", ""));
     }
 
     private DailyHelpProfessionalEntity getProfessionalEntity(String professionalId) {
