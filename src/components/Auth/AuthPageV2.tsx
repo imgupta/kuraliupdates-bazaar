@@ -14,7 +14,7 @@ interface AuthPageV2Props {
 
 export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer' }) => {
   const { loginWithOtp, registerUserWithOtp, showToast } = useApp();
-  const roleRegistration = registrationRole === 'seller' || registrationRole === 'delivery';
+  const roleRegistration = registrationRole === 'seller' || registrationRole === 'delivery' || registrationRole === 'professional';
 
   const [authMode, setAuthMode] = useState<AuthMode>(roleRegistration ? 'register' : 'signin');
   const [contactMethod, setContactMethod] = useState<ContactMethod>('email');
@@ -81,6 +81,10 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
     }
     if (role === 'delivery') {
       window.location.href = '/register/delivery';
+      return;
+    }
+    if (role === 'professional') {
+      window.location.href = '/register/daily-help';
       return;
     }
     window.location.href = '/register/buyer';
@@ -262,8 +266,9 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
 
   if (applicationSubmitted) {
     const isSeller = registrationRole === 'seller';
-    const statusTitle = onboardingStatus === 'APPROVED' ? (isSeller ? 'Merchant account approved' : 'Delivery partner account approved') : onboardingStatus === 'REJECTED' ? (isSeller ? 'Merchant application not approved' : 'Delivery partner application not approved') : (isSeller ? 'Your merchant application is under review' : 'Your delivery partner application is under review');
-    const statusMessage = onboardingStatus === 'APPROVED' ? 'Your account is approved. You can sign in and start using KuraliUpdates Bazaar.' : onboardingStatus === 'REJECTED' ? 'Your application was not approved by the Kurali admin team. Please contact support before submitting another application.' : (isSeller ? 'Our team will review your shop details before activating your merchant account.' : 'Our team will review your delivery details before activating your partner account.');
+    const isProfessional = registrationRole === 'professional';
+    const statusTitle = onboardingStatus === 'APPROVED' ? (isSeller ? 'Merchant account approved' : isProfessional ? 'Daily Help professional account approved' : 'Delivery partner account approved') : onboardingStatus === 'REJECTED' ? (isSeller ? 'Merchant application not approved' : isProfessional ? 'Daily Help professional application not approved' : 'Delivery partner application not approved') : (isSeller ? 'Your merchant application is under review' : isProfessional ? 'Your Daily Help professional application is under review' : 'Your delivery partner application is under review');
+    const statusMessage = onboardingStatus === 'APPROVED' ? 'Your account is approved. You can sign in and start using KuraliUpdates Bazaar.' : onboardingStatus === 'REJECTED' ? 'Your application was not approved by the Kurali admin team. Please contact support before submitting another application.' : (isSeller ? 'Our team will review your shop details before activating your merchant account.' : isProfessional ? 'Your professional profile is ready. Sign in to go available and receive nearby Daily Help jobs.' : 'Our team will review your delivery details before activating your partner account.');
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 flex items-center justify-center p-4">
         <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl border border-slate-200 p-7 sm:p-10 text-center">
@@ -296,7 +301,9 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
       ? 'Join as a Kurali Merchant'
       : registrationRole === 'delivery'
         ? 'Join Kurali Express'
-        : 'Create your buyer account';
+        : registrationRole === 'professional'
+          ? 'Join as a Daily Help Professional'
+          : 'Create your buyer account';
 
   const subtitle = authMode === 'signin'
     ? 'Sign in securely with a one-time verification code.'
@@ -432,6 +439,8 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
                   <a href="/register/seller" className="font-bold text-blue-700 hover:underline">Register as a Merchant</a>
                   <span className="mx-2 text-slate-300">•</span>
                   <a href="/register/delivery" className="font-bold text-emerald-700 hover:underline">Join as Delivery Partner</a>
+                  <span className="mx-2 text-slate-300">•</span>
+                  <a href="/register/daily-help" className="font-bold text-amber-700 hover:underline">Join as Daily Help Professional</a>
                 </div>
               )}
             </div>
