@@ -220,6 +220,30 @@ export const bazaarApi = {
     }
   },
 
+  async getAdminDailyHelpServices(): Promise<any[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/daily-help/services`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) { console.warn('Backend getAdminDailyHelpServices failed:', err); return []; }
+  },
+
+  async createAdminDailyHelpService(payload: Record<string, any>): Promise<any | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/daily-help/services`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) { console.warn('Backend createAdminDailyHelpService failed:', err); return null; }
+  },
+
+  async updateAdminDailyHelpService(serviceId: string, payload: Record<string, any>): Promise<any | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/daily-help/services/${encodeURIComponent(serviceId)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) { console.warn('Backend updateAdminDailyHelpService failed:', err); return null; }
+  },
+
   async getAdminSellers(): Promise<any[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/sellers`, { headers: { Accept: 'application/json' } });
