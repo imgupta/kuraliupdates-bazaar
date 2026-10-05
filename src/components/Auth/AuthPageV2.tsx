@@ -438,6 +438,14 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
                 {loading ? 'Sending verification code...' : authMode === 'signin' ? 'Send 6-Digit OTP' : 'Register with Email OTP'}
               </button>
 
+              {authMode === 'signin' && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
+                  <p className="text-xs font-black text-amber-900">Want to work as a Daily Help professional?</p>
+                  <p className="mt-1 text-[11px] text-amber-700">Join as a maid, cooking, cleaning or home-help professional.</p>
+                  <a href="/register/daily-help" className="mt-3 inline-flex items-center justify-center rounded-xl bg-amber-600 px-4 py-2.5 text-[11px] font-black text-white hover:bg-amber-700">Join as Daily Help Professional</a>
+                </div>
+              )}
+
               {authMode === 'register' && registrationRole === 'buyer' && (
                 <div className="text-center text-[11px] text-slate-500">
                   <a href="/register/seller" className="font-bold text-blue-700 hover:underline">Register as a Merchant</a>
