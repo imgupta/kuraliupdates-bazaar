@@ -8,6 +8,7 @@ import { OrderTrackingModal } from './components/Buyer/OrderTrackingModal';
 import { NegotiationChatModal } from './components/Buyer/NegotiationChatModal';
 import { SellerDashboard } from './components/Seller/SellerDashboard';
 import { DeliveryDashboard } from './components/Delivery/DeliveryDashboard';
+import { DailyHelpProfessionalDashboard } from './components/DailyHelpProfessional/DailyHelpProfessionalDashboard';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
 import { AuthPageV2 } from './components/Auth/AuthPageV2';
 import { BuyerRegistrationPage } from './components/Auth/BuyerRegistrationPage';
@@ -59,6 +60,7 @@ const MainLayout: React.FC = () => {
         )}
         {role === 'seller' && <SellerDashboard />}
         {role === 'delivery' && <DeliveryDashboard />}
+        {role === 'professional' && <DailyHelpProfessionalDashboard />}
         {role === 'admin' && <AdminDashboard />}
       </main>
 
@@ -109,6 +111,7 @@ const RootNavigation: React.FC = () => {
 
   if (pathname === '/register/seller') return <AuthPageV2 registrationRole="seller" />;
   if (pathname === '/register/delivery') return <AuthPageV2 registrationRole="delivery" />;
+  if (pathname === '/register/daily-help') return <AuthPageV2 registrationRole="professional" />;
   if (pathname === '/register/buyer') return <BuyerRegistrationPage />;
   if (pathname === '/account') return user.isSignedIn && user.role === 'buyer' ? <BuyerAccountPage /> : <AuthPageV2 />;
 
