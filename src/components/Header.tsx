@@ -476,21 +476,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         ) : null}
 
-        {/* Mobile Signed-in Quick Bar with Direct Logout */}
-        {user.isSignedIn && (
-          <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
-            <span className="text-slate-500 truncate max-w-[180px]">
-              {user.name}
-            </span>
-            <button
-              onClick={logout}
-              className="flex items-center gap-1 font-bold text-rose-600 hover:text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 cursor-pointer"
-            >
-              <LogOut className="w-3 h-3" />
-              <span>Logout</span>
-            </button>
-          </div>
-        )}
       </div>
     </header>
   );
