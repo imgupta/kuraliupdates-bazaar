@@ -297,12 +297,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </span>
                 )}
               </div>
-            ) : (
-              <div className="hidden sm:flex items-center gap-1.5 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200">
-                <ShoppingBag className="w-4 h-4 text-amber-600" />
-                <span className="text-xs font-bold text-amber-900">Buyer Marketplace</span>
-              </div>
-            )}
+            ) : null}
 
             {/* Cart Button */}
             <button
@@ -479,14 +474,7 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             )}
           </div>
-        ) : (
-          <div className="flex items-center justify-between p-1.5 bg-amber-50 rounded-xl border border-amber-200 text-xs">
-            <span className="font-bold text-amber-900 flex items-center gap-1.5">
-              <ShoppingBag className="w-3.5 h-3.5 text-amber-600" /> Buyer Marketplace
-            </span>
-            <span className="text-[10px] text-amber-700 font-semibold">25-Min Delivery</span>
-          </div>
-        )}
+        ) : null}
 
         {/* Mobile Signed-in Quick Bar with Direct Logout */}
         {user.isSignedIn && (
