@@ -42,6 +42,7 @@ export const AdminDashboard: React.FC = () => {
   const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers'>('trends');
   const [buyers, setBuyers] = useState<any[]>([]);
   const [buyersLoading, setBuyersLoading] = useState(false);
+  const isRootAdmin = isRootAdminEmail(user.email);
 
   useEffect(() => {
     if (isRootAdmin) {
@@ -49,8 +50,6 @@ export const AdminDashboard: React.FC = () => {
       bazaarApi.getAdminBuyers().then(setBuyers).finally(() => setBuyersLoading(false));
     }
   }, [isRootAdmin]);
-
-  const isRootAdmin = isRootAdminEmail(user.email);
 
   if (!isRootAdmin) {
     return (
