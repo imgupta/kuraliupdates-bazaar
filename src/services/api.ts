@@ -787,8 +787,9 @@ export const bazaarApi = {
 
   async getLatestDailyHelpBooking(buyerPhone: string): Promise<DailyHelpBooking | null> {
     try {
+      const token = localStorage.getItem('kurali_auth_token');
       const res = await fetch(`${API_BASE_URL}/daily-help/bookings/latest?buyerPhone=${encodeURIComponent(buyerPhone)}`, {
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) return null;
       return await res.json();
@@ -830,8 +831,9 @@ export const bazaarApi = {
 
   async getDailyHelpProfessionalByPhone(phone: string): Promise<DailyHelpProfessional | null> {
     try {
+      const token = localStorage.getItem('kurali_auth_token');
       const res = await fetch(`${API_BASE_URL}/daily-help/professionals/by-phone/${encodeURIComponent(phone)}`, {
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) return null;
       return await res.json();
@@ -847,9 +849,10 @@ export const bazaarApi = {
     locality?: string
   ): Promise<DailyHelpProfessional | null> {
     try {
+      const token = localStorage.getItem('kurali_auth_token');
       const res = await fetch(`${API_BASE_URL}/daily-help/professionals/${encodeURIComponent(professionalId)}/availability`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ status, locality }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -862,8 +865,9 @@ export const bazaarApi = {
 
   async getDailyHelpProfessionalAvailableJobs(professionalId: string): Promise<DailyHelpBooking[]> {
     try {
+      const token = localStorage.getItem('kurali_auth_token');
       const res = await fetch(`${API_BASE_URL}/daily-help/professionals/${encodeURIComponent(professionalId)}/jobs/available`, {
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) return [];
       return await res.json();
@@ -875,9 +879,10 @@ export const bazaarApi = {
 
   async acceptDailyHelpJob(professionalId: string, bookingId: string): Promise<DailyHelpBooking | null> {
     try {
+      const token = localStorage.getItem('kurali_auth_token');
       const res = await fetch(`${API_BASE_URL}/daily-help/professionals/${encodeURIComponent(professionalId)}/jobs/${encodeURIComponent(bookingId)}/accept`, {
         method: 'POST',
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
@@ -889,8 +894,9 @@ export const bazaarApi = {
 
   async getDailyHelpProfessionalJobs(professionalId: string): Promise<DailyHelpBooking[]> {
     try {
+      const token = localStorage.getItem('kurali_auth_token');
       const res = await fetch(`${API_BASE_URL}/daily-help/professionals/${encodeURIComponent(professionalId)}/jobs`, {
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) return [];
       return await res.json();
@@ -902,8 +908,9 @@ export const bazaarApi = {
 
   async getDailyHelpProfessionalEarnings(professionalId: string): Promise<DailyHelpProfessionalEarnings | null> {
     try {
+      const token = localStorage.getItem('kurali_auth_token');
       const res = await fetch(`${API_BASE_URL}/daily-help/professionals/${encodeURIComponent(professionalId)}/earnings`, {
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) return null;
       return await res.json();
@@ -915,9 +922,10 @@ export const bazaarApi = {
 
   async updateDailyHelpBookingStatus(bookingId: string, professionalId: string, status: 'ARRIVING' | 'READY_TO_START'): Promise<DailyHelpBooking | null> {
     try {
+      const token = localStorage.getItem('kurali_auth_token');
       const res = await fetch(`${API_BASE_URL}/daily-help/bookings/${encodeURIComponent(bookingId)}/status`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ professionalId, status }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -930,9 +938,10 @@ export const bazaarApi = {
 
   async startDailyHelpBooking(bookingId: string, professionalId: string, otp: string): Promise<DailyHelpBooking | null> {
     try {
+      const token = localStorage.getItem('kurali_auth_token');
       const res = await fetch(`${API_BASE_URL}/daily-help/bookings/${encodeURIComponent(bookingId)}/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ professionalId, otp }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -945,9 +954,10 @@ export const bazaarApi = {
 
   async completeDailyHelpBooking(bookingId: string, professionalId: string): Promise<DailyHelpBooking | null> {
     try {
+      const token = localStorage.getItem('kurali_auth_token');
       const res = await fetch(`${API_BASE_URL}/daily-help/bookings/${encodeURIComponent(bookingId)}/complete?professionalId=${encodeURIComponent(professionalId)}`, {
         method: 'POST',
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
