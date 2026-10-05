@@ -324,6 +324,18 @@ export const bazaarApi = {
     return true;
   },
 
+  async getAdminDailyHelpHelpers(): Promise<any[]> {
+    const headers = adminAuthHeaders();
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/daily-help/helpers`, { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getAdminDailyHelpHelpers failed:', err);
+      return [];
+    }
+  },
+
   async getAdminDailyHelpServices(): Promise<any[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/daily-help/services`, { headers: adminAuthHeaders() });
