@@ -6,12 +6,9 @@ import {
   ShieldCheck,
   Search,
   MapPin,
-  Sparkles,
   ChevronDown,
   LogOut,
-  PlusCircle,
   Truck,
-  Percent,
   User,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -105,49 +102,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs w-full max-w-full overflow-visible">
-      {/* Top Banner: City & Domain Identity */}
-      <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white text-[11px] sm:text-xs py-1.5 px-3 sm:px-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-hidden">
-          <div className="flex items-center gap-1.5 min-w-0 truncate font-medium">
-            <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide shrink-0">
-              Kurali
-            </span>
-            <span className="truncate">
-              kuraliupdates.com &bull; Local Bazaar &amp; Express Delivery
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3 text-[11px] shrink-0 font-medium">
-            <span className="hidden sm:inline-flex items-center gap-1 opacity-90">
-              <Truck className="w-3.5 h-3.5" /> 25-Min Express Delivery
-            </span>
-            <span className="inline-flex items-center gap-1 bg-white/15 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">
-              {user.role === 'seller' ? (
-                <>
-                  <Store className="w-3 h-3 text-amber-200" />
-                  <span>Merchant: {currentSeller?.name || user.name}</span>
-                </>
-              ) : user.role === 'delivery' ? (
-                <>
-                  <Bike className="w-3 h-3 text-emerald-200" />
-                  <span>Fleet Partner: {user.name}</span>
-                </>
-              ) : user.role === 'admin' ? (
-                <>
-                  <ShieldCheck className="w-3 h-3 text-purple-200" />
-                  <span>City Admin: {user.name}</span>
-                </>
-              ) : (
-                <>
-                  <ShoppingBag className="w-3 h-3 text-amber-200" />
-                  <span>Shopper: {user.name}</span>
-                </>
-              )}
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* Main Navbar */}
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3">
         <div className="flex items-center justify-between gap-2 sm:gap-3">
@@ -371,15 +325,6 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
                 </div>
 
-                {/* Direct Visible Logout Button */}
-                <button
-                  onClick={logout}
-                  title="Log out of your account"
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 text-xs font-bold transition-all cursor-pointer shrink-0 shadow-xs"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Logout</span>
-                </button>
               </div>
             ) : (
               <button
