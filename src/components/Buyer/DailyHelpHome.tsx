@@ -12,6 +12,14 @@ const formatDuration = (seconds: number) => {
   return h > 0 ? `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 };
 
+const FALLBACK_SERVICES: DailyHelpService[] = [
+  { id: 'DH-MAID', category: 'Everyday Help', name: 'Maid / Home Helper', description: 'Sweeping, mopping, dusting, dishes and everyday household help.', pricingUnit: 'HOUR', pricePerHour: 199, minHours: 2, active: true },
+  { id: 'DH-COOK', category: 'Everyday Help', name: 'Cooking Help', description: 'Everyday meal preparation and kitchen assistance at home.', pricingUnit: 'HOUR', pricePerHour: 249, minHours: 2, active: true },
+  { id: 'DH-LAUNDRY', category: 'Everyday Help', name: 'Laundry & Folding', description: 'Washing, drying, folding and basic laundry assistance.', pricingUnit: 'HOUR', pricePerHour: 199, minHours: 2, active: true },
+  { id: 'DH-KITCHEN', category: 'Cleaning', name: 'Kitchen & Utensils', description: 'Kitchen cleaning, dishes, counters and routine utensil washing.', pricingUnit: 'HOUR', pricePerHour: 199, minHours: 1, active: true },
+  { id: 'DH-BATHROOM', category: 'Cleaning', name: 'Bathroom Cleaning', description: 'Routine bathroom cleaning and sanitisation assistance.', pricingUnit: 'HOUR', pricePerHour: 249, minHours: 1, active: true },
+];
+
 const statusLabel: Record<string, string> = {
   SEARCHING: 'Finding a nearby professional',
   CONFIRMED: 'Booking confirmed',
@@ -27,6 +35,7 @@ export const DailyHelpHome: React.FC = () => {
   const { user, showToast } = useApp();
   const [services, setServices] = useState<DailyHelpService[]>([]);
   const [loading, setLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState(false);
   const [selected, setSelected] = useState<DailyHelpService | null>(null);
   const [hours, setHours] = useState(2);
   const [scheduledStart, setScheduledStart] = useState('');
@@ -35,7 +44,13 @@ export const DailyHelpHome: React.FC = () => {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    bazaarApi.getDailyHelpServices().then(data => setServices(data)).finally(() => setLoading(false));
+    bazaarApi.getDailyHelpServices()
+      .then(data => {
+        if (data.length > 0) setServices(data);
+        else { setServices(FALLBACK_SERVICES); setCatalogError(true); }
+      })
+      .catch(() => { setServices(FALLBACK_SERVICES); setCatalogError(true); })
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -161,6 +176,11 @@ export const DailyHelpHome: React.FC = () => {
       )}
 
       <section>
+        {catalogError && (
+          <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800">
+            Showing the available Daily Help services. Live availability will refresh when the service is connected.
+          </div>
+        )}
         <div className="flex items-center justify-between mb-3">
           <div><h2 className="text-lg font-black text-slate-900">What do you need help with?</h2><p className="text-xs text-slate-500">Choose a service and book by the hour.</p></div>
         </div>
