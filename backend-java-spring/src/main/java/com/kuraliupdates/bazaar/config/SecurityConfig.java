@@ -37,12 +37,10 @@ public class SecurityConfig {
                     "/swagger-ui.html",
                     "/buyers/**",
                     "/sellers/**",
-                    "/delivery/**",
-                    "/admin/**",
-                    "/**"
+                    "/delivery/**"
                 ).permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
-                .anyRequest().permitAll()
+                .requestMatchers("/**").permitAll()
             );
 
         return http.build();
