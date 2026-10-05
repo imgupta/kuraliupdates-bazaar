@@ -2,7 +2,7 @@ package com.kuraliupdates.bazaar.controller;
 
 import com.kuraliupdates.bazaar.dto.product.ProductResponse;
 import com.kuraliupdates.bazaar.dto.seller.SellerProductRequest;
-import com.kuraliupdates.bazaar.entity.OrderEntity;
+import com.kuraliupdates.bazaar.dto.order.OrderResponse;
 import com.kuraliupdates.bazaar.entity.ProductEntity;
 import com.kuraliupdates.bazaar.entity.SellerEntity;
 import com.kuraliupdates.bazaar.service.AuthService;
@@ -81,18 +81,18 @@ public class SellerController {
 
     @GetMapping("/me/orders")
     @Operation(summary = "Get orders for the authenticated seller")
-    public ResponseEntity<List<OrderEntity>> getMyOrders(
+    public ResponseEntity<List<OrderResponse>> getMyOrders(
             @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return ResponseEntity.ok(sellerService.getOrders(bearerToken(authorization)));
+        return ResponseEntity.ok(sellerService.getOrders(bearerToken(authorization)).stream().map(OrderResponse::from).toList());
     }
 
     @PostMapping("/me/orders/{orderId}/status")
     @Operation(summary = "Advance a seller order through its allowed lifecycle")
-    public ResponseEntity<OrderEntity> updateMyOrderStatus(
+    public ResponseEntity<OrderResponse> updateMyOrderStatus(
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @PathVariable String orderId,
             @RequestParam String status) {
-        return ResponseEntity.ok(sellerService.updateOrderStatus(bearerToken(authorization), orderId, status));
+        return ResponseEntity.ok(OrderResponse.from(sellerService.updateOrderStatus(bearerToken(authorization), orderId, status)));
     }
 
     private String bearerToken(String authorization) {
