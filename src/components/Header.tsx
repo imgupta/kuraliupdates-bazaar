@@ -6,7 +6,6 @@ import {
   ShieldCheck,
   Search,
   MapPin,
-  MessageSquare,
   Sparkles,
   ChevronDown,
   LogOut,
@@ -41,8 +40,6 @@ export const Header: React.FC<HeaderProps> = ({
     sellers,
     currentSeller,
     orders,
-    chats,
-    setActiveChatId,
     setIsSellerRegisterOpen,
     setIsBuyerRegisterOpen,
     setIsDeliveryRegisterOpen,
@@ -62,9 +59,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Available pickup jobs for delivery badge
   const availableJobsCount = orders.filter(o => o.status === 'ready_for_pickup').length;
-
-  // Active chats count
-  const activeChatsCount = chats.length;
 
   const isRootAdmin = isRootAdminEmail(user.email);
 
@@ -309,24 +303,6 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="text-xs font-bold text-amber-900">Buyer Marketplace</span>
               </div>
             )}
-
-            {/* Bargain Negotiation Chat Trigger */}
-            <button
-              onClick={() => {
-                if (chats.length > 0) {
-                  setActiveChatId(chats[0].id);
-                }
-              }}
-              title="Negotiation & Bargaining Chats"
-              className="relative p-2 rounded-xl text-slate-700 hover:text-amber-600 hover:bg-amber-50 border border-slate-200 transition-colors cursor-pointer shrink-0"
-            >
-              <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
-              {activeChatsCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                  {activeChatsCount}
-                </span>
-              )}
-            </button>
 
             {/* Cart Button */}
             <button
