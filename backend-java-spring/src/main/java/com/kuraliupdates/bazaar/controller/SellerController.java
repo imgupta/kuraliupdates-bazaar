@@ -2,6 +2,8 @@ package com.kuraliupdates.bazaar.controller;
 
 import com.kuraliupdates.bazaar.dto.product.ProductResponse;
 import com.kuraliupdates.bazaar.dto.seller.SellerProductRequest;
+import com.kuraliupdates.bazaar.dto.seller.SellerDiscountRequest;
+import com.kuraliupdates.bazaar.entity.BillDiscountEntity;
 import com.kuraliupdates.bazaar.dto.order.OrderResponse;
 import com.kuraliupdates.bazaar.entity.ProductEntity;
 import com.kuraliupdates.bazaar.entity.SellerEntity;
@@ -93,6 +95,27 @@ public class SellerController {
             @PathVariable String orderId,
             @RequestParam String status) {
         return ResponseEntity.ok(OrderResponse.from(sellerService.updateOrderStatus(bearerToken(authorization), orderId, status)));
+    }
+
+    @GetMapping("/me/discounts")
+    public ResponseEntity<List<BillDiscountEntity>> getMyDiscounts(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return ResponseEntity.ok(sellerService.getDiscounts(bearerToken(authorization)));
+    }
+
+    @PostMapping("/me/discounts")
+    public ResponseEntity<BillDiscountEntity> addMyDiscount(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @Valid @RequestBody SellerDiscountRequest request) {
+        return ResponseEntity.ok(sellerService.addDiscount(bearerToken(authorization), request));
+    }
+
+    @DeleteMapping("/me/discounts/{ruleId}")
+    public ResponseEntity<Void> deleteMyDiscount(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable String ruleId) {
+        sellerService.deleteDiscount(bearerToken(authorization), ruleId);
+        return ResponseEntity.noContent().build();
     }
 
     private String bearerToken(String authorization) {
