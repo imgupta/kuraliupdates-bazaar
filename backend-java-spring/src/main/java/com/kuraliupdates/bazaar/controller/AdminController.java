@@ -1,8 +1,10 @@
 package com.kuraliupdates.bazaar.controller;
 
+import com.kuraliupdates.bazaar.dto.admin.AdminBuyerResponse;
 import com.kuraliupdates.bazaar.entity.SellerEntity;
 import com.kuraliupdates.bazaar.entity.DeliveryAgentEntity;
 import com.kuraliupdates.bazaar.repository.OrderRepository;
+import com.kuraliupdates.bazaar.repository.UserRepository;
 import com.kuraliupdates.bazaar.repository.ProductRepository;
 import com.kuraliupdates.bazaar.repository.SellerRepository;
 import com.kuraliupdates.bazaar.repository.DeliveryAgentRepository;
@@ -26,6 +28,27 @@ public class AdminController {
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
     private final DeliveryAgentRepository deliveryAgentRepository;
+    private final UserRepository userRepository;
+
+    @GetMapping("/buyers")
+    @Operation(summary = "Get registered buyer accounts for the root admin")
+    public ResponseEntity<List<AdminBuyerResponse>> getBuyers() {
+        List<AdminBuyerResponse> buyers = userRepository.findByRoleIgnoreCaseOrderByCreatedAtDesc("BUYER")
+                .stream()
+                .map(user -> new AdminBuyerResponse(
+                        user.getUserId(),
+                        user.getName(),
+                        user.getEmail(),
+                        user.getPhone(),
+                        user.getLocality(),
+                        user.getAddress(),
+                        user.getFormattedAddress(),
+                        user.getIsVerified(),
+                        user.getCreatedAt(),
+                        user.getLastLogin()))
+                .toList();
+        return ResponseEntity.ok(buyers);
+    }
 
     @GetMapping("/sellers/pending")
     @Operation(summary = "Get list of newly registered sellers waiting for Admin Approval")
