@@ -1,11 +1,17 @@
 package com.kuraliupdates.bazaar.controller;
 
+import com.kuraliupdates.bazaar.dto.product.ProductResponse;
+import com.kuraliupdates.bazaar.dto.seller.SellerProductRequest;
+import com.kuraliupdates.bazaar.entity.OrderEntity;
 import com.kuraliupdates.bazaar.entity.ProductEntity;
 import com.kuraliupdates.bazaar.entity.SellerEntity;
+import com.kuraliupdates.bazaar.service.AuthService;
+import com.kuraliupdates.bazaar.service.SellerService;
 import com.kuraliupdates.bazaar.repository.ProductRepository;
 import com.kuraliupdates.bazaar.repository.SellerRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,45 +25,78 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Tag(name = "Seller Microservice API", description = "Shopkeeper registration, Admin approval flow, inventory & pricing")
 public class SellerController {
-
     private final SellerRepository sellerRepository;
     private final ProductRepository productRepository;
+    private final SellerService sellerService;
+    private final AuthService authService;
 
     @PostMapping("/register")
-    @Operation(summary = "Register new Kurali Shop (Enters PENDING state for Admin Approval)")
+    @Operation(summary = "Register new Kurali Shop (legacy endpoint)")
     public ResponseEntity<SellerEntity> registerSeller(@RequestBody SellerEntity seller) {
         seller.setSellerId("seller-" + UUID.randomUUID().toString().substring(0, 8));
-        seller.setStatus("PENDING"); // Requires Admin approval
+        seller.setStatus("PENDING");
         seller.setRegisteredAt(LocalDateTime.now());
-        SellerEntity saved = sellerRepository.save(seller);
-        return ResponseEntity.ok(saved);
+        return ResponseEntity.ok(sellerRepository.save(seller));
     }
 
-    @GetMapping("/{sellerId}")
-    @Operation(summary = "Get Seller details and status")
-    public ResponseEntity<SellerEntity> getSeller(@PathVariable String sellerId) {
-        return sellerRepository.findById(sellerId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    @GetMapping("/me")
+    @Operation(summary = "Get the authenticated seller store")
+    public ResponseEntity<SellerEntity> getCurrentSeller(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return ResponseEntity.ok(sellerService.getCurrentSeller(bearerToken(authorization)));
     }
 
-    @PostMapping("/{sellerId}/products")
-    @Operation(summary = "Upload inventory with MRP, Seller Price, and Additional Discount %")
-    public ResponseEntity<ProductEntity> addProduct(
-            @PathVariable String sellerId,
-            @RequestBody ProductEntity product) {
-        return sellerRepository.findById(sellerId).map(seller -> {
-            product.setProductId("prod-" + UUID.randomUUID().toString().substring(0, 8));
-            product.setSeller(seller);
-            product.setCreatedAt(LocalDateTime.now());
-            ProductEntity saved = productRepository.save(product);
-            return ResponseEntity.ok(saved);
-        }).orElse(ResponseEntity.badRequest().build());
+    @GetMapping("/me/products")
+    @Operation(summary = "Get products owned by the authenticated seller")
+    public ResponseEntity<List<ProductResponse>> getMyProducts(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return ResponseEntity.ok(sellerService.getProducts(bearerToken(authorization)));
     }
 
-    @GetMapping("/{sellerId}/products")
-    @Operation(summary = "Get all products for a specific Kurali store")
-    public ResponseEntity<List<ProductEntity>> getSellerProducts(@PathVariable String sellerId) {
-        return ResponseEntity.ok(productRepository.findBySeller_SellerId(sellerId));
+    @PostMapping("/me/products")
+    @Operation(summary = "Add product for the authenticated approved seller")
+    public ResponseEntity<ProductResponse> addMyProduct(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @Valid @RequestBody SellerProductRequest request) {
+        return ResponseEntity.ok(sellerService.addProduct(bearerToken(authorization), request));
+    }
+
+    @PutMapping("/me/products/{productId}")
+    @Operation(summary = "Update product owned by the authenticated seller")
+    public ResponseEntity<ProductResponse> updateMyProduct(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable String productId,
+            @Valid @RequestBody SellerProductRequest request) {
+        return ResponseEntity.ok(sellerService.updateProduct(bearerToken(authorization), productId, request));
+    }
+
+    @DeleteMapping("/me/products/{productId}")
+    @Operation(summary = "Delete product owned by the authenticated seller")
+    public ResponseEntity<Void> deleteMyProduct(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable String productId) {
+        sellerService.deleteProduct(bearerToken(authorization), productId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/me/orders")
+    @Operation(summary = "Get orders for the authenticated seller")
+    public ResponseEntity<List<OrderEntity>> getMyOrders(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return ResponseEntity.ok(sellerService.getOrders(bearerToken(authorization)));
+    }
+
+    @PostMapping("/me/orders/{orderId}/status")
+    @Operation(summary = "Advance a seller order through its allowed lifecycle")
+    public ResponseEntity<OrderEntity> updateMyOrderStatus(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable String orderId,
+            @RequestParam String status) {
+        return ResponseEntity.ok(sellerService.updateOrderStatus(bearerToken(authorization), orderId, status));
+    }
+
+    private String bearerToken(String authorization) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) return null;
+        return authorization.substring(7).trim();
     }
 }
