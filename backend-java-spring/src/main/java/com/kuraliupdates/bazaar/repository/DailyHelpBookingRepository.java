@@ -2,10 +2,15 @@ package com.kuraliupdates.bazaar.repository;
 
 import com.kuraliupdates.bazaar.entity.DailyHelpBookingEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import java.util.Optional;
 
 public interface DailyHelpBookingRepository extends JpaRepository<DailyHelpBookingEntity, String> {
     Optional<DailyHelpBookingEntity> findFirstByBuyerPhoneOrderByCreatedAtDesc(String buyerPhone);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<DailyHelpBookingEntity> findLockedByBookingId(String bookingId);
 
     java.util.List<DailyHelpBookingEntity> findByStatusAndLocalityIgnoreCaseAndProfessionalIsNullOrderByScheduledStartAsc(
             String status, String locality);
