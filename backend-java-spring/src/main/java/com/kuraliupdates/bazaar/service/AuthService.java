@@ -10,6 +10,8 @@ import com.kuraliupdates.bazaar.entity.SellerEntity;
 import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.entity.UserSessionEntity;
 import com.kuraliupdates.bazaar.repository.DeliveryAgentRepository;
+import com.kuraliupdates.bazaar.repository.DailyHelpProfessionalRepository;
+import com.kuraliupdates.bazaar.entity.DailyHelpProfessionalEntity;
 import com.kuraliupdates.bazaar.repository.SellerRepository;
 import com.kuraliupdates.bazaar.repository.UserRepository;
 import com.kuraliupdates.bazaar.repository.UserSessionRepository;
@@ -38,6 +40,7 @@ public class AuthService {
     private final UserSessionRepository sessionRepository;
     private final SellerRepository sellerRepository;
     private final DeliveryAgentRepository deliveryAgentRepository;
+    private final DailyHelpProfessionalRepository dailyHelpProfessionalRepository;
     private final OtpService otpService;
     private final BuyerAddressService addressService;
 
@@ -220,6 +223,13 @@ public class AuthService {
                     .status("PENDING").rating(BigDecimal.ZERO).totalTrips(0)
                     .todayEarnings(BigDecimal.ZERO).totalEarnings(BigDecimal.ZERO)
                     .currentLocality(locality).registeredAt(now).build());
+        } else if ("PROFESSIONAL".equals(user.getRole())) {
+            dailyHelpProfessionalRepository.save(DailyHelpProfessionalEntity.builder()
+                    .professionalId("DHP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                    .fullName(user.getName()).phone(user.getPhone())
+                    .rating(BigDecimal.ZERO).reviewCount(0)
+                    .currentLocality(locality).status("OFFLINE").verified(1)
+                    .registeredAt(now).updatedAt(now).build());
         }
     }
 
@@ -253,7 +263,7 @@ public class AuthService {
 
     private String normalizeRole(String role) {
         String normalized = role == null ? "BUYER" : role.trim().toUpperCase();
-        return Set.of("BUYER", "SELLER", "DELIVERY").contains(normalized) ? normalized : "BUYER";
+        return Set.of("BUYER", "SELLER", "DELIVERY", "PROFESSIONAL").contains(normalized) ? normalized : "BUYER";
     }
 
     private String normalizeIdentifier(String value, String type) {
