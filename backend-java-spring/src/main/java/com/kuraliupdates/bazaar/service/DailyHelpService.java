@@ -88,6 +88,21 @@ public class DailyHelpService {
     }
 
     @Transactional
+    public DailyHelpBookingResponse updateStatus(String bookingId, String professionalId, String status) {
+        DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
+        if (booking.getProfessional() == null || !booking.getProfessional().getProfessionalId().equals(professionalId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Professional is not assigned to this booking");
+        }
+        if (!List.of("ARRIVING", "READY_TO_START").contains(status)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported Daily Help status");
+        }
+        booking.setStatus(status);
+        booking.setUpdatedAt(LocalDateTime.now());
+        return DailyHelpBookingResponse.from(bookingRepository.save(booking), true);
+    }
+
+    @Transactional
     public DailyHelpBookingResponse startBooking(String bookingId, DailyHelpStartRequest request) {
         DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
