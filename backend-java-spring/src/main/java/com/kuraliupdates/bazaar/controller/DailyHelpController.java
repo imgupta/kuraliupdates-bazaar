@@ -13,6 +13,10 @@ import com.kuraliupdates.bazaar.service.DailyHelpService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import com.kuraliupdates.bazaar.entity.UserEntity;
+import com.kuraliupdates.bazaar.exception.ApiException;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,7 +34,11 @@ public class DailyHelpController {
 
     @PostMapping("/bookings")
     public ResponseEntity<DailyHelpBookingResponse> createBooking(
-            @Valid @RequestBody DailyHelpBookingRequest request) {
+            @Valid @RequestBody DailyHelpBookingRequest request, Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        if (!"BUYER".equalsIgnoreCase(user.getRole()) || !samePhone(user.getPhone(), request.buyerPhone())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You can only create a Daily Help booking for your own account");
+        }
         return ResponseEntity.ok(dailyHelpService.createBooking(request));
     }
 
@@ -41,66 +49,108 @@ public class DailyHelpController {
     }
 
     @GetMapping("/professionals/by-phone/{phone}")
-    public ResponseEntity<DailyHelpProfessionalResponse> professionalByPhone(@PathVariable String phone) {
-        return ResponseEntity.ok(dailyHelpService.getProfessionalByPhone(phone));
+    public ResponseEntity<DailyHelpProfessionalResponse> professionalByPhone(@PathVariable String phone, Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        if (!"PROFESSIONAL".equalsIgnoreCase(user.getRole()) || !samePhone(user.getPhone(), phone)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You can only access your own professional profile");
+        }
+        return ResponseEntity.ok(dailyHelpService.getProfessionalByPhone(user.getPhone()));
     }
 
     @PostMapping("/professionals/{professionalId}/availability")
     public ResponseEntity<DailyHelpProfessionalResponse> availability(
             @PathVariable String professionalId,
-            @Valid @RequestBody DailyHelpProfessionalAvailabilityRequest request) {
+            @Valid @RequestBody DailyHelpProfessionalAvailabilityRequest request, Authentication authentication) {
+        requireOwnProfessional(authentication, professionalId);
         return ResponseEntity.ok(dailyHelpService.updateProfessionalAvailability(professionalId, request));
     }
 
     @GetMapping("/professionals/{professionalId}/jobs/available")
-    public ResponseEntity<List<DailyHelpBookingResponse>> availableJobs(@PathVariable String professionalId) {
+    public ResponseEntity<List<DailyHelpBookingResponse>> availableJobs(@PathVariable String professionalId, Authentication authentication) {
+        requireOwnProfessional(authentication, professionalId);
         return ResponseEntity.ok(dailyHelpService.getAvailableJobs(professionalId));
     }
 
     @PostMapping("/professionals/{professionalId}/jobs/{bookingId}/accept")
     public ResponseEntity<DailyHelpBookingResponse> acceptJob(
-            @PathVariable String professionalId, @PathVariable String bookingId) {
+            @PathVariable String professionalId, @PathVariable String bookingId, Authentication authentication) {
+        requireOwnProfessional(authentication, professionalId);
         return ResponseEntity.ok(dailyHelpService.acceptJob(professionalId, bookingId));
     }
 
     @GetMapping("/professionals/{professionalId}/jobs")
-    public ResponseEntity<List<DailyHelpBookingResponse>> professionalJobs(@PathVariable String professionalId) {
+    public ResponseEntity<List<DailyHelpBookingResponse>> professionalJobs(@PathVariable String professionalId, Authentication authentication) {
+        requireOwnProfessional(authentication, professionalId);
         return ResponseEntity.ok(dailyHelpService.getProfessionalJobs(professionalId));
     }
 
     @GetMapping("/professionals/{professionalId}/earnings")
-    public ResponseEntity<DailyHelpProfessionalEarningsResponse> earnings(@PathVariable String professionalId) {
+    public ResponseEntity<DailyHelpProfessionalEarningsResponse> earnings(@PathVariable String professionalId, Authentication authentication) {
+        requireOwnProfessional(authentication, professionalId);
         return ResponseEntity.ok(dailyHelpService.getProfessionalEarnings(professionalId));
     }
 
     @GetMapping("/bookings/latest")
-    public ResponseEntity<DailyHelpBookingResponse> getLatestBooking(@RequestParam String buyerPhone) {
-        return ResponseEntity.ok(dailyHelpService.getLatestBooking(buyerPhone));
+    public ResponseEntity<DailyHelpBookingResponse> getLatestBooking(@RequestParam String buyerPhone, Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        if (!"BUYER".equalsIgnoreCase(user.getRole()) || !samePhone(user.getPhone(), buyerPhone)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You can only access your own Daily Help bookings");
+        }
+        return ResponseEntity.ok(dailyHelpService.getLatestBooking(user.getPhone()));
     }
 
     @GetMapping("/bookings/{bookingId}")
-    public ResponseEntity<DailyHelpBookingResponse> getBooking(@PathVariable String bookingId) {
-        return ResponseEntity.ok(dailyHelpService.getBooking(bookingId));
+    public ResponseEntity<DailyHelpBookingResponse> getBooking(@PathVariable String bookingId, Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        return ResponseEntity.ok(dailyHelpService.getBookingForUser(bookingId, user));
     }
 
     @PostMapping("/bookings/{bookingId}/status")
     public ResponseEntity<DailyHelpBookingResponse> updateStatus(
             @PathVariable String bookingId,
-            @Valid @RequestBody DailyHelpStatusRequest request) {
+            @Valid @RequestBody DailyHelpStatusRequest request, Authentication authentication) {
+        requireOwnProfessional(authentication, request.professionalId());
         return ResponseEntity.ok(dailyHelpService.updateStatus(bookingId, request.professionalId(), request.status()));
     }
 
     @PostMapping("/bookings/{bookingId}/start")
     public ResponseEntity<DailyHelpBookingResponse> startBooking(
             @PathVariable String bookingId,
-            @Valid @RequestBody DailyHelpStartRequest request) {
+            @Valid @RequestBody DailyHelpStartRequest request, Authentication authentication) {
+        requireOwnProfessional(authentication, request.professionalId());
         return ResponseEntity.ok(dailyHelpService.startBooking(bookingId, request));
     }
 
     @PostMapping("/bookings/{bookingId}/complete")
     public ResponseEntity<DailyHelpBookingResponse> completeBooking(
             @PathVariable String bookingId,
-            @RequestParam String professionalId) {
+            @RequestParam String professionalId, Authentication authentication) {
+        requireOwnProfessional(authentication, professionalId);
         return ResponseEntity.ok(dailyHelpService.completeBooking(bookingId, professionalId));
+    }
+
+    private UserEntity requireUser(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "An authenticated session is required");
+        }
+        return user;
+    }
+
+    private void requireOwnProfessional(Authentication authentication, String professionalId) {
+        UserEntity user = requireUser(authentication);
+        if (!"PROFESSIONAL".equalsIgnoreCase(user.getRole())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Professional account required");
+        }
+        DailyHelpProfessionalResponse profile = dailyHelpService.getProfessionalByPhone(user.getPhone());
+        if (!profile.professionalId().equals(professionalId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You can only manage your own professional account");
+        }
+    }
+
+    private boolean samePhone(String left, String right) {
+        if (left == null || right == null) return false;
+        String a = left.replaceAll("\\D", "");
+        String b = right.replaceAll("\\D", "");
+        return !a.isBlank() && a.equals(b);
     }
 }
