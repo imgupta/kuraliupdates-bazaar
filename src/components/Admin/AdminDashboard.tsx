@@ -47,22 +47,25 @@ export const AdminDashboard: React.FC = () => {
   const [adminDeliveryAgents, setAdminDeliveryAgents] = useState<any[]>([]);
   const [adminAnalytics, setAdminAnalytics] = useState<any | null>(null);
   const [adminDataLoading, setAdminDataLoading] = useState(false);
+  const [adminSearchTrends, setAdminSearchTrends] = useState<any[]>([]);
   const isRootAdmin = isRootAdminEmail(user.email);
 
   const refreshAdminData = async () => {
     if (!isRootAdmin) return;
     setAdminDataLoading(true);
     try {
-      const [remoteSellers, remoteAgents, analytics, remoteBuyers] = await Promise.all([
+      const [remoteSellers, remoteAgents, analytics, remoteBuyers, searchTrends] = await Promise.all([
         bazaarApi.getAdminSellers(),
         bazaarApi.getAdminDeliveryAgents(),
         bazaarApi.getAdminAnalytics(),
         bazaarApi.getAdminBuyers(),
+        bazaarApi.getAdminSearchTrends(),
       ]);
       setAdminSellers(remoteSellers);
       setAdminDeliveryAgents(remoteAgents);
       setAdminAnalytics(analytics);
       setBuyers(remoteBuyers);
+      setAdminSearchTrends(searchTrends);
     } finally {
       setAdminDataLoading(false);
       setBuyersLoading(false);
@@ -228,7 +231,7 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Tab: Trends */}
-      {activeAdminTab === 'trends' && <MarketTrendsVisualization analytics={adminAnalytics} loading={adminDataLoading} />}
+      {activeAdminTab === 'trends' && <MarketTrendsVisualization analytics={adminAnalytics} searchTrends={adminSearchTrends} loading={adminDataLoading} />}
 
       {/* Tab: Approvals */}
       {activeAdminTab === 'approvals' && (
