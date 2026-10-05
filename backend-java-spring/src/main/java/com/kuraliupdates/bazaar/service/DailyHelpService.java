@@ -188,7 +188,6 @@ public class DailyHelpService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Booking is not ready to start");
         }
 
-        LocalDateTime now = LocalDateTime.now();
         booking.setOtpVerifiedAt(now);
         booking.setStartOtp(null);
         booking.setOtpExpiresAt(null);
