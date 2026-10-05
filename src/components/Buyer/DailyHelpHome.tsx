@@ -39,6 +39,13 @@ export const DailyHelpHome: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!user.phone) return;
+    bazaarApi.getLatestDailyHelpBooking(user.phone).then(latest => {
+      if (latest && !['COMPLETED', 'CANCELLED'].includes(latest.status)) setBooking(latest);
+    });
+  }, [user.phone]);
+
+  useEffect(() => {
     if (!booking?.id || !['SEARCHING','CONFIRMED','PROFESSIONAL_ASSIGNED','ARRIVING','READY_TO_START','IN_PROGRESS'].includes(booking.status)) return;
     const refresh = async () => {
       const latest = await bazaarApi.getDailyHelpBooking(booking.id);
