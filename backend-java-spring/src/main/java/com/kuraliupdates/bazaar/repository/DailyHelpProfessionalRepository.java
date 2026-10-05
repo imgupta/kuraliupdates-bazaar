@@ -7,4 +7,6 @@ import java.util.Optional;
 public interface DailyHelpProfessionalRepository extends JpaRepository<DailyHelpProfessionalEntity, String> {
     Optional<DailyHelpProfessionalEntity> findFirstByStatusAndVerifiedAndCurrentLocalityIgnoreCaseOrderByRatingDesc(
             String status, Integer verified, String currentLocality);
+
+    Optional<DailyHelpProfessionalEntity> findByPhone(String phone);
 }
