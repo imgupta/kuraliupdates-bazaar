@@ -5,6 +5,10 @@ import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpBookingResponse;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpStartRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpStatusRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpServiceResponse;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalAvailabilityRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalRegistrationRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalResponse;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalEarningsResponse;
 import com.kuraliupdates.bazaar.service.DailyHelpService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +32,45 @@ public class DailyHelpController {
     public ResponseEntity<DailyHelpBookingResponse> createBooking(
             @Valid @RequestBody DailyHelpBookingRequest request) {
         return ResponseEntity.ok(dailyHelpService.createBooking(request));
+    }
+
+    @PostMapping("/professionals/register")
+    public ResponseEntity<DailyHelpProfessionalResponse> registerProfessional(
+            @Valid @RequestBody DailyHelpProfessionalRegistrationRequest request) {
+        return ResponseEntity.ok(dailyHelpService.registerProfessional(request));
+    }
+
+    @GetMapping("/professionals/by-phone/{phone}")
+    public ResponseEntity<DailyHelpProfessionalResponse> professionalByPhone(@PathVariable String phone) {
+        return ResponseEntity.ok(dailyHelpService.getProfessionalByPhone(phone));
+    }
+
+    @PostMapping("/professionals/{professionalId}/availability")
+    public ResponseEntity<DailyHelpProfessionalResponse> availability(
+            @PathVariable String professionalId,
+            @Valid @RequestBody DailyHelpProfessionalAvailabilityRequest request) {
+        return ResponseEntity.ok(dailyHelpService.updateProfessionalAvailability(professionalId, request));
+    }
+
+    @GetMapping("/professionals/{professionalId}/jobs/available")
+    public ResponseEntity<List<DailyHelpBookingResponse>> availableJobs(@PathVariable String professionalId) {
+        return ResponseEntity.ok(dailyHelpService.getAvailableJobs(professionalId));
+    }
+
+    @PostMapping("/professionals/{professionalId}/jobs/{bookingId}/accept")
+    public ResponseEntity<DailyHelpBookingResponse> acceptJob(
+            @PathVariable String professionalId, @PathVariable String bookingId) {
+        return ResponseEntity.ok(dailyHelpService.acceptJob(professionalId, bookingId));
+    }
+
+    @GetMapping("/professionals/{professionalId}/jobs")
+    public ResponseEntity<List<DailyHelpBookingResponse>> professionalJobs(@PathVariable String professionalId) {
+        return ResponseEntity.ok(dailyHelpService.getProfessionalJobs(professionalId));
+    }
+
+    @GetMapping("/professionals/{professionalId}/earnings")
+    public ResponseEntity<DailyHelpProfessionalEarningsResponse> earnings(@PathVariable String professionalId) {
+        return ResponseEntity.ok(dailyHelpService.getProfessionalEarnings(professionalId));
     }
 
     @GetMapping("/bookings/latest")
