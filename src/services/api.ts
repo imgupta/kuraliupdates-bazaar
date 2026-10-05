@@ -3,7 +3,7 @@
  * Hosted Live on Render: https://kuraliupdates-bazaar.onrender.com/api/v1
  */
 
-import { Product, Seller, Order, DeliveryAgent, DailyHelpService, DailyHelpBooking } from '../types';
+import { Product, Seller, Order, DeliveryAgent, DailyHelpService, DailyHelpBooking, DailyHelpProfessional, DailyHelpProfessionalEarnings } from '../types';
 
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string) ||
@@ -776,6 +776,151 @@ export const bazaarApi = {
       return await res.json();
     } catch (err) {
       console.warn('Backend getDailyHelpBooking failed:', err);
+      return null;
+    }
+  },
+
+
+  async registerDailyHelpProfessional(payload: { name: string; phone: string; locality: string }): Promise<DailyHelpProfessional | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/daily-help/professionals/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend registerDailyHelpProfessional failed:', err);
+      return null;
+    }
+  },
+
+  async getDailyHelpProfessionalByPhone(phone: string): Promise<DailyHelpProfessional | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/daily-help/professionals/by-phone/${encodeURIComponent(phone)}`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getDailyHelpProfessionalByPhone failed:', err);
+      return null;
+    }
+  },
+
+  async updateDailyHelpProfessionalAvailability(
+    professionalId: string,
+    status: 'AVAILABLE' | 'OFFLINE',
+    locality?: string
+  ): Promise<DailyHelpProfessional | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/daily-help/professionals/${encodeURIComponent(professionalId)}/availability`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ status, locality }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend updateDailyHelpProfessionalAvailability failed:', err);
+      return null;
+    }
+  },
+
+  async getDailyHelpProfessionalAvailableJobs(professionalId: string): Promise<DailyHelpBooking[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/daily-help/professionals/${encodeURIComponent(professionalId)}/jobs/available`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) return [];
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getDailyHelpProfessionalAvailableJobs failed:', err);
+      return [];
+    }
+  },
+
+  async acceptDailyHelpJob(professionalId: string, bookingId: string): Promise<DailyHelpBooking | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/daily-help/professionals/${encodeURIComponent(professionalId)}/jobs/${encodeURIComponent(bookingId)}/accept`, {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend acceptDailyHelpJob failed:', err);
+      return null;
+    }
+  },
+
+  async getDailyHelpProfessionalJobs(professionalId: string): Promise<DailyHelpBooking[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/daily-help/professionals/${encodeURIComponent(professionalId)}/jobs`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) return [];
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getDailyHelpProfessionalJobs failed:', err);
+      return [];
+    }
+  },
+
+  async getDailyHelpProfessionalEarnings(professionalId: string): Promise<DailyHelpProfessionalEarnings | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/daily-help/professionals/${encodeURIComponent(professionalId)}/earnings`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getDailyHelpProfessionalEarnings failed:', err);
+      return null;
+    }
+  },
+
+  async updateDailyHelpBookingStatus(bookingId: string, professionalId: string, status: 'ARRIVING' | 'READY_TO_START'): Promise<DailyHelpBooking | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/daily-help/bookings/${encodeURIComponent(bookingId)}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ professionalId, status }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend updateDailyHelpBookingStatus failed:', err);
+      return null;
+    }
+  },
+
+  async startDailyHelpBooking(bookingId: string, professionalId: string, otp: string): Promise<DailyHelpBooking | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/daily-help/bookings/${encodeURIComponent(bookingId)}/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ professionalId, otp }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend startDailyHelpBooking failed:', err);
+      return null;
+    }
+  },
+
+  async completeDailyHelpBooking(bookingId: string, professionalId: string): Promise<DailyHelpBooking | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/daily-help/bookings/${encodeURIComponent(bookingId)}/complete?professionalId=${encodeURIComponent(professionalId)}`, {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend completeDailyHelpBooking failed:', err);
       return null;
     }
   },
