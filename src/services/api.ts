@@ -297,6 +297,33 @@ export const bazaarApi = {
     return data;
   },
 
+  async getSellerDiscounts(): Promise<any[]> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) return [];
+    try {
+      const res = await fetch(`${API_BASE_URL}/sellers/me/discounts`, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) { console.warn('Backend getSellerDiscounts failed:', err); return []; }
+  },
+
+  async createSellerDiscount(payload: Record<string, any>): Promise<any> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) throw new Error('Your seller session has expired.');
+    const res = await fetch(`${API_BASE_URL}/sellers/me/discounts`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+    return data;
+  },
+
+  async deleteSellerDiscount(ruleId: string): Promise<boolean> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) return false;
+    const res = await fetch(`${API_BASE_URL}/sellers/me/discounts/${encodeURIComponent(ruleId)}`, { method: 'DELETE', headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error((await res.json().catch(() => null))?.message || `HTTP ${res.status}`);
+    return true;
+  },
+
   async getAdminDailyHelpServices(): Promise<any[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/daily-help/services`, { headers: adminAuthHeaders() });
