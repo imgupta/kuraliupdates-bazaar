@@ -44,7 +44,11 @@ public class DailyHelpController {
 
     @PostMapping("/professionals/register")
     public ResponseEntity<DailyHelpProfessionalResponse> registerProfessional(
-            @Valid @RequestBody DailyHelpProfessionalRegistrationRequest request) {
+            @Valid @RequestBody DailyHelpProfessionalRegistrationRequest request, Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        if (!"PROFESSIONAL".equalsIgnoreCase(user.getRole()) || !samePhone(user.getPhone(), request.phone())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Professional registration must match the authenticated account");
+        }
         return ResponseEntity.ok(dailyHelpService.registerProfessional(request));
     }
 
