@@ -3,7 +3,7 @@
  * Hosted Live on Render: https://kuraliupdates-bazaar.onrender.com/api/v1
  */
 
-import { Product, Seller, Order, DeliveryAgent } from '../types';
+import { Product, Seller, Order, DeliveryAgent, DailyHelpService, DailyHelpBooking } from '../types';
 
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string) ||
@@ -726,7 +726,7 @@ export const bazaarApi = {
     return { success: true, message: 'Logged out successfully' };
   },
 
-  async getDailyHelpServices(): Promise<any[]> {
+  async getDailyHelpServices(): Promise<DailyHelpService[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/daily-help/services`, { headers: { Accept: 'application/json' } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -737,7 +737,7 @@ export const bazaarApi = {
     }
   },
 
-  async createDailyHelpBooking(payload: Record<string, any>): Promise<any> {
+  async createDailyHelpBooking(payload: Record<string, any>): Promise<DailyHelpBooking | null> {
     try {
       const token = localStorage.getItem('kurali_auth_token');
       const res = await fetch(`${API_BASE_URL}/daily-help/bookings`, {
@@ -753,7 +753,7 @@ export const bazaarApi = {
     }
   },
 
-  async getDailyHelpBooking(bookingId: string): Promise<any> {
+  async getDailyHelpBooking(bookingId: string): Promise<DailyHelpBooking | null> {
     try {
       const token = localStorage.getItem('kurali_auth_token');
       const res = await fetch(`${API_BASE_URL}/daily-help/bookings/${encodeURIComponent(bookingId)}`, {
