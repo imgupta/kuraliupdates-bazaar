@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingBag, Sparkles, Home } from 'lucide-react';
+import { ShoppingBag, Home } from 'lucide-react';
 import { OnlineShopHome } from './OnlineShopHome';
 import { DailyHelpHome } from './DailyHelpHome';
 import { Product } from '../../types';
