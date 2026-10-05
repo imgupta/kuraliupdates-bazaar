@@ -84,7 +84,7 @@ public class DailyHelpService {
 
     @Transactional(readOnly = true)
     public DailyHelpBookingResponse getBooking(String bookingId) {
-        DailyHelpBookingEntity booking = bookingRepository.findLockedByBookingId(bookingId)
+        DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
         return DailyHelpBookingResponse.from(booking, shouldExposeOtp(booking));
     }
@@ -215,7 +215,7 @@ public class DailyHelpService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Set yourself as available before accepting a job");
         }
 
-        DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
+        DailyHelpBookingEntity booking = bookingRepository.findLockedByBookingId(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
         if (!"SEARCHING".equals(booking.getStatus()) || booking.getProfessional() != null) {
             throw new ApiException(HttpStatus.CONFLICT, "This Daily Help job has already been assigned");
