@@ -62,7 +62,7 @@ export const AdminDashboard: React.FC = () => {
     if (!isRootAdmin) return;
     setAdminDataLoading(true);
     try {
-      const [remoteSellers, remoteAgents, analytics, remoteBuyers, searchTrends, remoteDailyHelpServices] = await Promise.all([
+      const [remoteSellers, remoteAgents, analytics, remoteBuyers, searchTrends, remoteDailyHelpServices, remoteDailyHelpHelpers] = await Promise.all([
         bazaarApi.getAdminSellers(),
         bazaarApi.getAdminDeliveryAgents(),
         bazaarApi.getAdminAnalytics(),
@@ -266,7 +266,7 @@ export const AdminDashboard: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveAdminTab('fleet')
+          onClick={() => setActiveAdminTab('fleet')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeAdminTab === 'fleet'
               ? 'bg-purple-700 text-white shadow-md'
