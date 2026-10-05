@@ -223,7 +223,7 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Tab: Trends */}
-      {activeAdminTab === 'trends' && <MarketTrendsVisualization />}
+      {activeAdminTab === 'trends' && <MarketTrendsVisualization analytics={adminAnalytics} loading={adminDataLoading} />}
 
       {/* Tab: Approvals */}
       {activeAdminTab === 'approvals' && (
@@ -364,12 +364,12 @@ export const AdminDashboard: React.FC = () => {
                 >
                   <img
                     src={seller.avatarUrl}
-                    alt={seller.name}
+                    alt={seller.storeName}
                     className="w-12 h-12 rounded-2xl object-cover border border-slate-200 shrink-0"
                   />
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-extrabold text-sm text-slate-900 truncate">{seller.name}</h3>
+                      <h3 className="font-extrabold text-sm text-slate-900 truncate">{seller.storeName}</h3>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
                         Active
                       </span>
@@ -435,23 +435,23 @@ export const AdminDashboard: React.FC = () => {
       {activeAdminTab === 'fleet' && (
         <div className="space-y-4">
           <h2 className="text-base font-extrabold text-slate-900">
-            Registered Kurali Express Delivery Fleet ({deliveryAgents.length})
+            Registered Kurali Express Delivery Fleet ({adminDeliveryAgents.length})
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {adminDeliveryAgents.map(agent => (
               <div
-                key={agent.id}
+                key={agent.agentId}
                 className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-3"
               >
                 <div className="flex items-center gap-3">
                   <img
                     src={agent.avatarUrl}
-                    alt={agent.name}
+                    alt={agent.fullName}
                     className="w-12 h-12 rounded-2xl object-cover border border-slate-200"
                   />
                   <div>
-                    <h3 className="font-extrabold text-sm text-slate-900">{agent.name}</h3>
+                    <h3 className="font-extrabold text-sm text-slate-900">{agent.fullName}</h3>
                     <p className="text-[11px] text-slate-500">{agent.phone}</p>
                   </div>
                 </div>
