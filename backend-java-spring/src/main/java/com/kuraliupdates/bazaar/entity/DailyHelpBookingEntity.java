@@ -21,7 +21,9 @@ public class DailyHelpBookingEntity {
     @Column(name = "HOURLY_RATE", nullable = false, precision = 10, scale = 2) private BigDecimal hourlyRate;
     @Column(name = "ESTIMATED_TOTAL", nullable = false, precision = 10, scale = 2) private BigDecimal estimatedTotal;
     @Column(name = "STATUS", nullable = false, length = 40) private String status;
-    @Column(name = "START_OTP", nullable = false, length = 10) private String startOtp;
+    @Column(name = "START_OTP", length = 10) private String startOtp;
+    @Column(name = "OTP_EXPIRES_AT") private LocalDateTime otpExpiresAt;
+    @Column(name = "OTP_ATTEMPTS", nullable = false) private Integer otpAttempts;
     @Column(name = "OTP_VERIFIED_AT") private LocalDateTime otpVerifiedAt;
     @Column(name = "SERVICE_STARTED_AT") private LocalDateTime serviceStartedAt;
     @Column(name = "SERVICE_COMPLETED_AT") private LocalDateTime serviceCompletedAt;
