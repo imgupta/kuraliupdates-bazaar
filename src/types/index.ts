@@ -188,3 +188,47 @@ export interface NegotiationChat {
   lastUpdated: string;
   currentAgreedPrice?: number;
 }
+
+export type DailyHelpBookingStatus =
+  | 'SEARCHING'
+  | 'CONFIRMED'
+  | 'PROFESSIONAL_ASSIGNED'
+  | 'ARRIVING'
+  | 'READY_TO_START'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED';
+
+export interface DailyHelpService {
+  id: string;
+  category: string;
+  name: string;
+  description: string;
+  pricingUnit: 'HOUR';
+  pricePerHour: number;
+  minHours: number;
+  imageUrl?: string;
+  active: boolean;
+}
+
+export interface DailyHelpBooking {
+  id: string;
+  serviceId: string;
+  serviceName: string;
+  buyerName: string;
+  buyerPhone: string;
+  address: string;
+  locality: string;
+  scheduledStart: string;
+  requestedHours: number;
+  hourlyRate: number;
+  estimatedTotal: number;
+  status: DailyHelpBookingStatus;
+  professionalId?: string;
+  professionalName?: string;
+  professionalPhone?: string;
+  startOtp?: string;
+  otpVerifiedAt?: string;
+  serviceStartedAt?: string;
+  serviceCompletedAt?: string;
+}
