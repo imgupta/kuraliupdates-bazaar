@@ -84,7 +84,7 @@ public class DailyHelpService {
 
     @Transactional(readOnly = true)
     public DailyHelpBookingResponse getBooking(String bookingId) {
-        DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
+        DailyHelpBookingEntity booking = bookingRepository.findLockedByBookingId(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
         return DailyHelpBookingResponse.from(booking, shouldExposeOtp(booking));
     }
