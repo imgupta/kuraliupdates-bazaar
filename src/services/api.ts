@@ -226,6 +226,22 @@ export const bazaarApi = {
   },
 
   /**
+   * Fetch registered buyer accounts for the root admin
+   */
+  async getAdminBuyers(): Promise<any[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/buyers`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getAdminBuyers failed:', err);
+      return [];
+    }
+  },
+
+  /**
    * Admin approves seller in Oracle DB
    */
   async getPendingDeliveryAgents(): Promise<any[]> {
