@@ -218,6 +218,10 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
         });
 
         showToast(result.message, 'success');
+        if (registrationRole === 'professional') {
+          window.location.href = '/';
+          return;
+        }
         setOnboardingStatus('PENDING');
         setPendingToken(response.token);
         setApplicationSubmitted(true);
