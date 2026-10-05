@@ -209,6 +209,39 @@ export const bazaarApi = {
     }
   },
 
+  async getAdminSellers(): Promise<any[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/sellers`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getAdminSellers failed:', err);
+      return [];
+    }
+  },
+
+  async getAdminDeliveryAgents(): Promise<any[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/delivery`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getAdminDeliveryAgents failed:', err);
+      return [];
+    }
+  },
+
+  async getAdminAnalytics(): Promise<any | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/analytics/demand-trends`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getAdminAnalytics failed:', err);
+      return null;
+    }
+  },
+
   /**
    * Fetch pending sellers for City Admin approval
    */
