@@ -110,6 +110,17 @@ export const bazaarApi = {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: BackendProduct[] = await res.json();
 
+      if (query.trim()) {
+        void fetch(`${API_BASE_URL}/analytics/search`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            query: query.trim(),
+            userId: localStorage.getItem('kurali_user_id') || undefined,
+          }),
+        }).catch(() => undefined);
+      }
+
       return data.map((bp) => ({
         id: bp.productId || `prod-${Math.random()}`,
         sellerId: bp.seller?.sellerId || bp.sellerId || 'seller-1',
@@ -227,6 +238,17 @@ export const bazaarApi = {
       return await res.json();
     } catch (err) {
       console.warn('Backend getAdminDeliveryAgents failed:', err);
+      return [];
+    }
+  },
+
+  async getAdminSearchTrends(): Promise<any[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/analytics/search-trends`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getAdminSearchTrends failed:', err);
       return [];
     }
   },
