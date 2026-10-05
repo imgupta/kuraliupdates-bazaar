@@ -412,3 +412,5 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
     </div>
   );
 };
+
+export const OnlineShopHome = BuyerHome;
