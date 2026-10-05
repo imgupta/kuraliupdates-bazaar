@@ -725,4 +725,45 @@ export const bazaarApi = {
     }
     return { success: true, message: 'Logged out successfully' };
   },
-};
+
+  async getDailyHelpServices(): Promise<any[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/daily-help/services`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getDailyHelpServices failed:', err);
+      return [];
+    }
+  },
+
+  async createDailyHelpBooking(payload: Record<string, any>): Promise<any> {
+    try {
+      const token = localStorage.getItem('kurali_auth_token');
+      const res = await fetch(`${API_BASE_URL}/daily-help/bookings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend createDailyHelpBooking failed:', err);
+      return null;
+    }
+  },
+
+  async getDailyHelpBooking(bookingId: string): Promise<any> {
+    try {
+      const token = localStorage.getItem('kurali_auth_token');
+      const res = await fetch(`${API_BASE_URL}/daily-help/bookings/${encodeURIComponent(bookingId)}`, {
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getDailyHelpBooking failed:', err);
+      return null;
+    }
+  },
+\n};
