@@ -9,6 +9,12 @@ export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string) ||
   'https://kuraliupdates-bazaar.onrender.com/api/v1';
 
+
+const adminAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem('kurali_auth_token');
+  return { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+};
+
 export interface BackendHealthResponse {
   status: string;
   service: string;
@@ -246,7 +252,7 @@ export const bazaarApi = {
 
   async getAdminSellers(): Promise<any[]> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/sellers`, { headers: { Accept: 'application/json' } });
+      const res = await fetch(`${API_BASE_URL}/admin/sellers`, { headers: adminAuthHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -257,7 +263,7 @@ export const bazaarApi = {
 
   async getAdminDeliveryAgents(): Promise<any[]> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/delivery`, { headers: { Accept: 'application/json' } });
+      const res = await fetch(`${API_BASE_URL}/admin/delivery`, { headers: adminAuthHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -268,7 +274,7 @@ export const bazaarApi = {
 
   async getAdminSearchTrends(): Promise<any[]> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/analytics/search-trends`, { headers: { Accept: 'application/json' } });
+      const res = await fetch(`${API_BASE_URL}/admin/analytics/search-trends`, { headers: adminAuthHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -279,7 +285,7 @@ export const bazaarApi = {
 
   async getAdminAnalytics(): Promise<any | null> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/analytics/demand-trends`, { headers: { Accept: 'application/json' } });
+      const res = await fetch(`${API_BASE_URL}/admin/analytics/demand-trends`, { headers: adminAuthHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -294,7 +300,7 @@ export const bazaarApi = {
   async getPendingSellers(): Promise<any[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/sellers/pending`, {
-        headers: { Accept: 'application/json' },
+        headers: adminAuthHeaders(),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
@@ -310,7 +316,7 @@ export const bazaarApi = {
   async getAdminBuyers(): Promise<any[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/buyers`, {
-        headers: { Accept: 'application/json' },
+        headers: adminAuthHeaders(),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
@@ -325,7 +331,7 @@ export const bazaarApi = {
    */
   async getPendingDeliveryAgents(): Promise<any[]> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/delivery/pending`, { headers: { Accept: 'application/json' } });
+      const res = await fetch(`${API_BASE_URL}/admin/delivery/pending`, { headers: adminAuthHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -336,7 +342,7 @@ export const bazaarApi = {
 
   async approveDeliveryAgent(agentId: string): Promise<boolean> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/delivery/${encodeURIComponent(agentId)}/approve`, { method: 'POST' });
+      const res = await fetch(`${API_BASE_URL}/admin/delivery/${encodeURIComponent(agentId)}/approve`, { method: 'POST', headers: adminAuthHeaders() });
       return res.ok;
     } catch (err) {
       console.warn('Backend approveDeliveryAgent failed:', err);
@@ -346,7 +352,7 @@ export const bazaarApi = {
 
   async rejectDeliveryAgent(agentId: string): Promise<boolean> {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/delivery/${encodeURIComponent(agentId)}/reject`, { method: 'POST' });
+      const res = await fetch(`${API_BASE_URL}/admin/delivery/${encodeURIComponent(agentId)}/reject`, { method: 'POST', headers: adminAuthHeaders() });
       return res.ok;
     } catch (err) {
       console.warn('Backend rejectDeliveryAgent failed:', err);
@@ -371,6 +377,7 @@ export const bazaarApi = {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/sellers/${encodeURIComponent(sellerId)}/approve`, {
         method: 'POST',
+        headers: adminAuthHeaders(),
       });
       return res.ok;
     } catch (err) {
@@ -386,6 +393,7 @@ export const bazaarApi = {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/sellers/${encodeURIComponent(sellerId)}/reject`, {
         method: 'POST',
+        headers: adminAuthHeaders(),
       });
       return res.ok;
     } catch (err) {
@@ -400,7 +408,7 @@ export const bazaarApi = {
   async getDemandAnalytics(): Promise<any> {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/analytics/demand-trends`, {
-        headers: { Accept: 'application/json' },
+        headers: adminAuthHeaders(),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
