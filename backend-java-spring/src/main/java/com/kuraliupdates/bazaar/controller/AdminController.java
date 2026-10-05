@@ -12,6 +12,9 @@ import com.kuraliupdates.bazaar.repository.UserRepository;
 import com.kuraliupdates.bazaar.repository.ProductRepository;
 import com.kuraliupdates.bazaar.repository.SellerRepository;
 import com.kuraliupdates.bazaar.repository.DeliveryAgentRepository;
+import com.kuraliupdates.bazaar.repository.SearchTrendRepository;
+import com.kuraliupdates.bazaar.dto.admin.AdminSearchTrendResponse;
+import org.springframework.data.domain.PageRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +36,7 @@ public class AdminController {
     private final OrderRepository orderRepository;
     private final DeliveryAgentRepository deliveryAgentRepository;
     private final UserRepository userRepository;
+    private final SearchTrendRepository searchTrendRepository;
 
     @GetMapping("/buyers")
     @Operation(summary = "Get registered buyer accounts for the root admin")
@@ -113,6 +117,17 @@ public class AdminController {
                 deliveryAgentRepository.findByStatus("ACTIVE").size(),
                 categories,
                 localities));
+    }
+
+    @GetMapping("/analytics/search-trends")
+    @Operation(summary = "Get top database-backed buyer search trends")
+    public ResponseEntity<List<AdminSearchTrendResponse>> getSearchTrends() {
+        LocalDateTime since = LocalDateTime.now().minusDays(30);
+        List<AdminSearchTrendResponse> trends = searchTrendRepository.findTopSearchesSince(since, PageRequest.of(0, 20))
+                .stream()
+                .map(metric -> new AdminSearchTrendResponse(metric.getQuery(), metric.getSearchCount()))
+                .toList();
+        return ResponseEntity.ok(trends);
     }
 
     @GetMapping("/sellers/pending")
