@@ -216,70 +216,18 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
         </div>
       </div>
 
-      {/* Filter & Sorting Control Bar */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
-              showFilters
-                ? 'bg-amber-50 text-amber-800 border-amber-300'
-                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-            }`}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-amber-600" />
-            <span>Filter</span>
-          </button>
-
-          {/* Quick Sorting */}
-          <div className="flex items-center gap-1 text-xs">
-            <span className="text-slate-400 font-medium hidden sm:inline">Sort:</span>
-            <button
-              onClick={() => setSortBy('featured')}
-              className={`px-2.5 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                sortBy === 'featured'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Featured
-            </button>
-            <button
-              onClick={() => setSortBy('price_asc')}
-              className={`px-2.5 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                sortBy === 'price_asc'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Lowest Price
-            </button>
-            <button
-              onClick={() => setSortBy('distance_asc')}
-              className={`px-2.5 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                sortBy === 'distance_asc'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Nearest Store
-            </button>
-            <button
-              onClick={() => setSortBy('discount_desc')}
-              className={`px-2.5 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                sortBy === 'discount_desc'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              Highest Discount
-            </button>
-          </div>
-        </div>
-
-        <div className="text-xs text-slate-500 font-medium">
-          Showing <strong>{filteredProducts.length}</strong> products in Kurali
-        </div>
+      {/* Compact Filter & Sorting Controls */}
+      <div className="flex items-center justify-between gap-2">
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${showFilters ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5 text-amber-600" />
+          Filter &amp; Sort
+        </button>
+        <span className="text-xs text-slate-500">
+          <strong className="text-slate-800">{filteredProducts.length}</strong> products
+        </span>
       </div>
 
       {/* Expanded Filter Panel */}
