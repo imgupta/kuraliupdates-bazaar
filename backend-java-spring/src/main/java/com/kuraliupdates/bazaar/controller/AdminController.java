@@ -14,6 +14,9 @@ import com.kuraliupdates.bazaar.repository.SellerRepository;
 import com.kuraliupdates.bazaar.repository.DeliveryAgentRepository;
 import com.kuraliupdates.bazaar.repository.SearchTrendRepository;
 import com.kuraliupdates.bazaar.dto.admin.AdminSearchTrendResponse;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpServiceAdminRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpServiceAdminResponse;
+import com.kuraliupdates.bazaar.service.DailyHelpService;
 import org.springframework.data.domain.PageRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -37,6 +40,7 @@ public class AdminController {
     private final DeliveryAgentRepository deliveryAgentRepository;
     private final UserRepository userRepository;
     private final SearchTrendRepository searchTrendRepository;
+    private final DailyHelpService dailyHelpService;
 
     @GetMapping("/buyers")
     @Operation(summary = "Get registered buyer accounts for the root admin")
@@ -177,6 +181,28 @@ public class AdminController {
             agent.setStatus("REJECTED");
             return ResponseEntity.ok(deliveryAgentRepository.save(agent));
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+
+    @GetMapping("/daily-help/services")
+    @Operation(summary = "Get all Daily Help services for admin management")
+    public ResponseEntity<List<DailyHelpServiceAdminResponse>> getDailyHelpServices() {
+        return ResponseEntity.ok(dailyHelpService.getAllServicesForAdmin());
+    }
+
+    @PostMapping("/daily-help/services")
+    @Operation(summary = "Create a Daily Help service")
+    public ResponseEntity<DailyHelpServiceAdminResponse> createDailyHelpService(
+            @jakarta.validation.Valid @RequestBody DailyHelpServiceAdminRequest request) {
+        return ResponseEntity.ok(dailyHelpService.createService(request));
+    }
+
+    @PutMapping("/daily-help/services/{serviceId}")
+    @Operation(summary = "Update a Daily Help service and its hourly rate")
+    public ResponseEntity<DailyHelpServiceAdminResponse> updateDailyHelpService(
+            @PathVariable String serviceId,
+            @jakarta.validation.Valid @RequestBody DailyHelpServiceAdminRequest request) {
+        return ResponseEntity.ok(dailyHelpService.updateService(serviceId, request));
     }
 
 
