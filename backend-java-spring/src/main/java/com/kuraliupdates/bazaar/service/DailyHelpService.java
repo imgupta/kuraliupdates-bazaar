@@ -51,15 +51,12 @@ public class DailyHelpService {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        DailyHelpProfessionalEntity professional = professionalRepository
-                .findFirstByStatusAndVerifiedAndCurrentLocalityIgnoreCaseOrderByRatingDesc(
-                        "AVAILABLE", 1, request.locality().trim())
-                .orElse(null);
 
+        // New bookings enter SEARCHING so verified professionals can explicitly accept them.
         DailyHelpBookingEntity booking = DailyHelpBookingEntity.builder()
                 .bookingId("DH-KUR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .service(service)
-                .professional(professional)
+                .professional(null)
                 .buyerName(request.buyerName().trim())
                 .buyerPhone(request.buyerPhone().trim())
                 .address(request.address().trim())
@@ -68,7 +65,7 @@ public class DailyHelpService {
                 .requestedHours(request.requestedHours())
                 .hourlyRate(service.getPricePerHour())
                 .estimatedTotal(service.getPricePerHour().multiply(request.requestedHours()))
-                .status(professional == null ? "SEARCHING" : "PROFESSIONAL_ASSIGNED")
+                .status("SEARCHING")
                 .startOtp(generateOtp())
                 .createdAt(now)
                 .updatedAt(now)
