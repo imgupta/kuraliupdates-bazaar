@@ -101,6 +101,8 @@ public class DailyHelpService {
                 .estimatedTotal(service.getPricePerHour().multiply(request.requestedHours()))
                 .status("SEARCHING")
                 .startOtp(generateOtp())
+                .otpExpiresAt(now.plusMinutes(15))
+                .otpAttempts(0)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -162,11 +164,25 @@ public class DailyHelpService {
                 !booking.getProfessional().getProfessionalId().equals(request.professionalId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Professional is not assigned to this booking");
         }
-        if (!request.otp().trim().equals(booking.getStartOtp())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid service start OTP");
-        }
         if ("IN_PROGRESS".equals(booking.getStatus())) {
             return DailyHelpBookingResponse.from(booking, false);
+        }
+        if (booking.getOtpVerifiedAt() != null || booking.getStartOtp() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Service start OTP has already been used");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (booking.getOtpExpiresAt() == null || now.isAfter(booking.getOtpExpiresAt())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Service start OTP has expired");
+        }
+        int attempts = booking.getOtpAttempts() == null ? 0 : booking.getOtpAttempts();
+        if (attempts >= 5) {
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Too many invalid OTP attempts");
+        }
+        if (!request.otp().trim().equals(booking.getStartOtp())) {
+            booking.setOtpAttempts(attempts + 1);
+            booking.setUpdatedAt(now);
+            bookingRepository.save(booking);
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid service start OTP");
         }
         if (!List.of("PROFESSIONAL_ASSIGNED", "ARRIVING", "READY_TO_START").contains(booking.getStatus())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Booking is not ready to start");
@@ -174,6 +190,8 @@ public class DailyHelpService {
 
         LocalDateTime now = LocalDateTime.now();
         booking.setOtpVerifiedAt(now);
+        booking.setStartOtp(null);
+        booking.setOtpExpiresAt(null);
         booking.setServiceStartedAt(now);
         booking.setStatus("IN_PROGRESS");
         booking.setUpdatedAt(now);
@@ -289,7 +307,7 @@ public class DailyHelpService {
         getProfessionalEntity(professionalId);
         return bookingRepository.findByProfessionalProfessionalIdOrderByScheduledStartDesc(professionalId)
                 .stream()
-                .map(b -> DailyHelpBookingResponse.from(b, "ARRIVING".equals(b.getStatus()) || "READY_TO_START".equals(b.getStatus())))
+                .map(b -> DailyHelpBookingResponse.from(b, false))
                 .toList();
     }
 
