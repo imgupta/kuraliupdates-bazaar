@@ -785,7 +785,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const trimmedEmail = (params.serverUser.email || params.email || '').trim().toLowerCase();
     const cleanPhone = (params.serverUser.phone || params.phone || '').replace(/\D/g, '');
-    const effectiveRole = ((params.serverUser.role || params.role || 'buyer').toLowerCase() as UserRole);
+    // A single identity can hold multiple role profiles. For a role-registration
+    // flow, activate the role just registered rather than replacing backend identity data.
+    const serverRole = ((params.serverUser.role || 'buyer').toLowerCase() as UserRole);
+    const effectiveRole: UserRole = serverRole === 'admin' ? 'admin' : params.role;
 
     let sellerId: string | undefined;
     let deliveryAgentId: string | undefined;
