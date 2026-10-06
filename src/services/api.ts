@@ -973,6 +973,20 @@ export const bazaarApi = {
     }
   },
 
+  async getRegisteredRoles(token: string): Promise<string[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/me/roles`, {
+        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return ['BUYER'];
+      const data = await res.json();
+      return data.success && Array.isArray(data.roles) ? data.roles : ['BUYER'];
+    } catch (err) {
+      console.warn('Backend getRegisteredRoles failed:', err);
+      return ['BUYER'];
+    }
+  },
+
   async getDailyHelpProfessionalAvailableJobs(professionalId: string): Promise<DailyHelpBooking[]> {
     try {
       const token = localStorage.getItem('kurali_auth_token');
