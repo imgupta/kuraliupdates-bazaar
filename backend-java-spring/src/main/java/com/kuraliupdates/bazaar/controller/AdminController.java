@@ -140,7 +140,7 @@ public class AdminController {
     @GetMapping("/sellers/pending")
     @Operation(summary = "Get list of newly registered sellers waiting for Admin Approval")
     public ResponseEntity<List<SellerEntity>> getPendingSellers() {
-        return ResponseEntity.ok(sellerRepository.findByStatusIgnoreCase("PENDING"));
+        return ResponseEntity.ok(sellerRepository.findByStatusNormalized("PENDING"));
     }
 
     @PostMapping("/sellers/{sellerId}/approve")
