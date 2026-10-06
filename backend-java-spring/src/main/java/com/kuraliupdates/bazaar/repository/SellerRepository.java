@@ -10,7 +10,7 @@ import java.util.Optional;
 @Repository
 public interface SellerRepository extends JpaRepository<SellerEntity, String> {
 
-    List<SellerEntity> findByStatus(String status);\n\n    List<SellerEntity> findByStatusIgnoreCase(String status);
+    List<SellerEntity> findByStatus(String status);\n\n    @Query("SELECT s FROM SellerEntity s WHERE UPPER(TRIM(s.status)) = UPPER(TRIM(:status))")\n    List<SellerEntity> findByStatusNormalized(@org.springframework.data.repository.query.Param("status") String status);
 
     Optional<SellerEntity> findByEmail(String email);
 
