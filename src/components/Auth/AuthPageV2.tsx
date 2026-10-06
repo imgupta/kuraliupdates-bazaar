@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Mail, MapPin, Phone, RefreshCw, ShieldCheck, Sparkles, Store, Truck, User } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Mail, MapPin, Phone, RefreshCw, ShieldCheck, Sparkles, Store, Truck, User, Home, Bike } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { KURALI_LOCALITIES } from '../../data/initialData';
 import { UserRole } from '../../types';
@@ -439,10 +439,34 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
               </button>
 
               {authMode === 'signin' && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
-                  <p className="text-xs font-black text-amber-900">Want to work as a Daily Help professional?</p>
-                  <p className="mt-1 text-[11px] text-amber-700">Join as a maid, cooking, cleaning or home-help professional.</p>
-                  <a href="/register/daily-help" className="mt-3 inline-flex items-center justify-center rounded-xl bg-amber-600 px-4 py-2.5 text-[11px] font-black text-white hover:bg-amber-700">Join as Daily Help Professional</a>
+                <div className="space-y-3">
+                  <div className="text-center">
+                    <p className="text-xs font-black text-slate-900">Join KuraliUpdates in more than one role</p>
+                    <p className="mt-1 text-[11px] text-slate-500">One email + mobile account can have Buyer, Seller, Rider and Daily Help profiles.</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <RoleRegistrationCard
+                      href="/register/seller"
+                      icon={<Store className="w-5 h-5" />}
+                      title="Seller"
+                      description="Register your shop and sell locally."
+                      className="border-blue-200 bg-blue-50 text-blue-800"
+                    />
+                    <RoleRegistrationCard
+                      href="/register/delivery"
+                      icon={<Bike className="w-5 h-5" />}
+                      title="Rider"
+                      description="Join the delivery fleet."
+                      className="border-emerald-200 bg-emerald-50 text-emerald-800"
+                    />
+                    <RoleRegistrationCard
+                      href="/register/daily-help"
+                      icon={<Home className="w-5 h-5" />}
+                      title="Daily Help"
+                      description="Offer home-help services."
+                      className="border-amber-200 bg-amber-50 text-amber-800"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -490,7 +514,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-slate-200">
             <div className="w-11 h-11 rounded-2xl bg-amber-100 flex items-center justify-center"><AlertCircle className="w-5 h-5 text-amber-600" /></div>
             <h3 className="mt-4 text-lg font-black text-slate-900">Account already registered</h3>
-            <p className="mt-2 text-sm text-slate-600">An account already exists with this email or mobile number. Please sign in instead.</p>
+            <p className="mt-2 text-sm text-slate-600">This email/mobile is already linked to an account. You can still add Seller, Rider or Daily Help as another role using the same account.</p>
             <div className="mt-6 flex gap-2">
               <button type="button" onClick={() => setDuplicatePrompt(false)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-700">Stay here</button>
               <button type="button" onClick={goLogin} className="flex-1 rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white">Go to Sign In</button>
@@ -501,3 +525,24 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
     </div>
   );
 };
+
+
+const RoleRegistrationCard: React.FC<{
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  className: string;
+}> = ({ href, icon, title, description, className }) => (
+  <a
+    href={href}
+    className={`group rounded-2xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-md ${className}`}
+  >
+    <div className="flex items-center gap-2">
+      <div className="rounded-xl bg-white/80 p-2 shadow-sm">{icon}</div>
+      <span className="text-sm font-black">{title}</span>
+    </div>
+    <p className="mt-2 text-[11px] leading-relaxed opacity-80">{description}</p>
+    <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-black">Register <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" /></span>
+  </a>
+);
