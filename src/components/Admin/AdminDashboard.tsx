@@ -258,13 +258,13 @@ export const AdminDashboard: React.FC = () => {
           <Sparkles className="w-4 h-4" /> Daily Help Services ({dailyHelpServices.length})
         </button>
 
+
         <button
           onClick={() => setActiveAdminTab('daily-helpers')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeAdminTab === 'daily-helpers' ? 'bg-purple-700 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
         >
           <UserRoundCheck className="w-4 h-4" /> Daily Help / Helpers ({dailyHelpHelpers.length})
         </button>
-
         <button
           onClick={() => setActiveAdminTab('fleet')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
