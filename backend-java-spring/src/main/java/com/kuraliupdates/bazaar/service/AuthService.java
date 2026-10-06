@@ -60,11 +60,9 @@ public class AuthService {
         if ("LOGIN".equals(normalizedMode) && existing.isEmpty()) {
             throw new ApiException(HttpStatus.NOT_FOUND, "No registered account was found. Please register first.");
         }
-        if ("REGISTER".equals(normalizedMode) && existing.isPresent()) {
-            throw new ApiException(HttpStatus.CONFLICT, "An account already exists with this " +
-                    ("EMAIL".equals(type) ? "email address" : "mobile number") + ". Please sign in instead.");
-        }
-
+        // Registration OTP is also allowed for an existing account so the same
+        // identity can add another marketplace role (seller, rider or Daily Help).
+        // The requested role is validated during OTP verification.
         otpService.send(identifier, type);
         return new OtpSendResult(mask(identifier), type, 600);
     }
@@ -161,13 +159,46 @@ public class AuthService {
         String phone = normalizeIdentifier(req.phone(), "PHONE");
         validateRegistration(req, email, phone);
 
-        if (userRepository.findByEmail(email).isPresent() || userRepository.findByPhone(phone).isPresent()) {
-            throw new ApiException(HttpStatus.CONFLICT, "An account already exists with this email or mobile number. Please sign in instead.");
+        Optional<UserEntity> existingByEmail = userRepository.findByEmail(email);
+        Optional<UserEntity> existingByPhone = userRepository.findByPhone(phone);
+        UserEntity existingUser = existingByEmail.orElse(existingByPhone.orElse(null));
+
+        if (existingByEmail.isPresent() && existingByPhone.isPresent()
+                && !existingByEmail.get().getUserId().equals(existingByPhone.get().getUserId())) {
+            throw new ApiException(HttpStatus.CONFLICT, "This email and mobile number belong to different accounts.");
         }
 
         otpService.verify(email, "EMAIL", req.emailOtp());
 
         String role = normalizeRole(req.role());
+
+        if (existingUser != null) {
+            if (hasRole(existingUser, role)) {
+                throw new ApiException(HttpStatus.CONFLICT,
+                        "This account is already registered for " + roleLabel(role) + ".");
+            }
+
+            String locality = req.locality() == null || req.locality().isBlank()
+                    ? existingUser.getLocality() : req.locality().trim();
+            LocalDateTime now = LocalDateTime.now();
+
+            // Keep one USERS record per identity and attach the requested role profile.
+            if (existingUser.getName() == null || existingUser.getName().isBlank()) {
+                existingUser.setName(req.name().trim());
+            }
+            if (existingUser.getLocality() == null || existingUser.getLocality().isBlank()) {
+                existingUser.setLocality(locality);
+            }
+            if (existingUser.getAddress() == null || existingUser.getAddress().isBlank()) {
+                existingUser.setAddress(defaultString(req.address()));
+            }
+            userRepository.save(existingUser);
+            provisionRole(existingUser, req, locality, now);
+
+            return new AuthResult(createSession(existingUser),
+                    UserResponse.from(existingUser, addressService.findByUserId(existingUser.getUserId())),
+                    "Your " + roleLabel(role) + " profile has been added to your existing account.");
+        }
         String locality = req.locality() == null || req.locality().isBlank()
                 ? "Main Bazaar & Clock Tower" : req.locality().trim();
         LocalDateTime now = LocalDateTime.now();
@@ -199,6 +230,25 @@ public class AuthService {
         if (!phone.matches("\\d{10}")) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Please enter a valid 10-digit mobile number");
         }
+    }
+
+    private boolean hasRole(UserEntity user, String role) {
+        if ("ADMIN".equalsIgnoreCase(user.getRole()) && "ADMIN".equals(role)) return true;
+        if ("BUYER".equals(role) && "BUYER".equalsIgnoreCase(user.getRole())) return true;
+        if ("SELLER".equals(role)) return sellerRepository.findByEmail(user.getEmail()).isPresent();
+        if ("DELIVERY".equals(role)) return deliveryAgentRepository.findByEmail(user.getEmail()).isPresent();
+        if ("PROFESSIONAL".equals(role)) return dailyHelpProfessionalRepository.findByPhone(user.getPhone()).isPresent();
+        return false;
+    }
+
+    private String roleLabel(String role) {
+        return switch (role) {
+            case "SELLER" -> "Seller";
+            case "DELIVERY" -> "Rider";
+            case "PROFESSIONAL" -> "Daily Help";
+            case "BUYER" -> "Buyer";
+            default -> role;
+        };
     }
 
     private void provisionRole(UserEntity user, VerifyOtpRequest req, String locality, LocalDateTime now) {
