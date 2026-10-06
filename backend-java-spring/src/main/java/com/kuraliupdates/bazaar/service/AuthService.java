@@ -107,6 +107,18 @@ public class AuthService {
     }
 
     @Transactional(readOnly = true)
+    public List<String> registeredRoles(String token) {
+        UserEntity user = requireUser(token);
+        java.util.LinkedHashSet<String> roles = new java.util.LinkedHashSet<>();
+        roles.add("BUYER");
+        if (sellerRepository.findByEmail(user.getEmail()).isPresent()) roles.add("SELLER");
+        if (deliveryAgentRepository.findByEmail(user.getEmail()).isPresent()) roles.add("DELIVERY");
+        if (dailyHelpProfessionalRepository.findByPhone(user.getPhone()).isPresent()) roles.add("PROFESSIONAL");
+        if (isRootAdminEmail(user.getEmail())) roles.add("ADMIN");
+        return List.copyOf(roles);
+    }
+
+    @Transactional(readOnly = true)
     public OnboardingStatus onboardingStatus(String token) {
         UserEntity user = requireUser(token);
         String role = user.getRole() == null ? "BUYER" : user.getRole().toUpperCase();
