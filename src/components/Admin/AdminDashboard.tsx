@@ -48,6 +48,7 @@ export const AdminDashboard: React.FC = () => {
   const [buyers, setBuyers] = useState<any[]>([]);
   const [buyersLoading, setBuyersLoading] = useState(false);
   const [adminSellers, setAdminSellers] = useState<any[]>([]);
+  const [pendingSellerApplications, setPendingSellerApplications] = useState<any[]>([]);
   const [adminDeliveryAgents, setAdminDeliveryAgents] = useState<any[]>([]);
   const [adminAnalytics, setAdminAnalytics] = useState<any | null>(null);
   const [adminDataLoading, setAdminDataLoading] = useState(false);
@@ -62,8 +63,9 @@ export const AdminDashboard: React.FC = () => {
     if (!isRootAdmin) return;
     setAdminDataLoading(true);
     try {
-      const [remoteSellers, remoteAgents, analytics, remoteBuyers, searchTrends, remoteDailyHelpServices, remoteDailyHelpHelpers] = await Promise.all([
+      const [remoteSellers, remotePendingSellers, remoteAgents, analytics, remoteBuyers, searchTrends, remoteDailyHelpServices, remoteDailyHelpHelpers] = await Promise.all([
         bazaarApi.getAdminSellers(),
+        bazaarApi.getPendingSellers(),
         bazaarApi.getAdminDeliveryAgents(),
         bazaarApi.getAdminAnalytics(),
         bazaarApi.getAdminBuyers(),
@@ -72,6 +74,7 @@ export const AdminDashboard: React.FC = () => {
         bazaarApi.getAdminDailyHelpHelpers(),
       ]);
       setAdminSellers(remoteSellers);
+      setPendingSellerApplications(remotePendingSellers);
       setAdminDeliveryAgents(remoteAgents);
       setAdminAnalytics(analytics);
       setBuyers(remoteBuyers);
@@ -158,7 +161,7 @@ export const AdminDashboard: React.FC = () => {
     );
   }
 
-  const pendingSellers = adminSellers.filter(s => String(s.status).toLowerCase() === 'pending');
+  const pendingSellers = pendingSellerApplications;
   const pendingDeliveryAgents = adminDeliveryAgents.filter(a => String(a.status).toLowerCase() === 'pending');
   const approvedSellers = adminSellers.filter(s => String(s.status).toLowerCase() === 'approved');
   const rejectedSellers = adminSellers.filter(s => String(s.status).toLowerCase() === 'rejected');
