@@ -111,7 +111,7 @@ public class AuthService {
         UserEntity user = requireUser(token);
         java.util.LinkedHashSet<String> roles = new java.util.LinkedHashSet<>();
         roles.add("BUYER");
-        if (sellerRepository.findByEmailIgnoreCase(user.getEmail()).isPresent()) roles.add("SELLER");
+        if (sellerProfileExists(user)) roles.add("SELLER");
         if (deliveryAgentRepository.findByEmail(user.getEmail()).isPresent()) roles.add("DELIVERY");
         if (dailyHelpProfessionalRepository.findByPhone(user.getPhone()).isPresent()) roles.add("PROFESSIONAL");
         if (isRootAdminEmail(user.getEmail())) roles.add("ADMIN");
@@ -244,10 +244,15 @@ public class AuthService {
         }
     }
 
+    private boolean sellerProfileExists(UserEntity user) {
+        return sellerRepository.findByEmailIgnoreCase(user.getEmail()).isPresent()
+                || sellerRepository.findByPhone(user.getPhone()).isPresent();
+    }
+
     private boolean hasRole(UserEntity user, String role) {
         if ("ADMIN".equalsIgnoreCase(user.getRole()) && "ADMIN".equals(role)) return true;
         if ("BUYER".equals(role) && "BUYER".equalsIgnoreCase(user.getRole())) return true;
-        if ("SELLER".equals(role)) return sellerRepository.findByEmailIgnoreCase(user.getEmail()).isPresent();
+        if ("SELLER".equals(role)) return sellerProfileExists(user);
         if ("DELIVERY".equals(role)) return deliveryAgentRepository.findByEmail(user.getEmail()).isPresent();
         if ("PROFESSIONAL".equals(role)) return dailyHelpProfessionalRepository.findByPhone(user.getPhone()).isPresent();
         return false;
