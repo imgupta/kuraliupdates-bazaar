@@ -121,17 +121,31 @@ export const AdminDashboard: React.FC = () => {
     if (!dailyHelpForm.category.trim() || !dailyHelpForm.name.trim() || Number(dailyHelpForm.pricePerHour) <= 0) {
       showToast('Category, service name and a valid hourly rate are required.', 'error'); return;
     }
-    const payload = { ...dailyHelpForm, pricePerHour: Number(dailyHelpForm.pricePerHour), minHours: Number(dailyHelpForm.minHours), active: Number(dailyHelpForm.active) };
-    const saved = editingDailyHelpId
-      ? await bazaarApi.updateAdminDailyHelpService(editingDailyHelpId, payload)
-      : await bazaarApi.createAdminDailyHelpService(payload);
-    if (!saved) { showToast('Unable to save Daily Help service.', 'error'); return; }
-    showToast(editingDailyHelpId ? 'Daily Help service updated.' : 'Daily Help service added.', 'success');
-    setEditingDailyHelpId(null); resetDailyHelpForm(); await refreshAdminData();
+    const payload = {
+      ...dailyHelpForm,
+      category: dailyHelpForm.category.trim(),
+      name: dailyHelpForm.name.trim(),
+      pricingUnit: dailyHelpForm.pricingUnit.trim().toUpperCase(),
+      pricePerHour: Number(dailyHelpForm.pricePerHour),
+      minHours: Number(dailyHelpForm.minHours),
+      active: Number(dailyHelpForm.active),
+    };
+    try {
+      const saved = editingDailyHelpId
+        ? await bazaarApi.updateAdminDailyHelpService(editingDailyHelpId, payload)
+        : await bazaarApi.createAdminDailyHelpService(payload);
+      if (!saved) { showToast('Unable to save Daily Help service.', 'error'); return; }
+      showToast(editingDailyHelpId ? 'Daily Help service updated.' : 'Daily Help service added.', 'success');
+      setEditingDailyHelpId(null);
+      resetDailyHelpForm();
+      await refreshAdminData();
+    } catch (err: any) {
+      showToast(err?.message || 'Unable to save Daily Help service.', 'error');
+    }
   };
 
   const editDailyHelpService = (service: any) => {
-    setEditingDailyHelpId(service.id);
+    setEditingDailyHelpId(service.serviceId || service.id);
     setDailyHelpForm({ category: service.category || '', name: service.name || '', description: service.description || '', pricingUnit: service.pricingUnit || 'HOUR', pricePerHour: String(service.pricePerHour ?? ''), minHours: String(service.minHours ?? 1), imageUrl: service.imageUrl || '', active: Number(service.active ?? 1) });
   };
 
