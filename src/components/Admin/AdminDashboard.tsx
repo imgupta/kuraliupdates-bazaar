@@ -203,6 +203,22 @@ export const AdminDashboard: React.FC = () => {
       {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto">
         <button
+          onClick={() => setActiveAdminTab('daily-helpers')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeAdminTab === 'daily-helpers' ? 'bg-purple-700 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
+        >
+          <UserRoundCheck className="w-4 h-4" /> Daily Help / Helpers ({dailyHelpHelpers.length})
+        </button>
+        <button
+          onClick={() => setActiveAdminTab('fleet')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeAdminTab === 'fleet'
+              ? 'bg-purple-700 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Bike className="w-4 h-4" /> Delivery Fleet ({adminDeliveryAgents.length})
+        </button>
+        <button
           onClick={() => setActiveAdminTab('trends')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeAdminTab === 'trends'
@@ -259,22 +275,6 @@ export const AdminDashboard: React.FC = () => {
         </button>
 
 
-        <button
-          onClick={() => setActiveAdminTab('daily-helpers')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeAdminTab === 'daily-helpers' ? 'bg-purple-700 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
-        >
-          <UserRoundCheck className="w-4 h-4" /> Daily Help / Helpers ({dailyHelpHelpers.length})
-        </button>
-        <button
-          onClick={() => setActiveAdminTab('fleet')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeAdminTab === 'fleet'
-              ? 'bg-purple-700 text-white shadow-md'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Bike className="w-4 h-4" /> Delivery Fleet ({adminDeliveryAgents.length})
-        </button>
       </div>
 
 
