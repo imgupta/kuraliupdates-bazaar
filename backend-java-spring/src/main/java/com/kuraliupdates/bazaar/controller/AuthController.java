@@ -46,6 +46,15 @@ public class AuthController {
         return authResponse(result);
     }
 
+    @GetMapping("/me/roles")
+    public ResponseEntity<Map<String, Object>> registeredRoles(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "roles", authService.registeredRoles(bearerToken(authorization))
+        ));
+    }
+
     @GetMapping("/onboarding-status")
     public ResponseEntity<Map<String, Object>> onboardingStatus(
             @RequestHeader(value = "Authorization", required = false) String authorization) {
