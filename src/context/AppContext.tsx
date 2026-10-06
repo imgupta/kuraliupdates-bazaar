@@ -59,12 +59,14 @@ export interface UserProfile {
   authMethod?: 'otp' | 'google';
   isAdmin?: boolean;
   savedAddresses?: SavedAddress[];
+  registeredRoles?: UserRole[];
 }
 
 interface AppContextType {
   // Roles & Auth
   role: UserRole;
   setRole: (role: UserRole) => void;
+  registeredRoles: UserRole[];
   user: UserProfile;
   loginWithOtp: (params: {
     identifier?: string;
@@ -454,6 +456,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   // UI state
+  const [registeredRoles, setRegisteredRoles] = useState<UserRole[]>(['buyer']);
   const [selectedCityLocality, setSelectedCityLocality] = useState('All Localities (Kurali City)');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [comparingProduct, setComparingProduct] = useState<Product | null>(null);
@@ -675,6 +678,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return () => clearInterval(interval);
   }, [backendUrl]);
+
+  useEffect(() => {
+    const token = safeStorageGet('kurali_auth_token');
+    if (!user.isSignedIn || !token) {
+      setRegisteredRoles(['buyer']);
+      return;
+    }
+    bazaarApi.getRegisteredRoles(token).then(roles => {
+      const normalized = roles
+        .map(r => r.toLowerCase() as UserRole)
+        .filter(r => ['buyer', 'seller', 'delivery', 'professional', 'admin'].includes(r));
+      setRegisteredRoles(Array.from(new Set(['buyer', ...normalized])));
+    });
+  }, [user.isSignedIn, user.email, user.phone, role]);
 
   // Secure Role Switcher: Admin is strictly restricted to authorized Root Admins
   const setRole = (targetRole: UserRole) => {
@@ -1489,6 +1506,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         role,
+      registeredRoles,
         setRole,
         user,
         loginWithOtp,
