@@ -31,6 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
   const {
     role,
     setRole,
+    registeredRoles,
     user,
     logout,
     cart,
@@ -55,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
   const availableJobsCount = orders.filter(o => o.status === 'ready_for_pickup').length;
   const isRootAdmin = isRootAdminEmail(user.email);
 
-  const baseRoleConfigs: {
+  const allRoleConfigs: {
     id: UserRole;
     label: string;
     shortLabel: string;
@@ -64,43 +65,16 @@ export const Header: React.FC<HeaderProps> = ({
     badge?: number;
   }[] = [
     { id: 'buyer', label: 'Buyer', shortLabel: 'Buyer', icon: ShoppingBag, color: 'text-amber-600' },
-    {
-      id: 'seller',
-      label: 'Seller Portal',
-      shortLabel: 'Seller',
-      icon: Store,
-      color: 'text-blue-600',
-      badge: currentSeller?.status === 'pending' ? 1 : undefined,
-    },
-    {
-      id: 'delivery',
-      label: 'Delivery Agent',
-      shortLabel: 'Rider',
-      icon: Bike,
-      color: 'text-emerald-600',
-      badge: availableJobsCount > 0 ? availableJobsCount : undefined,
-    },
+    { id: 'seller', label: 'Seller Portal', shortLabel: 'Seller', icon: Store, color: 'text-blue-600', badge: currentSeller?.status === 'pending' ? 1 : undefined },
+    { id: 'delivery', label: 'Delivery Agent', shortLabel: 'Rider', icon: Bike, color: 'text-emerald-600', badge: availableJobsCount > 0 ? availableJobsCount : undefined },
+    { id: 'professional', label: 'Daily Help', shortLabel: 'Daily Help', icon: Home, color: 'text-orange-600' },
+    { id: 'admin', label: 'Admin Desk', shortLabel: 'Admin', icon: ShieldCheck, color: 'text-purple-600', badge: pendingSellersCount > 0 ? pendingSellersCount : undefined },
   ];
 
-  if (isRootAdmin) {
-    baseRoleConfigs.push({
-      id: 'professional',
-      label: 'Daily Help',
-      shortLabel: 'Daily Help',
-      icon: Home,
-      color: 'text-orange-600',
-    });
-    baseRoleConfigs.push({
-      id: 'admin',
-      label: 'Admin Desk',
-      shortLabel: 'Admin',
-      icon: ShieldCheck,
-      color: 'text-purple-600',
-      badge: pendingSellersCount > 0 ? pendingSellersCount : undefined,
-    });
-  }
+  const roleConfigs = allRoleConfigs.filter(item =>
+    registeredRoles.includes(item.id) && (item.id !== 'admin' || isRootAdmin)
+  );
 
-  const roleConfigs = baseRoleConfigs;
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs w-full max-w-full overflow-visible">
@@ -177,7 +151,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}
 
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {user.role === 'admin' ? (
+            {user.isSignedIn && roleConfigs.length > 0 ? (
               <div className="hidden sm:flex bg-slate-100 p-1 rounded-xl items-center gap-1 border border-slate-200/80">
                 {roleConfigs.map(item => {
                   const Icon = item.icon;
@@ -310,7 +284,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="sm:hidden px-3 pb-2 pt-0.5 border-t border-slate-100 bg-white">
-        {user.role === 'admin' ? (
+        {user.isSignedIn && roleConfigs.length > 0 ? (
           <div className={`grid ${roleConfigs.length === 5 ? 'grid-cols-5' : roleConfigs.length === 4 ? 'grid-cols-4' : 'grid-cols-3'} gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80`}>
             {roleConfigs.map(item => {
               const Icon = item.icon;
