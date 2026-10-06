@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/tracking")
+@RequestMapping("/tracking")
 @RequiredArgsConstructor
 public class DeliveryTrackingController {
     private final DeliveryTrackingService trackingService;
