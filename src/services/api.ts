@@ -344,20 +344,26 @@ export const bazaarApi = {
     } catch (err) { console.warn('Backend getAdminDailyHelpServices failed:', err); return []; }
   },
 
-  async createAdminDailyHelpService(payload: Record<string, any>): Promise<any | null> {
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/daily-help/services`, { method: 'POST', headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch (err) { console.warn('Backend createAdminDailyHelpService failed:', err); return null; }
+  async createAdminDailyHelpService(payload: Record<string, any>): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/daily-help/services`, {
+      method: 'POST',
+      headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || data?.error || `Unable to save Daily Help service (HTTP ${res.status})`);
+    return data;
   },
 
-  async updateAdminDailyHelpService(serviceId: string, payload: Record<string, any>): Promise<any | null> {
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/daily-help/services/${encodeURIComponent(serviceId)}`, { method: 'PUT', headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch (err) { console.warn('Backend updateAdminDailyHelpService failed:', err); return null; }
+  async updateAdminDailyHelpService(serviceId: string, payload: Record<string, any>): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/daily-help/services/${encodeURIComponent(serviceId)}`, {
+      method: 'PUT',
+      headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || data?.error || `Unable to update Daily Help service (HTTP ${res.status})`);
+    return data;
   },
 
   async getAdminSellers(): Promise<any[]> {
