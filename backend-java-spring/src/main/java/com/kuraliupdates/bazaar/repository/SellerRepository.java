@@ -10,7 +10,7 @@ import java.util.Optional;
 @Repository
 public interface SellerRepository extends JpaRepository<SellerEntity, String> {
 
-    List<SellerEntity> findByStatus(String status);
+    List<SellerEntity> findByStatus(String status);\n\n    List<SellerEntity> findByStatusIgnoreCase(String status);
 
     Optional<SellerEntity> findByEmail(String email);
 
