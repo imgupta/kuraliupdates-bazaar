@@ -16,6 +16,8 @@ public interface SellerRepository extends JpaRepository<SellerEntity, String> {
 
     Optional<SellerEntity> findByEmailIgnoreCase(String email);
 
+    Optional<SellerEntity> findByPhone(String phone);
+
     List<SellerEntity> findByLocalityContainingIgnoreCase(String locality);
 
     @Query("SELECT s FROM SellerEntity s WHERE s.status = 'APPROVED' ORDER BY s.rating DESC")
