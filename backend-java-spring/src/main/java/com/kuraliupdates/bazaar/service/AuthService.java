@@ -205,7 +205,7 @@ public class AuthService {
                 existingUser.setAddress(defaultString(req.address()));
             }
             userRepository.save(existingUser);
-            provisionRole(existingUser, req, locality, now);
+            provisionRole(existingUser, role, req, locality, now);
 
             return new AuthResult(createSession(existingUser),
                     UserResponse.from(existingUser, addressService.findByUserId(existingUser.getUserId())),
@@ -228,7 +228,7 @@ public class AuthService {
                 .createdAt(now).lastLogin(now).build();
         userRepository.save(user);
 
-        provisionRole(user, req, locality, now);
+        provisionRole(user, role, req, locality, now);
         return new AuthResult(createSession(user), UserResponse.from(user, addressService.findByUserId(user.getUserId())), "Welcome, " + user.getName() + "!");
     }
 
@@ -268,8 +268,8 @@ public class AuthService {
         };
     }
 
-    private void provisionRole(UserEntity user, VerifyOtpRequest req, String locality, LocalDateTime now) {
-        if ("SELLER".equals(user.getRole())) {
+    private void provisionRole(UserEntity user, String requestedRole, VerifyOtpRequest req, String locality, LocalDateTime now) {
+        if ("SELLER".equals(requestedRole)) {
             sellerRepository.save(SellerEntity.builder()
                     .sellerId("seller-" + UUID.randomUUID().toString().substring(0, 8))
                     .storeName(defaultString(req.storeName()).isBlank() ? user.getName() + "'s Shop" : req.storeName().trim())
@@ -280,7 +280,7 @@ public class AuthService {
                     .status("PENDING").registeredAt(now)
                     .minOrderForFreeDelivery(BigDecimal.valueOf(499)).baseDeliveryFee(BigDecimal.valueOf(35))
                     .description("Merchant application awaiting Kurali admin approval.").build());
-        } else if ("DELIVERY".equals(user.getRole())) {
+        } else if ("DELIVERY".equals(requestedRole)) {
             deliveryAgentRepository.save(DeliveryAgentEntity.builder()
                     .agentId("agent-" + UUID.randomUUID().toString().substring(0, 8))
                     .fullName(user.getName()).phone(user.getPhone()).email(user.getEmail())
@@ -290,7 +290,7 @@ public class AuthService {
                     .status("PENDING").rating(BigDecimal.ZERO).totalTrips(0)
                     .todayEarnings(BigDecimal.ZERO).totalEarnings(BigDecimal.ZERO)
                     .currentLocality(locality).registeredAt(now).build());
-        } else if ("PROFESSIONAL".equals(user.getRole())) {
+        } else if ("PROFESSIONAL".equals(requestedRole)) {
             dailyHelpProfessionalRepository.save(DailyHelpProfessionalEntity.builder()
                     .professionalId("DHP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                     .fullName(user.getName()).phone(user.getPhone())
