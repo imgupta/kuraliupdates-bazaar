@@ -57,9 +57,10 @@ public class AuthController {
 
     @GetMapping("/onboarding-status")
     public ResponseEntity<Map<String, Object>> onboardingStatus(
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam(value = "role", required = false) String role) {
         AuthService.OnboardingStatus status =
-                authService.onboardingStatus(bearerToken(authorization));
+                authService.onboardingStatus(bearerToken(authorization), role);
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "role", status.role(),
