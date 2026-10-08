@@ -136,9 +136,11 @@ export const DeliveryDashboard: React.FC = () => {
   }, [agent?.id]);
 
   // Available jobs in Kurali
-  const availableOrders = (liveAvailableOrders.length ? liveAvailableOrders : orders.filter(
-    o => o.status === 'ready_for_pickup' && (!o.deliveryAgentId || o.deliveryAgentId !== agent?.id)
-  )).filter(o => !o.deliveryAgentId || o.deliveryAgentId !== agent?.id);
+  const availableOrders = agent?.status === 'active'
+    ? (liveAvailableOrders.length ? liveAvailableOrders : orders.filter(
+        o => o.status === 'ready_for_pickup' && (!o.deliveryAgentId || o.deliveryAgentId !== agent?.id)
+      )).filter(o => !o.deliveryAgentId || o.deliveryAgentId !== agent?.id)
+    : [];
 
   // Active deliveries assigned to this rider
   const myActiveOrders = orders.filter(
