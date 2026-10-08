@@ -12,7 +12,7 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
 
     List<OrderEntity> findBySeller_SellerId(String sellerId);
 
-    List<OrderEntity> findByStatusIgnoreCase(String status);
+    List<OrderEntity> findByStatus(String status);
 
     List<OrderEntity> findByDeliveryAgent_AgentId(String agentId);
 
