@@ -4,7 +4,6 @@ import com.kuraliupdates.bazaar.dto.delivery.DeliveryRegistrationRequest;
 import com.kuraliupdates.bazaar.entity.DeliveryAgentEntity;
 import com.kuraliupdates.bazaar.entity.OrderEntity;
 import com.kuraliupdates.bazaar.service.DeliveryService;
-import com.kuraliupdates.bazaar.service.AuthService;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.entity.UserEntity;
 import org.springframework.http.HttpStatus;
@@ -25,7 +24,6 @@ import java.util.Map;
 @Tag(name = "Delivery API", description = "Delivery partner registration, job claiming and completion")
 public class DeliveryController {
     private final DeliveryService deliveryService;
-    private final AuthService authService;
 
     @PostMapping("/register")
     @Operation(summary = "Register a delivery partner for admin approval")
