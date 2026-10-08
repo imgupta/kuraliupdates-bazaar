@@ -50,32 +50,41 @@ public class DeliveryService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrderEntity> availableJobs() {
+    public DeliveryAgentEntity currentAgent(com.kuraliupdates.bazaar.entity.UserEntity user) {
+        return findAgentForUser(user);
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderEntity> availableJobs(com.kuraliupdates.bazaar.entity.UserEntity user) {
+        DeliveryAgentEntity agent = findAgentForUser(user);
+        requireActive(agent);
         return orderRepository.findByStatus("READY_FOR_PICKUP");
     }
 
     @Transactional
-    public OrderEntity claim(String orderId, String agentId) {
+    public OrderEntity claim(String orderId, String agentId, com.kuraliupdates.bazaar.entity.UserEntity user) {
+        DeliveryAgentEntity authenticatedAgent = findAgentForUser(user);
+        requireActive(authenticatedAgent);
+        if (!authenticatedAgent.getAgentId().equals(agentId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You can only claim orders for your own delivery profile");
+        }
+
         OrderEntity order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
-        DeliveryAgentEntity agent = agentRepository.findById(agentId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Delivery partner not found"));
-
-        if (!"ACTIVE".equals(agent.getStatus())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Delivery partner is not active");
-        }
         if (!"READY_FOR_PICKUP".equals(order.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "Order is not available for pickup");
         }
 
-        order.setDeliveryAgent(agent);
+        order.setDeliveryAgent(authenticatedAgent);
         order.setStatus("ASSIGNED_TO_DELIVERY");
         order.setUpdatedAt(LocalDateTime.now());
         return orderRepository.save(order);
     }
 
     @Transactional
-    public Map<String, Object> verifyDeliveryOtp(String orderId, String enteredOtp) {
+    public Map<String, Object> verifyDeliveryOtp(String orderId, String enteredOtp, com.kuraliupdates.bazaar.entity.UserEntity user) {
+        DeliveryAgentEntity authenticatedAgent = findAgentForUser(user);
+        requireActive(authenticatedAgent);
         if (enteredOtp == null || !enteredOtp.matches("\\d{4}")) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Delivery OTP must be 4 digits");
         }
@@ -96,6 +105,9 @@ public class DeliveryService {
         orderRepository.save(order);
 
         DeliveryAgentEntity agent = order.getDeliveryAgent();
+        if (agent == null || !agent.getAgentId().equals(authenticatedAgent.getAgentId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This order is not assigned to your delivery profile");
+        }
         if (agent != null) {
             BigDecimal distance = order.getDistanceKm() == null ? BigDecimal.ONE : order.getDistanceKm();
             BigDecimal payout = BigDecimal.valueOf(Math.max(45, Math.round(distance.doubleValue() * 22) + 20));
@@ -106,5 +118,24 @@ public class DeliveryService {
         }
 
         return Map.of("success", true, "message", "Order delivered and payout credited!");
+    }
+
+    private DeliveryAgentEntity findAgentForUser(com.kuraliupdates.bazaar.entity.UserEntity user) {
+        if (user == null) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated user is required");
+        }
+        Optional<DeliveryAgentEntity> agent = user.getEmail() == null
+                ? Optional.empty()
+                : agentRepository.findByEmail(user.getEmail().trim().toLowerCase());
+        if (agent.isEmpty() && user.getPhone() != null) {
+            agent = agentRepository.findByPhone(user.getPhone().trim().replaceAll("\D", ""));
+        }
+        return agent.orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "No delivery profile is linked to this account"));
+    }
+
+    private void requireActive(DeliveryAgentEntity agent) {
+        if (!"ACTIVE".equalsIgnoreCase(agent.getStatus())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Delivery partner approval is required before accessing pickup jobs");
+        }
     }
 }
