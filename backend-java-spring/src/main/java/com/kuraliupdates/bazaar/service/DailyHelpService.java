@@ -165,7 +165,7 @@ public class DailyHelpService {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        return slotRepository.findAvailableForDate(date, locality == null || locality.isBlank() ? null : locality.trim())
+        return slotRepository.findAvailableForDate(date, locality == null || locality.isBlank() ? null : locality.trim(), LocalTime.MIN, LocalTime.MAX)
                 .stream()
                 .filter(s -> {
                     LocalDateTime start = s.getSlotDate().atTime(s.getStartTime());
