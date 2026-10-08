@@ -26,9 +26,32 @@ export const DeliveryDashboard: React.FC = () => {
     completeDelivery,
     setIsDeliveryRegisterOpen,
     showToast,
+    syncWithBackend,
   } = useApp();
 
   const [otpInputs, setOtpInputs] = useState<{ [orderId: string]: string }>({});
+  const [deliveryJobsLoading, setDeliveryJobsLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      if (!active) return;
+      setDeliveryJobsLoading(true);
+      try {
+        await syncWithBackend();
+      } finally {
+        if (active) setDeliveryJobsLoading(false);
+      }
+    };
+    void refresh();
+    const interval = window.setInterval(refresh, 10000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [syncWithBackend]);
+
+
 
   const agent = currentAgent || deliveryAgents[0];
 
@@ -270,7 +293,7 @@ export const DeliveryDashboard: React.FC = () => {
           <h3 className="text-sm font-extrabold text-slate-900">
             Available Pickup Orders in Kurali ({availableOrders.length})
           </h3>
-          <span className="text-xs text-slate-500">First-come, first-claimed dispatch</span>
+          <span className="text-xs text-slate-500">{deliveryJobsLoading ? 'Refreshing…' : 'Live pickup dispatch'}</span>
         </div>
 
         {availableOrders.length === 0 ? (
