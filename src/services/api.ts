@@ -406,9 +406,20 @@ export const bazaarApi = {
 
   async getAdminDeliveryAgents(): Promise<any[]> {
     try {
+      // Pending delivery applications are exposed by the backend approval API.
+      // Keep the all-delivery endpoint as a compatibility fallback for older deployments.
+      const pendingRes = await fetch(`${API_BASE_URL}/admin/delivery/pending`, {
+        headers: adminAuthHeaders(),
+      });
+      if (pendingRes.ok) {
+        const pending = await pendingRes.json();
+        if (Array.isArray(pending)) return pending;
+      }
+
       const res = await fetch(`${API_BASE_URL}/admin/delivery`, { headers: adminAuthHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     } catch (err) {
       console.warn('Backend getAdminDeliveryAgents failed:', err);
       return [];
