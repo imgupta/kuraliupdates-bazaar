@@ -9,6 +9,8 @@ import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalAvailabilityR
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalRegistrationRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalResponse;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalEarningsResponse;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpSlotRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpSlotResponse;
 import com.kuraliupdates.bazaar.service.DailyHelpService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.time.LocalDate;
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/daily-help")
@@ -36,10 +40,18 @@ public class DailyHelpController {
     public ResponseEntity<DailyHelpBookingResponse> createBooking(
             @Valid @RequestBody DailyHelpBookingRequest request, Authentication authentication) {
         UserEntity user = requireUser(authentication);
-        if (!"BUYER".equalsIgnoreCase(user.getRole()) || !samePhone(user.getPhone(), request.buyerPhone())) {
+        if (!samePhone(user.getPhone(), request.buyerPhone())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You can only create a Daily Help booking for your own account");
         }
         return ResponseEntity.ok(dailyHelpService.createBooking(request));
+    }
+
+    @GetMapping("/availability")
+    public ResponseEntity<List<DailyHelpSlotResponse>> availability(
+            @RequestParam LocalDate date,
+            @RequestParam BigDecimal requestedHours,
+            @RequestParam(required = false) String locality) {
+        return ResponseEntity.ok(dailyHelpService.getAvailableSlots(date, locality, requestedHours));
     }
 
     @PostMapping("/professionals/register")
@@ -67,6 +79,33 @@ public class DailyHelpController {
             @Valid @RequestBody DailyHelpProfessionalAvailabilityRequest request, Authentication authentication) {
         requireOwnProfessional(authentication, professionalId);
         return ResponseEntity.ok(dailyHelpService.updateProfessionalAvailability(professionalId, request));
+    }
+
+    @GetMapping("/professionals/{professionalId}/slots")
+    public ResponseEntity<List<DailyHelpSlotResponse>> professionalSlots(
+            @PathVariable String professionalId,
+            @RequestParam LocalDate date,
+            Authentication authentication) {
+        requireOwnProfessional(authentication, professionalId);
+        return ResponseEntity.ok(dailyHelpService.getProfessionalSlots(professionalId, date));
+    }
+
+    @PostMapping("/professionals/{professionalId}/slots")
+    public ResponseEntity<DailyHelpSlotResponse> createProfessionalSlot(
+            @PathVariable String professionalId,
+            @Valid @RequestBody DailyHelpSlotRequest request,
+            Authentication authentication) {
+        requireOwnProfessional(authentication, professionalId);
+        return ResponseEntity.ok(dailyHelpService.createProfessionalSlot(professionalId, request));
+    }
+
+    @DeleteMapping("/professionals/{professionalId}/slots/{slotId}")
+    public ResponseEntity<DailyHelpSlotResponse> cancelProfessionalSlot(
+            @PathVariable String professionalId,
+            @PathVariable String slotId,
+            Authentication authentication) {
+        requireOwnProfessional(authentication, professionalId);
+        return ResponseEntity.ok(dailyHelpService.cancelProfessionalSlot(professionalId, slotId));
     }
 
     @GetMapping("/professionals/{professionalId}/jobs/available")
