@@ -250,3 +250,16 @@ export interface DailyHelpProfessionalEarnings {
   lifetime: number;
   completedBookings: number;
 }
+
+export interface DailyHelpSlot {
+  slotId: string;
+  professionalId: string;
+  professionalName: string;
+  locality?: string;
+  slotDate: string;
+  startTime: string;
+  endTime: string;
+  status: 'AVAILABLE' | 'BOOKED' | 'CANCELLED';
+  bookingId?: string;
+  rating: string;
+}
