@@ -9,7 +9,8 @@ public record DailyHelpBookingRequest(
         @NotBlank String buyerName,
         @NotBlank String buyerPhone,
         @NotBlank String address,
-        @NotBlank String locality,
+        String locality,
         @NotNull @FutureOrPresent LocalDateTime scheduledStart,
-        @NotNull @DecimalMin("1.0") @DecimalMax("12.0") BigDecimal requestedHours
+        @NotNull @DecimalMin("1.0") @DecimalMax("12.0") BigDecimal requestedHours,
+        @NotBlank String slotId
 ) {}
