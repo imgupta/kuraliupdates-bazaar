@@ -119,15 +119,27 @@ public class AuthService {
     }
 
     @Transactional(readOnly = true)
-    public OnboardingStatus onboardingStatus(String token) {
+    public OnboardingStatus onboardingStatus(String token, String requestedRole) {
         UserEntity user = requireUser(token);
-        String role = user.getRole() == null ? "BUYER" : user.getRole().toUpperCase();
+        String primaryRole = user.getRole() == null ? "BUYER" : user.getRole().toUpperCase();
+        String role = requestedRole == null || requestedRole.isBlank()
+                ? primaryRole
+                : requestedRole.trim().toUpperCase();
         String status = "APPROVED";
+
+        // A single account can own multiple profiles. Resolve approval from the
+        // profile requested by the UI instead of the account's primary role.
         if ("SELLER".equals(role)) {
-            status = sellerRepository.findByEmail(user.getEmail()).map(SellerEntity::getStatus).orElse("PENDING");
+            status = sellerRepository.findByEmailIgnoreCase(user.getEmail())
+                    .map(SellerEntity::getStatus).orElse("PENDING");
         } else if ("DELIVERY".equals(role)) {
-            status = deliveryAgentRepository.findByEmail(user.getEmail()).map(DeliveryAgentEntity::getStatus).orElse("PENDING");
+            status = deliveryAgentRepository.findByEmail(user.getEmail())
+                    .map(DeliveryAgentEntity::getStatus).orElse("PENDING");
+        } else if ("PROFESSIONAL".equals(role)) {
+            status = dailyHelpProfessionalRepository.findByPhone(user.getPhone())
+                    .map(p -> p.isVerified() ? "APPROVED" : "PENDING").orElse("PENDING");
         }
+
         return new OnboardingStatus(role, status);
     }
 
