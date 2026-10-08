@@ -181,11 +181,11 @@ public class DailyHelpController {
 
     private void requireOwnProfessional(Authentication authentication, String professionalId) {
         UserEntity user = requireUser(authentication);
-        if (!"PROFESSIONAL".equalsIgnoreCase(user.getRole())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Professional account required");
-        }
+        // A user may own multiple marketplace profiles. Authorization for Daily Help
+        // is based on the authenticated phone -> professional profile mapping, not
+        // the primary USERS.ROLE value.
         DailyHelpProfessionalResponse profile = dailyHelpService.getProfessionalByPhone(user.getPhone());
-        if (!profile.professionalId().equals(professionalId)) {
+        if (profile == null || !profile.professionalId().equals(professionalId)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You can only manage your own professional account");
         }
     }
