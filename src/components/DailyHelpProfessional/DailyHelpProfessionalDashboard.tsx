@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { bazaarApi } from '../../services/api';
-import { DailyHelpBooking, DailyHelpProfessional, DailyHelpProfessionalEarnings } from '../../types';
+import { DailyHelpBooking, DailyHelpProfessional, DailyHelpProfessionalEarnings, DailyHelpSlot } from '../../types';
 
 const ACTIVE_STATUSES = ['PROFESSIONAL_ASSIGNED', 'ARRIVING', 'READY_TO_START', 'IN_PROGRESS'];
 
@@ -38,6 +38,10 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
   const [now, setNow] = useState(Date.now());
+  const [slotDate, setSlotDate] = useState(new Date().toISOString().slice(0, 10));
+  const [slotStart, setSlotStart] = useState('09:00');
+  const [slotEnd, setSlotEnd] = useState('11:00');
+  const [mySlots, setMySlots] = useState<DailyHelpSlot[]>([]);
 
   const load = async (silent = false) => {
     if (!user.phone) return;
@@ -57,10 +61,17 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
     setAvailableJobs(nextJobs);
     setJobs(history);
     setEarnings(money);
+    const slotsForDate = await bazaarApi.getDailyHelpProfessionalSlots(profile.professionalId, slotDate);
+    setMySlots(slotsForDate as DailyHelpSlot[]);
     setLoading(false);
   };
 
   useEffect(() => { void load(); }, [user.phone]);
+
+  useEffect(() => {
+    if (!professional?.professionalId) return;
+    bazaarApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate).then(data => setMySlots(data as DailyHelpSlot[]));
+  }, [professional?.professionalId, slotDate]);
 
   useEffect(() => {
     if (!professional?.professionalId) return;
@@ -209,6 +220,68 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
           <div><p className="text-[10px] uppercase text-slate-400 font-bold">Today</p><p className="text-lg font-black">₹{earnings?.today || 0}</p></div>
           <div><p className="text-[10px] uppercase text-slate-400 font-bold">Lifetime</p><p className="text-lg font-black">₹{earnings?.lifetime || 0}</p></div>
           <div><p className="text-[10px] uppercase text-slate-400 font-bold">Completed</p><p className="text-lg font-black">{earnings?.completedBookings || 0}</p></div>
+        </div>
+      </section>
+
+      <section className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-wide text-slate-800">My Availability Slots</h2>
+            <p className="text-xs text-slate-500 mt-1">Add exact bookable timings. Customers will only see slots that match their requested duration.</p>
+          </div>
+          <CalendarClock className="w-5 h-5 text-amber-600" />
+        </div>
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <label className="text-[11px] font-bold text-slate-700">Date
+            <input type="date" min={new Date().toISOString().slice(0,10)} value={slotDate} onChange={e => setSlotDate(e.target.value)} className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5" />
+          </label>
+          <label className="text-[11px] font-bold text-slate-700">Start
+            <input type="time" value={slotStart} onChange={e => setSlotStart(e.target.value)} className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5" />
+          </label>
+          <label className="text-[11px] font-bold text-slate-700">End
+            <input type="time" value={slotEnd} onChange={e => setSlotEnd(e.target.value)} className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5" />
+          </label>
+        </div>
+        <button
+          onClick={async () => {
+            try {
+              const created = await bazaarApi.createDailyHelpProfessionalSlot(professional.professionalId, slotDate, slotStart, slotEnd);
+              if (created) {
+                showToast('Availability slot added.', 'success');
+                setMySlots(await bazaarApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate) as DailyHelpSlot[]);
+              }
+            } catch (err: any) {
+              showToast(err?.message || 'Unable to add availability slot.', 'error');
+            }
+          }}
+          className="mt-3 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black cursor-pointer"
+        >Add Availability Slot</button>
+
+        <div className="mt-4 space-y-2">
+          {mySlots.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 p-5 text-center text-xs text-slate-500">No slots added for this date.</div>
+          ) : mySlots.map(slot => (
+            <div key={slot.slotId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">
+              <div>
+                <p className="text-xs font-black text-slate-900">{slot.startTime.slice(0,5)} - {slot.endTime.slice(0,5)}</p>
+                <p className="text-[10px] text-slate-500">{slot.status === 'BOOKED' ? 'Booked' : slot.status === 'AVAILABLE' ? 'Available to customers' : 'Cancelled'}</p>
+              </div>
+              {slot.status === 'AVAILABLE' && (
+                <button
+                  onClick={async () => {
+                    try {
+                      await bazaarApi.cancelDailyHelpProfessionalSlot(professional.professionalId, slot.slotId);
+                      setMySlots(await bazaarApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate) as DailyHelpSlot[]);
+                      showToast('Availability slot removed.', 'success');
+                    } catch (err: any) {
+                      showToast(err?.message || 'Unable to remove slot.', 'error');
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-[10px] font-black cursor-pointer"
+                >Remove</button>
+              )}
+            </div>
+          ))}
         </div>
       </section>
 
