@@ -49,7 +49,7 @@ export const DeliveryDashboard: React.FC = () => {
       active = false;
       window.clearInterval(interval);
     };
-  }, [syncWithBackend]);
+  }, []);
 
 
 
