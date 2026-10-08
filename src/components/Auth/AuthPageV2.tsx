@@ -244,7 +244,8 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
 
       const serverRole = (response.user.role || '').toLowerCase();
       if ((serverRole === 'seller' || serverRole === 'delivery') && response.token) {
-        const approval = await bazaarApi.getOnboardingStatus(response.token);
+        const requestedProfileRole = registrationRole === 'seller' ? 'SELLER' : registrationRole === 'delivery' ? 'DELIVERY' : registrationRole === 'professional' ? 'PROFESSIONAL' : undefined;
+        const approval = await bazaarApi.getOnboardingStatus(response.token, requestedProfileRole);
         if (approval.success && approval.status !== 'APPROVED') {
           setOnboardingStatus(approval.status || 'PENDING');
           setPendingToken(response.token);
