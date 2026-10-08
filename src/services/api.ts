@@ -406,16 +406,6 @@ export const bazaarApi = {
 
   async getAdminDeliveryAgents(): Promise<any[]> {
     try {
-      // Pending delivery applications are exposed by the backend approval API.
-      // Keep the all-delivery endpoint as a compatibility fallback for older deployments.
-      const pendingRes = await fetch(`${API_BASE_URL}/admin/delivery/pending`, {
-        headers: adminAuthHeaders(),
-      });
-      if (pendingRes.ok) {
-        const pending = await pendingRes.json();
-        if (Array.isArray(pending)) return pending;
-      }
-
       const res = await fetch(`${API_BASE_URL}/admin/delivery`, { headers: adminAuthHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -425,7 +415,6 @@ export const bazaarApi = {
       return [];
     }
   },
-
   async getAdminSearchTrends(): Promise<any[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/analytics/search-trends`, { headers: adminAuthHeaders() });
@@ -701,9 +690,11 @@ export const bazaarApi = {
    */
   async claimDeliveryJob(orderId: string, agentId: string): Promise<boolean> {
     try {
+      const token = localStorage.getItem('kurali_auth_token');
+      if (!token) return false;
       const res = await fetch(
         `${API_BASE_URL}/delivery/jobs/${encodeURIComponent(orderId)}/claim?agentId=${encodeURIComponent(agentId)}`,
-        { method: 'POST' }
+        { method: 'POST', headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } }
       );
       return res.ok;
     } catch (err) {
@@ -711,28 +702,22 @@ export const bazaarApi = {
       return false;
     }
   },
-
-  /**
-   * Verify buyer OTP to complete delivery in Oracle DB
-   */
   async verifyDeliveryOtp(orderId: string, otp: string): Promise<{ success: boolean; message: string }> {
     try {
+      const token = localStorage.getItem('kurali_auth_token');
+      if (!token) return { success: false, message: 'Your session has expired.' };
       const res = await fetch(`${API_BASE_URL}/delivery/jobs/${encodeURIComponent(orderId)}/verify-otp`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ otp }),
       });
-      const data = await res.json();
-      return { success: res.ok && data.success !== false, message: data.message || 'OTP verified' };
+      const data = await res.json().catch(() => ({}));
+      return { success: res.ok && data.success !== false, message: data.message || (res.ok ? 'OTP verified' : 'Unable to verify OTP') };
     } catch (err: any) {
       console.warn('Backend verifyDeliveryOtp failed:', err);
       return { success: false, message: err.message || 'Failed to verify OTP' };
     }
   },
-
-  /**
-   * Request a real OTP from the backend. There is deliberately no client-side fallback.
-   */
   async sendOtp(identifier: string, type: 'EMAIL' | 'PHONE', mode: 'LOGIN' | 'REGISTER'): Promise<{ success: boolean; message: string }> {
     try {
       const controller = new AbortController();
@@ -913,21 +898,36 @@ export const bazaarApi = {
     return { success: true, message: 'Logged out successfully' };
   },
 
-  async getDeliveryAvailableJobs(): Promise<Order[]> {
+  async getCurrentDeliveryAgent(): Promise<any | null> {
     try {
       const token = localStorage.getItem('kurali_auth_token');
-      const res = await fetch(`${API_BASE_URL}/delivery/jobs/available`, {
-        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      if (!token) return null;
+      const res = await fetch(`${API_BASE_URL}/delivery/me`, {
+        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
       });
-      const data = await res.json().catch(() => []);
-      if (!res.ok) throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
-      return (Array.isArray(data) ? data : []).map(mapBackendOrder);
+      if (!res.ok) return null;
+      return await res.json();
     } catch (err) {
-      console.warn('Backend getDeliveryAvailableJobs failed:', err);
-      return [];
+      console.warn('Backend getCurrentDeliveryAgent failed:', err);
+      return null;
     }
   },
 
+  async getDeliveryAvailableJobs(): Promise<any[]> {
+    try {
+      const token = localStorage.getItem('kurali_auth_token');
+      if (!token) return [];
+      const res = await fetch(`${API_BASE_URL}/delivery/jobs/available`, {
+        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => []);
+      if (!res.ok) throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.warn('Backend getAvailableDeliveryJobs failed:', err);
+      return [];
+    }
+  },
   async getDailyHelpServices(): Promise<DailyHelpService[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/daily-help/services`, { headers: { Accept: 'application/json' } });
