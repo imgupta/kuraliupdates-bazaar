@@ -10,6 +10,8 @@ import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalResponse;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpServiceResponse;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpServiceAdminRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpServiceAdminResponse;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpSlotRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpSlotResponse;
 import com.kuraliupdates.bazaar.entity.DailyHelpBookingEntity;
 import com.kuraliupdates.bazaar.entity.DailyHelpProfessionalEntity;
 import com.kuraliupdates.bazaar.entity.DailyHelpServiceEntity;
@@ -17,6 +19,8 @@ import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.repository.DailyHelpBookingRepository;
 import com.kuraliupdates.bazaar.repository.DailyHelpProfessionalRepository;
 import com.kuraliupdates.bazaar.repository.DailyHelpServiceRepository;
+import com.kuraliupdates.bazaar.repository.DailyHelpProfessionalSlotRepository;
+import com.kuraliupdates.bazaar.entity.DailyHelpProfessionalSlotEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,6 +29,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.Optional;
@@ -36,6 +43,7 @@ public class DailyHelpService {
     private final DailyHelpServiceRepository serviceRepository;
     private final DailyHelpProfessionalRepository professionalRepository;
     private final DailyHelpBookingRepository bookingRepository;
+    private final DailyHelpProfessionalSlotRepository slotRepository;
     private final SecureRandom random = new SecureRandom();
 
     @Transactional(readOnly = true)
@@ -84,22 +92,55 @@ public class DailyHelpService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Minimum booking is " + service.getMinHours() + " hours");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        if (request.slotId() == null || request.slotId().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Please select an available maid slot");
+        }
 
-        // New bookings enter SEARCHING so verified professionals can explicitly accept them.
+        DailyHelpProfessionalSlotEntity slot = slotRepository.findLockedBySlotId(request.slotId().trim())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Selected Daily Help slot was not found"));
+
+        if (!"AVAILABLE".equals(slot.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "This slot is already booked. Please select a different slot.");
+        }
+        DailyHelpProfessionalEntity professional = slot.getProfessional();
+        if (!Integer.valueOf(1).equals(professional.getVerified())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Selected Daily Help professional is not currently verified");
+        }
+        if (request.locality() != null && !request.locality().isBlank()
+                && professional.getCurrentLocality() != null
+                && !professional.getCurrentLocality().equalsIgnoreCase(request.locality().trim())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Selected professional is not available in your locality");
+        }
+
+        LocalDateTime slotStart = slot.getSlotDate().atTime(slot.getStartTime());
+        LocalDateTime slotEnd = slot.getSlotDate().atTime(slot.getEndTime());
+        long slotMinutes = Duration.between(slotStart, slotEnd).toMinutes();
+        long requestedMinutes = request.requestedHours().multiply(BigDecimal.valueOf(60)).longValueExact();
+
+        if (!slotStart.equals(request.scheduledStart())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Please select the exact start time of the chosen slot");
+        }
+        if (slotMinutes != requestedMinutes) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Selected slot duration does not match the requested booking duration");
+        }
+        if (slotStart.isBefore(LocalDateTime.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Selected slot has already started. Please choose a future slot.");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
         DailyHelpBookingEntity booking = DailyHelpBookingEntity.builder()
                 .bookingId("DH-KUR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .service(service)
-                .professional(null)
+                .professional(professional)
                 .buyerName(request.buyerName().trim())
                 .buyerPhone(request.buyerPhone().trim())
                 .address(request.address().trim())
-                .locality(request.locality().trim())
-                .scheduledStart(request.scheduledStart())
+                .locality(request.locality() == null ? professional.getCurrentLocality() : request.locality().trim())
+                .scheduledStart(slotStart)
                 .requestedHours(request.requestedHours())
                 .hourlyRate(service.getPricePerHour())
                 .estimatedTotal(service.getPricePerHour().multiply(request.requestedHours()))
-                .status("SEARCHING")
+                .status("PROFESSIONAL_ASSIGNED")
                 .startOtp(generateOtp())
                 .otpExpiresAt(now.plusMinutes(15))
                 .otpAttempts(0)
@@ -107,8 +148,93 @@ public class DailyHelpService {
                 .updatedAt(now)
                 .build();
 
+        slot.setStatus("BOOKED");
+        slot.setBookingId(booking.getBookingId());
+        slot.setUpdatedAt(now);
+        slotRepository.save(slot);
+
         DailyHelpBookingEntity saved = bookingRepository.save(booking);
         return DailyHelpBookingResponse.from(saved, shouldExposeOtp(saved));
+    }
+
+    @Transactional(readOnly = true)
+    public List<DailyHelpSlotResponse> getAvailableSlots(LocalDate date, String locality, BigDecimal requestedHours) {
+        if (date == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Booking date is required");
+        if (requestedHours == null || requestedHours.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Booking duration must be greater than zero");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        return slotRepository.findAvailableForDate(date, locality == null || locality.isBlank() ? null : locality.trim())
+                .stream()
+                .filter(s -> {
+                    LocalDateTime start = s.getSlotDate().atTime(s.getStartTime());
+                    LocalDateTime end = s.getSlotDate().atTime(s.getEndTime());
+                    long minutes = Duration.between(start, end).toMinutes();
+                    long requestedMinutes = requestedHours.multiply(BigDecimal.valueOf(60)).longValue();
+                    return !start.isBefore(now) && minutes == requestedMinutes;
+                })
+                .map(DailyHelpSlotResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DailyHelpSlotResponse> getProfessionalSlots(String professionalId, LocalDate date) {
+        getProfessionalEntity(professionalId);
+        return slotRepository.findByProfessionalProfessionalIdAndSlotDateOrderByStartTimeAsc(professionalId, date)
+                .stream().map(DailyHelpSlotResponse::from).toList();
+    }
+
+    @Transactional
+    public DailyHelpSlotResponse createProfessionalSlot(String professionalId, DailyHelpSlotRequest request) {
+        DailyHelpProfessionalEntity professional = getProfessionalEntity(professionalId);
+        if (request.slotDate().isBefore(LocalDate.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Slot date must be today or a future date");
+        }
+        if (!request.endTime().isAfter(request.startTime())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Slot end time must be after start time");
+        }
+        if (request.slotDate().equals(LocalDate.now()) && request.startTime().isBefore(LocalTime.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Slot start time must be in the future");
+        }
+
+        List<DailyHelpProfessionalSlotEntity> existing =
+                slotRepository.findByProfessionalProfessionalIdAndSlotDateOrderByStartTimeAsc(professionalId, request.slotDate());
+        boolean overlaps = existing.stream().anyMatch(s ->
+                !"CANCELLED".equals(s.getStatus())
+                        && request.startTime().isBefore(s.getEndTime())
+                        && request.endTime().isAfter(s.getStartTime()));
+        if (overlaps) {
+            throw new ApiException(HttpStatus.CONFLICT, "This timing overlaps an existing slot");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        DailyHelpProfessionalSlotEntity slot = DailyHelpProfessionalSlotEntity.builder()
+                .slotId("DHS-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .professional(professional)
+                .slotDate(request.slotDate())
+                .startTime(request.startTime())
+                .endTime(request.endTime())
+                .status("AVAILABLE")
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        return DailyHelpSlotResponse.from(slotRepository.save(slot));
+    }
+
+    @Transactional
+    public DailyHelpSlotResponse cancelProfessionalSlot(String professionalId, String slotId) {
+        DailyHelpProfessionalSlotEntity slot = slotRepository.findLockedBySlotId(slotId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help slot not found"));
+        if (!slot.getProfessional().getProfessionalId().equals(professionalId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You can only manage your own Daily Help slots");
+        }
+        if ("BOOKED".equals(slot.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "A booked slot cannot be removed");
+        }
+        slot.setStatus("CANCELLED");
+        slot.setUpdatedAt(LocalDateTime.now());
+        return DailyHelpSlotResponse.from(slotRepository.save(slot));
     }
 
     @Transactional(readOnly = true)
