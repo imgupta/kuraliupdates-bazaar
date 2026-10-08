@@ -3,7 +3,7 @@
  * Hosted Live on Render: https://kuraliupdates-bazaar.onrender.com/api/v1
  */
 
-import { Product, Seller, Order, DeliveryAgent, DailyHelpService, DailyHelpBooking, DailyHelpProfessional, DailyHelpProfessionalEarnings } from '../types';
+import { Product, Seller, Order, OrderStatus, DeliveryAgent, DailyHelpService, DailyHelpBooking, DailyHelpProfessional, DailyHelpProfessionalEarnings } from '../types';
 
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string) ||
