@@ -243,8 +243,14 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
       }
 
       const serverRole = (response.user.role || '').toLowerCase();
-      if ((serverRole === 'seller' || serverRole === 'delivery') && response.token) {
-        const requestedProfileRole = registrationRole === 'seller' ? 'SELLER' : registrationRole === 'delivery' ? 'DELIVERY' : registrationRole === 'professional' ? 'PROFESSIONAL' : undefined;
+      const requestedProfileRole = registrationRole === 'seller'
+        ? 'SELLER'
+        : registrationRole === 'delivery'
+          ? 'DELIVERY'
+          : registrationRole === 'professional'
+            ? 'PROFESSIONAL'
+            : undefined;
+      if (requestedProfileRole && response.token) {
         const approval = await bazaarApi.getOnboardingStatus(response.token, requestedProfileRole);
         if (approval.success && approval.status !== 'APPROVED') {
           setOnboardingStatus(approval.status || 'PENDING');
@@ -292,7 +298,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
           </div>
           <p className="mt-6 text-xs text-slate-500">You do not need to register again. Keep your email and mobile number available for future updates.</p>
           {pendingToken && onboardingStatus === 'PENDING' && (
-            <button type="button" onClick={async () => { const approval = await bazaarApi.getOnboardingStatus(pendingToken); if (approval.status === 'APPROVED') { setOnboardingStatus('APPROVED'); setApplicationSubmitted(false); window.location.href = '/'; } else if (approval.status === 'REJECTED') { setOnboardingStatus('REJECTED'); } else { showToast('Your application is still under review.', 'info'); } }} className="mt-5 inline-flex items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-5 py-2.5 text-xs font-black text-amber-800">Check approval status</button>
+            <button type="button" onClick={async () => { const requestedProfileRole = registrationRole === 'seller' ? 'SELLER' : registrationRole === 'delivery' ? 'DELIVERY' : registrationRole === 'professional' ? 'PROFESSIONAL' : undefined; const approval = await bazaarApi.getOnboardingStatus(pendingToken, requestedProfileRole); if (approval.status === 'APPROVED') { setOnboardingStatus('APPROVED'); setApplicationSubmitted(false); window.location.href = '/'; } else if (approval.status === 'REJECTED') { setOnboardingStatus('REJECTED'); } else { showToast('Your application is still under review.', 'info'); } }} className="mt-5 inline-flex items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-5 py-2.5 text-xs font-black text-amber-800">Check approval status</button>
           )}
           <a href="/" className="mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 py-3 text-xs font-black text-white hover:bg-black"><ArrowLeft className="h-4 w-4" /> Return to Bazaar</a>
         </div>
