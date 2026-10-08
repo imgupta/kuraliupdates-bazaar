@@ -227,9 +227,12 @@ public class AuthService {
                 ? "Main Bazaar & Clock Tower" : req.locality().trim();
         LocalDateTime now = LocalDateTime.now();
 
+        // USERS.ROLE is the primary marketplace role; Daily Help is a separate
+        // profile and must not violate the existing USERS role constraint.
+        String primaryRole = "PROFESSIONAL".equals(role) ? "BUYER" : role;
         UserEntity user = UserEntity.builder()
                 .userId("user-" + UUID.randomUUID().toString().substring(0, 8))
-                .email(email).phone(phone).name(req.name().trim()).role(role)
+                .email(email).phone(phone).name(req.name().trim()).role(primaryRole)
                 .locality(locality)
                 .address(defaultString(req.address())).addressLine1(defaultString(req.addressLine1()))
                 .landmark(defaultString(req.landmark())).formattedAddress(defaultString(req.formattedAddress()))
