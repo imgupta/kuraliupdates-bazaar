@@ -99,15 +99,16 @@ public class DeliveryService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid Delivery OTP");
         }
 
+        DeliveryAgentEntity agent = order.getDeliveryAgent();
+        if (agent == null || !agent.getAgentId().equals(authenticatedAgent.getAgentId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This order is not assigned to your delivery profile");
+        }
+
         order.setStatus("DELIVERED");
         order.setPaymentStatus("COD".equalsIgnoreCase(order.getPaymentMethod()) ? "PAID" : order.getPaymentStatus());
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
 
-        DeliveryAgentEntity agent = order.getDeliveryAgent();
-        if (agent == null || !agent.getAgentId().equals(authenticatedAgent.getAgentId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "This order is not assigned to your delivery profile");
-        }
         if (agent != null) {
             BigDecimal distance = order.getDistanceKm() == null ? BigDecimal.ONE : order.getDistanceKm();
             BigDecimal payout = BigDecimal.valueOf(Math.max(45, Math.round(distance.doubleValue() * 22) + 20));
@@ -128,7 +129,7 @@ public class DeliveryService {
                 ? Optional.empty()
                 : agentRepository.findByEmail(user.getEmail().trim().toLowerCase());
         if (agent.isEmpty() && user.getPhone() != null) {
-            agent = agentRepository.findByPhone(user.getPhone().trim().replaceAll("\D", ""));
+            agent = agentRepository.findByPhone(user.getPhone().trim().replaceAll("\\D", ""));
         }
         return agent.orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "No delivery profile is linked to this account"));
     }
