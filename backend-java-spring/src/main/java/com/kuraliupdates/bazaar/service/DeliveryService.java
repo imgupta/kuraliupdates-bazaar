@@ -51,7 +51,7 @@ public class DeliveryService {
 
     @Transactional(readOnly = true)
     public List<OrderEntity> availableJobs() {
-        return orderRepository.findByStatusIgnoreCase("READY_FOR_PICKUP");
+        return orderRepository.findByStatus("READY_FOR_PICKUP");
     }
 
     @Transactional
