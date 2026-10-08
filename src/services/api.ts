@@ -874,6 +874,21 @@ export const bazaarApi = {
     return { success: true, message: 'Logged out successfully' };
   },
 
+  async getDeliveryAvailableJobs(): Promise<Order[]> {
+    try {
+      const token = localStorage.getItem('kurali_auth_token');
+      const res = await fetch(`${API_BASE_URL}/delivery/jobs/available`, {
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      const data = await res.json().catch(() => []);
+      if (!res.ok) throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
+      return (Array.isArray(data) ? data : []).map(mapBackendOrder);
+    } catch (err) {
+      console.warn('Backend getDeliveryAvailableJobs failed:', err);
+      return [];
+    }
+  },
+
   async getDailyHelpServices(): Promise<DailyHelpService[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/daily-help/services`, { headers: { Accept: 'application/json' } });
