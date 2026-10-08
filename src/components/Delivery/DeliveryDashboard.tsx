@@ -31,6 +31,8 @@ export const DeliveryDashboard: React.FC = () => {
 
   const [otpInputs, setOtpInputs] = useState<{ [orderId: string]: string }>({});
   const [deliveryJobsLoading, setDeliveryJobsLoading] = useState(false);
+  const [backendAgent, setBackendAgent] = useState<any | null>(null);
+  const [liveAvailableOrders, setLiveAvailableOrders] = useState<Order[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -38,6 +40,12 @@ export const DeliveryDashboard: React.FC = () => {
       if (!active) return;
       setDeliveryJobsLoading(true);
       try {
+        const [remoteAgent, remoteJobs] = await Promise.all([
+          bazaarApi.getCurrentDeliveryAgent(),
+          bazaarApi.getDeliveryAvailableJobs(),
+        ]);
+        setBackendAgent(remoteAgent);
+        setLiveAvailableOrders(remoteJobs as Order[]);
         await syncWithBackend();
       } finally {
         if (active) setDeliveryJobsLoading(false);
@@ -53,7 +61,24 @@ export const DeliveryDashboard: React.FC = () => {
 
 
 
-  const agent = currentAgent || deliveryAgents[0];
+  const agent = backendAgent
+    ? {
+        id: backendAgent.agentId,
+        name: backendAgent.fullName,
+        email: backendAgent.email,
+        phone: backendAgent.phone,
+        avatarUrl: backendAgent.avatarUrl || '',
+        vehicleType: backendAgent.vehicleType,
+        vehicleNumber: backendAgent.vehicleNumber,
+        licenseNumber: backendAgent.licenseNumber,
+        status: String(backendAgent.status || '').toLowerCase(),
+        rating: Number(backendAgent.rating || 0),
+        totalTrips: Number(backendAgent.totalTrips || 0),
+        todayEarnings: Number(backendAgent.todayEarnings || 0),
+        totalEarnings: Number(backendAgent.totalEarnings || 0),
+        currentLocality: backendAgent.currentLocality,
+      }
+    : currentAgent || deliveryAgents[0];
 
   useEffect(() => {
     if (!agent?.id || !navigator.geolocation) return;
@@ -111,9 +136,9 @@ export const DeliveryDashboard: React.FC = () => {
   }, [agent?.id]);
 
   // Available jobs in Kurali
-  const availableOrders = orders.filter(
+  const availableOrders = (liveAvailableOrders.length ? liveAvailableOrders : orders.filter(
     o => o.status === 'ready_for_pickup' && (!o.deliveryAgentId || o.deliveryAgentId !== agent?.id)
-  );
+  )).filter(o => !o.deliveryAgentId || o.deliveryAgentId !== agent?.id);
 
   // Active deliveries assigned to this rider
   const myActiveOrders = orders.filter(
