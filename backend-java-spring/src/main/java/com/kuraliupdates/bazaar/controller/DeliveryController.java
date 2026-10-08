@@ -4,6 +4,10 @@ import com.kuraliupdates.bazaar.dto.delivery.DeliveryRegistrationRequest;
 import com.kuraliupdates.bazaar.entity.DeliveryAgentEntity;
 import com.kuraliupdates.bazaar.entity.OrderEntity;
 import com.kuraliupdates.bazaar.service.DeliveryService;
+import com.kuraliupdates.bazaar.exception.ApiException;
+import com.kuraliupdates.bazaar.entity.UserEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -37,22 +41,40 @@ public class DeliveryController {
         return ResponseEntity.ok(deliveryService.register(entity));
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<DeliveryAgentEntity> currentAgent(Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        return ResponseEntity.ok(deliveryService.currentAgent(user));
+    }
+
     @GetMapping("/jobs/available")
-    public ResponseEntity<List<OrderEntity>> getAvailableJobs() {
-        return ResponseEntity.ok(deliveryService.availableJobs());
+    public ResponseEntity<List<OrderEntity>> getAvailableJobs(Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        return ResponseEntity.ok(deliveryService.availableJobs(user));
     }
 
     @PostMapping("/jobs/{orderId}/claim")
     public ResponseEntity<OrderEntity> claimJob(
             @PathVariable String orderId,
-            @RequestParam String agentId) {
-        return ResponseEntity.ok(deliveryService.claim(orderId, agentId));
+            @RequestParam String agentId,
+            Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        return ResponseEntity.ok(deliveryService.claim(orderId, agentId, user));
     }
 
     @PostMapping("/jobs/{orderId}/verify-otp")
     public ResponseEntity<Map<String, Object>> verifyDeliveryOtp(
             @PathVariable String orderId,
-            @RequestBody Map<String, String> payload) {
-        return ResponseEntity.ok(deliveryService.verifyDeliveryOtp(orderId, payload.get("otp")));
+            @RequestBody Map<String, String> payload,
+            Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        return ResponseEntity.ok(deliveryService.verifyDeliveryOtp(orderId, payload.get("otp"), user));
+    }
+
+    private UserEntity requireUser(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "An authenticated delivery partner session is required");
+        }
+        return user;
     }
 }

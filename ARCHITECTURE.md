@@ -31,6 +31,21 @@ Flyway owns schema.
 Historical V1–V3 files are retained only as Flyway history; do not reuse or modify them.
 Use stable IDs, FK/unique/check constraints and query-driven indexes.
 
+## Operational workflows
+
+### Daily Help
+- DAILY_HELP_SERVICES is the customer catalogue.
+- Professionals own dated time slots in DAILY_HELP_PROFESSIONAL_SLOTS.
+- A slot is bookable only when the slot is AVAILABLE and the professional is verified and AVAILABLE.
+- Booking locks the selected slot and changes it to BOOKED in the same transaction.
+- Professional availability is independent of the user's primary role; the authenticated phone must own the professional profile.
+
+### Delivery
+- Delivery approval is stored on DELIVERY_AGENTS.STATUS; only ACTIVE agents can access pickup jobs.
+- /delivery/me resolves the approved agent from the authenticated account email/phone.
+- Pickup jobs are server-authoritative READY_FOR_PICKUP orders.
+- Claim and delivery OTP operations require the authenticated agent to own the delivery profile/order.
+
 ## Quality
 ```bash
 npm run lint
