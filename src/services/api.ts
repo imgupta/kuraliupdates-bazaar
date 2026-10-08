@@ -922,7 +922,7 @@ export const bazaarApi = {
       });
       const data = await res.json().catch(() => []);
       if (!res.ok) throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
-      return Array.isArray(data) ? data : [];
+      return (Array.isArray(data) ? data : []).map(mapBackendOrder);
     } catch (err) {
       console.warn('Backend getAvailableDeliveryJobs failed:', err);
       return [];
