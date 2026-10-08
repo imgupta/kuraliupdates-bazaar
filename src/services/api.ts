@@ -893,14 +893,77 @@ export const bazaarApi = {
         headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch (err) {
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
+      return data;
+    } catch (err: any) {
       console.warn('Backend createDailyHelpBooking failed:', err);
-      return null;
+      throw new Error(err?.message || 'Unable to create Daily Help booking');
     }
   },
 
+  async getDailyHelpAvailableSlots(date: string, requestedHours: number, locality?: string): Promise<any[]> {
+    try {
+      const params = new URLSearchParams({ date, requestedHours: String(requestedHours) });
+      if (locality?.trim()) params.set('locality', locality.trim());
+      const res = await fetch(`${API_BASE_URL}/daily-help/availability?${params.toString()}`, {
+        headers: { Accept: 'application/json' },
+      });
+      const data = await res.json().catch(() => []);
+      if (!res.ok) throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.warn('Backend getDailyHelpAvailableSlots failed:', err);
+      return [];
+    }
+  },
+
+  async getDailyHelpProfessionalSlots(professionalId: string, date: string): Promise<any[]> {
+    try {
+      const token = localStorage.getItem('kurali_auth_token');
+      const res = await fetch(`${API_BASE_URL}/daily-help/professionals/${encodeURIComponent(professionalId)}/slots?date=${encodeURIComponent(date)}`, {
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (!res.ok) return [];
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getDailyHelpProfessionalSlots failed:', err);
+      return [];
+    }
+  },
+
+  async createDailyHelpProfessionalSlot(professionalId: string, slotDate: string, startTime: string, endTime: string): Promise<any | null> {
+    try {
+      const token = localStorage.getItem('kurali_auth_token');
+      const res = await fetch(`${API_BASE_URL}/daily-help/professionals/${encodeURIComponent(professionalId)}/slots`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ slotDate, startTime, endTime }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
+      return data;
+    } catch (err: any) {
+      console.warn('Backend createDailyHelpProfessionalSlot failed:', err);
+      throw new Error(err?.message || 'Unable to add availability slot');
+    }
+  },
+
+  async cancelDailyHelpProfessionalSlot(professionalId: string, slotId: string): Promise<any | null> {
+    try {
+      const token = localStorage.getItem('kurali_auth_token');
+      const res = await fetch(`${API_BASE_URL}/daily-help/professionals/${encodeURIComponent(professionalId)}/slots/${encodeURIComponent(slotId)}`, {
+        method: 'DELETE',
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
+      return data;
+    } catch (err: any) {
+      console.warn('Backend cancelDailyHelpProfessionalSlot failed:', err);
+      throw new Error(err?.message || 'Unable to remove availability slot');
+    }
+  },
   async getLatestDailyHelpBooking(buyerPhone: string): Promise<DailyHelpBooking | null> {
     try {
       const token = localStorage.getItem('kurali_auth_token');
