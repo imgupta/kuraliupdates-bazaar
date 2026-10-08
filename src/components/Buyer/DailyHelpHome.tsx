@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Clock3, Home, ShieldCheck, Star, UserRound, CalendarDays, Timer, CheckCircle2 } from 'lucide-react';
+import { Clock3, Home, ShieldCheck, Star, UserRound, CalendarDays, Timer, CheckCircle2, MapPin } from 'lucide-react';
 import { bazaarApi } from '../../services/api';
-import { DailyHelpBooking, DailyHelpService } from '../../types';
+import { DailyHelpBooking, DailyHelpService, DailyHelpSlot } from '../../types';
 import { useApp } from '../../context/AppContext';
 
 const formatDuration = (seconds: number) => {
@@ -23,6 +23,13 @@ const statusLabel: Record<string, string> = {
   CANCELLED: 'Booking cancelled',
 };
 
+const localDateString = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 export const DailyHelpHome: React.FC = () => {
   const { user, showToast } = useApp();
   const [services, setServices] = useState<DailyHelpService[]>([]);
@@ -30,7 +37,10 @@ export const DailyHelpHome: React.FC = () => {
   const [catalogError, setCatalogError] = useState(false);
   const [selected, setSelected] = useState<DailyHelpService | null>(null);
   const [hours, setHours] = useState(2);
-  const [scheduledStart, setScheduledStart] = useState('');
+  const [bookingDate, setBookingDate] = useState(localDateString(new Date(Date.now() + 24 * 60 * 60 * 1000)));
+  const [slots, setSlots] = useState<DailyHelpSlot[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<DailyHelpSlot | null>(null);
+  const [slotsLoading, setSlotsLoading] = useState(false);
   const [booking, setBooking] = useState<DailyHelpBooking | null>(null);
   const [bookingBusy, setBookingBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -65,39 +75,63 @@ export const DailyHelpHome: React.FC = () => {
     return () => window.clearInterval(interval);
   }, [booking?.status, booking?.serviceStartedAt]);
 
+  useEffect(() => {
+    if (!selected) return;
+    let cancelled = false;
+    setSlotsLoading(true);
+    setSelectedSlot(null);
+    bazaarApi.getDailyHelpAvailableSlots(bookingDate, hours, user.locality)
+      .then(data => { if (!cancelled) setSlots(data as DailyHelpSlot[]); })
+      .finally(() => { if (!cancelled) setSlotsLoading(false); });
+    return () => { cancelled = true; };
+  }, [selected, bookingDate, hours, user.locality]);
+
   const elapsedSeconds = useMemo(() => {
     if (!booking?.serviceStartedAt) return 0;
     return Math.floor((now - new Date(booking.serviceStartedAt).getTime()) / 1000);
   }, [booking?.serviceStartedAt, now]);
 
+  const minDate = localDateString(new Date());
+
   const openBooking = (service: DailyHelpService) => {
     setSelected(service);
     setHours(Math.max(service.minHours, 2));
-    const start = new Date(Date.now() + 30 * 60 * 1000);
-    start.setSeconds(0, 0);
-    setScheduledStart(start.toISOString().slice(0, 16));
+    setBookingDate(localDateString(new Date(Date.now() + 24 * 60 * 60 * 1000)));
+    setSelectedSlot(null);
   };
 
   const createBooking = async () => {
-    if (!selected) return;
-    setBookingBusy(true);
-    const result = await bazaarApi.createDailyHelpBooking({
-      serviceId: selected.id,
-      buyerName: user.name,
-      buyerPhone: user.phone || '',
-      address: user.formattedAddress || user.addressLine1 || user.address || '',
-      locality: user.locality,
-      scheduledStart: new Date(scheduledStart).toISOString(),
-      requestedHours: hours,
-    });
-    setBookingBusy(false);
-    if (!result) {
-      showToast('Unable to create the daily help booking.', 'error');
+    if (!selected || !selectedSlot) return;
+    if (!user.name || !user.phone || !(user.formattedAddress || user.addressLine1 || user.address)) {
+      showToast('Please add your name, mobile number and delivery address before booking.', 'error');
       return;
     }
-    setSelected(null);
-    setBooking(result);
-    showToast('Daily help booking created.', 'success');
+
+    setBookingBusy(true);
+    try {
+      const scheduledStart = `${selectedSlot.slotDate}T${selectedSlot.startTime}`;
+      const result = await bazaarApi.createDailyHelpBooking({
+        serviceId: selected.id,
+        buyerName: user.name,
+        buyerPhone: user.phone,
+        address: user.formattedAddress || user.addressLine1 || user.address,
+        locality: user.locality || selectedSlot.locality || '',
+        scheduledStart,
+        requestedHours: hours,
+        slotId: selectedSlot.slotId,
+      });
+      if (!result) throw new Error('Unable to create Daily Help booking');
+      setSelected(null);
+      setSelectedSlot(null);
+      setBooking(result);
+      showToast('Daily Help booking confirmed.', 'success');
+    } catch (err: any) {
+      showToast(err?.message || 'Unable to create the Daily Help booking.', 'error');
+      const refreshed = await bazaarApi.getDailyHelpAvailableSlots(bookingDate, hours, user.locality);
+      setSlots(refreshed as DailyHelpSlot[]);
+    } finally {
+      setBookingBusy(false);
+    }
   };
 
   if (loading) {
@@ -112,10 +146,10 @@ export const DailyHelpHome: React.FC = () => {
             <ShieldCheck className="w-3.5 h-3.5" /> Trusted local professionals
           </div>
           <h1 className="mt-3 text-2xl sm:text-3xl font-black text-slate-900">Daily Help, whenever you need it</h1>
-          <p className="mt-2 text-sm text-slate-600">Book a verified local helper by the hour for cleaning, dishes, laundry, cooking and everyday home tasks.</p>
+          <p className="mt-2 text-sm text-slate-600">Book a verified local helper by the hour. Choose a date and duration to see every maid with a matching available slot.</p>
           <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold text-slate-600">
-            <span className="bg-white border border-slate-200 rounded-full px-3 py-1.5">Hourly pricing</span>
-            <span className="bg-white border border-slate-200 rounded-full px-3 py-1.5">Transparent booking</span>
+            <span className="bg-white border border-slate-200 rounded-full px-3 py-1.5">Verified maids</span>
+            <span className="bg-white border border-slate-200 rounded-full px-3 py-1.5">Live slot availability</span>
             <span className="bg-white border border-slate-200 rounded-full px-3 py-1.5">OTP start verification</span>
           </div>
         </div>
@@ -129,10 +163,7 @@ export const DailyHelpHome: React.FC = () => {
               <h2 className="text-base font-black text-slate-900 mt-1">{booking.serviceName}</h2>
               <p className="text-xs text-slate-500 mt-1">{statusLabel[booking.status] || booking.status}</p>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] text-slate-400">Booking</p>
-              <p className="text-xs font-mono font-bold">{booking.id}</p>
-            </div>
+            <div className="text-right"><p className="text-[10px] text-slate-400">Booking</p><p className="text-xs font-mono font-bold">{booking.id}</p></div>
           </div>
 
           {booking.professionalName && (
@@ -157,7 +188,6 @@ export const DailyHelpHome: React.FC = () => {
               <p className="text-[11px] text-slate-400 mt-2">Started {new Date(booking.serviceStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
             </div>
           )}
-
           {booking.status === 'COMPLETED' && (
             <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 text-emerald-800 p-3 text-xs font-bold"><CheckCircle2 className="w-4 h-4" /> Service completed successfully.</div>
           )}
@@ -165,13 +195,9 @@ export const DailyHelpHome: React.FC = () => {
       )}
 
       <section>
-        {catalogError && (
-          <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[11px] font-semibold text-rose-800">
-            Daily Help services could not be loaded from the database. Please try again shortly.
-          </div>
-        )}
+        {catalogError && <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[11px] font-semibold text-rose-800">Daily Help services could not be loaded from the database. Please try again shortly.</div>}
         <div className="flex items-center justify-between mb-3">
-          <div><h2 className="text-lg font-black text-slate-900">What do you need help with?</h2><p className="text-xs text-slate-500">Choose a service and book by the hour.</p></div>
+          <div><h2 className="text-lg font-black text-slate-900">What do you need help with?</h2><p className="text-xs text-slate-500">Choose a service and then select an available maid slot.</p></div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {services.map(service => (
@@ -186,25 +212,72 @@ export const DailyHelpHome: React.FC = () => {
             </article>
           ))}
         </div>
-          {services.length === 0 && !loading && !catalogError && (
-            <div className="sm:col-span-2 lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-10 text-center">
-              <p className="text-sm font-bold text-slate-700">No Daily Help services are currently available.</p>
-              <p className="text-xs text-slate-500 mt-1">The administrator can add or activate services from Admin → Daily Help Services.</p>
-            </div>
-          )}
+        {services.length === 0 && !loading && !catalogError && <div className="sm:col-span-2 lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-10 text-center"><p className="text-sm font-bold text-slate-700">No Daily Help services are currently available.</p><p className="text-xs text-slate-500 mt-1">The administrator can add or activate services from Admin → Daily Help Services.</p></div>}
       </section>
 
       {selected && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-end sm:items-center justify-center p-3">
-          <div className="bg-white w-full max-w-md rounded-2xl p-5 shadow-2xl">
-            <div className="flex items-start justify-between"><div><p className="text-[10px] uppercase font-black text-amber-700">{selected.category}</p><h2 className="text-lg font-black mt-1">{selected.name}</h2></div><button onClick={() => setSelected(null)} className="text-slate-400 text-xl cursor-pointer">×</button></div>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <label className="text-xs font-bold text-slate-700">Hours<input type="number" min={selected.minHours} max="12" value={hours} onChange={e => setHours(Math.max(selected.minHours, Math.min(12, Number(e.target.value))))} className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5" /></label>
-              <label className="text-xs font-bold text-slate-700">Start time<input type="datetime-local" value={scheduledStart} onChange={e => setScheduledStart(e.target.value)} className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5" /></label>
+          <div className="bg-white w-full max-w-lg rounded-2xl p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between">
+              <div><p className="text-[10px] uppercase font-black text-amber-700">{selected.category}</p><h2 className="text-lg font-black mt-1">{selected.name}</h2></div>
+              <button onClick={() => { setSelected(null); setSelectedSlot(null); }} className="text-slate-400 text-xl cursor-pointer">×</button>
             </div>
-            <div className="mt-4 rounded-xl bg-slate-50 p-3 space-y-2 text-xs"><div className="flex justify-between"><span>Rate</span><strong>₹{selected.pricePerHour}/hr</strong></div><div className="flex justify-between"><span>Estimated total</span><strong>₹{selected.pricePerHour * hours}</strong></div><div className="flex gap-2 text-slate-500"><CalendarDays className="w-4 h-4" /> Final amount is based on confirmed service duration and platform pricing.</div></div>
-            <div className="mt-4 flex items-center gap-2 text-[11px] text-slate-500"><Clock3 className="w-4 h-4" /> OTP verification starts the billable timer.</div>
-            <button disabled={bookingBusy || !user.name || !user.phone || !scheduledStart} onClick={createBooking} className="mt-5 w-full py-3 rounded-xl bg-amber-600 disabled:bg-slate-300 text-white text-sm font-black cursor-pointer">{bookingBusy ? 'Booking...' : 'Confirm Daily Help'}</button>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <label className="text-xs font-bold text-slate-700">Duration
+                <select value={hours} onChange={e => setHours(Number(e.target.value))} className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 bg-white">
+                  {Array.from({ length: 12 - selected.minHours + 1 }, (_, i) => selected.minHours + i).map(value => <option key={value} value={value}>{value} hour{value > 1 ? 's' : ''}</option>)}
+                </select>
+              </label>
+              <label className="text-xs font-bold text-slate-700">Date
+                <input type="date" min={minDate} value={bookingDate} onChange={e => setBookingDate(e.target.value)} className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5" />
+              </label>
+            </div>
+
+            <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs">
+              <div className="flex justify-between"><span>Rate</span><strong>₹{selected.pricePerHour}/hr</strong></div>
+              <div className="flex justify-between mt-1"><span>Estimated total</span><strong>₹{selected.pricePerHour * hours}</strong></div>
+              <div className="mt-2 flex gap-2 text-slate-500"><CalendarDays className="w-4 h-4 shrink-0" /> Only maid slots matching your selected duration are shown.</div>
+            </div>
+
+            <div className="mt-5">
+              <div className="flex items-center justify-between mb-2"><h3 className="text-sm font-black text-slate-900">Available maids & slots</h3>{slots.length > 0 && <span className="text-[10px] font-bold text-emerald-700">{slots.length} available</span>}</div>
+              {slotsLoading ? (
+                <div className="rounded-xl border border-slate-200 p-6 text-center text-xs text-slate-500">Checking maid availability...</div>
+              ) : slots.length === 0 ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-center">
+                  <Clock3 className="w-6 h-6 mx-auto text-amber-600" />
+                  <p className="mt-2 text-sm font-black text-slate-800">All slots are booked</p>
+                  <p className="mt-1 text-xs text-slate-600">Please select a different slot or date.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {slots.map(slot => {
+                    const active = selectedSlot?.slotId === slot.slotId;
+                    return (
+                      <button key={slot.slotId} onClick={() => setSelectedSlot(slot)} className={`w-full text-left rounded-xl border p-3 transition-all cursor-pointer ${active ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-500' : 'border-slate-200 hover:border-amber-300 bg-white'}`}>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center shrink-0"><UserRound className="w-4 h-4" /></div>
+                            <div className="min-w-0"><p className="text-xs font-black text-slate-900 truncate">{slot.professionalName}</p><p className="text-[11px] text-slate-500 flex items-center gap-1"><Clock3 className="w-3 h-3" /> {slot.startTime.slice(0,5)} - {slot.endTime.slice(0,5)} · ★ {slot.rating}</p></div>
+                          </div>
+                          <span className={`text-[10px] font-black px-2 py-1 rounded-full ${active ? 'bg-amber-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}>{active ? 'Selected' : 'Available'}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {selectedSlot && (
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+                <div className="flex items-center gap-2 font-black"><MapPin className="w-4 h-4" /> {selectedSlot.professionalName}</div>
+                <p className="mt-1">Selected slot: {selectedSlot.startTime.slice(0,5)} - {selectedSlot.endTime.slice(0,5)} on {selectedSlot.slotDate}</p>
+              </div>
+            )}
+
+            <button disabled={bookingBusy || !selectedSlot || !user.name || !user.phone} onClick={createBooking} className="mt-5 w-full py-3 rounded-xl bg-amber-600 disabled:bg-slate-300 text-white text-sm font-black cursor-pointer">{bookingBusy ? 'Confirming slot...' : selectedSlot ? 'Confirm Daily Help Booking' : 'Select a Maid Slot'}</button>
           </div>
         </div>
       )}
