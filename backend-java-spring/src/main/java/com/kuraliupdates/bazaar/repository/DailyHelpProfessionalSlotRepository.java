@@ -21,6 +21,8 @@ public interface DailyHelpProfessionalSlotRepository extends JpaRepository<Daily
         join fetch s.professional p
         where s.slotDate = :slotDate
           and s.status = 'AVAILABLE'
+          and p.verified = 1
+          and upper(p.status) = 'AVAILABLE'
           and (:locality is null or upper(trim(p.currentLocality)) = upper(trim(:locality)))
           and s.startTime < :latestEnd
           and s.endTime > :earliestStart
