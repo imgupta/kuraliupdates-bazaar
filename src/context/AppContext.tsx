@@ -635,11 +635,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       }
 
-      // Synchronize Available Delivery Jobs from Oracle DB if in delivery role
-      const availableJobs = await bazaarApi.getAvailableDeliveryJobs();
-      if (availableJobs && availableJobs.length > 0) {
-        console.log(`Synced ${availableJobs.length} delivery jobs from Oracle DB`);
-      }
+      // Synchronize available pickup jobs from Oracle DB for the delivery dashboard.
+      const availableJobs = await bazaarApi.getDeliveryAvailableJobs();
+      setOrders(prev => {
+        const remoteIds = new Set(availableJobs.map(order => order.id));
+        const localWithoutRemoteReadyJobs = prev.filter(
+          order => !(order.status === 'ready_for_pickup' && remoteIds.has(order.id))
+        );
+        return [...availableJobs, ...localWithoutRemoteReadyJobs];
+      });
     } catch (err: any) {
       console.warn('Backend sync failed:', err);
       setBackendStatus(prev => ({
