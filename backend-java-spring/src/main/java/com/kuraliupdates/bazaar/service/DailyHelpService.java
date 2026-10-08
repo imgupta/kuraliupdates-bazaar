@@ -103,8 +103,9 @@ public class DailyHelpService {
             throw new ApiException(HttpStatus.CONFLICT, "This slot is already booked. Please select a different slot.");
         }
         DailyHelpProfessionalEntity professional = slot.getProfessional();
-        if (!Integer.valueOf(1).equals(professional.getVerified())) {
-            throw new ApiException(HttpStatus.CONFLICT, "Selected Daily Help professional is not currently verified");
+        if (!Integer.valueOf(1).equals(professional.getVerified())
+                || !"AVAILABLE".equalsIgnoreCase(professional.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Selected Daily Help professional is not currently available");
         }
         if (request.locality() != null && !request.locality().isBlank()
                 && professional.getCurrentLocality() != null
