@@ -137,7 +137,7 @@ public class AuthService {
                     .map(DeliveryAgentEntity::getStatus).orElse("PENDING");
         } else if ("PROFESSIONAL".equals(role)) {
             status = dailyHelpProfessionalRepository.findByPhone(user.getPhone())
-                    .map(p -> p.isVerified() ? "APPROVED" : "PENDING").orElse("PENDING");
+                    .map(p -> Integer.valueOf(1).equals(p.getVerified()) ? "APPROVED" : "PENDING").orElse("PENDING");
         }
 
         return new OnboardingStatus(role, status);
