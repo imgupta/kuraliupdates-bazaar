@@ -514,9 +514,10 @@ export const bazaarApi = {
     }
   },
 
-  async getOnboardingStatus(token: string): Promise<{ success: boolean; role?: string; status?: 'PENDING' | 'APPROVED' | 'REJECTED'; message?: string }> {
+  async getOnboardingStatus(token: string, role?: string): Promise<{ success: boolean; role?: string; status?: 'PENDING' | 'APPROVED' | 'REJECTED'; message?: string }> {
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/onboarding-status`, {
+      const query = role ? `?role=${encodeURIComponent(role)}` : '';
+      const res = await fetch(`${API_BASE_URL}/auth/onboarding-status${query}`, {
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
       });
       const data = await res.json().catch(() => ({ success: false }));
