@@ -544,6 +544,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isLoading: true,
   });
 
+  const syncDeliveryJobs = async () => {
+    const remoteJobs = await bazaarApi.getDeliveryAvailableJobs();
+    if (!remoteJobs.length) return;
+    setOrders(prev => {
+      const remoteIds = new Set(remoteJobs.map(o => o.id));
+      const localRemaining = prev.filter(o => !remoteIds.has(o.id) || o.status !== 'ready_for_pickup');
+      return [...remoteJobs, ...localRemaining];
+    });
+  };
+
   const syncWithBackend = async () => {
     setBackendStatus(prev => ({ ...prev, isLoading: true, error: undefined }));
     try {
@@ -556,6 +566,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastSynced: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         isLoading: false,
       });
+
+      await syncDeliveryJobs();
 
       // Synchronize Products from Oracle DB
       const remoteProducts = await bazaarApi.searchProducts();
