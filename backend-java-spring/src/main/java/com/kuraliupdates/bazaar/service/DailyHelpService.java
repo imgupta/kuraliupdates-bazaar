@@ -188,7 +188,9 @@ public class DailyHelpService {
 
     @Transactional
     public DailyHelpSlotResponse createProfessionalSlot(String professionalId, DailyHelpSlotRequest request) {
-        DailyHelpProfessionalEntity professional = getProfessionalEntity(professionalId);
+        // Serialize slot creation for one professional to prevent overlapping slots under concurrent requests.
+        DailyHelpProfessionalEntity professional = professionalRepository.findLockedByProfessionalId(professionalId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help professional not found"));
         if (request.slotDate().isBefore(LocalDate.now())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Slot date must be today or a future date");
         }
