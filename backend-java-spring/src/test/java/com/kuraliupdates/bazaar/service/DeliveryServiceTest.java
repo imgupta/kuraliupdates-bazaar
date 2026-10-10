@@ -140,6 +140,94 @@ class DeliveryServiceTest {
         verify(orderRepository, times(1)).save(order);
     }
 
+
+    @Test
+    void correctOtpForAssignedAgentMarksOrderDeliveredAndCreditsPayout() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity order = OrderEntity.builder()
+                .orderId("SYNTH-OTP-VERIFY-1")
+                .status("ASSIGNED_TO_DELIVERY")
+                .deliveryAgent(agent)
+                .deliveryOtp("0042")
+                .paymentMethod("COD")
+                .paymentStatus("PENDING_COD")
+                .distanceKm(new BigDecimal("1.5"))
+                .build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findById("SYNTH-OTP-VERIFY-1")).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(agentRepository.save(any(DeliveryAgentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = deliveryService.verifyDeliveryOtp("SYNTH-OTP-VERIFY-1", "0042", user());
+
+        assertEquals(Boolean.TRUE, response.get("success"));
+        assertEquals("DELIVERED", order.getStatus());
+        assertEquals("PAID", order.getPaymentStatus());
+        assertEquals(1, agent.getTotalTrips());
+        assertEquals(new BigDecimal("53"), agent.getTodayEarnings());
+        assertEquals(new BigDecimal("53"), agent.getTotalEarnings());
+        verify(orderRepository).save(order);
+        verify(agentRepository).save(agent);
+    }
+
+    @Test
+    void incorrectOtpDoesNotChangeOrderOrCreditPayout() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity order = OrderEntity.builder()
+                .orderId("SYNTH-OTP-VERIFY-2")
+                .status("ASSIGNED_TO_DELIVERY")
+                .deliveryAgent(agent)
+                .deliveryOtp("1234")
+                .paymentMethod("COD")
+                .paymentStatus("PENDING_COD")
+                .distanceKm(new BigDecimal("1.5"))
+                .build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findById("SYNTH-OTP-VERIFY-2")).thenReturn(Optional.of(order));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.verifyDeliveryOtp("SYNTH-OTP-VERIFY-2", "9999", user()));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        assertEquals("ASSIGNED_TO_DELIVERY", order.getStatus());
+        assertEquals(0, agent.getTotalTrips());
+        assertEquals(BigDecimal.ZERO, agent.getTotalEarnings());
+        verify(orderRepository, never()).save(any());
+        verify(agentRepository, never()).save(any());
+    }
+
+    @Test
+    void correctOtpFromDifferentAgentCannotCompleteOrder() {
+        DeliveryAgentEntity authenticatedAgent = agent("ACTIVE");
+        DeliveryAgentEntity assignedAgent = DeliveryAgentEntity.builder()
+                .agentId("AGENT-OTHER")
+                .fullName("Other Rider")
+                .email("other-rider@example.com")
+                .status("ACTIVE")
+                .totalTrips(0)
+                .todayEarnings(BigDecimal.ZERO)
+                .totalEarnings(BigDecimal.ZERO)
+                .build();
+        OrderEntity order = OrderEntity.builder()
+                .orderId("SYNTH-OTP-VERIFY-3")
+                .status("ASSIGNED_TO_DELIVERY")
+                .deliveryAgent(assignedAgent)
+                .deliveryOtp("0042")
+                .paymentMethod("COD")
+                .paymentStatus("PENDING_COD")
+                .build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(authenticatedAgent));
+        when(orderRepository.findById("SYNTH-OTP-VERIFY-3")).thenReturn(Optional.of(order));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.verifyDeliveryOtp("SYNTH-OTP-VERIFY-3", "0042", user()));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        assertEquals("ASSIGNED_TO_DELIVERY", order.getStatus());
+        verify(orderRepository, never()).save(any());
+        verify(agentRepository, never()).save(any());
+    }
+
     private UserEntity user() {
         return UserEntity.builder().email("rider@example.com").phone("9876543210").name("Rider").role("DELIVERY").build();
     }
