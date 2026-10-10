@@ -12,10 +12,12 @@ import {
   Truck,
   Package,
   ShieldCheck,
+  RefreshCw,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Order } from '../../types';
 import { bazaarApi } from '../../services/api';
+import { LiveOrderMap } from '../Buyer/LiveOrderMap';
 
 export const DeliveryDashboard: React.FC = () => {
   const {
@@ -33,6 +35,14 @@ export const DeliveryDashboard: React.FC = () => {
   const [deliveryJobsLoading, setDeliveryJobsLoading] = useState(false);
   const [backendAgent, setBackendAgent] = useState<any | null>(null);
   const [liveAvailableOrders, setLiveAvailableOrders] = useState<Order[]>([]);
+  const [resendingOtp, setResendingOtp] = useState<Record<string, boolean>>({});
+  const [otpCooldowns, setOtpCooldowns] = useState<Record<string, number>>({});
+  const [, setCooldownTick] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCooldownTick(value => value + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -160,6 +170,20 @@ export const DeliveryDashboard: React.FC = () => {
     claimDeliveryJob(orderId, agent.id);
   };
 
+  const handleResendDeliveryOtp = async (orderId: string) => {
+    if (resendingOtp[orderId] || (otpCooldowns[orderId] || 0) > Date.now()) return;
+    setResendingOtp(prev => ({ ...prev, [orderId]: true }));
+    try {
+      const result = await bazaarApi.resendDeliveryOtp(orderId);
+      showToast(result.message || 'Delivery OTP resent to the customer.', 'success');
+      setOtpCooldowns(prev => ({ ...prev, [orderId]: Date.now() + 60_000 }));
+    } catch (error: any) {
+      showToast(error?.message || 'Unable to resend delivery OTP.', 'error');
+    } finally {
+      setResendingOtp(prev => ({ ...prev, [orderId]: false }));
+    }
+  };
+
   const handleVerifyDeliveryOtp = (orderId: string) => {
     const enteredOtp = otpInputs[orderId] || '';
     if (!enteredOtp.trim()) {
@@ -279,6 +303,24 @@ export const DeliveryDashboard: React.FC = () => {
                     </div>
                   </div>
 
+                  <div className="overflow-hidden rounded-2xl border border-slate-200">
+                    <div className="flex items-center justify-between gap-3 bg-slate-50 px-3 py-2">
+                      <div>
+                        <p className="text-xs font-extrabold text-slate-800">Live delivery map</p>
+                        <p className="text-[10px] text-slate-500">Rider location refreshes automatically</p>
+                      </div>
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(ord.deliveryAddress || ord.deliveryLocality || 'Kurali, Punjab')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-emerald-700 px-3 py-2 text-[11px] font-bold text-white hover:bg-emerald-800"
+                      >
+                        <Navigation className="h-3.5 w-3.5" /> Navigate
+                      </a>
+                    </div>
+                    <LiveOrderMap orderId={ord.id} />
+                  </div>
+
                   {/* Customer Handover OTP input */}
                   <div className="pt-2 border-t border-slate-100">
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">
@@ -304,6 +346,18 @@ export const DeliveryDashboard: React.FC = () => {
                       >
                         <CheckCircle2 className="w-4 h-4" />
                         <span>Verify &amp; Credit ₹{payout}</span>
+                      </button>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <p className="text-[10px] text-slate-500">Customer receives the OTP; never ask them to share it before handover.</p>
+                      <button
+                        type="button"
+                        disabled={!!resendingOtp[ord.id] || (otpCooldowns[ord.id] || 0) > Date.now()}
+                        onClick={() => void handleResendDeliveryOtp(ord.id)}
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-emerald-200 px-3 py-2 text-[11px] font-bold text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${resendingOtp[ord.id] ? 'animate-spin' : ''}`} />
+                        {resendingOtp[ord.id] ? 'Sending…' : (otpCooldowns[ord.id] || 0) > Date.now() ? `Resend in ${Math.ceil(((otpCooldowns[ord.id] || 0) - Date.now()) / 1000)}s` : 'Resend OTP'}
                       </button>
                     </div>
                   </div>
