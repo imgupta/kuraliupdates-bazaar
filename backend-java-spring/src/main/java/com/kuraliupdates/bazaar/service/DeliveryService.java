@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.security.SecureRandom;
 
 @Service
 @RequiredArgsConstructor
@@ -27,8 +28,8 @@ public class DeliveryService {
 
     private final DeliveryAgentRepository agentRepository;
     private final OrderRepository orderRepository;
-    private final OtpDeliveryService otpDeliveryService;
     private final ConcurrentMap<String, LocalDateTime> deliveryOtpResendAt = new ConcurrentHashMap<>();
+    private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
     public DeliveryAgentEntity register(DeliveryAgentEntity request) {
@@ -101,13 +102,6 @@ public class DeliveryService {
         if (!"ASSIGNED_TO_DELIVERY".equals(order.getStatus()) && !"PICKED_UP".equals(order.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "Delivery OTP can only be resent for an active delivery");
         }
-        if (order.getBuyerEmail() == null || order.getBuyerEmail().isBlank()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Customer email is not available for OTP delivery");
-        }
-        if (order.getDeliveryOtp() == null || !order.getDeliveryOtp().matches("\\d{4}")) {
-            throw new ApiException(HttpStatus.CONFLICT, "This order does not have a valid 4-digit delivery OTP");
-        }
-
         LocalDateTime now = LocalDateTime.now();
         synchronized (deliveryOtpResendAt) {
             LocalDateTime lastSent = deliveryOtpResendAt.get(orderId);
@@ -116,15 +110,13 @@ public class DeliveryService {
                 throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
                         "Please wait " + waitSeconds + " seconds before resending the delivery OTP");
             }
-            try {
-                otpDeliveryService.sendDeliveryOtpEmail(order.getBuyerEmail(), order.getDeliveryOtp());
-                deliveryOtpResendAt.put(orderId, now);
-            } catch (Exception ex) {
-                throw new ApiException(HttpStatus.BAD_GATEWAY,
-                        "Unable to resend the delivery OTP. Please try again later.");
-            }
+            String newOtp = String.format("%04d", secureRandom.nextInt(10_000));
+            order.setDeliveryOtp(newOtp);
+            order.setUpdatedAt(now);
+            orderRepository.save(order);
+            deliveryOtpResendAt.put(orderId, now);
         }
-        return Map.of("success", true, "message", "Delivery OTP resent to the customer email.");
+        return Map.of("success", true, "message", "A new delivery OTP is now available in the customer app.");
     }
 
     @Transactional
