@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Oracle wallet material must never be committed.
+backend-java-spring/Wallet*.zip
+backend-java-spring/wallet/
