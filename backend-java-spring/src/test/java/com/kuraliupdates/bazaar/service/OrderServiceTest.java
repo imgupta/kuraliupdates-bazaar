@@ -36,7 +36,7 @@ class OrderServiceTest {
 
         assertEquals("PLACED", result.order().status());
         assertEquals("PENDING_COD", result.order().paymentStatus());
-        assertEquals(1, result.order().isFreeDelivery());
+        assertEquals(Integer.valueOf(1), result.order().isFreeDelivery());
         assertNotNull(result.order().orderId());
         assertTrue(result.deliveryOtp().matches("\\d{4}"));
         verify(orderRepository).save(any(OrderEntity.class));
