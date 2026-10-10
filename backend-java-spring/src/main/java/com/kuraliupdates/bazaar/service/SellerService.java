@@ -118,14 +118,18 @@ public class SellerService {
 
         String current = upper(order.getStatus());
         String next = upper(requestedStatus);
-        if ("PLACED".equals(current) && !"ACCEPTED_BY_SELLER".equals(next) && !"CANCELLED".equals(next)) {
-            throw new ApiException(HttpStatus.CONFLICT, "Order must be accepted before it can be prepared");
-        }
-        if ("ACCEPTED_BY_SELLER".equals(current) && !"READY_FOR_PICKUP".equals(next) && !"CANCELLED".equals(next)) {
-            throw new ApiException(HttpStatus.CONFLICT, "Only ready-for-pickup or cancellation is allowed next");
-        }
         if (!List.of("ACCEPTED_BY_SELLER", "READY_FOR_PICKUP", "CANCELLED").contains(next)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported seller order status");
+        }
+
+        boolean allowed = switch (current) {
+            case "PLACED" -> List.of("ACCEPTED_BY_SELLER", "CANCELLED").contains(next);
+            case "ACCEPTED_BY_SELLER" -> List.of("READY_FOR_PICKUP", "CANCELLED").contains(next);
+            default -> false;
+        };
+        if (!allowed) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Order cannot transition from " + current + " to " + next);
         }
 
         order.setStatus(next);
