@@ -20,7 +20,7 @@ concurrency:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,4 +31,7 @@ jobs:
       - name: Probe production API (read-only)
         env:
           KURALI_API_BASE_URL: https://kuraliupdates-bazaar.onrender.com/api/v1
+          SMOKE_READINESS_TIMEOUT_MS: "360000"
+          SMOKE_RETRY_INTERVAL_MS: "10000"
+          SMOKE_TIMEOUT_MS: "20000"
         run: node scripts/production-smoke.mjs
