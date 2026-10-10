@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +27,8 @@ public class DeliveryService {
 
     private final DeliveryAgentRepository agentRepository;
     private final OrderRepository orderRepository;
+    private final OtpDeliveryService otpDeliveryService;
+    private final ConcurrentMap<String, LocalDateTime> deliveryOtpResendAt = new ConcurrentHashMap<>();
 
     @Transactional
     public DeliveryAgentEntity register(DeliveryAgentEntity request) {
@@ -81,6 +85,46 @@ public class DeliveryService {
         order.setStatus("ASSIGNED_TO_DELIVERY");
         order.setUpdatedAt(LocalDateTime.now());
         return orderRepository.save(order);
+    }
+
+    @Transactional
+    public Map<String, Object> resendDeliveryOtp(String orderId, com.kuraliupdates.bazaar.entity.UserEntity user) {
+        DeliveryAgentEntity authenticatedAgent = findAgentForUser(user);
+        requireActive(authenticatedAgent);
+        OrderEntity order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
+
+        if (order.getDeliveryAgent() == null
+                || !order.getDeliveryAgent().getAgentId().equals(authenticatedAgent.getAgentId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This order is not assigned to your delivery profile");
+        }
+        if (!"ASSIGNED_TO_DELIVERY".equals(order.getStatus()) && !"PICKED_UP".equals(order.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Delivery OTP can only be resent for an active delivery");
+        }
+        if (order.getBuyerEmail() == null || order.getBuyerEmail().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Customer email is not available for OTP delivery");
+        }
+        if (order.getDeliveryOtp() == null || !order.getDeliveryOtp().matches("\\d{4}")) {
+            throw new ApiException(HttpStatus.CONFLICT, "This order does not have a valid 4-digit delivery OTP");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        synchronized (deliveryOtpResendAt) {
+            LocalDateTime lastSent = deliveryOtpResendAt.get(orderId);
+            if (lastSent != null && lastSent.plusSeconds(60).isAfter(now)) {
+                long waitSeconds = Math.max(1, java.time.Duration.between(now, lastSent.plusSeconds(60)).getSeconds());
+                throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                        "Please wait " + waitSeconds + " seconds before resending the delivery OTP");
+            }
+            try {
+                otpDeliveryService.sendDeliveryOtpEmail(order.getBuyerEmail(), order.getDeliveryOtp());
+                deliveryOtpResendAt.put(orderId, now);
+            } catch (Exception ex) {
+                throw new ApiException(HttpStatus.BAD_GATEWAY,
+                        "Unable to resend the delivery OTP. Please try again later.");
+            }
+        }
+        return Map.of("success", true, "message", "Delivery OTP resent to the customer email.");
     }
 
     @Transactional
