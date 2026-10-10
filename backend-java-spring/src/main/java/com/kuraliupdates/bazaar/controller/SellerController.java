@@ -17,6 +17,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -82,6 +83,7 @@ public class SellerController {
     }
 
     @GetMapping("/me/orders")
+    @Transactional(readOnly = true)
     @Operation(summary = "Get orders for the authenticated seller")
     public ResponseEntity<List<OrderResponse>> getMyOrders(
             @RequestHeader(value = "Authorization", required = false) String authorization) {
