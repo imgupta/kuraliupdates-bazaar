@@ -782,21 +782,24 @@ export const bazaarApi = {
     emailOtp?: string;
     phoneOtp?: string;
   }): Promise<{ success: boolean; token?: string; user?: any; message: string }> {
+    const controller = new AbortController();
+    // Verification consumes the OTP and creates a session in one request. Avoid
+    // abandoning the response while the backend wakes up or completes DB work.
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
       const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
         method: 'POST',
         signal: controller.signal,
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(payload),
       });
-      clearTimeout(timeoutId);
       const data = await res.json().catch(() => ({ success: false, message: 'Invalid authentication response' }));
       if (!res.ok) return { success: false, message: data.message || 'OTP verification failed' };
       return data;
     } catch (err: any) {
-      return { success: false, message: err.name === 'AbortError' ? 'Authentication service timed out' : 'Authentication service is unavailable' };
+      return { success: false, message: err.name === 'AbortError' ? 'Authentication service timed out. Please request a fresh code before trying again.' : 'Authentication service is unavailable' };
+    } finally {
+      clearTimeout(timeoutId);
     }
   },
 
