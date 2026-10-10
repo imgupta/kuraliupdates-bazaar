@@ -8,17 +8,13 @@ RUN mvn clean package -DskipTests
 # Stage 2: Runtime
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-RUN apk add --no-cache unzip
 COPY --from=builder /app/target/kurali-bazaar-api-1.0.0-SNAPSHOT.jar app.jar
 
-# Setup wallet
-RUN mkdir -p /app/wallet
-COPY Wallet*.zip /tmp/
-RUN unzip -o /tmp/Wallet*.zip -d /app/wallet && \
-    sed -i 's|DIRECTORY=".*"|DIRECTORY="/app/wallet"|g' /app/wallet/sqlnet.ora && \
-    rm -rf /tmp/Wallet*.zip
+# Oracle wallet files must be mounted as protected Render secret files.
+# Do not bundle wallet material into the image or repository.
+ENV PORT=8080
+ENV ORACLE_WALLET_DIR=/etc/secrets
+ENV TNS_ADMIN=/etc/secrets
 
 EXPOSE 8080
-ENV PORT=8080
-ENV TNS_ADMIN=/app/wallet
 ENTRYPOINT ["java", "-jar", "app.jar"]
