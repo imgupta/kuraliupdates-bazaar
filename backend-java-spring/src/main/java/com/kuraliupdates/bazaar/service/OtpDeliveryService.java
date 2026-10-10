@@ -48,10 +48,10 @@ public class OtpDeliveryService {
                 + ". Share it with the delivery partner only when your order is physically handed over to you. "
                 + "If you did not request this message, contact KuraliUpdates Bazaar support.";
         String json = "{"
-                + "\\"from\\":\\"" + jsonEscape(emailFrom) + "\\","
-                + "\\"to\\":[\\"" + jsonEscape(email) + "\\"],"
-                + "\\"subject\\":\\"" + jsonEscape(subject) + "\\","
-                + "\\"text\\":\\"" + jsonEscape(text) + "\\""
+                + "\"from\":\"" + jsonEscape(emailFrom) + "\","
+                + "\"to\":[\"" + jsonEscape(email) + "\"],"
+                + "\"subject\":\"" + jsonEscape(subject) + "\","
+                + "\"text\":\"" + jsonEscape(text) + "\""
                 + "}";
 
         HttpRequest request = HttpRequest.newBuilder()
