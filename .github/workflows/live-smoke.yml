@@ -1,0 +1,58 @@
+name: Live staging smoke test
+
+on:
+  push:
+    branches:
+      - test/live-smoke-after-reset
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Allow the Render recovery deployment to finish
+        run: sleep 240
+
+      - name: Check backend health endpoint
+        env:
+          BASE_URL: https://kuraliupdates-bazaar.onrender.com
+        run: |
+          body="$(curl --fail --silent --show-error "$BASE_URL/api/v1/health")"
+          echo "$body" | jq -e '.status == "UP"'
+          echo "PASS: backend health returned HTTP 200 and status UP"
+
+      - name: Check Daily Help catalogue was reseeded
+        env:
+          BASE_URL: https://kuraliupdates-bazaar.onrender.com
+        run: |
+          body="$(curl --fail --silent --show-error "$BASE_URL/api/v1/daily-help/services")"
+          echo "$body" | jq -e 'type == "array" and length == 5'
+          echo "PASS: Daily Help catalogue returned five service definitions"
+
+      - name: Check public product search
+        env:
+          BASE_URL: https://kuraliupdates-bazaar.onrender.com
+        run: |
+          body="$(curl --fail --silent --show-error "$BASE_URL/api/v1/buyers/products/search?query=milk")"
+          echo "$body" | jq -e 'type == "array"'
+          echo "PASS: public product search returned an array"
+
+      - name: Check protected profile endpoint rejects anonymous access
+        env:
+          BASE_URL: https://kuraliupdates-bazaar.onrender.com
+        run: |
+          status="$(curl --silent --show-error -o /tmp/profile.json -w '%{http_code}' "$BASE_URL/api/v1/auth/me")"
+          test "$status" = "401"
+          echo "PASS: anonymous profile request returned HTTP 401"
+
+      - name: Check frontend SPA routes
+        run: |
+          for path in / /register/buyer /register/seller /register/delivery /register/daily-help /account; do
+            status="$(curl --silent --show-error -o /tmp/page.html -w '%{http_code}' "https://kuraliupdates.com$path")"
+            test "$status" = "200"
+            grep -q 'id="root"' /tmp/page.html
+            echo "PASS: $path returned HTTP 200 and the SPA root"
+          done
