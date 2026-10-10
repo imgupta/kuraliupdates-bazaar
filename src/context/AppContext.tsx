@@ -177,7 +177,7 @@ interface AppContextType {
   updateOrderStatus: (orderId: string, status: OrderStatus, note?: string) => void;
 
   // Delivery
-  claimDeliveryJob: (orderId: string, agentId: string) => void;
+  claimDeliveryJob: (orderId: string, agentId: string) => Promise<boolean>;
   completeDelivery: (orderId: string, otp: string) => Promise<{ success: boolean; message: string }>;
   deliveryAgents: DeliveryAgent[];
   currentAgent: DeliveryAgent | undefined;
@@ -1347,8 +1347,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Delivery Actions
-  const claimDeliveryJob = (orderId: string, agentId: string) => {
+  const claimDeliveryJob = async (orderId: string, agentId: string): Promise<boolean> => {
     const agent = deliveryAgents.find(a => a.id === agentId);
+    // The server owns assignment and lifecycle state. Do not optimistically claim
+    // locally: a conflict/auth failure must not make an order appear assigned.
+    const claimed = await bazaarApi.claimDeliveryJob(orderId, agentId);
+    if (!claimed) {
+      showToast('Unable to claim this order. Refresh the pickup list and try again.', 'error');
+      await syncWithBackend();
+      return false;
+    }
+
     setOrders(prev =>
       prev.map(ord => {
         if (ord.id !== orderId) return ord;
@@ -1356,21 +1365,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...ord,
           deliveryAgentId: agentId,
           deliveryAgentName: agent?.name || 'Kurali Express Partner',
-          deliveryAgentPhone: agent?.phone || '+91 98765 00000',
-          status: 'picked_up',
+          deliveryAgentPhone: agent?.phone || '',
+          status: 'assigned_to_delivery',
           statusUpdates: [
             ...ord.statusUpdates,
             {
-              status: 'picked_up',
+              status: 'assigned_to_delivery',
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              note: `Picked up by delivery rider ${agent?.name || ''}. En route to buyer.`,
+              note: `Claimed by delivery rider ${agent?.name || ''}. En route to buyer.`,
             },
           ],
         };
       })
     );
-    showToast('Delivery order accepted! Navigate to store for pickup.', 'success');
-    bazaarApi.claimDeliveryJob(orderId, agentId);
+    showToast('Delivery order claimed successfully.', 'success');
+    await syncWithBackend();
+    return true;
   };
 
   const completeDelivery = async (orderId: string, otp: string): Promise<{ success: boolean; message: string }> => {
