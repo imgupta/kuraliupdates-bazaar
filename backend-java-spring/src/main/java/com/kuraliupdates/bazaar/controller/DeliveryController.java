@@ -66,6 +66,14 @@ public class DeliveryController {
         return ResponseEntity.ok(OrderResponse.from(deliveryService.claim(orderId, agentId, user)));
     }
 
+    @PostMapping("/jobs/{orderId}/resend-otp")
+    public ResponseEntity<Map<String, Object>> resendDeliveryOtp(
+            @PathVariable String orderId,
+            Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        return ResponseEntity.ok(deliveryService.resendDeliveryOtp(orderId, user));
+    }
+
     @PostMapping("/jobs/{orderId}/verify-otp")
     public ResponseEntity<Map<String, Object>> verifyDeliveryOtp(
             @PathVariable String orderId,
