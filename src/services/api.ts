@@ -821,14 +821,15 @@ export const bazaarApi = {
     }
   },
 
-  async getBuyerAddresses(token: string): Promise<any[]> {
+  async getBuyerAddresses(token: string): Promise<any[] | null> {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/me/addresses`, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } });
-      if (!res.ok) return [];
-      return await res.json();
+      if (!res.ok) return null;
+      const data = await res.json();
+      return Array.isArray(data) ? data : null;
     } catch (err) {
       console.warn('Backend getBuyerAddresses failed:', err);
-      return [];
+      return null;
     }
   },
 
