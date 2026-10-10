@@ -21,9 +21,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.2.15
+          bun-version: latest
       - name: Install frontend dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
       - name: TypeScript checks
         run: bun run lint
       - name: Production build
