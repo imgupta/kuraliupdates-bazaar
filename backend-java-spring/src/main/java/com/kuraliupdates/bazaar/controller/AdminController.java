@@ -25,6 +25,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -79,6 +80,7 @@ public class AdminController {
 
     @GetMapping("/analytics/demand-trends")
     @Operation(summary = "Get admin analytics derived from current database records")
+    @Transactional(readOnly = true)
     public ResponseEntity<AdminAnalyticsResponse> getDemandAnalytics() {
         List<SellerEntity> sellers = sellerRepository.findAll();
         List<OrderEntity> orders = orderRepository.findAll();
