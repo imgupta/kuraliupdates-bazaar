@@ -30,12 +30,19 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
   useEffect(() => {
     let active = true;
     setAuthorizedDeliveryOtp(null);
-    bazaarApi.getLiveTracking(orderId).then((tracking) => {
-      if (active && typeof tracking?.deliveryOtp === 'string' && /^\\d{4}$/.test(tracking.deliveryOtp)) {
-        setAuthorizedDeliveryOtp(tracking.deliveryOtp);
+    const refreshOtp = async () => {
+      try {
+        const tracking = await bazaarApi.getLiveTracking(orderId);
+        if (active && typeof tracking?.deliveryOtp === 'string' && /^\\d{4}$/.test(tracking.deliveryOtp)) {
+          setAuthorizedDeliveryOtp(tracking.deliveryOtp);
+        }
+      } catch {
+        // Keep the last authorized OTP visible if a transient refresh fails.
       }
-    }).catch(() => undefined);
-    return () => { active = false; };
+    };
+    void refreshOtp();
+    const timer = window.setInterval(refreshOtp, 5000);
+    return () => { active = false; window.clearInterval(timer); };
   }, [orderId]);
 
   if (!order) return null;
@@ -109,7 +116,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
                   DELIVERY SECURITY OTP
                 </div>
                 <p className="text-[11px] text-amber-700 mt-0.5">
-                  Share this 4-digit code with the delivery partner upon arrival. It appears after secure verification:
+                  This code updates automatically when the delivery partner generates a new one. Share only at handover:
                 </p>
               </div>
               <div className="bg-white px-4 py-2 rounded-xl border border-amber-300 shadow-xs text-center font-mono text-xl font-extrabold text-amber-700 tracking-wider">
