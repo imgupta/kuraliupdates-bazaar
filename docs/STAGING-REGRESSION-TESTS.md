@@ -61,6 +61,10 @@ Record each case as PASS, FAIL, or BLOCKED with sanitized evidence. A green buil
 
 The delivery dashboard's four-digit regex was over-escaped, causing valid numeric OTPs to fail client-side before the server call. PR #36 corrected it and added backend unit tests for successful verification/payout, incorrect OTP rejection, and assignment ownership. Those automated checks passed before merge. The full staging user-interface-to-Oracle flow remains to be executed and recorded as above.
 
+The Render startup logs subsequently confirmed that Flyway validated 13 migrations, reported schema version 13, and found no migration pending on the currently deployed Oracle schema. This is a sanitized startup-log confirmation of V13/schema level; it is not an independent check of the database's staging-vs-production identity. The API health controller currently returns a static database label, so that endpoint alone must not be used as proof of Oracle target identity.
+
+The currently observed deployment SHA is `b970c391b040596128236fbb20be62a6e3cdff15` on both the LIVE Render service and the READY Vercel custom-domain deployment metadata. GitHub frontend and backend checks for this SHA passed.
+
 
 ## Staging reset and delivery OTP status — 11 October 2026
 
