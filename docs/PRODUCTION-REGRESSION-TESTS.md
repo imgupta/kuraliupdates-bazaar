@@ -34,7 +34,7 @@ Record each run with timestamp, build/commit SHA, environment, result (PASS/FAIL
 | ADMIN-001 | Admin | Load demand-trends analytics with existing orders | Analytics returns successfully; no Hibernate LazyInitializationException | Fix proposed; verify after deploy |
 | ADMIN-002 | Admin | Approve/reject seller and delivery agent | Only authorized admin can change status; change persists | Pending |
 | PROFILE-001 | Profile | View/update buyer profile and address | Changes persist after refresh and re-login | Pending |
-| PROFILE-002 | Profile | Sign in with an account that has multiple saved addresses | Overview shows default address; My addresses lists all saved addresses | Fix implemented; pending production verification |
+| PROFILE-002 | Profile | Sign in with an account that has multiple saved addresses | Use addresses included in the OTP response immediately; empty refresh responses must not erase existing same-account addresses | Follow-up fix implemented; pending CI and production verification |
 | REG-001 | Regression | Inspect backend logs after each workflow | No new unhandled exceptions, unexpected 5xx, or auth/session errors | Pending |
 
 ## Safety and execution rules
