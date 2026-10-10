@@ -5,6 +5,11 @@
 ## Runtime
 Browser → React/Vite → REST → Spring Boot → Oracle.
 
+## Environments
+- Staging: synthetic end-to-end testing and staging-only data cleanup.
+- Production: live customer environment; no synthetic users/orders and never run V13 cleanup.
+- Verify Vercel alias, Render service/commit, and Oracle schema target independently. A deployment status alone does not establish end-to-end readiness.
+
 ## Frontend
 Feature-oriented React:
 - `components/` — UI
@@ -27,8 +32,9 @@ React is the only frontend. No Angular/RxJS/Angular CLI.
 
 ## Database
 Flyway owns schema.
-`V5__reset_application_schema.sql` is the clean application-schema reset: it drops the discarded application tables and recreates the current model.
-Historical V1–V3 files are retained only as Flyway history; do not reuse or modify them.
+`V5__reset_application_schema.sql` is the clean application-schema rebuild.
+`V13__reset_staging_test_data.sql` is a destructive staging-only data reset, not schema creation. Never run it on production, and never edit an applied migration.
+Historical V1–V3 files are retained as Flyway history; do not reuse or modify them.
 Use stable IDs, FK/unique/check constraints and query-driven indexes.
 
 ## Operational workflows
@@ -42,9 +48,11 @@ Use stable IDs, FK/unique/check constraints and query-driven indexes.
 
 ### Delivery
 - Delivery approval is stored on DELIVERY_AGENTS.STATUS; only ACTIVE agents can access pickup jobs.
-- /delivery/me resolves the approved agent from the authenticated account email/phone.
+- `/delivery/me` resolves the approved agent from authenticated email/phone.
 - Pickup jobs are server-authoritative READY_FOR_PICKUP orders.
 - Claim and delivery OTP operations require the authenticated agent to own the delivery profile/order.
+- The browser validates the four-digit format; the backend remains authoritative for the OTP, order association, assignment, status transition, and payout. Never log OTP contents.
+- Successful end-to-end proof requires a staging order and agent, exact server order ID, persisted OTP association, server status read-back, and replay/invalid-code checks.
 
 ## Quality
 ```bash
