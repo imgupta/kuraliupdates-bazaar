@@ -1,0 +1,40 @@
+name: Staging smoke checks
+
+on:
+  workflow_dispatch:
+    inputs:
+      staging_api_base_url:
+        description: "Verified staging API base URL, e.g. https://staging-api.example/api/v1"
+        required: true
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - "scripts/staging-smoke.mjs"
+      - ".github/workflows/staging-smoke.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify staging endpoint (read-only)
+        env:
+          KURALI_API_BASE_URL: ${{ inputs.staging_api_base_url }}
+          SMOKE_READINESS_TIMEOUT_MS: "180000"
+          SMOKE_RETRY_INTERVAL_MS: "5000"
+          SMOKE_TIMEOUT_MS: "20000"
+        run: node scripts/staging-smoke.mjs
