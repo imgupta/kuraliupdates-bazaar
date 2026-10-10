@@ -88,7 +88,7 @@ export interface DeliveryAgent {
   vehicleType: 'Bike' | 'Scooter' | 'Electric Bike' | 'Auto / Van';
   vehicleNumber: string;
   licenseNumber: string;
-  status: 'active' | 'pending' | 'offline';
+  status: 'active' | 'pending' | 'offline' | 'rejected';
   rating: number;
   totalTrips: number;
   todayEarnings: number;

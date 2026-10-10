@@ -593,6 +593,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             email: s.email,
             phone: s.phone,
             avatarUrl: s.avatarUrl || '',
+            bannerUrl: s.bannerUrl || '',
             category: s.category || 'General',
             address: s.address,
             locality: s.locality,
@@ -809,6 +810,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     locality: string;
     role: UserRole;
     address?: string;
+    addressLine1?: string;
+    landmark?: string;
+    formattedAddress?: string;
+    placeId?: string;
+    latitude?: number;
+    longitude?: number;
     token?: string;
     serverUser?: any;
   }) => {

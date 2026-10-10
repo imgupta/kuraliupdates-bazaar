@@ -49,7 +49,7 @@ export const SellerDashboard: React.FC = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const [remoteSeller, remoteProducts, remoteOrders] = await Promise.all([
+      const [remoteSeller, remoteProducts, remoteOrders, remoteDiscounts] = await Promise.all([
         bazaarApi.getCurrentSeller(),
         bazaarApi.getSellerProducts(),
         bazaarApi.getSellerOrders(),
