@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   MapPin,
@@ -15,6 +15,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { OrderStatus } from '../../types';
 import { LiveOrderMap } from './LiveOrderMap';
+import { bazaarApi } from '../../services/api';
 
 interface OrderTrackingModalProps {
   orderId: string;
@@ -24,6 +25,18 @@ interface OrderTrackingModalProps {
 export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId, onClose }) => {
   const { orders } = useApp();
   const order = orders.find(o => o.id === orderId) || orders[0];
+  const [authorizedDeliveryOtp, setAuthorizedDeliveryOtp] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setAuthorizedDeliveryOtp(null);
+    bazaarApi.getLiveTracking(orderId).then((tracking) => {
+      if (active && typeof tracking?.deliveryOtp === 'string' && /^\\d{4}$/.test(tracking.deliveryOtp)) {
+        setAuthorizedDeliveryOtp(tracking.deliveryOtp);
+      }
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [orderId]);
 
   if (!order) return null;
 
@@ -96,11 +109,11 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
                   DELIVERY SECURITY OTP
                 </div>
                 <p className="text-[11px] text-amber-700 mt-0.5">
-                  Share this 4-digit code with the delivery partner upon arrival:
+                  Share this 4-digit code with the delivery partner upon arrival. It appears after secure verification:
                 </p>
               </div>
               <div className="bg-white px-4 py-2 rounded-xl border border-amber-300 shadow-xs text-center font-mono text-xl font-extrabold text-amber-700 tracking-wider">
-                {order.deliveryOtp}
+                {authorizedDeliveryOtp || '----'}
               </div>
             </div>
 

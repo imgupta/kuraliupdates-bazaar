@@ -68,6 +68,15 @@ public class DeliveryTrackingService {
         result.put("buyerLongitude", order.getDeliveryLongitude());
         result.put("buyerAddress", order.getDeliveryAddress());
 
+        // Delivery verification OTP is visible only to the authenticated order owner.
+        String authenticatedEmail = sessionRepository.findBySessionToken(token)
+                .filter(this::active)
+                .map(session -> userEmail(session.getUserId()))
+                .orElse("");
+        if (order.getBuyerEmail() != null && order.getBuyerEmail().equalsIgnoreCase(authenticatedEmail)) {
+            result.put("deliveryOtp", order.getDeliveryOtp());
+        }
+
         DeliveryAgentEntity agent = order.getDeliveryAgent();
         if (agent != null) {
             result.put("agentId", agent.getAgentId());

@@ -174,7 +174,7 @@ export const Header: React.FC<HeaderProps> = ({
                         <p className="text-sm font-black text-slate-900">{user.name}</p>
                       </div>
                       <div className="py-2 px-4 space-y-1.5 text-xs text-slate-700">
-                        {user.role === 'buyer' && (
+                        {(user.role === 'buyer' || user.isSignedIn) && (
                           <a href="/account" onClick={() => setIsProfileDropdownOpen(false)} className="w-full text-left py-1 text-xs text-slate-700 hover:text-amber-700 flex items-center gap-1.5 font-bold">
                             <User className="w-4 h-4 text-amber-600" /> My Account
                           </a>
