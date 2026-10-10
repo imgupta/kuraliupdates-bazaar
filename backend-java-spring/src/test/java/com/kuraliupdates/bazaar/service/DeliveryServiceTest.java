@@ -68,6 +68,78 @@ class DeliveryServiceTest {
         verify(orderRepository, never()).save(any());
     }
 
+    @Test
+    void assignedActiveAgentRegeneratesFourDigitOtpWithoutReturningIt() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity order = OrderEntity.builder()
+                .orderId("ORD-OTP-1").status("ASSIGNED_TO_DELIVERY")
+                .deliveryAgent(agent).deliveryOtp("1234").build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findById("ORD-OTP-1")).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = deliveryService.resendDeliveryOtp("ORD-OTP-1", user());
+
+        assertEquals(Boolean.TRUE, response.get("success"));
+        assertFalse(response.toString().contains(order.getDeliveryOtp()));
+        assertNotNull(order.getDeliveryOtp());
+        assertTrue(order.getDeliveryOtp().matches("\\d{4}"));
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    void resendOtpRejectsOrderAssignedToAnotherAgent() {
+        DeliveryAgentEntity authenticatedAgent = agent("ACTIVE");
+        DeliveryAgentEntity otherAgent = DeliveryAgentEntity.builder()
+                .agentId("AGENT-OTHER").status("ACTIVE").build();
+        OrderEntity order = OrderEntity.builder()
+                .orderId("ORD-OTP-2").status("ASSIGNED_TO_DELIVERY")
+                .deliveryAgent(otherAgent).deliveryOtp("1234").build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(authenticatedAgent));
+        when(orderRepository.findById("ORD-OTP-2")).thenReturn(Optional.of(order));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.resendDeliveryOtp("ORD-OTP-2", user()));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void resendOtpRejectsInactiveDeliveryAndDoesNotPersistOtp() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity order = OrderEntity.builder()
+                .orderId("ORD-OTP-3").status("DELIVERED")
+                .deliveryAgent(agent).deliveryOtp("1234").build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findById("ORD-OTP-3")).thenReturn(Optional.of(order));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.resendDeliveryOtp("ORD-OTP-3", user()));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("1234", order.getDeliveryOtp());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void resendOtpEnforcesSixtySecondCooldown() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity order = OrderEntity.builder()
+                .orderId("ORD-OTP-4").status("PICKED_UP")
+                .deliveryAgent(agent).deliveryOtp("1234").build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findById("ORD-OTP-4")).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        deliveryService.resendDeliveryOtp("ORD-OTP-4", user());
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.resendDeliveryOtp("ORD-OTP-4", user()));
+
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, error.getStatus());
+        verify(orderRepository, times(1)).save(order);
+    }
+
     private UserEntity user() {
         return UserEntity.builder().email("rider@example.com").phone("9876543210").name("Rider").role("DELIVERY").build();
     }

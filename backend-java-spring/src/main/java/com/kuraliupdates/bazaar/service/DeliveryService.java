@@ -17,6 +17,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.security.SecureRandom;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +28,8 @@ public class DeliveryService {
 
     private final DeliveryAgentRepository agentRepository;
     private final OrderRepository orderRepository;
+    private final ConcurrentMap<String, LocalDateTime> deliveryOtpResendAt = new ConcurrentHashMap<>();
+    private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
     public DeliveryAgentEntity register(DeliveryAgentEntity request) {
@@ -81,6 +86,37 @@ public class DeliveryService {
         order.setStatus("ASSIGNED_TO_DELIVERY");
         order.setUpdatedAt(LocalDateTime.now());
         return orderRepository.save(order);
+    }
+
+    @Transactional
+    public Map<String, Object> resendDeliveryOtp(String orderId, com.kuraliupdates.bazaar.entity.UserEntity user) {
+        DeliveryAgentEntity authenticatedAgent = findAgentForUser(user);
+        requireActive(authenticatedAgent);
+        OrderEntity order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
+
+        if (order.getDeliveryAgent() == null
+                || !order.getDeliveryAgent().getAgentId().equals(authenticatedAgent.getAgentId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This order is not assigned to your delivery profile");
+        }
+        if (!"ASSIGNED_TO_DELIVERY".equals(order.getStatus()) && !"PICKED_UP".equals(order.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Delivery OTP can only be resent for an active delivery");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        synchronized (deliveryOtpResendAt) {
+            LocalDateTime lastSent = deliveryOtpResendAt.get(orderId);
+            if (lastSent != null && lastSent.plusSeconds(60).isAfter(now)) {
+                long waitSeconds = Math.max(1, java.time.Duration.between(now, lastSent.plusSeconds(60)).getSeconds());
+                throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                        "Please wait " + waitSeconds + " seconds before resending the delivery OTP");
+            }
+            String newOtp = String.format("%04d", secureRandom.nextInt(10_000));
+            order.setDeliveryOtp(newOtp);
+            order.setUpdatedAt(now);
+            orderRepository.save(order);
+            deliveryOtpResendAt.put(orderId, now);
+        }
+        return Map.of("success", true, "message", "A new delivery OTP is now available in the customer app.");
     }
 
     @Transactional

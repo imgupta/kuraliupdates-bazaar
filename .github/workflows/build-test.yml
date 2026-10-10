@@ -39,6 +39,9 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: maven
-      - name: Compile and run backend tests
+      - name: Run delivery OTP authorization and cooldown regression tests
+        working-directory: backend-java-spring
+        run: mvn --batch-mode --no-transfer-progress -Dtest=DeliveryServiceTest,DeliveryTrackingServiceTest test
+      - name: Compile and run full backend verification suite
         working-directory: backend-java-spring
         run: mvn --batch-mode --no-transfer-progress clean verify
