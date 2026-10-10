@@ -1258,11 +1258,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showToast('Order could not be synchronized with the Bazaar server.', 'error');
         return;
       }
+      // Use the server's canonical order ID for all subsequent delivery actions.
+      // The delivery dashboard verifies OTP against Oracle using this ID; keeping
+      // the browser-generated ID causes the customer and delivery agent to refer
+      // to different order records.
+      const serverOrderId = placedOrder.orderId || placedOrder.id || newOrderId;
       setOrders(prev => prev.map(order => order.id === newOrderId
-        ? { ...order, deliveryOtp: serverOtp || order.deliveryOtp }
+        ? { ...order, id: serverOrderId, deliveryOtp: serverOtp || order.deliveryOtp }
         : order
       ));
-      if (serverOtp) showToast(`Delivery OTP for order #${newOrderId}: ${serverOtp}`, 'info');
+      setTrackingOrderId(serverOrderId);
+      if (serverOtp) showToast(`Delivery OTP for order #${serverOrderId}: ${serverOtp}`, 'info');
     });
 
     return newOrder;
