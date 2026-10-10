@@ -2,6 +2,7 @@ package com.kuraliupdates.bazaar.service;
 
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpBookingRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpStartRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpSlotRequest;
 import com.kuraliupdates.bazaar.entity.DailyHelpBookingEntity;
 import com.kuraliupdates.bazaar.entity.DailyHelpProfessionalEntity;
 import com.kuraliupdates.bazaar.entity.DailyHelpProfessionalSlotEntity;
@@ -73,6 +74,26 @@ class DailyHelpServiceTest {
         assertEquals("DHP-1", response.professionalId());
         verify(slotRepository).save(slot);
         verify(bookingRepository).save(any(DailyHelpBookingEntity.class));
+    }
+
+    @Test
+    void overlappingProfessionalSlotsAreRejected() {
+        DailyHelpProfessionalEntity professional = professional();
+        LocalDate date = LocalDate.now().plusDays(2);
+        DailyHelpProfessionalSlotEntity existing = DailyHelpProfessionalSlotEntity.builder()
+                .slotId("EXISTING").professional(professional).slotDate(date)
+                .startTime(LocalTime.of(10, 0)).endTime(LocalTime.of(12, 0))
+                .status("AVAILABLE").build();
+        when(professionalRepository.findLockedByProfessionalId("DHP-1")).thenReturn(Optional.of(professional));
+        when(slotRepository.findByProfessionalProfessionalIdAndSlotDateOrderByStartTimeAsc("DHP-1", date))
+                .thenReturn(java.util.List.of(existing));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.createProfessionalSlot("DHP-1",
+                        new DailyHelpSlotRequest(date, LocalTime.of(11, 0), LocalTime.of(13, 0))));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        verify(slotRepository, never()).save(any());
     }
 
     @Test
