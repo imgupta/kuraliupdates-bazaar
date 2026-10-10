@@ -423,6 +423,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return next;
   };
 
+  // Load persisted addresses after authentication; the app-boot session check runs before a fresh login. 
+  const refreshBuyerAddresses = (token: string, expectedEmail?: string) => {
+    void bazaarApi.getBuyerAddresses(token).then(remoteAddresses => {
+      // A failed request must not clear any addresses already held in the session.
+      if (!remoteAddresses || safeStorageGet('kurali_auth_token') !== token) return;
+      const mappedAddresses = remoteAddresses.map(toSavedAddress);
+      setUser(prev => {
+        if (expectedEmail && (prev.email || '').toLowerCase() !== expectedEmail.toLowerCase()) return prev;
+        const next = { ...prev, savedAddresses: mappedAddresses };
+        safeStorageSet('kurali_auth_session', JSON.stringify(next));
+        return next;
+      });
+    });
+  };
+
   const [sellers, setSellers] = useState<Seller[]>(() => {
     return safeStorageJson('kurali_sellers', INITIAL_SELLERS);
   });
@@ -791,6 +806,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRoleState(effectiveRole);
     safeStorageSet('kurali_auth_session', JSON.stringify(updatedUser));
     safeStorageSet('kurali_auth_token', params.token);
+    refreshBuyerAddresses(params.token, updatedUser.email);
 
     return {
       success: true,
@@ -854,6 +870,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRoleState(effectiveRole);
     safeStorageSet('kurali_auth_session', JSON.stringify(updatedUser));
     safeStorageSet('kurali_auth_token', params.token);
+    refreshBuyerAddresses(params.token, updatedUser.email);
 
     return { success: true, message: `Registration and OTP verification successful! Welcome ${updatedUser.name}.`, role: effectiveRole };
   };

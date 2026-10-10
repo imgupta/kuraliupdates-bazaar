@@ -11,9 +11,10 @@ Record each run with timestamp, build/commit SHA, environment, result (PASS/FAIL
 | ID | Area | Test | Expected result | Status |
 |---|---|---|---|---|
 | PROD-001 | Availability | API health and database readiness | Health returns success after service is ready | Pending |
-| AUTH-001 | Login | Request email OTP for test account | OTP request succeeds once; no duplicate requests on one click | Pending |
-| AUTH-002 | Login | Read current OTP through authorized DB access and submit once | Session created and user lands on intended screen | Blocked: DB access path not available through current connected tools |
-| AUTH-003 | Login | Click verify once, then navigate to My Account | User remains authenticated; no logout/redirect loop | Pending |
+| AUTH-001 | Login | Request email OTP for test account | OTP request succeeds once; no duplicate requests on one click | PASS: user received fresh OTP in production |
+| AUTH-002 | Login | Submit user-provided current OTP once | Session created and user lands on intended screen | PASS: user confirmed successful production login |
+| AUTH-003 | Login | Navigate to My Account after login | User remains authenticated; no logout/redirect loop | PASS: profile details visible and session retained |
+
 | AUTH-004 | Login | Submit incorrect, expired, and reused OTP | Clear validation; no session created; no false “expired” after a successful first submission | Pending |
 | BUY-001 | Catalogue | Search products and open product/store details | API-backed products display without 5xx errors | Pending |
 | BUY-002 | Cart | Add/remove items and change quantities | Cart totals update consistently | Pending |
@@ -33,6 +34,7 @@ Record each run with timestamp, build/commit SHA, environment, result (PASS/FAIL
 | ADMIN-001 | Admin | Load demand-trends analytics with existing orders | Analytics returns successfully; no Hibernate LazyInitializationException | Fix proposed; verify after deploy |
 | ADMIN-002 | Admin | Approve/reject seller and delivery agent | Only authorized admin can change status; change persists | Pending |
 | PROFILE-001 | Profile | View/update buyer profile and address | Changes persist after refresh and re-login | Pending |
+| PROFILE-002 | Profile | Sign in with an account that has multiple saved addresses | Overview shows default address; My addresses lists all saved addresses | Fix implemented; pending production verification |
 | REG-001 | Regression | Inspect backend logs after each workflow | No new unhandled exceptions, unexpected 5xx, or auth/session errors | Pending |
 
 ## Safety and execution rules
