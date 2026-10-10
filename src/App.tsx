@@ -113,7 +113,10 @@ const RootNavigation: React.FC = () => {
   if (pathname === '/register/delivery') return <AuthPageV2 registrationRole="delivery" />;
   if (pathname === '/register/daily-help') return <AuthPageV2 registrationRole="professional" />;
   if (pathname === '/register/buyer') return <BuyerRegistrationPage />;
-  if (pathname === '/account') return user.isSignedIn && user.role === 'buyer' ? <BuyerAccountPage /> : <AuthPageV2 />;
+  // My Account is available to any authenticated user. The session role can be seller,
+  // delivery, or professional while the account link is still visible in the header.
+  // Requiring user.role === 'buyer' here incorrectly sent those sessions to sign-in.
+  if (pathname === '/account') return user.isSignedIn ? <BuyerAccountPage /> : <AuthPageV2 />;
 
   return user.isSignedIn ? <MainLayout /> : <AuthPageV2 />;
 };
