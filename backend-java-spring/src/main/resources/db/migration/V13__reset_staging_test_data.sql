@@ -3,6 +3,9 @@
 -- Re-seeds the standard Daily Help catalogue so new end-to-end tests can run.
 -- This migration is intentionally destructive and must only be deployed to the
 -- environment the owner designated as staging.
+-- Oracle Autonomous Database can enable parallel DML for these tables; disable it
+-- for this multi-table cleanup so repeated DML in one migration is legal.
+ALTER SESSION DISABLE PARALLEL DML;
 
 DELETE FROM CHAT_MESSAGES;
 DELETE FROM NEGOTIATION_CHATS;
@@ -67,4 +70,3 @@ VALUES
   ('DH-BATHROOM', 'Cleaning', 'Bathroom Cleaning',
    'Routine bathroom cleaning and sanitisation assistance.', 'HOUR', 249, 1, 1);
 
-COMMIT;
