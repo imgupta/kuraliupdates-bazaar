@@ -27,11 +27,11 @@ DELETE FROM SELLERS;
 DELETE FROM USERS
  WHERE NVL(IS_ADMIN, 0) <> 1
    AND NVL(ROLE, 'BUYER') <> 'ADMIN'
-   AND LOWER(NVL(EMAIL, '')) NOT IN (
+   AND (EMAIL IS NULL OR LOWER(EMAIL) NOT IN (
        'shubham.gupta180296@gmail.com',
        'sg7508359237@gmail.com',
        'admin@kuraliupdates.com'
-   );
+   ));
 
 -- Daily Help service definitions are reference/catalog data. Rebuild a known,
 -- deterministic catalogue after removing any edited/test rows.
