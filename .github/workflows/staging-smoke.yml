@@ -7,11 +7,6 @@ on:
         description: "Verified staging API base URL, e.g. https://staging-api.example/api/v1"
         required: true
         type: string
-  push:
-    branches: [main]
-    paths:
-      - "scripts/staging-smoke.mjs"
-      - ".github/workflows/staging-smoke.yml"
 
 permissions:
   contents: read
