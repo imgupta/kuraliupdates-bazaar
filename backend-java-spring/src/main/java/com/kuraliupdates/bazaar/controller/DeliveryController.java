@@ -3,6 +3,7 @@ package com.kuraliupdates.bazaar.controller;
 import com.kuraliupdates.bazaar.dto.delivery.DeliveryRegistrationRequest;
 import com.kuraliupdates.bazaar.entity.DeliveryAgentEntity;
 import com.kuraliupdates.bazaar.entity.OrderEntity;
+import com.kuraliupdates.bazaar.dto.order.OrderResponse;
 import com.kuraliupdates.bazaar.service.DeliveryService;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.entity.UserEntity;
@@ -14,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -48,18 +50,20 @@ public class DeliveryController {
     }
 
     @GetMapping("/jobs/available")
-    public ResponseEntity<List<OrderEntity>> getAvailableJobs(Authentication authentication) {
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<OrderResponse>> getAvailableJobs(Authentication authentication) {
         UserEntity user = requireUser(authentication);
-        return ResponseEntity.ok(deliveryService.availableJobs(user));
+        return ResponseEntity.ok(deliveryService.availableJobs(user).stream().map(OrderResponse::from).toList());
     }
 
     @PostMapping("/jobs/{orderId}/claim")
-    public ResponseEntity<OrderEntity> claimJob(
+    @Transactional
+    public ResponseEntity<OrderResponse> claimJob(
             @PathVariable String orderId,
             @RequestParam String agentId,
             Authentication authentication) {
         UserEntity user = requireUser(authentication);
-        return ResponseEntity.ok(deliveryService.claim(orderId, agentId, user));
+        return ResponseEntity.ok(OrderResponse.from(deliveryService.claim(orderId, agentId, user)));
     }
 
     @PostMapping("/jobs/{orderId}/verify-otp")
