@@ -60,3 +60,19 @@ Record each case as PASS, FAIL, or BLOCKED with sanitized evidence. A green buil
 ## Current known fix
 
 The delivery dashboard's four-digit regex was over-escaped, causing valid numeric OTPs to fail client-side before the server call. PR #36 corrected it and added backend unit tests for successful verification/payout, incorrect OTP rejection, and assignment ownership. Those automated checks passed before merge. The full staging user-interface-to-Oracle flow remains to be executed and recorded as above.
+
+
+## Staging reset and delivery OTP status — 11 October 2026
+
+### Staging database reset / V13
+The owner reports that staging data was cleaned and Flyway V13 was executed. The repository's intended migration is `V13__reset_staging_test_data.sql`; it is a one-time destructive **data reset**, not a schema reset. It disables Oracle parallel DML, clears business/workflow/test records, retains designated admin accounts, and reseeds the standard Daily Help catalogue. Never edit or rerun an applied migration to fix application defects. The execution report still needs read-only confirmation from `flyway_schema_history` and a sanitized database/schema identity; do not infer it from a healthy API response alone.
+
+### Delivery OTP
+- PR #36 was merged. It corrected the over-escaped browser regex, and focused OTP tests plus full backend verification passed before merge.
+- Subsequent `main` commit `b970c391b040596128236fbb20be62a6e3cdff15` adds awaited server-authoritative delivery claiming and further tests for leading-zero OTP, malformed input, replay protection, and payout idempotency.
+- Render deployment `dep-db5b5u15efls73ah5cj0` is LIVE on that commit. The Vercel custom-domain lookup also reports READY on that commit.
+- Code-level checks passing do not constitute end-to-end proof. Complete the DEL-002 through DEL-009 cases using a dedicated staging buyer, seller, and active delivery agent; preserve the canonical order ID; verify the persisted OTP-to-order assignment; check server status read-back after success; and ensure invalid/replayed codes do not change payout or trip counts.
+- Never log or publish OTP values, bearer tokens, raw authentication payloads, Oracle wallet/configuration secrets, or personal data.
+
+### Release safety caveat
+The checked Render account currently lists one web service on `main`, and no dedicated staging service is separately identified in the account metadata. The owner has stated that this is staging; before any end-to-end test that creates/mutates data, capture the approved staging Oracle target/schema identity from a safe configuration source or read-only database identity query. Do not run destructive resets or mutating end-to-end tests against an unverified target.
