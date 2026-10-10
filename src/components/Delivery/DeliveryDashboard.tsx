@@ -349,7 +349,7 @@ export const DeliveryDashboard: React.FC = () => {
                       </button>
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-3">
-                      <p className="text-[10px] text-slate-500">Customer receives the OTP; never ask them to share it before handover.</p>
+                      <p className="text-[10px] text-slate-500">A new code appears in the customer's app. Ask them to open order tracking.</p>
                       <button
                         type="button"
                         disabled={!!resendingOtp[ord.id] || (otpCooldowns[ord.id] || 0) > Date.now()}
@@ -357,7 +357,7 @@ export const DeliveryDashboard: React.FC = () => {
                         className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-emerald-200 px-3 py-2 text-[11px] font-bold text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <RefreshCw className={`h-3.5 w-3.5 ${resendingOtp[ord.id] ? 'animate-spin' : ''}`} />
-                        {resendingOtp[ord.id] ? 'Sending…' : (otpCooldowns[ord.id] || 0) > Date.now() ? `Resend in ${Math.ceil(((otpCooldowns[ord.id] || 0) - Date.now()) / 1000)}s` : 'Resend OTP'}
+                        {resendingOtp[ord.id] ? 'Sending…' : (otpCooldowns[ord.id] || 0) > Date.now() ? `New OTP in ${Math.ceil(((otpCooldowns[ord.id] || 0) - Date.now()) / 1000)}s` : 'Generate new app OTP'}
                       </button>
                     </div>
                   </div>
