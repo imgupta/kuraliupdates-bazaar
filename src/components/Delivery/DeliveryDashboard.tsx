@@ -184,17 +184,18 @@ export const DeliveryDashboard: React.FC = () => {
     }
   };
 
-  const handleVerifyDeliveryOtp = (orderId: string) => {
+  const handleVerifyDeliveryOtp = async (orderId: string) => {
     const enteredOtp = otpInputs[orderId] || '';
-    if (!enteredOtp.trim()) {
-      showToast('Please enter customer 4-digit OTP upon delivery.', 'error');
+    if (!/^\\d{4}$/.test(enteredOtp.trim())) {
+      showToast('Please enter the customer’s 4-digit OTP upon delivery.', 'error');
       return;
     }
 
-    const res = completeDelivery(orderId, enteredOtp);
+    const res = await completeDelivery(orderId, enteredOtp.trim());
     if (res.success) {
       showToast(res.message, 'success');
       setOtpInputs(prev => ({ ...prev, [orderId]: '' }));
+      await syncWithBackend();
     } else {
       showToast(res.message, 'error');
     }
