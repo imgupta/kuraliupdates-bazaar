@@ -33,7 +33,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
     const refreshOtp = async () => {
       try {
         const tracking = await bazaarApi.getLiveTracking(orderId);
-        if (active && typeof tracking?.deliveryOtp === 'string' && /^\\d{4}$/.test(tracking.deliveryOtp)) {
+        if (active && typeof tracking?.deliveryOtp === 'string' && /^\d{4}$/.test(tracking.deliveryOtp)) {
           setAuthorizedDeliveryOtp(tracking.deliveryOtp);
         }
       } catch {
