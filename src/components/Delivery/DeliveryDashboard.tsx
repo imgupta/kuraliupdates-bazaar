@@ -25,13 +25,13 @@ export const DeliveryDashboard: React.FC = () => {
     deliveryAgents,
     orders,
     claimDeliveryJob,
-    completeDelivery,
     setIsDeliveryRegisterOpen,
     showToast,
     syncWithBackend,
   } = useApp();
 
   const [otpInputs, setOtpInputs] = useState<{ [orderId: string]: string }>({});
+  const [verifyingOtp, setVerifyingOtp] = useState<Record<string, boolean>>({});
   const [deliveryJobsLoading, setDeliveryJobsLoading] = useState(false);
   const [backendAgent, setBackendAgent] = useState<any | null>(null);
   const [liveAvailableOrders, setLiveAvailableOrders] = useState<Order[]>([]);
@@ -184,19 +184,30 @@ export const DeliveryDashboard: React.FC = () => {
     }
   };
 
-  const handleVerifyDeliveryOtp = (orderId: string) => {
-    const enteredOtp = otpInputs[orderId] || '';
-    if (!enteredOtp.trim()) {
-      showToast('Please enter customer 4-digit OTP upon delivery.', 'error');
+  const handleVerifyDeliveryOtp = async (orderId: string) => {
+    const enteredOtp = (otpInputs[orderId] || '').trim();
+    if (!/^\\d{4}$/.test(enteredOtp)) {
+      showToast('Please enter the customer’s 4-digit delivery OTP.', 'error');
       return;
     }
+    if (verifyingOtp[orderId]) return;
 
-    const res = completeDelivery(orderId, enteredOtp);
-    if (res.success) {
-      showToast(res.message, 'success');
+    setVerifyingOtp(prev => ({ ...prev, [orderId]: true }));
+    try {
+      // Verify against the persisted order OTP in the backend, not the local demo state.
+      const result = await bazaarApi.verifyDeliveryOtp(orderId, enteredOtp);
+      if (!result.success) {
+        showToast(result.message || 'Unable to verify delivery OTP.', 'error');
+        return;
+      }
+
       setOtpInputs(prev => ({ ...prev, [orderId]: '' }));
-    } else {
-      showToast(res.message, 'error');
+      await syncWithBackend();
+      showToast(result.message || 'Delivery confirmed successfully.', 'success');
+    } catch (error: any) {
+      showToast(error?.message || 'Unable to verify delivery OTP.', 'error');
+    } finally {
+      setVerifyingOtp(prev => ({ ...prev, [orderId]: false }));
     }
   };
 
