@@ -186,7 +186,7 @@ export const DeliveryDashboard: React.FC = () => {
 
   const handleVerifyDeliveryOtp = async (orderId: string) => {
     const enteredOtp = otpInputs[orderId] || '';
-    if (!/^\\d{4}$/.test(enteredOtp.trim())) {
+    if (!/^\d{4}$/.test(enteredOtp.trim())) {
       showToast('Please enter the customer’s 4-digit OTP upon delivery.', 'error');
       return;
     }
