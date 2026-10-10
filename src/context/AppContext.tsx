@@ -178,7 +178,7 @@ interface AppContextType {
 
   // Delivery
   claimDeliveryJob: (orderId: string, agentId: string) => void;
-  completeDelivery: (orderId: string, otp: string) => { success: boolean; message: string };
+  completeDelivery: (orderId: string, otp: string) => Promise<{ success: boolean; message: string }>;
   deliveryAgents: DeliveryAgent[];
   currentAgent: DeliveryAgent | undefined;
   registerDeliveryAgent: (
@@ -1316,53 +1316,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     bazaarApi.claimDeliveryJob(orderId, agentId);
   };
 
-  const completeDelivery = (orderId: string, otp: string): { success: boolean; message: string } => {
+  const completeDelivery = async (orderId: string, otp: string): Promise<{ success: boolean; message: string }> => {
     const order = orders.find(o => o.id === orderId);
-    if (!order) return { success: false, message: 'Order not found.' };
 
-    if (order.deliveryOtp !== otp.trim()) {
-      return { success: false, message: 'Invalid OTP! Please request 4-digit OTP from customer upon handover.' };
+    // Oracle is authoritative: local cached OTP values can be stale or differ from
+    // the current OTP after a resend. Never reject a code using browser state.
+    const verification = await bazaarApi.verifyDeliveryOtp(orderId, otp.trim());
+    if (!verification.success) {
+      return { success: false, message: verification.message || 'Unable to verify delivery OTP.' };
     }
 
-    const deliveryFeePayout = Math.max(45, Math.round(order.distanceKm * 22) + 20);
+    const deliveryFeePayout = Math.max(45, Math.round((order?.distanceKm || 1.4) * 22) + 20);
     setOrders(prev =>
-      prev.map(ord => {
-        if (ord.id !== orderId) return ord;
-        return {
-          ...ord,
-          status: 'delivered',
-          paymentStatus: 'paid',
-          statusUpdates: [
-            ...ord.statusUpdates,
-            {
-              status: 'delivered',
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              note: `Delivered safely to ${order.deliveryAddress}. OTP verified.`,
-            },
-          ],
-        };
+      prev.map(ord => ord.id !== orderId ? ord : {
+        ...ord,
+        status: 'delivered',
+        paymentStatus: 'paid',
+        statusUpdates: [
+          ...ord.statusUpdates,
+          {
+            status: 'delivered',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            note: `Delivered safely to ${ord.deliveryAddress}. OTP verified by server.`,
+          },
+        ],
       })
     );
 
-    if (order.deliveryAgentId) {
+    if (order?.deliveryAgentId) {
       setDeliveryAgents(prev =>
-        prev.map(ag => {
-          if (ag.id !== order.deliveryAgentId) return ag;
-          return {
-            ...ag,
-            totalTrips: ag.totalTrips + 1,
-            todayEarnings: ag.todayEarnings + deliveryFeePayout,
-            totalEarnings: ag.totalEarnings + deliveryFeePayout,
-          };
+        prev.map(ag => ag.id !== order.deliveryAgentId ? ag : {
+          ...ag,
+          totalTrips: ag.totalTrips + 1,
+          todayEarnings: ag.todayEarnings + deliveryFeePayout,
+          totalEarnings: ag.totalEarnings + deliveryFeePayout,
         })
       );
     }
 
-    bazaarApi.verifyDeliveryOtp(orderId, otp);
-
     return {
       success: true,
-      message: `Order successfully delivered! Payout of ₹${deliveryFeePayout} credited to delivery wallet.`,
+      message: verification.message || `Order successfully delivered! Payout of ₹${deliveryFeePayout} credited to delivery wallet.`,
     };
   };
 
