@@ -628,6 +628,18 @@ export const bazaarApi = {
     }
   },
 
+  async resendDeliveryOtp(orderId: string): Promise<{ success: boolean; message: string }> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) throw new Error('Your delivery session has expired. Please sign in again.');
+    const res = await fetch(`${API_BASE_URL}/delivery/jobs/${encodeURIComponent(orderId)}/resend-otp`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || 'Unable to resend delivery OTP');
+    return data;
+  },
+
   async updateDeliveryLocation(agentId: string, latitude: number, longitude: number): Promise<boolean> {
     try {
       const token = localStorage.getItem('kurali_auth_token');
