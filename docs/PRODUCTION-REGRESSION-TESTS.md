@@ -1,46 +1,62 @@
-# Production End-to-End Regression Checklist
+# Staging End-to-End Regression Checklist
 
-Environment: production only (controlled testing; no staging).
-Test account: Shubham.gupta180296@gmail.com.
-OTP handling: read the test OTP from the approved production database/session store only when authorized; never print or commit OTPs, tokens, passwords, or PII in logs/artifacts.
+Environment: **staging only** for the workflows below. Confirm the frontend deployment, Render service, and Oracle target before running mutating tests. Do not run these tests against the public production domain or an unverified database.
+
+## Environment and safety gate
+
+Before test execution, record:
+- UTC timestamp, frontend deployment ID/URL and commit SHA.
+- Render service/deployment ID and commit SHA.
+- Oracle schema/database identity verified from approved, sanitized deployment configuration or a read-only database identity check. Never output host secrets, wallet data, passwords, tokens, OTPs, or user PII.
+- Confirmation that staging and production are isolated and that staging cleanup has owner authorization.
+
+The one-time Flyway migration `V13__reset_staging_test_data.sql` is destructive. It deletes business/test records and retains selected admin accounts before reseeding Daily Help catalogue rows. It is **not** a routine regression test. Never edit an applied migration; any correction must use a new versioned migration. Do not rerun or repair V13 simply to clear an application defect.
 
 ## Execution record
 
-Record each run with timestamp, build/commit SHA, environment, result (PASS/FAIL/BLOCKED), and sanitized evidence. Do not mark a flow PASS from a build or health check alone.
+Record each case as PASS, FAIL, or BLOCKED with sanitized evidence. A green build or health response is not proof of end-to-end behavior. Never log OTP values or authentication secrets.
 
 | ID | Area | Test | Expected result | Status |
 |---|---|---|---|---|
-| PROD-001 | Availability | API health and database readiness | Health returns success after service is ready | Pending |
-| AUTH-001 | Login | Request email OTP for test account | OTP request succeeds once; no duplicate requests on one click | PASS: user received fresh OTP in production |
-| AUTH-002 | Login | Submit user-provided current OTP once | Session created and user lands on intended screen | PASS: user confirmed successful production login |
-| AUTH-003 | Login | Navigate to My Account after login | User remains authenticated; no logout/redirect loop | PASS: profile details visible and session retained |
+| STG-001 | Availability | API health and DB readiness | Health reports application and database ready | Pending |
+| STG-002 | Schema | Inspect Flyway history read-only | V13 is successful; no failed/pending migration | Pending |
+| AUTH-001 | Login | Request an email OTP once | One request succeeds; no duplicated request | Pending |
+| AUTH-002 | Login | Submit current user-provided OTP once | Session is created, expected role is selected | Pending |
+| AUTH-003 | Session | Open My Account and navigate away/back | Session remains valid | Pending |
+| AUTH-004 | Login | Wrong, expired, and reused OTP | Rejected with clear response; no new session | Pending |
+| BUY-001 | Catalogue | Search products and open details | API-backed catalogue responds without 5xx | Pending |
+| BUY-002 | Cart | Add/remove items and change quantities | Cart and totals remain consistent | Pending |
+| BUY-003 | Checkout | Place one synthetic test order | One persisted order is created; canonical server order ID is retained | Pending |
+| BUY-004 | Tracking | Refresh/reopen the order | Same order and persisted status are returned; no duplicate order | Pending |
+| SELL-001 | Seller | Load orders as approved seller | Only that seller's orders are visible | Pending |
+| SELL-002 | Seller | Mark synthetic order accepted then ready for pickup | Server validates and persists lifecycle transitions | Pending |
+| DEL-001 | Delivery | Pending agent requests pickup jobs | Denied until agent is ACTIVE | Pending |
+| DEL-002 | Delivery | Active agent loads available jobs | READY_FOR_PICKUP orders appear | Pending |
+| DEL-003 | Delivery | Claim an available synthetic order | Canonical order is assigned to one agent; a competing claim is rejected | Pending |
+| DEL-004 | Delivery OTP | Enter correct four-digit OTP on the dashboard | Browser permits numeric input; backend accepts persisted OTP for exact order/agent | Pending |
+| DEL-005 | Delivery OTP | Read back the order after success | Server status is DELIVERED; COD is PAID; payout/trip updates occur once | Pending |
+| DEL-006 | Delivery OTP | Replay the same OTP after delivery | Rejected; no additional payout or trip count | Pending |
+| DEL-007 | Delivery OTP | Submit incorrect or malformed OTP | Rejected without changing order status or payout | Pending |
+| DEL-008 | Delivery OTP | Submit correct OTP as a different agent | Forbidden; no order mutation | Pending |
+| DEL-009 | Delivery | Resend OTP then submit old code | Old code rejected, newest persisted OTP accepted; resend cooldown enforced | Pending |
+| HELP-001 | Daily Help | Load service catalogue and availability | Active service catalogue and eligible slots returned | Pending |
+| HELP-002 | Daily Help | Book available slot using synthetic buyer/provider | Booking and slot reservation commit together | Pending |
+| HELP-003 | Daily Help | Attempt concurrent duplicate booking | At most one booking succeeds | Pending |
+| HELP-004 | Daily Help | Professional updates slots/availability | Customer view reflects persisted availability | Pending |
+| ADMIN-001 | Admin | Load analytics and review service logs | No unhandled exception/5xx | Pending |
+| ADMIN-002 | Admin | Approve/reject synthetic seller or delivery agent | Only authorized admin can make permitted transition | Pending |
+| PROFILE-001 | Profile | Add/update address and reload | Address changes persist | Pending |
+| PROFILE-002 | Profile | Account with multiple saved addresses | All persisted addresses load and stay present after refresh/session restore | Pending |
+| REG-001 | Regression | Review sanitized backend logs and API responses | No unexpected 5xx, auth drift, secrets, or OTPs in logs | Pending |
 
-| AUTH-004 | Login | Submit incorrect, expired, and reused OTP | Clear validation; no session created; no false “expired” after a successful first submission | Pending |
-| BUY-001 | Catalogue | Search products and open product/store details | API-backed products display without 5xx errors | Pending |
-| BUY-002 | Cart | Add/remove items and change quantities | Cart totals update consistently | Pending |
-| BUY-003 | Checkout | Submit valid order using controlled test data | Exactly one server order is created; canonical server order ID is retained | Pending |
-| BUY-004 | Checkout | Refresh/reopen order tracking | Same order and status are shown; no duplicate order is created | Pending |
-| SELL-001 | Seller | Login as approved seller; load orders | Only that seller's orders appear | Pending |
-| SELL-002 | Seller | Mark order accepted, then ready for pickup | Valid status transitions persist | Pending |
-| DEL-001 | Delivery | Pending agent attempts to access pickup jobs | Access denied until approved/active | Pending |
-| DEL-002 | Delivery | Active agent loads available pickup jobs | READY_FOR_PICKUP orders appear | Pending |
-| DEL-003 | Delivery | Claim an available order | Server assigns the canonical order to exactly one agent | Pending |
-| DEL-004 | Delivery OTP | Verify with correct OTP for claimed order | Order transitions to delivered; replay is rejected | Pending |
-| DEL-005 | Delivery OTP | Wrong OTP, malformed OTP, another agent's order | Rejected without changing order state | Pending |
-| HELP-001 | Daily Help | Load service catalogue and availability | Available services/slots are returned correctly | Pending |
-| HELP-002 | Daily Help | Book an available slot | Booking and slot reservation commit atomically | Pending |
-| HELP-003 | Daily Help | Attempt to book same slot twice | Second booking is rejected; no duplicate booking | Pending |
-| HELP-004 | Daily Help | Professional updates availability; customer rechecks | Updated slots and booking eligibility agree | Pending |
-| ADMIN-001 | Admin | Load demand-trends analytics with existing orders | Analytics returns successfully; no Hibernate LazyInitializationException | Fix proposed; verify after deploy |
-| ADMIN-002 | Admin | Approve/reject seller and delivery agent | Only authorized admin can change status; change persists | Pending |
-| PROFILE-001 | Profile | View/update buyer profile and address | Changes persist after refresh and re-login | Pending |
-| PROFILE-002 | Profile | Sign in with an account that has multiple saved addresses | Use addresses included in the OTP response immediately; empty refresh responses must not erase existing same-account addresses | Follow-up fix implemented; pending CI and production verification |
-| REG-001 | Regression | Inspect backend logs after each workflow | No new unhandled exceptions, unexpected 5xx, or auth/session errors | Pending |
+## Test data and workflow
 
-## Safety and execution rules
+1. Use dedicated staging-only synthetic accounts and records. Avoid real payments, real customers, and real SMS/email delivery unless specifically intended.
+2. Use the UI and documented authenticated API flow, preserving the canonical order ID from server responses. Do not read, print, or commit OTPs from raw logs.
+3. Capture status codes, response shape, order status, and non-sensitive record identifiers only.
+4. For any failure, add a regression test reproducing it, fix the cause, run focused tests then the full frontend/backend checks, and repeat the failing scenario.
+5. After any change, verify the actual deployed frontend and backend commit. A Vercel READY or Render LIVE badge alone does not establish the end-to-end flow is working.
 
-- Run one flow at a time and record its result before proceeding.
-- Use existing approved test accounts and controlled test orders; avoid real payments, real customer notifications, or destructive database changes.
-- Never dump OTPs, session tokens, full user rows, or secrets into CI logs or test reports.
-- If database access, account approval, or a test prerequisite is unavailable, record BLOCKED and continue with independent read-only checks.
-- Deploy a fix only after automated checks pass; then confirm the actual production deployment and re-run the affected flow.
+## Current known fix
+
+The delivery dashboard's four-digit regex was over-escaped, causing valid numeric OTPs to fail client-side before the server call. PR #36 corrected it and added backend unit tests for successful verification/payout, incorrect OTP rejection, and assignment ownership. Those automated checks passed before merge. The full staging user-interface-to-Oracle flow remains to be executed and recorded as above.
