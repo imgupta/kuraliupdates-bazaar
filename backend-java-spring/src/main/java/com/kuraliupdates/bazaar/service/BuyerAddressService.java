@@ -25,10 +25,39 @@ public class BuyerAddressService {
     private final UserAddressRepository addressRepository;
     private final UserRepository userRepository;
 
-    @Transactional(readOnly = true)
+    /**
+     * Return normalized saved addresses. Older versions also stored the primary address
+     * directly on USERS; lazily normalize that value if no saved-address rows exist.
+     * This is intentionally idempotent and never overwrites existing address rows.
+     */
     public List<AddressResponse> findByUserId(String userId) {
-        return addressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc(userId)
-                .stream().map(AddressResponse::from).toList();
+        List<UserAddressEntity> addresses = addressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc(userId);
+        if (addresses.isEmpty()) {
+            userRepository.findById(userId)
+                    .filter(user -> hasText(user.getAddressLine1()) || hasText(user.getAddress()))
+                    .ifPresent(user -> {
+                        String addressLine1 = hasText(user.getAddressLine1())
+                                ? user.getAddressLine1().trim()
+                                : user.getAddress().trim();
+                        LocalDateTime now = LocalDateTime.now();
+                        UserAddressEntity legacyAddress = UserAddressEntity.builder()
+                                .addressId("addr-" + UUID.randomUUID().toString().replace("-", ""))
+                                .userId(userId)
+                                .label("Home")
+                                .addressLine1(addressLine1)
+                                .landmark(trim(user.getLandmark()))
+                                .formattedAddress(trim(user.getFormattedAddress()))
+                                .placeId(trim(user.getPlaceId()))
+                                .latitude(user.getLatitude())
+                                .longitude(user.getLongitude())
+                                .isDefault(1)
+                                .createdAt(now)
+                                .updatedAt(now)
+                                .build();
+                        addresses.add(addressRepository.save(legacyAddress));
+                    });
+        }
+        return addresses.stream().map(AddressResponse::from).toList();
     }
 
     public AddressResponse create(String userId, AddressRequest request) {
