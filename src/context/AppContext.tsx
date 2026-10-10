@@ -423,15 +423,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return next;
   };
 
-  // Load persisted addresses after authentication; the app-boot session check runs before a fresh login. 
+  // Keep legacy client-side addresses visible when the server's address collection is empty.
+  // The authenticated user response includes addresses too, so the follow-up request is a refresh,
+  // not the only source of address state.
   const refreshBuyerAddresses = (token: string, expectedEmail?: string) => {
     void bazaarApi.getBuyerAddresses(token).then(remoteAddresses => {
-      // A failed request must not clear any addresses already held in the session.
       if (!remoteAddresses || safeStorageGet('kurali_auth_token') !== token) return;
-      const mappedAddresses = remoteAddresses.map(toSavedAddress);
+      const mappedAddresses = remoteAddresses.map(toSavedAddress).filter(address => Boolean(address.id));
       setUser(prev => {
         if (expectedEmail && (prev.email || '').toLowerCase() !== expectedEmail.toLowerCase()) return prev;
-        const next = { ...prev, savedAddresses: mappedAddresses };
+        // A successful but empty response must not erase previously saved addresses. This is
+        // important for addresses created by older versions before server-side address sync.
+        const addresses = mappedAddresses.length > 0 ? mappedAddresses : (prev.savedAddresses || []);
+        const next = { ...prev, savedAddresses: addresses };
         safeStorageSet('kurali_auth_session', JSON.stringify(next));
         return next;
       });
@@ -690,7 +694,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             phone: u.phone,
             locality: u.locality || prev.locality,
             address: u.address || prev.address,
-            savedAddresses: Array.isArray(res.addresses) ? res.addresses.map(toSavedAddress) : prev.savedAddresses,
+            savedAddresses: (() => {
+              const fromServer = Array.isArray(res.addresses)
+                ? res.addresses.map(toSavedAddress).filter((address: SavedAddress) => Boolean(address.id))
+                : [];
+              // Do not let an empty server list erase locally retained addresses during session restore.
+              return fromServer.length > 0 ? fromServer : (prev.savedAddresses || []);
+            })(),
             addressLine1: u.addressLine1 || prev.addressLine1,
             landmark: u.landmark || prev.landmark,
             formattedAddress: u.formattedAddress || prev.formattedAddress,
@@ -792,6 +802,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       phone: params.serverUser.phone || cleanPhone || undefined,
       locality: params.serverUser.locality || params.locality || existingSeller?.locality || existingAgent?.currentLocality || 'Main Bazaar & Clock Tower',
       address: params.serverUser.address || params.address || existingSeller?.address || '',
+      addressLine1: params.serverUser.addressLine1 || undefined,
+      landmark: params.serverUser.landmark || undefined,
+      formattedAddress: params.serverUser.formattedAddress || undefined,
+      placeId: params.serverUser.placeId || undefined,
+      latitude: params.serverUser.latitude ?? undefined,
+      longitude: params.serverUser.longitude ?? undefined,
+      // The verify-OTP response already carries UserResponse.addresses. Use it immediately,
+      // and retain same-account client addresses when older data is not in the backend yet.
+      savedAddresses: (() => {
+        const fromServer = Array.isArray(params.serverUser.addresses)
+          ? params.serverUser.addresses.map(toSavedAddress).filter((address: SavedAddress) => Boolean(address.id))
+          : [];
+        const sameAccount = (user.email || '').toLowerCase() === (params.serverUser.email || trimmedEmail || '').toLowerCase()
+          || Boolean(cleanPhone && (user.phone || '').replace(/\\D/g, '') === cleanPhone.replace(/\\D/g, ''));
+        return fromServer.length > 0 ? fromServer : (sameAccount ? user.savedAddresses || [] : []);
+      })(),
       sellerId: existingSeller?.id,
       deliveryAgentId: existingAgent?.id,
       role: effectiveRole,
@@ -860,6 +886,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       placeId: params.serverUser.placeId || params.placeId,
       latitude: params.serverUser.latitude ?? params.latitude,
       longitude: params.serverUser.longitude ?? params.longitude,
+      savedAddresses: (() => {
+        const fromServer = Array.isArray(params.serverUser.addresses)
+          ? params.serverUser.addresses.map(toSavedAddress).filter((address: SavedAddress) => Boolean(address.id))
+          : [];
+        const sameAccount = (user.email || '').toLowerCase() === trimmedEmail
+          || Boolean(cleanPhone && (user.phone || '').replace(/\\D/g, '') === cleanPhone);
+        return fromServer.length > 0 ? fromServer : (sameAccount ? user.savedAddresses || [] : []);
+      })(),
       sellerId, deliveryAgentId,
       role: effectiveRole, isSignedIn: true, phoneVerified: Boolean(cleanPhone),
       emailVerified: Boolean(trimmedEmail), isAdmin: Number(params.serverUser.isAdmin) === 1 || effectiveRole === 'admin',
