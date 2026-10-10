@@ -70,7 +70,8 @@ public class DeliveryService {
             throw new ApiException(HttpStatus.FORBIDDEN, "You can only claim orders for your own delivery profile");
         }
 
-        OrderEntity order = orderRepository.findById(orderId)
+        // Serialize competing claims so only one active agent can win a READY_FOR_PICKUP order.
+        OrderEntity order = orderRepository.findLockedByOrderId(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
         if (!"READY_FOR_PICKUP".equals(order.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "Order is not available for pickup");
