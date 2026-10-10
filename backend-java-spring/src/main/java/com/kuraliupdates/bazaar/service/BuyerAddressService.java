@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,7 +32,7 @@ public class BuyerAddressService {
      * This is intentionally idempotent and never overwrites existing address rows.
      */
     public List<AddressResponse> findByUserId(String userId) {
-        List<UserAddressEntity> addresses = addressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc(userId);
+        List<UserAddressEntity> addresses = new ArrayList<>(addressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc(userId));
         if (addresses.isEmpty()) {
             userRepository.findById(userId)
                     .filter(user -> hasText(user.getAddressLine1()) || hasText(user.getAddress()))
