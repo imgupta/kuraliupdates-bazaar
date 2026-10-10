@@ -14,8 +14,8 @@ spring:
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     driver-class-name: oracle.jdbc.OracleDriver
-    url: ${ORACLE_JDBC_URL:jdbc:oracle:thin:@jkphg8mg7fvt8c2n_high?TNS_ADMIN=/app/wallet}
-    username: ${ORACLE_USERNAME:ADMIN}
+    url: ${ORACLE_JDBC_URL}
+    username: ${ORACLE_USERNAME}
     password: ${ORACLE_PASSWORD}
     hikari:
       maximum-pool-size: 10
@@ -26,12 +26,12 @@ spring:
       max-lifetime: 1200000
       pool-name: KuraliHikariPool
       data-source-properties:
-        oracle.net.wallet_location: (SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=/app/wallet)))
-        oracle.net.tns_admin: /app/wallet
-        javax.net.ssl.trustStore: /app/wallet/truststore.jks
-        javax.net.ssl.trustStorePassword: ${WALLET_PASSWORD:Vasu@123!2026}
-        javax.net.ssl.keyStore: /app/wallet/keystore.jks
-        javax.net.ssl.keyStorePassword: ${WALLET_PASSWORD:Vasu@123!2026}
+        oracle.net.wallet_location: (SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=${ORACLE_WALLET_DIR:/etc/secrets})))
+        oracle.net.tns_admin: ${ORACLE_WALLET_DIR:/etc/secrets}
+        javax.net.ssl.trustStore: ${ORACLE_WALLET_DIR:/etc/secrets}/truststore.jks
+        javax.net.ssl.trustStorePassword: ${WALLET_PASSWORD}
+        javax.net.ssl.keyStore: ${ORACLE_WALLET_DIR:/etc/secrets}/keystore.jks
+        javax.net.ssl.keyStorePassword: ${WALLET_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: none
@@ -67,7 +67,7 @@ app:
   cors:
     allowed-origins: "http://localhost:4200,https://kuraliupdates.com,https://www.kuraliupdates.com,https://*.vercel.app,*"
   jwt:
-    secret: "KuraliBazaarSecretKey2026PunjabLocalCommerceSecureJWTKeyMustBeAtLeast256Bits"
+    secret: ${JWT_SECRET}
     expiration-ms: 86400000
 
 springdoc:
