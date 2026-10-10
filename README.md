@@ -35,3 +35,8 @@ Prefer simple composition. Add Strategy/Adapter only for genuinely interchangeab
 ## Production
 - Web: https://www.kuraliupdates.com
 - API: https://kuraliupdates-bazaar.onrender.com/api/v1
+
+## Staging and test safety
+- Current active staging test checklist: `docs/STAGING-REGRESSION-TESTS.md`.
+- V13 is a destructive staging-only data cleanup; it is not schema creation and must never be run in production.
+- Do not treat a green build or health check as end-to-end proof. Verify actual frontend/backend deployment IDs and the approved Oracle staging target before any mutating test.

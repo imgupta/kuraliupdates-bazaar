@@ -60,3 +60,10 @@ npm run lint
 npm run build
 cd backend-java-spring && mvn clean verify
 ```
+
+## Staging reset and OTP verification status (11 October 2026)
+- The owner reports staging data cleanup and Flyway V13 execution. Confirm the successful V13 row in Flyway history and the Oracle schema identity using read-only, sanitized evidence before running write workflows; no credentials/PII are to be surfaced.
+- PR #36 corrected the four-digit frontend OTP regex and added backend verification/payout/assignment unit tests. Focused and full backend checks passed before merge.
+- Current main includes delivery claim synchronization and extra leading-zero, malformed OTP, replay, and payout-idempotency tests.
+- Render deployment `dep-db5b5u15efls73ah5cj0` is live on `b970c391b040596128236fbb20be62a6e3cdff15`; Vercel custom-domain lookup reports READY at the same commit.
+- Real staging end-to-end UI → API → Oracle evidence is still required. Use synthetic staging-only buyer/seller/agent records and assert canonical order ID, assignment, persisted OTP, delivered state, COD payment state, and exactly-once payout. Never print OTP contents.
