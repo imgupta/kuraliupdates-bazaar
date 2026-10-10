@@ -69,6 +69,72 @@ class DeliveryServiceTest {
     }
 
     @Test
+    void correctOtpWithLeadingZeroCompletesOrderAndCreditsPayoutOnce() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity order = OrderEntity.builder()
+                .orderId("SYNTH-OTP-VERIFY-1")
+                .status("ASSIGNED_TO_DELIVERY")
+                .deliveryAgent(agent)
+                .deliveryOtp("0042")
+                .paymentMethod("COD")
+                .paymentStatus("PENDING_COD")
+                .distanceKm(new BigDecimal("1.5"))
+                .build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findById("SYNTH-OTP-VERIFY-1")).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(agentRepository.save(any(DeliveryAgentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = deliveryService.verifyDeliveryOtp("SYNTH-OTP-VERIFY-1", "0042", user());
+
+        assertEquals(Boolean.TRUE, response.get("success"));
+        assertEquals("DELIVERED", order.getStatus());
+        assertEquals("PAID", order.getPaymentStatus());
+        assertEquals(1, agent.getTotalTrips());
+        assertEquals(new BigDecimal("53"), agent.getTodayEarnings());
+        assertEquals(new BigDecimal("53"), agent.getTotalEarnings());
+        verify(orderRepository, times(1)).save(order);
+        verify(agentRepository, times(1)).save(agent);
+    }
+
+    @Test
+    void replayedOtpIsRejectedWithoutDoubleCreditingPayout() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity order = OrderEntity.builder()
+                .orderId("SYNTH-OTP-VERIFY-REPLAY")
+                .status("DELIVERED")
+                .deliveryAgent(agent)
+                .deliveryOtp("0042")
+                .paymentMethod("COD")
+                .paymentStatus("PAID")
+                .build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findById("SYNTH-OTP-VERIFY-REPLAY")).thenReturn(Optional.of(order));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.verifyDeliveryOtp("SYNTH-OTP-VERIFY-REPLAY", "0042", user()));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals(0, agent.getTotalTrips());
+        assertEquals(BigDecimal.ZERO, agent.getTotalEarnings());
+        verify(orderRepository, never()).save(any());
+        verify(agentRepository, never()).save(any());
+    }
+
+    @Test
+    void malformedOtpIsRejectedBeforeReadingOrder() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.verifyDeliveryOtp("SYNTH-OTP-VERIFY-BAD", "12A4", user()));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verify(orderRepository, never()).findById(any());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
     void assignedActiveAgentRegeneratesFourDigitOtpWithoutReturningIt() {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder()
