@@ -26,6 +26,9 @@ jobs:
         run: bun install
       - name: TypeScript checks
         run: bun run lint
+      - name: Delivery OTP input validator regression
+        run: |
+          node --input-type=module -e "import fs from 'node:fs'; const src=fs.readFileSync('src/components/Delivery/DeliveryDashboard.tsx','utf8'); if (!src.includes('/^\\\\d{4}$/.test(enteredOtp.trim())')) { console.error('Delivery OTP validator must accept exactly four digits.'); process.exit(1); } if (src.includes('/^\\\\\\\\d{4}$/.test(enteredOtp.trim())')) { console.error('Delivery OTP validator is over-escaped.'); process.exit(1); }"
       - name: Production build
         run: bun run build
 
