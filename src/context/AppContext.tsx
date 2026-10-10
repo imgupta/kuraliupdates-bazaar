@@ -815,7 +815,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ? params.serverUser.addresses.map(toSavedAddress).filter((address: SavedAddress) => Boolean(address.id))
           : [];
         const sameAccount = (user.email || '').toLowerCase() === (params.serverUser.email || trimmedEmail || '').toLowerCase()
-          || Boolean(cleanPhone && (user.phone || '').replace(/\\D/g, '') === cleanPhone.replace(/\\D/g, ''));
+          || Boolean(cleanPhone && (user.phone || '').replace(/\D/g, '') === cleanPhone.replace(/\D/g, ''));
         return fromServer.length > 0 ? fromServer : (sameAccount ? user.savedAddresses || [] : []);
       })(),
       sellerId: existingSeller?.id,
@@ -891,7 +891,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ? params.serverUser.addresses.map(toSavedAddress).filter((address: SavedAddress) => Boolean(address.id))
           : [];
         const sameAccount = (user.email || '').toLowerCase() === trimmedEmail
-          || Boolean(cleanPhone && (user.phone || '').replace(/\\D/g, '') === cleanPhone);
+          || Boolean(cleanPhone && (user.phone || '').replace(/\D/g, '') === cleanPhone);
         return fromServer.length > 0 ? fromServer : (sameAccount ? user.savedAddresses || [] : []);
       })(),
       sellerId, deliveryAgentId,
