@@ -162,12 +162,20 @@ export const DeliveryDashboard: React.FC = () => {
     o => o.deliveryAgentId === agent?.id && o.status === 'delivered'
   );
 
-  const handleClaim = (orderId: string) => {
+  const [claimingOrderIds, setClaimingOrderIds] = useState<Record<string, boolean>>({});
+
+  const handleClaim = async (orderId: string) => {
     if (!agent) {
       setIsDeliveryRegisterOpen(true);
       return;
     }
-    claimDeliveryJob(orderId, agent.id);
+    if (claimingOrderIds[orderId]) return;
+    setClaimingOrderIds(prev => ({ ...prev, [orderId]: true }));
+    try {
+      await claimDeliveryJob(orderId, agent.id);
+    } finally {
+      setClaimingOrderIds(prev => ({ ...prev, [orderId]: false }));
+    }
   };
 
   const handleResendDeliveryOtp = async (orderId: string) => {
@@ -414,11 +422,12 @@ export const DeliveryDashboard: React.FC = () => {
                   </div>
 
                   <button
-                    onClick={() => handleClaim(ord.id)}
-                    className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold rounded-xl text-xs transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
+                    onClick={() => void handleClaim(ord.id)}
+                    disabled={!!claimingOrderIds[ord.id]}
+                    className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold rounded-xl text-xs transition-all shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                   >
                     <Truck className="w-4 h-4" />
-                    <span>Claim Order (Earn ₹{payout})</span>
+                    <span>{claimingOrderIds[ord.id] ? 'Claiming…' : `Claim Order (Earn ₹${payout})`}</span>
                   </button>
                 </div>
               );
