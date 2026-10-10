@@ -47,7 +47,7 @@ class BuyerAddressServiceTest {
         assertEquals(1, addresses.size());
         assertEquals("Flat 4, Main Bazaar", addresses.get(0).addressLine1());
         assertEquals("Home", addresses.get(0).label());
-        assertEquals(1, addresses.get(0).isDefault());
+        assertEquals(Integer.valueOf(1), addresses.get(0).isDefault());
         assertNotNull(addresses.get(0).addressId());
         verify(addressRepository).save(any(UserAddressEntity.class));
     }
