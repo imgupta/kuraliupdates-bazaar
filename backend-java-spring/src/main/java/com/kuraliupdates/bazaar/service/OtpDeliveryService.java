@@ -35,6 +35,41 @@ public class OtpDeliveryService {
         }
     }
 
+    public void sendDeliveryOtpEmail(String email, String otp) throws Exception {
+        if (email == null || email.isBlank() || otp == null || !otp.matches("\\d{4}")) {
+            throw new IllegalArgumentException("A customer email and valid 4-digit delivery OTP are required");
+        }
+        if (resendApiKey.isBlank() || emailFrom.isBlank()) {
+            throw new IllegalStateException("Email OTP provider is not configured");
+        }
+
+        String subject = "KuraliUpdates Bazaar delivery handover code";
+        String text = "Your KuraliUpdates Bazaar delivery handover OTP is " + otp
+                + ". Share it with the delivery partner only when your order is physically handed over to you. "
+                + "If you did not request this message, contact KuraliUpdates Bazaar support.";
+        String json = "{"
+                + "\\"from\\":\\"" + jsonEscape(emailFrom) + "\\","
+                + "\\"to\\":[\\"" + jsonEscape(email) + "\\"],"
+                + "\\"subject\\":\\"" + jsonEscape(subject) + "\\","
+                + "\\"text\\":\\"" + jsonEscape(text) + "\\""
+                + "}";
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.resend.com/emails"))
+                .timeout(Duration.ofSeconds(10))
+                .header("Authorization", "Bearer " + resendApiKey)
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(json))
+                .build();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() / 100 != 2) {
+            log.warn("Delivery OTP email rejected: status={}", response.statusCode());
+            throw new IllegalStateException("Email provider rejected delivery OTP request");
+        }
+        log.info("Delivery OTP email accepted for recipient={}", maskEmail(email));
+    }
+
     private void sendEmail(String email, String otp, int expiryMinutes) throws Exception {
         if (resendApiKey.isBlank() || emailFrom.isBlank()) {
             throw new IllegalStateException("Email OTP provider is not configured");
