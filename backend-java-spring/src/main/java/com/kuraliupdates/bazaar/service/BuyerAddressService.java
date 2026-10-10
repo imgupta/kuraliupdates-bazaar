@@ -155,6 +155,10 @@ public class BuyerAddressService {
         userRepository.save(user);
     }
 
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
     private String defaultValue(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value.trim();
     }
