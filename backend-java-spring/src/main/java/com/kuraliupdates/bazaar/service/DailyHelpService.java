@@ -188,7 +188,9 @@ public class DailyHelpService {
 
     @Transactional
     public DailyHelpSlotResponse createProfessionalSlot(String professionalId, DailyHelpSlotRequest request) {
-        DailyHelpProfessionalEntity professional = getProfessionalEntity(professionalId);
+        // Serialize slot creation for one professional to prevent overlapping slots under concurrent requests.
+        DailyHelpProfessionalEntity professional = professionalRepository.findLockedByProfessionalId(professionalId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help professional not found"));
         if (request.slotDate().isBefore(LocalDate.now())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Slot date must be today or a future date");
         }
@@ -282,7 +284,8 @@ public class DailyHelpService {
         return DailyHelpBookingResponse.from(bookingRepository.save(booking), true);
     }
 
-    @Transactional
+    // Invalid OTP attempts must commit even though the request returns an error.
+    @Transactional(noRollbackFor = ApiException.class)
     public DailyHelpBookingResponse startBooking(String bookingId, DailyHelpStartRequest request) {
         DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
