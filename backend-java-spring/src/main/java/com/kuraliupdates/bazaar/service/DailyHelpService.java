@@ -282,7 +282,8 @@ public class DailyHelpService {
         return DailyHelpBookingResponse.from(bookingRepository.save(booking), true);
     }
 
-    @Transactional
+    // Invalid OTP attempts must commit even though the request returns an error.
+    @Transactional(noRollbackFor = ApiException.class)
     public DailyHelpBookingResponse startBooking(String bookingId, DailyHelpStartRequest request) {
         DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
