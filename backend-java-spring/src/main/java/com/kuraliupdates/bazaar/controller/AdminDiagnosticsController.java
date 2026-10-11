@@ -107,12 +107,12 @@ public class AdminDiagnosticsController {
             List<Map<String, Object>> latest = jdbcTemplate.query(
                     "SELECT VERSION, DESCRIPTION, SUCCESS, INSTALLED_ON FROM " +
                             "(SELECT VERSION, DESCRIPTION, SUCCESS, INSTALLED_ON " +
-                            "FROM "flyway_schema_history" ORDER BY INSTALLED_RANK DESC) WHERE ROWNUM <= 10",
+                            "FROM \\"flyway_schema_history\\" ORDER BY INSTALLED_RANK DESC) WHERE ROWNUM <= 10",
                     (rs, rowNum) -> migrationRow(rs));
             migration.put("historyStatus", "OK");
             migration.put("latest", latest);
             List<Boolean> v13 = jdbcTemplate.query(
-                    "SELECT SUCCESS FROM "flyway_schema_history" WHERE VERSION = '13'",
+                    "SELECT SUCCESS FROM \\"flyway_schema_history\\" WHERE VERSION = '13'",
                     (rs, rowNum) -> rs.getBoolean("SUCCESS"));
             migration.put("v13Status", v13.isEmpty() ? "NOT_FOUND" : (v13.get(0) ? "SUCCESS" : "FAILED"));
         } catch (Exception ignored) {
