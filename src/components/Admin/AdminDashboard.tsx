@@ -24,7 +24,6 @@ import {
   UserRoundCheck,
   Database,
   RefreshCw,
-  AlertTriangle,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { bazaarApi } from '../../services/api';
