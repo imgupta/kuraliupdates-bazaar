@@ -13,6 +13,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { isRootAdminEmail } from '../data/initialData';
 import { UserRole } from '../types';
+import { pathForRole } from '../app/routing/routeConfig';
 import { SearchSuggestions } from './Buyer/SearchSuggestions';
 
 interface HeaderProps {
@@ -43,6 +44,15 @@ export const Header: React.FC<HeaderProps> = ({
 
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
+  const selectRole = (targetRole: UserRole) => {
+    setRole(targetRole);
+    const nextPath = pathForRole(targetRole);
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, '', nextPath);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+  };
+
   const cartItemCount = cart.reduce((acc, item) => acc + item.quantity, 0);
   const pendingSellersCount = sellers.filter(s => s.status === 'pending').length;
   const availableJobsCount = orders.filter(o => o.status === 'ready_for_pickup').length;
@@ -72,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3">
         <div className="flex items-center justify-between gap-2 sm:gap-3">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div onClick={() => setRole('buyer')} className="cursor-pointer flex items-center gap-2 group shrink-0">
+            <div onClick={() => selectRole('buyer')} className="cursor-pointer flex items-center gap-2 group shrink-0">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform shrink-0">
                 <Store className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
@@ -117,7 +127,7 @@ export const Header: React.FC<HeaderProps> = ({
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setRole(item.id)}
+                      onClick={() => selectRole(item.id)}
                       className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                         isActive
                           ? 'bg-white text-slate-900 shadow-xs'
@@ -138,7 +148,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="hidden sm:flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-200">
                 <Store className="w-4 h-4 text-blue-600" />
                 <span className="text-xs font-bold text-blue-900">Merchant Portal</span>
-                <button onClick={() => setRole(role === 'seller' ? 'buyer' : 'seller')} className="ml-1 px-2 py-0.5 rounded-lg bg-white text-blue-700 hover:bg-blue-100 border border-blue-200 text-[11px] font-semibold cursor-pointer">
+                <button onClick={() => selectRole(role === 'seller' ? 'buyer' : 'seller')} className="ml-1 px-2 py-0.5 rounded-lg bg-white text-blue-700 hover:bg-blue-100 border border-blue-200 text-[11px] font-semibold cursor-pointer">
                   {role === 'seller' ? 'View Storefront' : 'Back to Dashboard'}
                 </button>
               </div>
@@ -182,7 +192,7 @@ export const Header: React.FC<HeaderProps> = ({
                         {isRootAdmin && (
                           <button
                             onClick={() => {
-                              setRole('admin');
+                              selectRole('admin');
                               setIsProfileDropdownOpen(false);
                             }}
                             className="w-full text-left py-1 text-xs text-purple-700 hover:text-purple-900 flex items-center gap-1.5 font-bold cursor-pointer"
