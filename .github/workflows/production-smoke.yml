@@ -28,15 +28,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Use configured API base for the single staging environment
+      - name: Run read-only smoke tests against the single staging environment
         env:
           KURALI_API_BASE_URL: ${{ vars.KURALI_API_BASE_URL || vars.KURALI_STAGING_API_BASE_URL }}
           SMOKE_READINESS_TIMEOUT_MS: "360000"
           SMOKE_RETRY_INTERVAL_MS: "10000"
           SMOKE_TIMEOUT_MS: "20000"
-        run: |
-          if [ -z "$KURALI_API_BASE_URL" ]; then
-            echo "Set KURALI_API_BASE_URL to the canonical API base URL for the single deployed staging environment."
-            exit 2
-          fi
-          node scripts/production-smoke.mjs
+        run: node scripts/production-smoke.mjs
