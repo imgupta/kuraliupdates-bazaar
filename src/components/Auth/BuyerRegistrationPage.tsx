@@ -43,21 +43,20 @@ export const BuyerRegistrationPage: React.FC = () => {
       const identityCheck = await bazaarApi.checkRegistration(normalizedEmail, normalizedPhone, 'BUYER');
       if (!identityCheck.success) {
         setError(identityCheck.message);
-        setLoading(false);
         return;
       }
       const response = await bazaarApi.sendOtp(normalizedEmail, 'EMAIL', 'REGISTER');
-      setLoading(false);
-    if (!response.success) {
-      setError(response.message);
-      return;
-    }
-    setCountdown(60);
-    setStep('otp');
-    showToast('Verification code sent to your email', 'info');
+      if (!response.success) {
+        setError(response.message);
+        return;
+      }
+      setCountdown(60);
+      setStep('otp');
+      showToast('Verification code sent to your email', 'info');
     } catch (err: any) {
-      setLoading(false);
       setError(err?.message || 'Unable to start registration. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
