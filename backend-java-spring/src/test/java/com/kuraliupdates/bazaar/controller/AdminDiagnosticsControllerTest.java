@@ -15,12 +15,12 @@ import static org.mockito.Mockito.*;
 class AdminDiagnosticsControllerTest {
 
     @Test
-    void returnsSanitizedCountsAndMigrationStatusWithoutExposingAdminEmail() {
+    void returnsSanitizedReadOnlyDiagnostics() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         when(jdbc.queryForObject(contains("SYS_CONTEXT"), eq(String.class))).thenReturn("ADMIN");
         when(jdbc.queryForObject(contains("COUNT(*) FROM USERS"), eq(Long.class), any(Object[].class))).thenReturn(1L);
-        when(jdbc.queryForObject(startsWith("SELECT COUNT(*) FROM"), eq(Long.class))).thenReturn(0L);
-
+        when(jdbc.queryForObject(argThat(sql -> sql.startsWith("SELECT COUNT(*) FROM") && !sql.contains("USERS")), eq(Long.class)))
+                .thenReturn(0L);
         when(jdbc.query(startsWith("SELECT VERSION, DESCRIPTION, SUCCESS"), any(org.springframework.jdbc.core.RowMapper.class)))
                 .thenReturn(List.of(Map.of("version", "13", "description", "reset staging test data", "success", true)));
         when(jdbc.query(contains("WHERE VERSION = '13'"), any(org.springframework.jdbc.core.RowMapper.class)))
@@ -39,11 +39,12 @@ class AdminDiagnosticsControllerTest {
     }
 
     @Test
-    void reportsUnknownMigrationWhenFlywayHistoryCannotBeRead() {
+    void hidesDatabaseExceptionDetailsAndFlagsUnknownMigrationWhenHistoryIsUnavailable() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         when(jdbc.queryForObject(contains("SYS_CONTEXT"), eq(String.class))).thenReturn("ADMIN");
         when(jdbc.queryForObject(contains("COUNT(*) FROM USERS"), eq(Long.class), any(Object[].class))).thenReturn(1L);
-        when(jdbc.queryForObject(startsWith("SELECT COUNT(*) FROM"), eq(Long.class))).thenReturn(0L);
+        when(jdbc.queryForObject(argThat(sql -> sql.startsWith("SELECT COUNT(*) FROM") && !sql.contains("USERS")), eq(Long.class)))
+                .thenReturn(0L);
         when(jdbc.query(startsWith("SELECT VERSION, DESCRIPTION, SUCCESS"), any(org.springframework.jdbc.core.RowMapper.class)))
                 .thenThrow(new RuntimeException("sensitive database failure"));
 
