@@ -3,8 +3,13 @@ import { test, expect } from "@playwright/test";
 const baseURL = process.env.E2E_BASE_URL ?? "https://bazaar.kuraliupdates.com";
 const apiBaseURL = (process.env.E2E_API_BASE_URL ?? "").replace(/\/$/, "");
 const otpCaptureToken = process.env.E2E_OTP_CAPTURE_TOKEN ?? "";
+const productionHosts = new Set(["kuraliupdates.com", "www.kuraliupdates.com", "bazaar.kuraliupdates.com", "kuraliupdates-bazaar.onrender.com"]);
+const isNonProductionTarget = (value: string): boolean => {
+  try { return !productionHosts.has(new URL(value).hostname.toLowerCase()); } catch { return false; }
+};
 const stagingE2EEnabled = process.env.E2E_ENVIRONMENT === "staging"
-  && Boolean(apiBaseURL)
+  && isNonProductionTarget(baseURL)
+  && isNonProductionTarget(apiBaseURL)
   && otpCaptureToken.length >= 32;
 
 async function waitForCapturedOtp(page: import("@playwright/test").Page, identifier: string): Promise<string> {
