@@ -53,6 +53,11 @@ spring:
     clean-disabled: true
 
 app:
+  e2e-otp:
+    enabled: ${E2E_OTP_CAPTURE_ENABLED:false}
+    environment: ${E2E_OTP_CAPTURE_ENV:}
+    token: ${E2E_OTP_CAPTURE_TOKEN:}
+    allowed-identifiers: ${E2E_OTP_ALLOWED_IDENTIFIERS:}
   flyway:
     repair-before-migrate: ${FLYWAY_REPAIR_BEFORE_MIGRATE:false}
   otp:
