@@ -14,6 +14,29 @@ test.describe("KuraliUpdates Bazaar production-safe E2E", () => {
     await expect(submit).toBeVisible({ timeout: 15_000 });
   });
 
+
+  test("direct dashboard URLs remain navigable and guarded through refresh and browser history", async ({ page }) => {
+    const sellerUrl = new URL("/seller", baseURL).toString();
+    const deliveryUrl = new URL("/delivery", baseURL).toString();
+
+    await page.goto(sellerUrl, { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\\/seller\\/?$/);
+    await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible({ timeout: 15_000 });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\\/seller\\/?$/);
+    await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible();
+
+    await page.goto(deliveryUrl, { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\\/delivery\\/?$/);
+    await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible();
+
+    await page.goBack({ waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\\/seller\\/?$/);
+    await page.goForward({ waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\\/delivery\\/?$/);
+  });
+
   test("login form validates required input", async ({ page }) => {
     await page.goto(baseURL, { waitUntil: "domcontentloaded" });
 
