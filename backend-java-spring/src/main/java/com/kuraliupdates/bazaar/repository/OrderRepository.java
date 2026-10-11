@@ -23,6 +23,10 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
     @Query("select o from OrderEntity o where o.orderId = :orderId")
     Optional<OrderEntity> findLockedByOrderId(@Param("orderId") String orderId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from OrderEntity o where o.orderId = :orderId")
+    Optional<OrderEntity> findLockedForDeliveryVerification(@Param("orderId") String orderId);
+
     List<OrderEntity> findByDeliveryAgent_AgentId(String agentId);
 
     List<OrderEntity> findByBuyerEmail(String buyerEmail);

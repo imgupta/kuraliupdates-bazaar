@@ -1,4 +1,4 @@
-name: Production smoke checks
+name: Staging read-only smoke checks
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-smoke
+  group: staging-smoke
   cancel-in-progress: true
 
 jobs:
@@ -28,10 +28,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Probe production API (read-only)
+      - name: Require an explicitly configured staging target
         env:
-          KURALI_API_BASE_URL: https://kuraliupdates-bazaar.onrender.com/api/v1
+          KURALI_API_BASE_URL: ${{ vars.KURALI_STAGING_API_BASE_URL }}
           SMOKE_READINESS_TIMEOUT_MS: "360000"
           SMOKE_RETRY_INTERVAL_MS: "10000"
           SMOKE_TIMEOUT_MS: "20000"
-        run: node scripts/production-smoke.mjs
+        run: |
+          if [ -z "$KURALI_API_BASE_URL" ]; then
+            echo "Set the repository variable KURALI_STAGING_API_BASE_URL to the verified staging API base URL."
+            exit 2
+          fi
+          node scripts/production-smoke.mjs

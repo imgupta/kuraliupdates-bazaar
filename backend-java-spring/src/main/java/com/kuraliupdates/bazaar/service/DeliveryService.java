@@ -127,11 +127,16 @@ public class DeliveryService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Delivery OTP must be 4 digits");
         }
 
-        OrderEntity order = orderRepository.findById(orderId)
+        // Serialize verification for a given order. The lock ensures a concurrent
+        // replay cannot pass the status check and credit payout a second time.
+        OrderEntity order = orderRepository.findLockedForDeliveryVerification(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
 
         if ("DELIVERED".equals(order.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "Order has already been delivered");
+        }
+        if (!"ASSIGNED_TO_DELIVERY".equals(order.getStatus()) && !"PICKED_UP".equals(order.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Order is not in an active delivery state");
         }
         if (!enteredOtp.equals(order.getDeliveryOtp())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid Delivery OTP");
