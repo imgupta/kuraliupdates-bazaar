@@ -351,6 +351,17 @@ export const bazaarApi = {
     return true;
   },
 
+
+  async getAdminDiagnostics(): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/diagnostics`, {
+      headers: adminAuthHeaders(),
+      cache: 'no-store',
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+    return data;
+  },
+
   async getAdminDailyHelpHelpers(): Promise<any[]> {
     const headers = adminAuthHeaders();
     try {
