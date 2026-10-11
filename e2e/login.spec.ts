@@ -62,7 +62,7 @@ test.describe("KuraliUpdates Bazaar browser E2E", () => {
 
   for (const role of roles) {
     test(`${role.label} login and post-login session`, async ({ page }) => {
-      const identity = process.env[`E2E_${role.key}_IDENTITY];
+      const identity = process.env[`E2E_${role.key}_IDENTITY`];
       test.skip(!stagingE2EEnabled || !identity,
         "Authenticated E2E is staging-only. Configure E2E_ENVIRONMENT=staging, E2E_API_BASE_URL, E2E_OTP_CAPTURE_TOKEN, and a dedicated role test identity.");
 
