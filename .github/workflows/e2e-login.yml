@@ -6,12 +6,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      target_url:
-        description: "Target frontend URL (production only for read-only smoke tests)"
-        required: true
-        default: "https://bazaar.kuraliupdates.com"
-        type: string
   schedule:
     - cron: "30 3 * * 1-5"
 
@@ -68,7 +62,9 @@ jobs:
     timeout-minutes: 20
     env:
       CI: "true"
-      E2E_BASE_URL: ${{ inputs.target_url || 'https://bazaar.kuraliupdates.com' }}
+      # This repository has one deployed environment, designated staging by the owner.
+      # Never allow a manual input to redirect authenticated tests to an arbitrary/production host.
+      E2E_BASE_URL: "https://bazaar.kuraliupdates.com"
       E2E_BUYER_IDENTITY: ${{ secrets.E2E_BUYER_IDENTITY }}
       E2E_BUYER_OTP: ${{ secrets.E2E_BUYER_OTP }}
       E2E_SELLER_IDENTITY: ${{ secrets.E2E_SELLER_IDENTITY }}
@@ -97,6 +93,9 @@ jobs:
         run: bun add --dev @playwright/test
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
+      - name: Guard E2E target is the designated staging site
+        run: |
+          node --input-type=module -e "const u=new URL(process.env.E2E_BASE_URL); if (u.protocol !== 'https:' || u.hostname !== 'bazaar.kuraliupdates.com') { console.error('Refusing E2E against a non-staging host'); process.exit(1); }"
       - name: Run read-only API smoke checks
         if: env.KURALI_API_BASE_URL != ''
         run: node scripts/production-smoke.mjs
