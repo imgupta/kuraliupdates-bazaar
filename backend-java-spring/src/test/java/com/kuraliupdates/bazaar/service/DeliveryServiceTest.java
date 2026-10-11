@@ -81,7 +81,7 @@ class DeliveryServiceTest {
                 .distanceKm(new BigDecimal("1.5"))
                 .build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
-        when(orderRepository.findById("SYNTH-OTP-VERIFY-1")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedForDeliveryVerification("SYNTH-OTP-VERIFY-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(agentRepository.save(any(DeliveryAgentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -109,7 +109,7 @@ class DeliveryServiceTest {
                 .paymentStatus("PAID")
                 .build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
-        when(orderRepository.findById("SYNTH-OTP-VERIFY-REPLAY")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedForDeliveryVerification("SYNTH-OTP-VERIFY-REPLAY")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.verifyDeliveryOtp("SYNTH-OTP-VERIFY-REPLAY", "0042", user()));
@@ -273,7 +273,7 @@ class DeliveryServiceTest {
                 .distanceKm(new BigDecimal("1.5"))
                 .build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
-        when(orderRepository.findById("SYNTH-OTP-VERIFY-2")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedForDeliveryVerification("SYNTH-OTP-VERIFY-2")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.verifyDeliveryOtp("SYNTH-OTP-VERIFY-2", "9999", user()));
@@ -307,7 +307,7 @@ class DeliveryServiceTest {
                 .paymentStatus("PENDING_COD")
                 .build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(authenticatedAgent));
-        when(orderRepository.findById("SYNTH-OTP-VERIFY-3")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedForDeliveryVerification("SYNTH-OTP-VERIFY-3")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.verifyDeliveryOtp("SYNTH-OTP-VERIFY-3", "0042", user()));
