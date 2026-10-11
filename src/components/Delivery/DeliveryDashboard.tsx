@@ -33,7 +33,9 @@ const uniqueOrdersById = (items: Order[]): Order[] => {
 
   const byId = new Map<string, Order>();
   for (const order of items) {
-    const id = String(order.id || '').trim();
+    const orderRecord = order as Order & { orderId?: string; orderNumber?: string; publicOrderId?: string };
+    const rawId = orderRecord.orderNumber || orderRecord.publicOrderId || orderRecord.orderId || order.id;
+    const id = String(rawId || '').trim().toLowerCase().replace(/\\s+/g, '');
     if (!id) continue;
     const existing = byId.get(id);
     if (!existing || statusPriority(order.status) > statusPriority(existing.status)) {
@@ -190,9 +192,9 @@ export const DeliveryDashboard: React.FC = () => {
     : [];
 
   // Delivered completed orders
-  const completedOrders = uniqueOrders.filter(
+  const completedOrders = uniqueOrdersById(uniqueOrders.filter(
     o => o.deliveryAgentId === agent?.id && o.status === 'delivered'
-  );
+  ));
 
   const [claimingOrderIds, setClaimingOrderIds] = useState<Record<string, boolean>>({});
 
