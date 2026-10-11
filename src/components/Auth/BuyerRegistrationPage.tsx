@@ -39,15 +39,25 @@ export const BuyerRegistrationPage: React.FC = () => {
     if (!normalizedLandmark) return setError('Please enter a nearby landmark so our rider can find you easily.');
 
     setLoading(true);
-    const response = await bazaarApi.sendOtp(normalizedEmail, 'EMAIL', 'REGISTER');
-    setLoading(false);
-    if (!response.success) {
-      setError(response.message);
-      return;
+    try {
+      const identityCheck = await bazaarApi.checkRegistration(normalizedEmail, normalizedPhone, 'BUYER');
+      if (!identityCheck.success) {
+        setError(identityCheck.message);
+        return;
+      }
+      const response = await bazaarApi.sendOtp(normalizedEmail, 'EMAIL', 'REGISTER');
+      if (!response.success) {
+        setError(response.message);
+        return;
+      }
+      setCountdown(60);
+      setStep('otp');
+      showToast('Verification code sent to your email', 'info');
+    } catch (err: any) {
+      setError(err?.message || 'Unable to start registration. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    setCountdown(60);
-    setStep('otp');
-    showToast('Verification code sent to your email', 'info');
   };
 
   const verify = async () => {

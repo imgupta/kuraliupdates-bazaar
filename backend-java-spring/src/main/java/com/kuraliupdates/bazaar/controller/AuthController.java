@@ -40,6 +40,13 @@ public class AuthController {
         ));
     }
 
+    @PostMapping("/registration-check")
+    public ResponseEntity<Map<String, Object>> registrationCheck(
+            @RequestBody Map<String, String> request) {
+        return ResponseEntity.ok(authService.registrationCheck(
+                request.get("email"), request.get("phone"), request.get("role")));
+    }
+
     @PostMapping("/verify-otp")
     public ResponseEntity<Map<String, Object>> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
         AuthService.AuthResult result = authService.verifyOtp(request);

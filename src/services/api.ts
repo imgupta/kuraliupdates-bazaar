@@ -741,6 +741,21 @@ export const bazaarApi = {
       return { success: false, message: err.message || 'Failed to verify OTP' };
     }
   },
+  async checkRegistration(email: string, phone: string, role: string): Promise<{ success: boolean; message: string; available?: boolean; existingAccount?: boolean }> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/registration-check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ email, phone, role }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { success: false, message: data.message || 'Unable to validate registration details' };
+      return data;
+    } catch {
+      return { success: false, message: 'Authentication service is unavailable. Please try again.' };
+    }
+  },
+
   async sendOtp(identifier: string, type: 'EMAIL' | 'PHONE', mode: 'LOGIN' | 'REGISTER'): Promise<{ success: boolean; message: string }> {
     try {
       const controller = new AbortController();
