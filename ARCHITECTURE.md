@@ -6,8 +6,8 @@
 Browser → React/Vite → REST → Spring Boot → Oracle.
 
 ## Environments
-- Staging: synthetic end-to-end testing and staging-only data cleanup.
-- Production: live customer environment; no synthetic users/orders and never run V13 cleanup.
+- There is one deployed environment, designated **staging** by the owner; the public site/domain and Render API are that same staging environment. There is no separate production environment or second staging deployment.
+- Synthetic end-to-end testing is performed on this single environment. Use scoped test fixtures and clean up only run-tagged synthetic records. Never rerun V13 as a routine cleanup loop.
 - Verify Vercel alias, Render service/commit, and Oracle schema target independently. A deployment status alone does not establish end-to-end readiness.
 
 ## Frontend
@@ -69,3 +69,7 @@ cd backend-java-spring && mvn clean verify
 - Vercel custom-domain metadata was observed READY on `a13681489990fe2d0910135845b420c49933b366`; this differs from the Render backend commit and must be treated as release skew until the deployment is aligned and verified.
 - Startup logs reported Flyway schema version 13 and no pending migration. The owner identifies this environment as staging; before mutating end-to-end tests, verify the connected Oracle identity from an approved, sanitized source.
 - The current health endpoint returns a static Oracle-connected label. It must not be used as database-identity proof or as definitive proof of a live database probe.
+
+
+## Owner environment clarification — 11 October 2026
+There is a single deployed environment, and the owner designates it as staging. Any older docs requiring a separate production/staging split or two isolated environments are superseded by this clarification. Do not infer there is another environment.
