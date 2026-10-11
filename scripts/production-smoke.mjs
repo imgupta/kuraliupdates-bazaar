@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 /**
- * Read-only production smoke checks for KuraliUpdates Bazaar.
+ * Read-only staging smoke checks for KuraliUpdates Bazaar.
  * Never creates/modifies customer data. Set KURALI_API_BASE_URL to override.
  *
  * Render free instances can take several minutes to wake up. Wait for /health
  * before running endpoint checks, then probe independent endpoints in parallel.
  */
-const base = (process.env.KURALI_API_BASE_URL || "https://kuraliupdates-bazaar.onrender.com/api/v1").replace(/\/$/, "");
+const baseUrl = process.env.KURALI_API_BASE_URL;
+if (!baseUrl) {
+  console.error("KURALI_API_BASE_URL must be set explicitly; refusing to infer the target environment.");
+  process.exit(2);
+}
+const base = baseUrl.replace(/\/$/, "");
 const timeoutMs = Number(process.env.SMOKE_TIMEOUT_MS || 20000);
 const readinessTimeoutMs = Number(process.env.SMOKE_READINESS_TIMEOUT_MS || 360000);
 const retryIntervalMs = Number(process.env.SMOKE_RETRY_INTERVAL_MS || 10000);
@@ -63,7 +68,7 @@ async function waitForReadiness() {
       lastResult.attempts = attempts;
       lastResult.waitedMs = Date.now() - startedAt;
       results.push(lastResult);
-      console.log(`Production API became ready after ${Math.round(lastResult.waitedMs / 1000)}s (${attempts} probe(s)).`);
+      console.log(`Staging API became ready after ${Math.round(lastResult.waitedMs / 1000)}s (${attempts} probe(s)).`);
       return true;
     }
 
