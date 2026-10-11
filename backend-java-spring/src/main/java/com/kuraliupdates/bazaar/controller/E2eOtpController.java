@@ -46,8 +46,9 @@ public class E2eOtpController {
             return ResponseEntity.badRequest().body(Map.of("message", "A valid test identity is required"));
         }
         return captureService.consume(identifier)
-                .map(otp -> ResponseEntity.ok(Map.<String, Object>of("otp", otp, "expiresInSeconds", 180)))
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .map(otp -> ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                        .body(Map.<String, Object>of("otp", otp, "expiresInSeconds", 180)))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).cacheControl(CacheControl.noStore())
                         .body(Map.of("message", "No current OTP is available for this allowlisted test identity")));
     }
 
