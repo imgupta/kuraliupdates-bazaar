@@ -244,7 +244,7 @@ class DeliveryServiceTest {
                 .distanceKm(new BigDecimal("1.5"))
                 .build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
-        when(orderRepository.findById("SYNTH-OTP-VERIFY-1")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedForDeliveryVerification("SYNTH-OTP-VERIFY-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(agentRepository.save(any(DeliveryAgentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
