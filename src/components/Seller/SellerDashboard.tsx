@@ -158,6 +158,14 @@ export const SellerDashboard: React.FC = () => {
   };
 
   const sellerProducts = useMemo(() => products, [products]);
+  const completedOrders = useMemo(
+    () => orders.filter(o => ['DELIVERED', 'COMPLETED'].includes(String(o.status || '').toUpperCase())),
+    [orders]
+  );
+  const incomingOrders = useMemo(
+    () => orders.filter(o => !['DELIVERED', 'COMPLETED', 'CANCELLED'].includes(String(o.status || '').toUpperCase())),
+    [orders]
+  );
 
   if (loading) return <div className="p-10 text-center text-sm font-bold text-slate-500">Loading your store…</div>;
 
@@ -184,7 +192,7 @@ export const SellerDashboard: React.FC = () => {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-white/10">
           <div className="bg-white/10 p-3 rounded-2xl"><span className="text-[10px] uppercase font-bold text-blue-200 block">Listed Products</span><span className="text-xl font-black">{sellerProducts.length}</span></div>
-          <div className="bg-white/10 p-3 rounded-2xl"><span className="text-[10px] uppercase font-bold text-blue-200 block">Total Orders</span><span className="text-xl font-black">{orders.length}</span></div>
+          <div className="bg-white/10 p-3 rounded-2xl"><span className="text-[10px] uppercase font-bold text-blue-200 block">Total Orders</span><span className="text-xl font-black">{incomingOrders.length}</span></div>
           <div className="bg-white/10 p-3 rounded-2xl"><span className="text-[10px] uppercase font-bold text-blue-200 block">Rating</span><span className="text-xl font-black">★ {seller?.rating || 0}</span></div>
           <div className="bg-white/10 p-3 rounded-2xl"><span className="text-[10px] uppercase font-bold text-blue-200 block">Store ID</span><span className="text-sm font-black mt-1 block">{seller?.sellerId || '—'}</span></div>
         </div>
@@ -193,7 +201,7 @@ export const SellerDashboard: React.FC = () => {
       <div className="flex border-b border-slate-200 overflow-x-auto gap-2">
         {[
           ['inventory', Package, `Store Inventory (${sellerProducts.length})`],
-          ['orders', ShoppingBag, `Incoming Orders (${orders.length})`],
+          ['orders', ShoppingBag, `Incoming Orders (${incomingOrders.length})`],
           ['add', PlusCircle, editingId ? 'Edit Product' : 'Upload New Product'],
           ['discounts', Percent, 'Bill Discounts'],
         ].map(([tab, Icon, label]: any) => (
@@ -228,8 +236,18 @@ export const SellerDashboard: React.FC = () => {
       )}
 
       {activeTab === 'orders' && (
-        <div className="space-y-3">{orders.length === 0 ? <div className="p-12 text-center bg-white rounded-3xl border border-slate-200"><ShoppingBag className="w-12 h-12 text-slate-300 mx-auto mb-3" /><p className="font-bold text-sm">No incoming orders yet.</p></div> :
-          orders.map(o => { const status=String(o.status||'').toUpperCase(); const next=status==='PLACED'?'Accept Order':status==='ACCEPTED_BY_SELLER'?'Mark Ready for Pickup':null; return <div key={o.orderId} className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row justify-between gap-4"><div><div className="flex gap-2 items-center"><span className="font-mono font-bold text-xs text-blue-700">#{o.orderId}</span><span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 uppercase">{status}</span></div><p className="text-xs font-bold mt-2">{o.buyerName} • {o.deliveryAddress}</p><p className="text-[11px] text-slate-500">{o.paymentMethod} • {o.placedAt ? new Date(o.placedAt).toLocaleString() : ''}</p></div><div className="flex items-center gap-3"><span className="font-black">₹{Number(o.totalAmount||0).toFixed(2)}</span>{next && <button onClick={()=>advanceOrder(o)} className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-bold">{next}</button>}</div></div>})}</div>
+        <div className="space-y-6">
+          <section className="space-y-3">
+            <h3 className="text-sm font-extrabold text-slate-800">Incoming Orders ({incomingOrders.length})</h3>
+            {incomingOrders.length === 0 ? <div className="p-8 text-center bg-white rounded-3xl border border-slate-200"><ShoppingBag className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="font-bold text-sm">No pending orders. New orders will appear here.</p></div> :
+              incomingOrders.map(o => { const status=String(o.status||'').toUpperCase(); const next=status==='PLACED'?'Accept Order':status==='ACCEPTED_BY_SELLER'?'Mark Ready for Pickup':null; return <div key={o.orderId} className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row justify-between gap-4"><div><div className="flex gap-2 items-center"><span className="font-mono font-bold text-xs text-blue-700">#{o.orderId}</span><span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 uppercase">{status}</span></div><p className="text-xs font-bold mt-2">{o.buyerName} • {o.deliveryAddress}</p><p className="text-[11px] text-slate-500">{o.paymentMethod} • {o.placedAt ? new Date(o.placedAt).toLocaleString() : ''}</p></div><div className="flex items-center gap-3"><span className="font-black">₹{Number(o.totalAmount||0).toFixed(2)}</span>{next && <button onClick={()=>advanceOrder(o)} className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-bold">{next}</button>}</div></div>})}
+          </section>
+          <section className="space-y-3 pt-4 border-t border-slate-200">
+            <h3 className="text-sm font-extrabold text-slate-800">Completed Orders ({completedOrders.length})</h3>
+            {completedOrders.length === 0 ? <p className="p-6 text-center bg-white rounded-2xl border border-slate-200 text-sm text-slate-500">Completed orders will appear here.</p> :
+              completedOrders.map(o => <div key={o.orderId} className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row justify-between gap-4"><div><div className="flex gap-2 items-center"><span className="font-mono font-bold text-xs text-emerald-700">#{o.orderId}</span><span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 uppercase">{String(o.status || '').toUpperCase()}</span></div><p className="text-xs font-bold mt-2">{o.buyerName} • {o.deliveryAddress}</p><p className="text-[11px] text-slate-500">{o.paymentMethod} • {o.placedAt ? new Date(o.placedAt).toLocaleString() : ''}</p></div><span className="font-black">₹{Number(o.totalAmount||0).toFixed(2)}</span></div>)}
+          </section>
+        </div>
       )}
 
       {activeTab === 'discounts' && (
