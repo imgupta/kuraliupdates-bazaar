@@ -80,3 +80,31 @@ The owner reports that staging data was cleaned and Flyway V13 was executed. The
 
 ### Release safety caveat
 The checked Render account currently lists one web service on `main`, and no dedicated staging service is separately identified in the account metadata. The owner has stated that this is staging; before any end-to-end test that creates/mutates data, capture the approved staging Oracle target/schema identity from a safe configuration source or read-only database identity query. Do not run destructive resets or mutating end-to-end tests against an unverified target.
+
+
+## Live staging validation run — 11 October 2026
+
+### Observed deployment state
+- GitHub main was at `a13681489990fe2d0910135845b420c49933b366` at the start of this review.
+- Vercel custom-domain deployment metadata reports READY on that same frontend commit.
+- Render service `srv-db0fv9egekts739hfa6g` reports LIVE on backend commit `b970c391b040596128236fbb20be62a6e3cdff15`.
+- The two deployments are not built from the same commit. Treat this as a staging release skew and record it in each test result.
+- Render application startup logs show Flyway validated 13 migrations and current schema version 13, with no migration pending. This confirms Flyway's reported level on the connected schema but does not, by itself, prove that schema is isolated staging.
+- The latest scheduled endpoint smoke workflow passed; it is read-only and is not an order-level E2E test.
+
+### Deployment/configuration gate
+The owner has stated that the currently tested environment is staging. Before creating or mutating synthetic records, verify the Oracle target using a safe, read-only identity query or approved deployment configuration. Never print the TNS URL, wallet path contents, credentials, tokens, or PII. The repository currently lists a single Render service on `main`, so do not infer environment isolation from the service name.
+
+### OTP-specific proof that is still outstanding
+Record each as PASS/FAIL/BLOCKED after a real staging run:
+- [ ] Delivery UI accepts four numeric digits, including a leading zero.
+- [ ] Claim response is awaited; failed/conflicting claim does not optimistically update local status.
+- [ ] Backend maps OTP to the exact server-generated order ID and persisted row.
+- [ ] Correct OTP for the assigned active agent transitions the order to DELIVERED.
+- [ ] COD payment state becomes PAID and payout/trip counters change once.
+- [ ] Wrong/malformed OTP, wrong agent, and post-delivery replay do not mutate order/payout.
+- [ ] Resend rotates persisted OTP and enforces cooldown; old OTP fails.
+- [ ] Read the order back from the server after each state-changing step.
+- [ ] Delete only records marked as synthetic by this run, using an approved scoped cleanup procedure (never V13 as a test cleanup loop).
+
+Do not mark these cases passed based on unit tests, health status, or deployment badges alone.
