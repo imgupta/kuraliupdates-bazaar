@@ -13,6 +13,7 @@ import { AdminDashboard } from './components/Admin/AdminDashboard';
 import { AuthPageV2 } from './components/Auth/AuthPageV2';
 import { BuyerRegistrationPage } from './components/Auth/BuyerRegistrationPage';
 import { BuyerAccountPage } from './components/Buyer/BuyerAccountPage';
+import { resolveAppRoute } from './app/routing/routeConfig';
 import {
   CheckCircle2,
   AlertCircle,
@@ -107,18 +108,20 @@ const MainLayout: React.FC = () => {
 
 const RootNavigation: React.FC = () => {
   const { user } = useApp();
-  const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
+  const route = resolveAppRoute(window.location.pathname);
 
-  if (pathname === '/register/seller') return <AuthPageV2 registrationRole="seller" />;
-  if (pathname === '/register/delivery') return <AuthPageV2 registrationRole="delivery" />;
-  if (pathname === '/register/daily-help') return <AuthPageV2 registrationRole="professional" />;
-  if (pathname === '/register/buyer') return <BuyerRegistrationPage />;
-  // My Account is available to any authenticated user. The session role can be seller,
-  // delivery, or professional while the account link is still visible in the header.
-  // Requiring user.role === 'buyer' here incorrectly sent those sessions to sign-in.
-  if (pathname === '/account') return user.isSignedIn ? <BuyerAccountPage /> : <AuthPageV2 />;
-
-  return user.isSignedIn ? <MainLayout /> : <AuthPageV2 />;
+  switch (route.kind) {
+    case 'register':
+      return <AuthPageV2 registrationRole={route.role} />;
+    case 'register-buyer':
+      return <BuyerRegistrationPage />;
+    case 'account':
+      // Account remains available to every authenticated role.
+      return user.isSignedIn ? <BuyerAccountPage /> : <AuthPageV2 />;
+    case 'home':
+    default:
+      return user.isSignedIn ? <MainLayout /> : <AuthPageV2 />;
+  }
 };
 
 export default function App() {
