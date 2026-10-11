@@ -42,9 +42,9 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: maven
-      - name: Run delivery OTP and health endpoint regression tests
+      - name: Run focused regressions (delivery, health, addresses, Daily Help)
         working-directory: backend-java-spring
-        run: mvn --batch-mode --no-transfer-progress -Dtest=DeliveryServiceTest,DeliveryTrackingServiceTest,HealthControllerTest test
+        run: mvn --batch-mode --no-transfer-progress -Dtest=DeliveryServiceTest,DeliveryTrackingServiceTest,HealthControllerTest,BuyerAddressServiceTest,DailyHelpServiceTest test
       - name: Compile and run full backend verification suite
         working-directory: backend-java-spring
         run: mvn --batch-mode --no-transfer-progress clean verify
