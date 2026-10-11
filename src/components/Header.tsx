@@ -273,7 +273,7 @@ export const Header: React.FC<HeaderProps> = ({
         ) : user.role === 'seller' ? (
           <div className="flex items-center justify-between p-1.5 bg-blue-50 rounded-xl border border-blue-200 text-xs">
             <span className="font-bold text-blue-900 flex items-center gap-1.5"><Store className="w-3.5 h-3.5 text-blue-600" /> Merchant Portal</span>
-            <button onClick={() => selectRole(role === 'seller' ? 'buyer' : 'seller') className="px-2 py-1 bg-white text-blue-700 font-bold rounded-lg border border-blue-200 text-[11px] cursor-pointer">
+            <button onClick={() => selectRole(role === 'seller' ? 'buyer' : 'seller')} className="px-2 py-1 bg-white text-blue-700 font-bold rounded-lg border border-blue-200 text-[11px] cursor-pointer">
               {role === 'seller' ? 'View Storefront' : 'Back to Dashboard'}
             </button>
           </div>
