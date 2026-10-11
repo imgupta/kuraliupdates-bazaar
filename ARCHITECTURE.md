@@ -60,3 +60,12 @@ npm run lint
 npm run build
 cd backend-java-spring && mvn clean verify
 ```
+
+
+## Staging execution facts — 11 October 2026
+
+- PR #36 (delivery OTP input regex and backend regression tests) is merged.
+- Render is currently LIVE on `b970c391b040596128236fbb20be62a6e3cdff15`, which awaits the server-authoritative delivery claim and covers leading-zero, malformed and replayed OTP cases in tests.
+- Vercel custom-domain metadata was observed READY on `a13681489990fe2d0910135845b420c49933b366`; this differs from the Render backend commit and must be treated as release skew until the deployment is aligned and verified.
+- Startup logs reported Flyway schema version 13 and no pending migration. The owner identifies this environment as staging; before mutating end-to-end tests, verify the connected Oracle identity from an approved, sanitized source.
+- The current health endpoint returns a static Oracle-connected label. It must not be used as database-identity proof or as definitive proof of a live database probe.

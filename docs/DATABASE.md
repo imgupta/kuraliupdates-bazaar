@@ -51,3 +51,15 @@ The owner reports that staging data was cleaned and Flyway V13 was executed. The
 
 ### Release safety caveat
 The checked Render account currently lists one web service on `main`, and no dedicated staging service is separately identified in the account metadata. The owner has stated that this is staging; before any end-to-end test that creates/mutates data, capture the approved staging Oracle target/schema identity from a safe configuration source or read-only database identity query. Do not run destructive resets or mutating end-to-end tests against an unverified target.
+
+
+## Staging execution notes — 11 October 2026
+
+Owner reports the staging business data was cleaned and V13 was executed. The live Render app startup log subsequently reported:
+- Flyway validated 13 migrations successfully.
+- Current Oracle schema version: 13.
+- No migration pending.
+
+This is useful confirmation of Flyway's observed version, not an independent proof of staging-vs-production identity. Capture a sanitized Oracle database/schema identity through a read-only database identity query or approved configuration review before any additional mutating E2E run. Never output datasource credentials, wallet material, TNS configuration values, OTPs, tokens, or customer data.
+
+V13 `V13__reset_staging_test_data.sql` is a destructive one-time data reset. It should not be rerun as part of routine regression testing. Create synthetic records under clearly identifiable IDs/metadata and clean up only those records with a scoped process after the run.
