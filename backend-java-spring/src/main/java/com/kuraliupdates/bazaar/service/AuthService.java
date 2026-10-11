@@ -67,6 +67,38 @@ public class AuthService {
         return new OtpSendResult(mask(identifier), type, 600);
     }
 
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> registrationCheck(String rawEmail, String rawPhone, String requestedRole) {
+        String email = normalizeIdentifier(rawEmail, "EMAIL");
+        String phone = normalizeIdentifier(rawPhone, "PHONE");
+        validateRegistrationIdentifiers(email, phone);
+        Optional<UserEntity> byEmail = userRepository.findByEmail(email);
+        Optional<UserEntity> byPhone = userRepository.findByPhone(phone);
+        if (byEmail.isPresent() && byPhone.isPresent()
+                && !byEmail.get().getUserId().equals(byPhone.get().getUserId())) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "This email and mobile number belong to different accounts. Use the matching email and mobile, or sign in to the existing account.");
+        }
+        String role = normalizeRole(requestedRole);
+        UserEntity existing = byEmail.orElse(byPhone.orElse(null));
+        if (existing != null && hasRole(existing, role)) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "This account is already registered for " + roleLabel(role) + ". Please sign in instead.");
+        }
+        return java.util.Map.of("success", true, "available", true,
+                "existingAccount", existing != null,
+                "message", existing == null ? "Email and mobile number are available" : "Identity matches an existing account; requested profile can be added");
+    }
+
+    private void validateRegistrationIdentifiers(String email, String phone) {
+        if (email.isBlank() || !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Please enter a valid email address");
+        }
+        if (!phone.matches("\\d{10}")) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Please enter a valid 10-digit mobile number");
+        }
+    }
+
     @Transactional
     public AuthResult verifyOtp(VerifyOtpRequest request) {
         String mode = normalizeMode(request.mode());
