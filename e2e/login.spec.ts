@@ -20,21 +20,21 @@ test.describe("KuraliUpdates Bazaar production-safe E2E", () => {
     const deliveryUrl = new URL("/delivery", baseURL).toString();
 
     await page.goto(sellerUrl, { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(/\\/seller\\/?$/);
+    await expect(page).toHaveURL(sellerUrl);
     await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible({ timeout: 15_000 });
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(/\\/seller\\/?$/);
+    await expect(page).toHaveURL(sellerUrl);
     await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible();
 
     await page.goto(deliveryUrl, { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(/\\/delivery\\/?$/);
+    await expect(page).toHaveURL(deliveryUrl);
     await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible();
 
     await page.goBack({ waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(/\\/seller\\/?$/);
+    await expect(page).toHaveURL(sellerUrl);
     await page.goForward({ waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(/\\/delivery\\/?$/);
+    await expect(page).toHaveURL(deliveryUrl);
   });
 
   test("login form validates required input", async ({ page }) => {
