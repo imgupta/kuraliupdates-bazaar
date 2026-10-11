@@ -1,6 +1,6 @@
 # Staging End-to-End Regression Checklist
 
-Environment: **staging only** for the workflows below. Confirm the frontend deployment, Render service, and Oracle target before running mutating tests. Do not run these tests against the public production domain or an unverified database.
+Environment: **the single deployed environment, designated staging by the owner**. There is no separate production or staging deployment to switch between; the public site/domain and Render API are used as staging. Confirm the frontend deployment, Render service, and configured Oracle target before running mutating tests. Treat all data on this single environment as staging test data, and do not assume environment isolation.
 
 ## Environment and safety gate
 
@@ -8,7 +8,7 @@ Before test execution, record:
 - UTC timestamp, frontend deployment ID/URL and commit SHA.
 - Render service/deployment ID and commit SHA.
 - Oracle schema/database identity verified from approved, sanitized deployment configuration or a read-only database identity check. Never output host secrets, wallet data, passwords, tokens, OTPs, or user PII.
-- Confirmation that staging and production are isolated and that staging cleanup has owner authorization.
+- Owner confirmation that the single deployed environment is staging and that scoped staging cleanup is authorized.
 
 The one-time Flyway migration `V13__reset_staging_test_data.sql` is destructive. It deletes business/test records and retains selected admin accounts before reseeding Daily Help catalogue rows. It is **not** a routine regression test. Never edit an applied migration; any correction must use a new versioned migration. Do not rerun or repair V13 simply to clear an application defect.
 
@@ -145,3 +145,17 @@ Do not mark these cases passed based on unit tests, health status, or deployment
 3. Provide/use the existing admin account's normal login/OTP in the staging UI to establish an admin session; do not bypass OTP or manufacture an auth token.
 4. Use only run-tagged synthetic records and scoped cleanup; never re-run V13 as cleanup.
 5. For live order delivery E2E, create a synthetic buyer order, advance seller state, assign one active agent, verify correct/wrong/replayed OTPs, then read back order/payment/payout/trip state from APIs before cleaning only that run's fixtures.
+
+
+## Environment model correction — 11 October 2026
+
+The owner confirms there is **one deployed environment and it is staging**. There is no separate production environment or separate staging environment. The public website/custom domain and the Render API represent the same staging deployment and must be treated as staging for this work. Earlier references requiring production/staging isolation or a separate staging URL are superseded by this owner clarification.
+
+- Do not block the workflow waiting for a nonexistent second environment.
+- Keep the smoke test read-only by default.
+- Use the known staging API base only after checking that it matches the owner's current single deployed API; do not use a missing variable as the sole blocker when the canonical API base is already documented.
+- Never rerun V13 just to clean records; cleanup must be scoped to the synthetic records created by a specific run.
+- Live authenticated actions still require a valid admin session established through the normal login/OTP path. Do not fake or bypass an admin token.
+
+### Live authenticated E2E status
+Automated unit/build tests passed in Action run 38112710952. This does **not** prove the UI-to-Oracle order, payout, address-screen or Daily Help journeys; those cases remain outstanding until the app is exercised with the real staging admin session and test fixtures.
