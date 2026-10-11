@@ -44,17 +44,7 @@ spring:
   sql:
     init:
       mode: never
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: true
-    baseline-version: 0
-    validate-on-migrate: true
-    clean-disabled: true
-
 app:
-  flyway:
-    repair-before-migrate: ${FLYWAY_REPAIR_BEFORE_MIGRATE:false}
   otp:
     email:
       from: ${OTP_EMAIL_FROM:}
