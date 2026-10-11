@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 
 const baseURL = process.env.E2E_BASE_URL ?? "https://bazaar.kuraliupdates.com";
 
@@ -40,8 +40,8 @@ test.describe("KuraliUpdates Bazaar production-safe E2E", () => {
 
   for (const role of roles) {
     test(`${role.label} login and post-login session`, async ({ page }) => {
-      const identity = process.env[`E2E_${role.key}_IDENTITY"];
-      const otp = process.env[`E2E_${role.key}_OTP"];
+      const identity = process.env[`E2E_${role.key}_IDENTITY`];
+      const otp = process.env[`E2E_${role.key}_OTP`];
 
       test.skip(!identity || !otp,
         `Set E2E_${role.key}_IDENTITY and E2E_${role.key}_OTP secrets to enable this role's authenticated test. Use a dedicated test account and a current OTP only.`);
