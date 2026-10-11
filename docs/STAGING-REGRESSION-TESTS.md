@@ -1,6 +1,6 @@
 # Staging End-to-End Regression Checklist
 
-Environment: **staging only** for the workflows below. Confirm the frontend deployment, Render service, and Oracle target before running mutating tests. Do not run these tests against the public production domain or an unverified database.
+Environment: **the single deployed environment, designated staging by the owner**. There is no separate production or staging deployment to switch between; the public site/domain and Render API are used as staging. Confirm the frontend deployment, Render service, and configured Oracle target before running mutating tests. Treat all data on this single environment as staging test data, and do not assume environment isolation.
 
 ## Environment and safety gate
 
@@ -8,7 +8,7 @@ Before test execution, record:
 - UTC timestamp, frontend deployment ID/URL and commit SHA.
 - Render service/deployment ID and commit SHA.
 - Oracle schema/database identity verified from approved, sanitized deployment configuration or a read-only database identity check. Never output host secrets, wallet data, passwords, tokens, OTPs, or user PII.
-- Confirmation that staging and production are isolated and that staging cleanup has owner authorization.
+- Owner confirmation that the single deployed environment is staging and that scoped staging cleanup is authorized.
 
 The one-time Flyway migration `V13__reset_staging_test_data.sql` is destructive. It deletes business/test records and retains selected admin accounts before reseeding Daily Help catalogue rows. It is **not** a routine regression test. Never edit an applied migration; any correction must use a new versioned migration. Do not rerun or repair V13 simply to clear an application defect.
 
@@ -108,3 +108,54 @@ Record each as PASS/FAIL/BLOCKED after a real staging run:
 - [ ] Delete only records marked as synthetic by this run, using an approved scoped cleanup procedure (never V13 as a test cleanup loop).
 
 Do not mark these cases passed based on unit tests, health status, or deployment badges alone.
+
+
+## Run update — 11 October 2026 (after commit 64bd645)
+
+### Verified deployment and CI
+- Render service is LIVE on backend commit `64bd645f55437cf23977ebf5b2ceeef8dc6e2510`; the service completed startup and logged `Started KuraliBazaarApplication`.
+- Vercel deployment `dpl_CGS929cKJeF36S4eUENYwHxaDjyx` is READY on the same `64bd645` main commit, with the site's aliases attached.
+- Render logs show no error/exception lines at startup, but the connected log feed returned no request access logs for the observation interval, so no successful public /health request is claimed from that evidence.
+- GitHub Actions run [38112645576](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38112645576) passed: frontend type checks, OTP validator regression, frontend build, focused delivery/health/address/Daily Help tests, and the full backend `mvn clean verify` suite.
+
+### Additional automated coverage
+- PR #42 adds test cases for loading multiple persisted addresses in repository order without rewriting saved rows, refusing updates to an address that belongs to another user, and changing the default address while syncing the primary address fields.
+- The focused CI gate now includes `BuyerAddressServiceTest` and `DailyHelpServiceTest` as well as delivery OTP/tracking and health tests.
+- PR #42 is a test-only change set and is currently open; tests passed on its head commit. No live service deployment was triggered by this PR because it has not been merged.
+
+### Runtime execution record (do not infer PASS from unit tests)
+| ID group | Result | Evidence / blocker |
+|---|---|---|
+| DEPLOY-001 | PASS | Render LIVE, Vercel READY on commit `64bd645` |
+| CI-001 | PASS | Frontend checks/build and focused + full backend suite in Actions run 38112645576 |
+| STG-001 | BLOCKED | No live HTTP request result was returned by the available runtime tools; a healthy startup log is not an HTTP health response |
+| STG-002 | PARTIAL | Startup logs state Flyway validated 13 migrations and schema was at V13; not a fresh read-only `flyway_schema_history` query in this run |
+| AUTH-001–004 | BLOCKED | No verified admin session or current OTP was available to this run |
+| BUY-001–004 | BLOCKED | No admin-authenticated test harness/session and scoped synthetic order fixture available |
+| SELL-001–002 | BLOCKED | Requires authenticated seller/test order workflow; not run |
+| DEL-001–009 | BLOCKED | Unit regressions pass; live buyer-to-seller-to-active-agent OTP, persisted state read-back and payout verification not run |
+| HELP-001–004 | BLOCKED | Unit Daily Help tests pass; authenticated user/provider booking lifecycle not run live |
+| ADMIN-001–002 | BLOCKED | Admin routes require ROLE_ADMIN and a valid session; no session was supplied to this run |
+| PROFILE-001–002 | BLOCKED | Service-level address regressions pass; live authenticated account screen and multiple-address reload not run |
+| CLEANUP | NOT RUN | No broad deletion. V13 is a destructive one-time migration, not routine cleanup. No scoped synthetic record set was created by this run |
+
+### Runtime safety gates still open
+1. Configure the repository variable `KURALI_STAGING_API_BASE_URL` to the verified staging API base URL. Scheduled smoke run 38112156596 failed at the explicit missing-variable gate before issuing an HTTP request.
+2. Run one read-only DB/schema identity query through an approved access path to confirm target/schema identity and V13 history before any mutation. Do not print connection strings, wallet information, secrets or PII.
+3. Provide/use the existing admin account's normal login/OTP in the staging UI to establish an admin session; do not bypass OTP or manufacture an auth token.
+4. Use only run-tagged synthetic records and scoped cleanup; never re-run V13 as cleanup.
+5. For live order delivery E2E, create a synthetic buyer order, advance seller state, assign one active agent, verify correct/wrong/replayed OTPs, then read back order/payment/payout/trip state from APIs before cleaning only that run's fixtures.
+
+
+## Environment model correction — 11 October 2026
+
+The owner confirms there is **one deployed environment and it is staging**. There is no separate production environment or separate staging environment. The public website/custom domain and the Render API represent the same staging deployment and must be treated as staging for this work. Earlier references requiring production/staging isolation or a separate staging URL are superseded by this owner clarification.
+
+- Do not block the workflow waiting for a nonexistent second environment.
+- Keep the smoke test read-only by default.
+- Use the known staging API base only after checking that it matches the owner's current single deployed API; do not use a missing variable as the sole blocker when the canonical API base is already documented.
+- Never rerun V13 just to clean records; cleanup must be scoped to the synthetic records created by a specific run.
+- Live authenticated actions still require a valid admin session established through the normal login/OTP path. Do not fake or bypass an admin token.
+
+### Live authenticated E2E status
+Automated unit/build tests passed in Action run 38112710952. This does **not** prove the UI-to-Oracle order, payout, address-screen or Daily Help journeys; those cases remain outstanding until the app is exercised with the real staging admin session and test fixtures.

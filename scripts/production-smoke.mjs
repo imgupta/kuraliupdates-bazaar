@@ -6,11 +6,10 @@
  * Render free instances can take several minutes to wake up. Wait for /health
  * before running endpoint checks, then probe independent endpoints in parallel.
  */
-const baseUrl = process.env.KURALI_API_BASE_URL;
-if (!baseUrl) {
-  console.error("KURALI_API_BASE_URL must be set explicitly; refusing to infer the target environment.");
-  process.exit(2);
-}
+// The owner confirms that this deployment has one environment and that it is staging.
+// Prefer an explicit workflow secret/variable, while retaining the repository's
+// canonical documented API as a single-environment fallback.
+const baseUrl = process.env.KURALI_API_BASE_URL || "https://kuraliupdates-bazaar.onrender.com/api/v1";
 const base = baseUrl.replace(/\/$/, "");
 const timeoutMs = Number(process.env.SMOKE_TIMEOUT_MS || 20000);
 const readinessTimeoutMs = Number(process.env.SMOKE_READINESS_TIMEOUT_MS || 360000);
