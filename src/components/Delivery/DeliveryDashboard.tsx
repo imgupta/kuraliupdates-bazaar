@@ -19,6 +19,30 @@ import { Order } from '../../types';
 import { bazaarApi } from '../../services/api';
 import { LiveOrderMap } from '../Buyer/LiveOrderMap';
 
+
+const uniqueOrdersById = (items: Order[]): Order[] => {
+  const statusPriority = (status: Order['status']): number => {
+    switch (status) {
+      case 'delivered': return 4;
+      case 'picked_up':
+      case 'assigned_to_delivery': return 3;
+      case 'ready_for_pickup': return 1;
+      default: return 2;
+    }
+  };
+
+  const byId = new Map<string, Order>();
+  for (const order of items) {
+    const id = String(order.id || '').trim();
+    if (!id) continue;
+    const existing = byId.get(id);
+    if (!existing || statusPriority(order.status) > statusPriority(existing.status)) {
+      byId.set(id, order);
+    }
+  }
+  return [...byId.values()];
+};
+
 export const DeliveryDashboard: React.FC = () => {
   const {
     currentAgent,
@@ -145,20 +169,28 @@ export const DeliveryDashboard: React.FC = () => {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [agent?.id]);
 
-  // Available jobs in Kurali
-  const availableOrders = agent?.status === 'active'
-    ? (liveAvailableOrders.length ? liveAvailableOrders : orders.filter(
-        o => o.status === 'ready_for_pickup' && (!o.deliveryAgentId || o.deliveryAgentId !== agent?.id)
-      )).filter(o => !o.deliveryAgentId || o.deliveryAgentId !== agent?.id)
-    : [];
+  // Normalize duplicate records from overlapping background syncs. When the same
+  // order appears with conflicting states, keep the most advanced server state.
+  const uniqueOrders = uniqueOrdersById(orders);
 
-  // Active deliveries assigned to this rider
-  const myActiveOrders = orders.filter(
+  // Active deliveries assigned to this rider.
+  const myActiveOrders = uniqueOrders.filter(
     o => o.deliveryAgentId === agent?.id && (o.status === 'picked_up' || o.status === 'assigned_to_delivery')
   );
+  const activeOrderIds = new Set(myActiveOrders.map(order => order.id));
+
+  // Available jobs come from the live dispatch endpoint. Never fall back to stale
+  // local READY_FOR_PICKUP records when the server currently returns no jobs.
+  const availableOrders = agent?.status === 'active'
+    ? uniqueOrdersById(liveAvailableOrders).filter(
+        o => o.status === 'ready_for_pickup'
+          && !activeOrderIds.has(o.id)
+          && (!o.deliveryAgentId || o.deliveryAgentId !== agent.id)
+      )
+    : [];
 
   // Delivered completed orders
-  const completedOrders = orders.filter(
+  const completedOrders = uniqueOrders.filter(
     o => o.deliveryAgentId === agent?.id && o.status === 'delivered'
   );
 
@@ -172,7 +204,12 @@ export const DeliveryDashboard: React.FC = () => {
     if (claimingOrderIds[orderId]) return;
     setClaimingOrderIds(prev => ({ ...prev, [orderId]: true }));
     try {
-      await claimDeliveryJob(orderId, agent.id);
+      const claimed = await claimDeliveryJob(orderId, agent.id);
+      if (claimed) {
+        // Remove the claimed job immediately; a background refresh may still be
+        // holding an older READY_FOR_PICKUP response for a short time.
+        setLiveAvailableOrders(prev => prev.filter(order => order.id !== orderId));
+      }
     } finally {
       setClaimingOrderIds(prev => ({ ...prev, [orderId]: false }));
     }
