@@ -122,6 +122,30 @@ class DeliveryServiceTest {
     }
 
     @Test
+    void correctOtpCannotCompleteOrderBeforeDeliveryAssignment() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity order = OrderEntity.builder()
+                .orderId("SYNTH-OTP-VERIFY-NOT-ASSIGNED")
+                .status("READY_FOR_PICKUP")
+                .deliveryAgent(null)
+                .deliveryOtp("0042")
+                .paymentMethod("COD")
+                .paymentStatus("PENDING_COD")
+                .build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findLockedForDeliveryVerification("SYNTH-OTP-VERIFY-NOT-ASSIGNED")).thenReturn(Optional.of(order));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.verifyDeliveryOtp("SYNTH-OTP-VERIFY-NOT-ASSIGNED", "0042", user()));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("READY_FOR_PICKUP", order.getStatus());
+        assertEquals(0, agent.getTotalTrips());
+        verify(orderRepository, never()).save(any());
+        verify(agentRepository, never()).save(any());
+    }
+
+    @Test
     void malformedOtpIsRejectedBeforeReadingOrder() {
         DeliveryAgentEntity agent = agent("ACTIVE");
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
