@@ -21,6 +21,7 @@ import java.util.UUID;
 public class OtpService {
     private final AuthOtpRepository repository;
     private final OtpDeliveryService deliveryService;
+    private final E2eOtpCaptureService e2eOtpCaptureService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
@@ -48,6 +49,8 @@ public class OtpService {
             throw new ApiException(HttpStatus.BAD_GATEWAY, "Unable to deliver the verification code right now. Please try again later.");
         }
         repository.save(entity);
+        // Captured only for explicitly allowlisted test identities in staging.
+        e2eOtpCaptureService.capture(identifier, otp);
     }
 
     @Transactional
