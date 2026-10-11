@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/Header';
 import { BuyerHome } from './components/Buyer/BuyerHome';
@@ -14,6 +14,7 @@ import { AuthPageV2 } from './components/Auth/AuthPageV2';
 import { BuyerRegistrationPage } from './components/Auth/BuyerRegistrationPage';
 import { BuyerAccountPage } from './components/Buyer/BuyerAccountPage';
 import { resolveAppRoute } from './app/routing/routeConfig';
+import { authorizeRoleRoute } from './app/routing/roleRouteAccess';
 import {
   CheckCircle2,
   AlertCircle,
@@ -106,9 +107,44 @@ const MainLayout: React.FC = () => {
   );
 };
 
+const AccessDenied: React.FC = () => (
+  <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+    <section className="max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+      <h1 className="text-lg font-black text-slate-900">Portal access restricted</h1>
+      <p className="mt-2 text-sm text-slate-600">
+        This account is not authorized for that portal. Sign in with an account that has the required role.
+      </p>
+      <a href="/" className="mt-5 inline-flex rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">
+        Return to home
+      </a>
+    </section>
+  </main>
+);
+
 const RootNavigation: React.FC = () => {
-  const { user } = useApp();
-  const route = resolveAppRoute(window.location.pathname);
+  const { user, role, setRole, registeredRoles } = useApp();
+  const [pathname, setPathname] = useState(() => window.location.pathname);
+  const route = resolveAppRoute(pathname);
+  const dashboardRole = route.kind === 'role-dashboard' ? route.role : null;
+  const dashboardAccess = dashboardRole
+    ? authorizeRoleRoute(dashboardRole, {
+        isSignedIn: user.isSignedIn,
+        registeredRoles,
+        isAdmin: Boolean(user.isAdmin),
+      })
+    : null;
+
+  useEffect(() => {
+    const syncPathname = () => setPathname(window.location.pathname);
+    window.addEventListener('popstate', syncPathname);
+    return () => window.removeEventListener('popstate', syncPathname);
+  }, []);
+
+  useEffect(() => {
+    if (dashboardRole && dashboardAccess?.allowed && role !== dashboardRole) {
+      setRole(dashboardRole);
+    }
+  }, [dashboardRole, dashboardAccess?.allowed, role, setRole]);
 
   switch (route.kind) {
     case 'register':
@@ -118,6 +154,10 @@ const RootNavigation: React.FC = () => {
     case 'account':
       // Account remains available to every authenticated role.
       return user.isSignedIn ? <BuyerAccountPage /> : <AuthPageV2 />;
+    case 'role-dashboard':
+      if (dashboardAccess?.allowed) return <MainLayout />;
+      if (dashboardAccess?.reason === 'authentication-required') return <AuthPageV2 />;
+      return <AccessDenied />;
     case 'home':
     default:
       return user.isSignedIn ? <MainLayout /> : <AuthPageV2 />;
