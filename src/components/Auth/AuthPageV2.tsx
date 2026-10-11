@@ -112,12 +112,13 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
           if (!(licenseNumberRef.current?.value || '').trim()) throw new Error('Please enter your driving licence number');
         }
 
+        const identityCheck = await bazaarApi.checkRegistration(email, phone, registrationRole.toUpperCase());
+        if (!identityCheck.success) {
+          throw new Error(identityCheck.message);
+        }
+
         const response = await bazaarApi.sendOtp(email, 'EMAIL', 'REGISTER');
         if (!response.success) {
-          if (/already exists/i.test(response.message)) {
-            setDuplicatePrompt(true);
-            return;
-          }
           throw new Error(response.message);
         }
         setPendingRegistration({
@@ -198,10 +199,6 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
         });
 
         if (!response.success || !response.token || !response.user) {
-          if (/already exists/i.test(response.message || '')) {
-            setDuplicatePrompt(true);
-            return;
-          }
           throw new Error(response.message || 'Registration verification failed');
         }
 
