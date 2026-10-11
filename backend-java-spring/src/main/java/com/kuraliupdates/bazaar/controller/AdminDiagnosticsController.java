@@ -92,7 +92,10 @@ public class AdminDiagnosticsController {
                         "SELECT COUNT(*) FROM " + table.getValue(), Long.class);
                 counts.put(table.getKey(), Map.of("status", "OK", "count", count == null ? 0L : count));
             } catch (Exception ignored) {
-                counts.put(table.getKey(), Map.of("status", "ERROR", "count", (Object) null));
+                Map<String, Object> unavailable = new LinkedHashMap<>();
+                unavailable.put("status", "ERROR");
+                unavailable.put("count", null);
+                counts.put(table.getKey(), unavailable);
                 failedCountQueries.add(table.getKey());
             }
         }
