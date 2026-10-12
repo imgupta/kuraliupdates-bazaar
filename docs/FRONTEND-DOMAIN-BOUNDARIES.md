@@ -282,3 +282,99 @@ Do not assume a returned empty array means the server had no records; it can als
 ### Inventory status
 
 The scan covered all 38 `src/**/*.ts` and `src/**/*.tsx` paths for direct `useApp()`, `bazaarApi`, storage, timer and listener markers, with focused source inspection of the major role dashboards and Buyer/Auth consumers. This is a broad direct-call survey, **not yet a complete transitive contract map**: remaining work includes exact destructured fields in several shell/modal components, all endpoint payloads and response shapes, full error/fallback coverage, all storage writes and cleanup behavior, and mutation classification. Keep the required checklist above unchecked until those are traced and reviewed.
+
+
+## API endpoint first-pass index — 13 October 2026
+
+Source: `src/services/api.ts` at main baseline `ddb67904e14b8d75840389581d4a6c0bcd8a5367`. This table is a **source-derived index**, not a complete request/response contract. Paths are normalized for readability; query/body fields, authorization details, per-method timeout, response mapping, and exact failure semantics still require manual tracing. Methods default to GET only where the implementation omits `method`; `searchProducts` additionally emits a best-effort analytics POST for non-empty searches.
+
+| API method | HTTP method observed | Endpoint pattern | Initial effect classification |
+|---|---|---|---|
+| `checkHealth` | `GET` | `/health` | Read (verify exceptions) |
+| `searchProducts` | `GET; also POST /analytics/search for non-empty query` | `/buyers/products/search?query={query}` | Read (verify exceptions) |
+| `registerSeller` | `POST` | `/sellers/register` | Mutating/side-effect |
+| `addProduct` | `POST` | `/sellers/{sellerId}/products` | Mutating/side-effect |
+| `getCurrentSeller` | `GET` | `/sellers/me` | Read (verify exceptions) |
+| `getSellerProducts` | `GET` | `/sellers/me/products` | Read (verify exceptions) |
+| `createSellerProduct` | `POST` | `/sellers/me/products` | Mutating/side-effect |
+| `updateSellerProduct` | `PUT` | `/sellers/me/products/{productId}` | Mutating/side-effect |
+| `deleteSellerProduct` | `DELETE` | `/sellers/me/products/{productId}` | Mutating/side-effect |
+| `getSellerOrders` | `GET` | `/sellers/me/orders` | Read (verify exceptions) |
+| `updateSellerOrderStatus` | `POST` | `/sellers/me/orders/{orderId}/status?status={status}` | Mutating/side-effect |
+| `getSellerDiscounts` | `GET` | `/sellers/me/discounts` | Read (verify exceptions) |
+| `createSellerDiscount` | `POST` | `/sellers/me/discounts` | Mutating/side-effect |
+| `deleteSellerDiscount` | `DELETE` | `/sellers/me/discounts/{ruleId}` | Mutating/side-effect |
+| `getAdminDiagnostics` | `GET` | `/admin/diagnostics` | Read (verify exceptions) |
+| `getAdminDailyHelpHelpers` | `GET` | `/admin/daily-help/helpers` | Read (verify exceptions) |
+| `getAdminDailyHelpServices` | `GET` | `/admin/daily-help/services` | Read (verify exceptions) |
+| `createAdminDailyHelpService` | `POST` | `/admin/daily-help/services` | Mutating/side-effect |
+| `updateAdminDailyHelpService` | `PUT` | `/admin/daily-help/services/{serviceId}` | Mutating/side-effect |
+| `getAdminSellers` | `GET` | `/admin/sellers` | Read (verify exceptions) |
+| `getAdminDeliveryAgents` | `GET` | `/admin/delivery` | Read (verify exceptions) |
+| `getAdminSearchTrends` | `GET` | `/admin/analytics/search-trends` | Read (verify exceptions) |
+| `getAdminAnalytics` | `GET` | `/admin/analytics/demand-trends` | Read (verify exceptions) |
+| `getPendingSellers` | `GET` | `/admin/sellers/pending` | Read (verify exceptions) |
+| `getAdminBuyers` | `GET` | `/admin/buyers` | Read (verify exceptions) |
+| `getPendingDeliveryAgents` | `GET` | `/admin/delivery/pending` | Read (verify exceptions) |
+| `approveDeliveryAgent` | `POST` | `/admin/delivery/{agentId}/approve` | Mutating/side-effect |
+| `rejectDeliveryAgent` | `POST` | `/admin/delivery/{agentId}/reject` | Mutating/side-effect |
+| `getOnboardingStatus` | `GET` | `/auth/onboarding-status{query}` | Read (verify exceptions) |
+| `approveSeller` | `POST` | `/admin/sellers/{sellerId}/approve` | Mutating/side-effect |
+| `rejectSeller` | `POST` | `/admin/sellers/{sellerId}/reject` | Mutating/side-effect |
+| `getDemandAnalytics` | `GET` | `/admin/analytics/demand-trends` | Read (verify exceptions) |
+| `placeOrder` | `POST` | `/buyers/orders` | Mutating/side-effect |
+| `trackOrder` | `GET` | `/buyers/orders/{orderId}/track` | Read (verify exceptions) |
+| `getLiveTracking` | `GET` | `/tracking/orders/{orderId}` | Read (verify exceptions) |
+| `resendDeliveryOtp` | `POST` | `/delivery/jobs/{orderId}/resend-otp` | Mutating/side-effect |
+| `updateDeliveryLocation` | `POST` | `/tracking/delivery/{agentId}/location` | Mutating/side-effect |
+| `registerDeliveryAgent` | `POST` | `/delivery/register` | Mutating/side-effect |
+| `getAvailableDeliveryJobs` | `GET` | `/delivery/jobs/available` | Read (verify exceptions) |
+| `claimDeliveryJob` | `POST` | `/delivery/jobs/{orderId}/claim?agentId={agentId}` | Mutating/side-effect |
+| `verifyDeliveryOtp` | `POST` | `/delivery/jobs/{orderId}/verify-otp` | Mutating/side-effect |
+| `checkRegistration` | `POST` | `/auth/registration-check` | Mutating/side-effect |
+| `sendOtp` | `POST` | `/auth/send-otp` | Mutating/side-effect |
+| `verifyOtp` | `POST` | `/auth/verify-otp` | Mutating/side-effect |
+| `updateCurrentUser` | `PUT` | `/auth/me` | Mutating/side-effect |
+| `getBuyerAddresses` | `GET` | `/auth/me/addresses` | Read (verify exceptions) |
+| `createBuyerAddress` | `POST` | `/auth/me/addresses` | Mutating/side-effect |
+| `updateBuyerAddress` | `PUT` | `/auth/me/addresses/{addressId}` | Mutating/side-effect |
+| `setDefaultBuyerAddress` | `PUT` | `/auth/me/addresses/{addressId}/default` | Mutating/side-effect |
+| `getMe` | `GET` | `/auth/me?token={token}` | Read (verify exceptions) |
+| `logout` | `POST` | `/auth/logout` | Mutating/side-effect |
+| `getCurrentDeliveryAgent` | `GET` | `/delivery/me` | Read (verify exceptions) |
+| `getDeliveryAvailableJobs` | `GET` | `/delivery/jobs/available` | Read (verify exceptions) |
+| `getDailyHelpServices` | `GET` | `/daily-help/services` | Read (verify exceptions) |
+| `createDailyHelpBooking` | `POST` | `/daily-help/bookings` | Mutating/side-effect |
+| `getDailyHelpAvailableSlots` | `GET` | `/daily-help/availability?${params.toString(}` | Read (verify exceptions) |
+| `getDailyHelpProfessionalSlots` | `GET` | `/daily-help/professionals/{professionalId}/slots?date={date}` | Read (verify exceptions) |
+| `createDailyHelpProfessionalSlot` | `POST` | `/daily-help/professionals/{professionalId}/slots` | Mutating/side-effect |
+| `cancelDailyHelpProfessionalSlot` | `DELETE` | `/daily-help/professionals/{professionalId}/slots/{slotId}` | Mutating/side-effect |
+| `getLatestDailyHelpBooking` | `GET` | `/daily-help/bookings/latest?buyerPhone={buyerPhone}` | Read (verify exceptions) |
+| `getDailyHelpBooking` | `GET` | `/daily-help/bookings/{bookingId}` | Read (verify exceptions) |
+| `registerDailyHelpProfessional` | `POST` | `/daily-help/professionals/register` | Mutating/side-effect |
+| `getDailyHelpProfessionalByPhone` | `GET` | `/daily-help/professionals/by-phone/{phone}` | Read (verify exceptions) |
+| `updateDailyHelpProfessionalAvailability` | `POST` | `/daily-help/professionals/{professionalId}/availability` | Mutating/side-effect |
+| `getRegisteredRoles` | `GET` | `/auth/me/roles` | Read (verify exceptions) |
+| `getDailyHelpProfessionalAvailableJobs` | `GET` | `/daily-help/professionals/{professionalId}/jobs/available` | Read (verify exceptions) |
+| `acceptDailyHelpJob` | `POST` | `/daily-help/professionals/{professionalId}/jobs/{bookingId}/accept` | Mutating/side-effect |
+| `getDailyHelpProfessionalJobs` | `GET` | `/daily-help/professionals/{professionalId}/jobs` | Read (verify exceptions) |
+| `getDailyHelpProfessionalEarnings` | `GET` | `/daily-help/professionals/{professionalId}/earnings` | Read (verify exceptions) |
+| `updateDailyHelpBookingStatus` | `POST` | `/daily-help/bookings/{bookingId}/status` | Mutating/side-effect |
+| `startDailyHelpBooking` | `POST` | `/daily-help/bookings/{bookingId}/start` | Mutating/side-effect |
+| `completeDailyHelpBooking` | `POST` | `/daily-help/bookings/{bookingId}/complete?professionalId={professionalId}` | Mutating/side-effect |
+
+### API contract trace still required
+
+- [ ] For each method above, record exact body/query schema, headers and token source, timeout/abort behavior, response mapper, HTTP non-OK handling, catch fallback, and caller behavior.
+- [ ] Check methods with multiple fetches or analytics side effects individually; this index is generated from source patterns and must not be treated as authoritative for those cases.
+- [ ] Link each method to its direct component caller and any AppContext bridge; mark transactional writes separately from profile/catalogue/admin mutations.
+- [ ] Confirm API method inventory is complete against every property exported on `bazaarApi` and identify unreferenced methods.
+
+
+## Latest verification checkpoint — 13 October 2026, PR #69
+
+- PR #69 merged: https://github.com/imgupta/kuraliupdates-bazaar/pull/69, merge SHA `0659a5e82d9eab755d017a6e8abdd8a0588f60db`.
+- Post-merge workflow #38301147128 passed all three jobs (frontend checks, backend tests, browser E2E/read-only smoke): https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38301147128.
+- Vercel deployment `dpl_CRKcGhvm2HMzFWzNhQEgRYWQXeQe` is READY for the exact merged SHA; aliases include `kuraliupdates.com`, `www.kuraliupdates.com`, and `bazaar.kuraliupdates.com`.
+- PR #69 only extended dependency documentation; no runtime behavior changed. The complete transitive dependency map is still **not complete**, and authenticated E2E for all five roles remains unproven until non-skipped role test results are inspected.
+- Next bounded task: manually verify the endpoint index against all `bazaarApi` exports and add payload/error/timeout details for one domain at a time. Do not begin state/API extraction yet.
