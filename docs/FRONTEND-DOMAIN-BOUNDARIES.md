@@ -1,0 +1,86 @@
+# Frontend Domain Boundaries and Extraction Inventory
+
+**Last updated:** 2026-10-12  
+**Repository baseline:** `main` at `1a8c1189ebd9c8c86503e690f0e396e696391e70`  
+**Status:** Inventory/design only. No AppContext or API refactor has been merged yet.
+
+## Purpose
+
+Map the current monolithic frontend state and API layer into domains before moving code. This is a migration aid, not permission to perform a big-bang rewrite. Preserve user-visible behavior, API contracts, auth/session semantics, and the existing staging data.
+
+## Current architectural facts
+
+- `src/context/AppContext.tsx` is approximately 60,595 characters (~60.6 KB) and currently defines `AppProvider` and `useApp`.
+- `src/services/api.ts` is approximately 50,147 characters (~50.1 KB) and exports a large `bazaarApi` object.
+- `src/App.tsx` composes all five dashboards, shared header, cart/checkout/tracking/chat overlays, and route resolution.
+- The route registry and access-policy helpers are pure modules under `src/app/routing/`.
+- Existing `useApp` consumers should remain compatible during early extraction; do not update every dashboard in the first PR.
+- Current auth/session storage keys include `kurali_auth_session` and `kurali_auth_token`. Do not rename, duplicate, or broaden access to them without a separately tested migration.
+
+## Domain inventory observed in AppContext
+
+| Domain | Current state/actions | Likely future boundary | Risk / guardrail |
+|---|---|---|---|
+| Authentication/session | `user`, `role`, `registeredRoles`; login/OTP, Google login, registration, logout; session/token persistence | `shared/auth` session contract and auth feature services | Highest risk. Keep one session source and existing OTP/auth semantics. |
+| Buyer profile and addresses | `updateUserProfile`, `createBuyerAddress`, `updateBuyerAddress`, `setDefaultBuyerAddress`, `refreshBuyerAddresses`; profile mapper and saved-address mapper | `modules/buyer/profile` or `entities/address` + API adapter | Saved-address visibility previously regressed. Start with pure mapping tests and verify account screen before extracting behavior. |
+| Catalogue and sellers | `products`, `sellers`, catalogue fetch/sync, seller profile/product operations | `modules/buyer/catalogue`, `modules/seller`, shared entity contracts | Catalogue and seller dashboard share data; define ownership and read contracts before moving. |
+| Cart and coupons | `cart`, `appliedCoupon`, add/remove/update quantity, apply/remove coupon | `modules/buyer/cart` | Checkout totals and negotiated prices are sensitive to regressions. Add deterministic tests first. |
+| Orders and checkout | `orders`, create/update order, checkout modal integration, tracking order ID | `entities/order`, buyer order UI, domain-specific API adapters | Never create live transactional test data for refactor verification. |
+| Delivery operations | `deliveryAgents`, delivery job sync, claim job, complete delivery OTP, agent registration/approval | `modules/delivery` plus backend contracts | OTP validation/replay/agent ownership must not change during frontend modularisation. |
+| Daily Help Provider | provider dashboard state/actions currently partly shared with backend sync and user role | `modules/daily-help-provider` | Buyer-facing Daily Help catalogue and booking remain buyer-facing; provider job timer/earnings remain provider-facing. |
+| Admin workflows | seller/agent approvals, product/coupon management, role-specific operations | `modules/admin` | Backend permissions remain authoritative. Do not expose admin actions by URL or local role alone. |
+| Negotiation/chat | `chats`, `activeChatId`, comparison product, offer/message methods | buyer/seller feature boundaries + shared contract if needed | Keep cross-role ownership explicit; avoid importing a dashboard directly into another role. |
+| Shared UI state | toast, cart drawer, registration modal flags, selected locality, backend status/URL, comparing product, tracking ID | split between shell UI, buyer UI, and backend health/config | Do not move transient shell state into a new global domain store by default. |
+
+## Suggested extraction sequence
+
+1. **First, map consumers and dependencies.** Search all `useApp()` consumers and record which fields/actions each role uses. Do not infer ownership solely from names.
+2. **Pure helper extraction first.** Select a pure mapper or adapter with no React state, localStorage, timers, or network side effects. Add tests before moving it.
+3. **Saved-address/profile boundary candidate.** Because account addresses had a prior regression, only proceed after mapping all call sites and adding tests for identity mapping, default address, refresh ordering, and account display. Keep `useApp` methods as a facade initially.
+4. **API domain grouping.** Split `bazaarApi` into domain modules only after inventorying method names and consumers. Preserve URLs, request bodies, auth headers, error behavior, timeout/abort behavior, and response mapping. Keep a compatibility export from `src/services/api.ts` while migrating.
+5. **Catalogue/cart or seller feature boundary.** Pick the smaller measured dependency surface after step 1. Avoid combining state extraction with visual redesign.
+6. **Role module boundaries.** Extract one role at a time with focused tests. Daily Help Provider is separate from buyer Daily Help booking/catalogue.
+7. **Import boundary enforcement.** Add explicit allowed dependencies and tests after modules exist; do not enforce a proposed architecture before it reflects actual code.
+8. **Micro-frontend evaluation.** Separate build/runtime deployment is a later decision after the monolith has testable domain boundaries.
+
+## Required dependency map before first runtime extraction
+
+Create a table with one row per consumer:
+- file and role/module;
+- `useApp` fields read;
+- `useApp` actions called;
+- API methods reached (directly or indirectly);
+- localStorage/session dependencies;
+- network effects/timers;
+- whether the operation can mutate backend data;
+- tests that protect behavior.
+
+At minimum inspect `src/components/Buyer/BuyerAccountPage.tsx`, `src/components/Buyer/BuyerHome.tsx`, `src/components/Seller/SellerDashboard.tsx`, `src/components/Delivery/DeliveryDashboard.tsx`, `src/components/DailyHelpProfessional/DailyHelpProfessionalDashboard.tsx`, `src/components/Admin/AdminDashboard.tsx`, `src/components/Header.tsx`, and auth components.
+
+## Verification checklist per extraction PR
+
+- [ ] Baseline and changed dependency map documented.
+- [ ] No backend/schema/OTP/auth semantics changed.
+- [ ] `useApp` compatibility preserved unless explicitly approved.
+- [ ] Pure helper tests cover normal, empty, malformed, and failure cases where applicable.
+- [ ] TypeScript check passes.
+- [ ] Frontend route and access-policy tests pass.
+- [ ] Production build passes.
+- [ ] Backend regression suite passes.
+- [ ] Browser E2E passes; report any role-specific skips.
+- [ ] Preview tied to the exact PR head is READY.
+- [ ] After merge, post-merge CI passes and deployment is tied to the merged SHA.
+- [ ] Read-only smoke checks ran (not merely skipped).
+- [ ] This file, `docs/UI-MODULARIZATION-PLAN.md`, and `docs/CHATGPT-CONTINUATION.md` are updated.
+
+## Open risks / unresolved items
+
+- The latest post-merge CI passed, but the API smoke step was skipped due to missing API base URL workflow configuration.
+- Vercel deployment creation hit the daily API deployment quota. Merged commit `1a8c1189` is not yet confirmed deployed.
+- Existing authenticated E2E coverage may skip roles when secrets/OTP are missing. Read test reports and environment setup; do not equate a green job with all five roles authenticated.
+- Client-side route policy uses session-derived state for UX only; it is not a backend security control.
+- No dedicated frontend test script exists in `package.json`; the workflow invokes Node's test runner with `tsx` directly.
+
+## Change log
+
+- 2026-10-12: Created inventory after PR #58 merged. No runtime extraction implemented.
