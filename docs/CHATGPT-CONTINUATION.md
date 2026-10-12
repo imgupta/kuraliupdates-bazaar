@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-10-12 (Asia/Kolkata)  
 **Repository:** https://github.com/imgupta/kuraliupdates-bazaar  
-**Latest merged runtime commit:** `a1ea642f4cf201053088d820dce3dced469b5bf2` · **last confirmed live alias commit:** `5a89345dfe26b078e57fe9f30dc83656ebb834ee`  
-**Current state:** routing and saved-address mapper are deployed. PR #63 also merged the pure user-profile mapper as `a1ea642f`, and post-merge CI #38211155596 passed all jobs. However, the live Vercel aliases still resolve to deployment `dpl_HDZsaUHWJ9wJfKVrvCAkxbzRzhfm` for SHA `5a89345d`; a main deployment for `a1ea642f` is not yet visible. The exact PR preview was `READY`. Do not start another runtime extraction until the merged SHA is deployed and read-only smoke is verified.
+**Latest merged runtime commit:** `a1ea642f4cf201053088d820dce3dced469b5bf2` · **latest merged main commit:** `44374253b5fe3a5d65d946ffbece37d0b3cd1704` · **live alias commit:** `44374253b5fe3a5d65d946ffbece37d0b3cd1704`  
+**Current state (verified 2026-10-12):** PR #65 merged as `44374253b5fe3a5d65d946ffbece37d0b3cd1704`; workflow run `38296784536` passed frontend, backend, browser E2E and read-only API smoke checks. Vercel deployment `dpl_GChRk727VyTCu2d6zBwThFVPE2NZ` is `READY` and custom-domain aliases include `kuraliupdates.com`, `www.kuraliupdates.com`, and `bazaar.kuraliupdates.com`. A read-only fetch of `www.kuraliupdates.com` returned HTTP 200. The Vercel build-rate-limit blocker is no longer blocking this deployment. PR #65 changed documentation only; it did not change runtime behavior.
 
 > Read this file first when continuing work in a new chat. Then read `docs/UI-MODULARIZATION-PLAN.md` and `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. Always re-check GitHub and Vercel state before acting; this file is a checkpoint, not a live status feed.
 
@@ -165,3 +165,14 @@ Use absolute commit SHAs and direct PR/run/deployment URLs. Distinguish verified
 
 
 - CI caveat (13 October 2026): workflow run #42 (`38296500979`) was created for earlier PR head `1be287fee41e8429941de20c346a455ac6769449`. The docs have since been expanded and the current PR head is newer (`a912fff08094d293912b4dde6e7c1fc3aa333eb5` at the time of this note). Therefore run #42 does **not** validate the latest PR head. At last check its backend and frontend jobs passed, but the browser/read-only API smoke job was still in progress. Do not merge until a successful run is associated with the current head and its required checks are complete.
+
+
+## Current continuation checkpoint — 13 October 2026
+
+- PR #65 is merged: https://github.com/imgupta/kuraliupdates-bazaar/pull/65
+- Merge/main/live SHA: `44374253b5fe3a5d65d946ffbece37d0b3cd1704`.
+- CI run `38296784536` passed all three jobs; browser E2E and GET-only API smoke steps completed successfully. This does not imply authenticated five-role transactional tests ran unless the report shows them non-skipped.
+- Vercel deployment `dpl_GChRk727VyTCu2d6zBwThFVPE2NZ` is `READY`; aliases include the root, www, and bazaar domains. `www.kuraliupdates.com` returned HTTP 200 on a read-only fetch.
+- The previous Vercel rate-limit gate is cleared for this deployment.
+- Next bounded runtime change is a pure Seller product mapper extraction into `src/entities/sellerProduct.ts`, with regression tests. Keep API calls, CRUD behavior, shared state, auth/session, localStorage, backend contracts, and schema unchanged.
+- The current branch `refactor/extract-seller-product-mapper` contains that proposed extraction and a CI test step; do not merge until the exact PR head passes the existing workflow and its preview is checked.
