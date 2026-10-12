@@ -291,7 +291,7 @@ Source: `src/services/api.ts` at main baseline `ddb67904e14b8d75840389581d4a6c0b
 | API method | HTTP method observed | Endpoint pattern | Initial effect classification |
 |---|---|---|---|
 | `checkHealth` | `GET` | `/health` | Read (verify exceptions) |
-| `searchProducts` | `GET; also POST /analytics/search for non-empty query` | `/buyers/products/search?query={query}` | Read (verify exceptions) |
+| `searchProducts` | `GET` + best-effort `POST` | `/buyers/products/search?query={query}` and `/analytics/search` | Read plus analytics side effect for non-empty query |
 | `registerSeller` | `POST` | `/sellers/register` | Mutating/side-effect |
 | `addProduct` | `POST` | `/sellers/{sellerId}/products` | Mutating/side-effect |
 | `getCurrentSeller` | `GET` | `/sellers/me` | Read (verify exceptions) |
@@ -331,7 +331,7 @@ Source: `src/services/api.ts` at main baseline `ddb67904e14b8d75840389581d4a6c0b
 | `getAvailableDeliveryJobs` | `GET` | `/delivery/jobs/available` | Read (verify exceptions) |
 | `claimDeliveryJob` | `POST` | `/delivery/jobs/{orderId}/claim?agentId={agentId}` | Mutating/side-effect |
 | `verifyDeliveryOtp` | `POST` | `/delivery/jobs/{orderId}/verify-otp` | Mutating/side-effect |
-| `checkRegistration` | `POST` | `/auth/registration-check` | Mutating/side-effect |
+| `checkRegistration` | `POST` | `/auth/registration-check` | Read-like validation/check despite POST verb; verify backend semantics |
 | `sendOtp` | `POST` | `/auth/send-otp` | Mutating/side-effect |
 | `verifyOtp` | `POST` | `/auth/verify-otp` | Mutating/side-effect |
 | `updateCurrentUser` | `PUT` | `/auth/me` | Mutating/side-effect |
