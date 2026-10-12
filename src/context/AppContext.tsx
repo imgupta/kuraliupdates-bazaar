@@ -13,6 +13,8 @@ import {
   BargainOffer,
 } from '../types';
 import { bazaarApi } from '../services/api';
+import { toSavedAddress, type SavedAddress } from '../entities/address';
+export type { SavedAddress } from '../entities/address';
 import {
   INITIAL_SELLERS,
   INITIAL_PRODUCTS,
@@ -24,18 +26,6 @@ import {
   ADMIN_EMAILS,
   isRootAdminEmail,
 } from '../data/initialData';
-
-export interface SavedAddress {
-  id: string;
-  label: string;
-  addressLine1: string;
-  landmark?: string;
-  formattedAddress?: string;
-  placeId?: string;
-  latitude?: number;
-  longitude?: number;
-  isDefault?: boolean;
-}
 
 export interface UserProfile {
   email?: string;
@@ -364,18 +354,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     placeId: serverUser.placeId ?? previous.placeId,
     latitude: serverUser.latitude ?? previous.latitude,
     longitude: serverUser.longitude ?? previous.longitude,
-  });
-
-  const toSavedAddress = (a: any): SavedAddress => ({
-    id: a.addressId || a.id,
-    label: a.label || 'Home',
-    addressLine1: a.addressLine1 || '',
-    landmark: a.landmark || undefined,
-    formattedAddress: a.formattedAddress || undefined,
-    placeId: a.placeId || undefined,
-    latitude: a.latitude ?? undefined,
-    longitude: a.longitude ?? undefined,
-    isDefault: Number(a.isDefault) === 1 || a.isDefault === true,
   });
 
   const createBuyerAddress = async (address: SavedAddress): Promise<SavedAddress | null> => {
