@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-10-12 (Asia/Kolkata)  
 **Repository:** https://github.com/imgupta/kuraliupdates-bazaar  
-**Last verified deployed `main` commit:** `96cd0cf36ffee801703c5d5d269e8072f7160a2f`  
-**Current state:** role dashboard routing is deployed; PR #60 made the GET-only staging API smoke run by default with a strict host/path guard. PR #60 merged as `96cd0cf`; post-merge run #38210267860 passed. The runtime extraction in PR branch `refactor/extract-saved-address-mapper` is in progress and must not be merged until its own checks/preview pass.
+**Last verified deployed runtime commit:** `89c434aa0f9f22aeba49003fbd9d7249c4bc273a`  
+**Current state:** routing, guarded read-only staging API smoke, and the first pure saved-address mapper extraction are merged and deployed. PR #61 merged as `89c434aa`; post-merge run #38210571047 passed all CI jobs and the Vercel deployment is `READY`. Five authenticated role E2E tests remain skipped because their identity/OTP secrets are unset.
 
 > Read this file first when continuing work in a new chat. Then read `docs/UI-MODULARIZATION-PLAN.md` and `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. Always re-check GitHub and Vercel state before acting; this file is a checkpoint, not a live status feed.
 
@@ -77,15 +77,21 @@ A failed intermediate preview and E2E run caught a malformed mobile handler and 
 3. Verify refresh and Back/Forward. Report separately which authenticated-role tests were skipped due to missing isolated synthetic accounts/OTP.
 4. Confirm whether API smoke is skipped; do not report overall CI green as proof that API smoke ran.
 
-### Step C — current runtime phase: pure saved-address mapper extraction
+### Step C — complete: saved-address mapper extraction
 
-Branch `refactor/extract-saved-address-mapper` moves only the existing `toSavedAddress` mapper and `SavedAddress` interface from `src/context/AppContext.tsx` into `src/entities/address.ts`, re-exporting the type from `AppContext` to preserve compatibility. It adds `tests/savedAddress.test.ts` and a CI step.
+- PR #61 merged as `89c434aa0f9f22aeba49003fbd9d7249c4bc273a`.
+- `src/entities/address.ts` now owns the `SavedAddress` interface and `toSavedAddress` mapper.
+- `src/context/AppContext.tsx` imports the mapper and re-exports the type, preserving compatibility.
+- `tests/savedAddress.test.ts` covers backend ID fallback, label/address defaults, optional-field normalization, zero coordinates, and `isDefault` conversion.
+- CI run #38210469528 passed exact PR-head checks; post-merge run #38210571047 passed all three jobs. Vercel deployment `dpl_EDB7FEt856PE5qjtyztZx7Tz2ivL` is `READY` for the merged SHA.
+- No AppContext state/action, address API, auth/session, localStorage, backend contract, or schema behavior was changed.
 
-1. Verify the exact PR-head CI and Vercel preview; do not merge until all jobs pass.
-2. Confirm the mapper's legacy behavior is unchanged: `addressId || id`, `Home` label fallback, empty address-line fallback, optional-field normalization, zero coordinates preserved, and numeric/boolean `isDefault` conversion.
-3. Preserve all `useApp` members, address API calls, session/localStorage behavior, network calls, and backend contracts.
-4. After merge, verify post-merge CI and deployment. Update docs with the exact merged SHA and test results before choosing the next extraction.
-5. Select the next candidate only after completing the consumer-to-`useApp`/API dependency map; do not combine this helper extraction with address API/state movement.
+### Step D — next phase: complete consumer-to-domain dependency map
+
+1. Read `docs/FRONTEND-DOMAIN-BOUNDARIES.md`, especially the AppContext contract and observed consumer matrix.
+2. Continue source-backed mapping of remaining `useApp()` consumers and transitive API methods; distinguish read-only, user-data mutation, and transactional effects.
+3. Only then propose the next bounded extraction. Preserve the current `useApp` compatibility facade and keep backend/auth/OTP/schema unchanged.
+4. Every runtime PR must pass frontend tests/build, backend tests, read-only API smoke (not skipped), browser E2E, and a Vercel preview; verify post-merge CI/deployment before continuing.
 
 ### Step D — later, not now
 - Extract Seller, Daily Help Provider, Delivery Agent, Buyer, and Admin feature modules incrementally.

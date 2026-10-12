@@ -1,8 +1,8 @@
 # Frontend Domain Boundaries and Extraction Inventory
 
 **Last updated:** 2026-10-12  
-**Last verified deployed baseline:** `main` at `96cd0cf36ffee801703c5d5d269e8072f7160a2f`  
-**Status:** Initial pure-helper extraction is in review on `refactor/extract-saved-address-mapper`; no AppContext state/API-domain refactor has been merged yet.
+**Last verified deployed runtime baseline:** `main` at `89c434aa0f9f22aeba49003fbd9d7249c4bc273a`  
+**Status:** Pure saved-address mapper extraction merged in PR #61; no AppContext state/API-domain refactor has been merged yet.
 
 ## Purpose
 
@@ -53,6 +53,28 @@ The following observations come from the current `main` snapshot (`1a8c1189`). T
 Before choosing the first runtime extraction, inspect the full destructuring and callback use in each consumer above, then map each action through `AppContext` to the exact `bazaarApi` method and any local-storage/backend-sync effect. Mark actions as read-only, user-data mutation, or transactional. This is especially important because Seller, Delivery, Daily Help Provider, and Admin dashboards already call `bazaarApi` directly instead of relying exclusively on AppContext.
 
 Do not claim these components are fully decoupled merely because direct calls are visible. The current architecture mixes direct API access with shared context; migration must preserve this mixed contract until each module is deliberately moved.
+
+
+## AppContext compatibility contract (verified after PR #61)
+
+The `AppContext.Provider` still exposes this public surface. Treat it as a compatibility contract until each consumer has been migrated deliberately:
+
+- **Session/roles:** `role`, `registeredRoles`, `setRole`, `user`, `loginWithOtp`, `registerUserWithOtp`, `loginWithGoogle`, `logout`.
+- **Profile/address:** `updateUserProfile`, `createBuyerAddress`, `updateBuyerAddress`, `setDefaultBuyerAddress`, `registerBuyer`.
+- **Seller/catalogue/product administration:** `sellers`, `currentSeller`, `registerSeller`, `approveSeller`, `rejectSeller`, `updateSeller`, `products`, `addProduct`, `updateProduct`, `deleteProduct`.
+- **Coupons/cart:** `coupons`, `addCoupon`, `deleteCoupon`, `cart`, `addToCart`, `removeFromCart`, `updateCartQuantity`, `clearCart`, `appliedCoupon`, `applyCoupon`, `removeCoupon`, `cartCalculations`.
+- **Orders/delivery:** `orders`, `createOrder`, `updateOrderStatus`, `claimDeliveryJob`, `completeDelivery`, `deliveryAgents`, `currentAgent`, `registerDeliveryAgent`, `approveDeliveryAgent`.
+- **Chat/offers:** `chats`, `openChatForProduct`, `sendMessage`, `respondToOffer`.
+- **Shell/transient state:** `selectedCityLocality`, `setSelectedCityLocality`, `activeChatId`, `setActiveChatId`, `comparingProduct`, `setComparingProduct`, `trackingOrderId`, `setTrackingOrderId`, `isCartOpen`, `setIsCartOpen`, registration modal flags/setters, `isGmailAuthOpen`, `setIsGmailAuthOpen`, `toast`, `showToast`, `backendUrl`, `setBackendUrl`, `backendStatus`, `syncWithBackend`.
+
+The saved-address mapper/type extraction preserves this contract; the type remains re-exported by `src/context/AppContext.tsx`.
+
+### AppContext's current direct `bazaarApi` method inventory
+
+`updateCurrentUser`, `createBuyerAddress`, `updateBuyerAddress`, `setDefaultBuyerAddress`, `getBuyerAddresses`, `getDeliveryAvailableJobs`, `checkHealth`, `searchProducts`, `getPendingSellers`, `getPendingDeliveryAgents`, `getMe`, `getRegisteredRoles`, `logout`, `registerSeller`, `approveSeller`, `rejectSeller`, `approveDeliveryAgent`, `rejectDeliveryAgent`, `addProduct`, `placeOrder`, `claimDeliveryJob`, `verifyDeliveryOtp`, `registerDeliveryAgent`.
+
+This list is the directly observed inventory, not every API call made by the application. Role dashboards also call `bazaarApi` directly, as recorded in the consumer survey above. Preserve a compatibility export from `src/services/api.ts` if the API layer is later split.
+
 
 ## Suggested extraction sequence
 
@@ -107,4 +129,5 @@ At minimum inspect `src/components/Buyer/BuyerAccountPage.tsx`, `src/components/
 
 - 2026-10-12: Created inventory after PR #58 merged. No runtime extraction implemented.
 - 2026-10-12: PR #60 made read-only API smoke checks execute by default with a strict staging API host/path guard; run #38210187887 passed 10/10 API checks. Post-merge run #38210267860 passed.
-- 2026-10-12: Began the first low-risk extraction: move the existing saved-address mapper/type into `src/entities/address.ts`, retain the `AppContext` type re-export, and add deterministic mapping tests. This is not yet merged.
+- 2026-10-12: PR #61 merged the saved-address mapper/type into `src/entities/address.ts`; `AppContext` re-exports the type. Exact-head CI and post-merge CI passed, and the merged deployment is `READY`.
+- 2026-10-12: Added the current AppContext public compatibility contract and direct `bazaarApi` method inventory for new-chat continuation.

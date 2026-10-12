@@ -1,6 +1,6 @@
 # Frontend Modularisation Baseline and Execution Plan
 
-**Status:** Routing and guarded smoke foundation merged; first pure helper extraction is in review.  
+**Status:** Routing, guarded read-only smoke, and first pure helper extraction merged and deployed; state/API-domain extraction not started.  
 **Baseline branch:** `main`  
 **Original architecture baseline commit:** `1c43319281573d23f1b22e1bc97f64ae5548e292`  
 **Scope:** Frontend only. Preserve current user-facing behaviour, Spring Boot API contracts, Oracle schema/data, and the existing single environment designated staging by the owner.
@@ -246,10 +246,10 @@ Read `docs/CHATGPT-CONTINUATION.md` first for the operational handoff and `docs/
 
 1. The verified runtime baseline is deployment `dpl_ALThn73jiVhUQqb3kVyzTHt9s31V` (`READY`), tied to `96cd0cf36ffee801703c5d5d269e8072f7160a2f`. It includes the routing code and staging smoke workflow.
 2. PR #60 made the read-only API smoke execute by default with a strict host/path guard. Run #38210187887 passed 10/10 API checks; post-merge run #38210267860 passed all three jobs.
-3. Current PR branch `refactor/extract-saved-address-mapper` is the first runtime extraction. Merge only after exact-head CI and Vercel preview pass.
-4. After merge, verify post-merge CI and deployment, then update all three docs with the merged SHA and test/deployment results.
-5. Complete the consumer-to-`useApp`/API dependency map before selecting the next extraction.
-6. Keep auth/OTP/backend/schema behavior unchanged; retain the `useApp` compatibility facade.
+3. PR #61 extracted the pure saved-address mapper; merged SHA `89c434aa0f9f22aeba49003fbd9d7249c4bc273a` is deployed `READY`. Exact-head CI #38210469528 and post-merge CI #38210571047 passed.
+4. Complete the consumer-to-`useApp`/API dependency map before selecting the next extraction.
+5. Keep auth/OTP/backend/schema behavior unchanged; retain the `useApp` compatibility facade.
+6. Update all three docs after each meaningful checkpoint.
 
 ## First domain extraction — PR in progress
 
@@ -258,3 +258,12 @@ Read `docs/CHATGPT-CONTINUATION.md` first for the operational handoff and `docs/
 - Regression tests: `tests/savedAddress.test.ts`, run by the existing CI workflow.
 - No API call, session/local-storage key, auth/OTP behavior, backend contract, schema, or address-screen behavior is intentionally changed.
 - Merge gate: TypeScript, all frontend tests/build, backend suite, read-only API smoke, browser E2E, and Vercel preview must pass for the exact PR head.
+
+
+## Saved-address mapper extraction — completed 2026-10-12
+
+- PR #61: `https://github.com/imgupta/kuraliupdates-bazaar/pull/61`.
+- Merged SHA: `89c434aa0f9f22aeba49003fbd9d7249c4bc273a`.
+- New module: `src/entities/address.ts`; regression tests: `tests/savedAddress.test.ts`.
+- Exact PR CI #38210469528 and post-merge CI #38210571047 passed; the read-only API smoke ran and passed; Vercel deployment `dpl_EDB7FEt856PE5qjtyztZx7Tz2ivL` is `READY`.
+- This moved only the mapper and type. No AppContext state/actions, API methods, localStorage, OTP/auth, backend, or schema changes.
