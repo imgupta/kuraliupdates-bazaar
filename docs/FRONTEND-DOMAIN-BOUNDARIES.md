@@ -415,3 +415,30 @@ Source reviewed: `src/services/api.ts`, blob `ddb67904e14b8d75840389581d4a6c0bcd
 - [ ] Trace Daily Help booking versus provider job/slot operations; classify booking create/start/complete as transactional.
 - [ ] Trace Admin read endpoints separately from approvals and service CRUD.
 - [ ] Validate all 72 indexed methods against the actual `bazaarApi` object and call sites. The initial index is provisional, especially where methods contain multiple fetch calls.
+
+
+## Seller API contract trace — source inspection, 13 October 2026
+
+Source: `src/services/api.ts`, blob `ddb67904e14b8d75840389581d4a6c0bcd8a5367`. Client-side behavior only; backend authorization and validation are not inferred.
+
+| Method | Request and payload | Auth / timeout | Response and failure behavior | Effect classification |
+|---|---|---|---|---|
+| `registerSeller(seller)` | `POST /sellers/register`; maps seller fields to `storeName`, `ownerName`, email/phone/category/address/locality, distance/rating/review counts, avatar/description/GST/FSSAI and delivery-fee defaults | No bearer token; no explicit timeout; Content-Type JSON | Non-OK throws internally; catch logs and returns `null`; success returns parsed JSON | Seller registration mutation; avoid in shared live smoke |
+| `addProduct(sellerId, product)` | `POST /sellers/{encoded sellerId}/products`; maps product to title/category/description/imageUrl/MRP/sellerPrice/discount/stock/unit/tags/featured | No bearer token in client request; no explicit timeout; Content-Type JSON | Non-OK throws internally; catch logs and returns `null`; success returns parsed JSON | Product mutation; legacy/unscoped path needs backend auth review, not changed here |
+| `getCurrentSeller()` | `GET /sellers/me` | Reads `kurali_auth_token` from localStorage; Bearer token; no explicit timeout | Missing token returns `null`; non-OK/network/parse error logs and returns `null`; success returns JSON | Read |
+| `getSellerProducts()` | `GET /sellers/me/products` | localStorage token; Bearer; no explicit timeout | Missing token returns `[]`; non-OK/network/parse error returns `[]`; success returns JSON without an explicit array guard | Read; empty fallback can mask a failed request |
+| `createSellerProduct(product)` | `POST /sellers/me/products`; passes product object as JSON | localStorage token; Bearer; no explicit timeout | Missing token throws session-expired error; JSON parse fallback null; non-OK throws server message or HTTP status; success returns parsed data | Product mutation |
+| `updateSellerProduct(productId, product)` | `PUT /sellers/me/products/{encoded productId}`; passes product object as JSON | localStorage token; Bearer; no explicit timeout | Missing token throws; parse fallback null; non-OK throws server message or HTTP status | Product mutation |
+| `deleteSellerProduct(productId)` | `DELETE /sellers/me/products/{encoded productId}` | localStorage token; Bearer; no explicit timeout | Missing token returns `false`; non-OK throws server message/status; success returns `true` | Destructive catalogue mutation; never use real product IDs in routine smoke |
+| `getSellerOrders()` | `GET /sellers/me/orders` | localStorage token; Bearer; no explicit timeout | Missing token returns `[]`; non-OK/network/parse error returns `[]`; success returns JSON without explicit array guard | Read of potentially real order data |
+| `updateSellerOrderStatus(orderId,status)` | `POST /sellers/me/orders/{encoded orderId}/status?status={encoded status}`; no body | localStorage token; Bearer; no explicit timeout | Missing token throws; parse fallback null; non-OK throws server message/status; success returns JSON | Order-state mutation; transactional/business critical; never run in read-only smoke |
+| `getSellerDiscounts()` | `GET /sellers/me/discounts` | localStorage token; Bearer; no explicit timeout | Missing token returns `[]`; non-OK/network/parse error returns `[]`; success returns JSON without explicit array guard | Read |
+| `createSellerDiscount(payload)` | `POST /sellers/me/discounts`; JSON payload | localStorage token; Bearer; no explicit timeout | Missing token throws session-expired error; parse fallback null; non-OK throws server message/status | Discount/rule mutation |
+| `deleteSellerDiscount(ruleId)` | `DELETE /sellers/me/discounts/{encoded ruleId}` | localStorage token; Bearer; no explicit timeout | Missing token returns `false`; non-OK throws server message/status; success returns `true` | Destructive discount mutation |
+
+### Seller trace cautions
+
+- Two seller creation methods have materially different contracts: legacy `registerSeller` and `addProduct` omit the bearer token, while `/sellers/me/**` methods read the stored token and attach it. Do not unify or silently “fix” these in a docs-only phase; verify backend route security and call sites in a separately reviewed change.
+- Read methods often collapse missing session, HTTP failure, parse failure, and legitimate empty data to `null` or `[]`; callers may not be able to distinguish an outage from no records.
+- Seller order status, product deletion, and discount deletion are writes and are prohibited in live smoke. No such request was issued during this trace.
+- No runtime/API behavior changed. Next: trace Delivery requests and classify job claiming, OTP resend/verification, and location publishing as writes.
