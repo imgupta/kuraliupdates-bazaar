@@ -79,7 +79,7 @@ jobs:
       E2E_PROVIDER_OTP: ${{ secrets.E2E_PROVIDER_OTP }}
       E2E_ADMIN_IDENTITY: ${{ secrets.E2E_ADMIN_IDENTITY }}
       E2E_ADMIN_OTP: ${{ secrets.E2E_ADMIN_OTP }}
-      KURALI_API_BASE_URL: ${{ vars.KURALI_API_BASE_URL || vars.KURALI_STAGING_API_BASE_URL }}
+      KURALI_API_BASE_URL: ${{ vars.KURALI_API_BASE_URL || vars.KURALI_STAGING_API_BASE_URL || 'https://kuraliupdates-bazaar.onrender.com/api/v1' }}
       SMOKE_READINESS_TIMEOUT_MS: "360000"
       SMOKE_RETRY_INTERVAL_MS: "10000"
       SMOKE_TIMEOUT_MS: "20000"
@@ -100,6 +100,10 @@ jobs:
       - name: Guard E2E target is the designated staging site
         run: |
           node --input-type=module -e "const u=new URL(process.env.E2E_BASE_URL); if (u.protocol !== 'https:' || u.hostname !== 'bazaar.kuraliupdates.com') { console.error('Refusing E2E against a non-staging host'); process.exit(1); }"
+      - name: Guard API smoke target is the designated staging API
+        if: env.KURALI_API_BASE_URL != ''
+        run: |
+          node --input-type=module -e "const u=new URL(process.env.KURALI_API_BASE_URL); if (u.protocol !== 'https:' || u.hostname !== 'kuraliupdates-bazaar.onrender.com' || u.pathname.replace(/\\/+$/, '') !== '/api/v1') { console.error('Refusing API smoke against a non-designated staging API'); process.exit(1); }"
       - name: Run read-only API smoke checks
         if: env.KURALI_API_BASE_URL != ''
         run: node scripts/production-smoke.mjs
