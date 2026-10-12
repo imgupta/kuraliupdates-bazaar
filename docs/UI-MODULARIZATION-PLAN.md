@@ -232,7 +232,7 @@ Read `docs/CHATGPT-CONTINUATION.md` first for the operational handoff and `docs/
 - PR #57 added deterministic route-registry regression tests; merged as `b6148e34ed4f36c4a05f89d1e24cfbfc95dd175f`.
 - PR #58 added canonical role dashboard routes and client-side route access policy; merged as `1a8c1189ebd9c8c86503e690f0e396e696391e70`.
 - Post-merge run https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38175672333 completed successfully for frontend, backend, and browser E2E.
-- The workflow's read-only API smoke step was **skipped** in run #38209942997 because no `KURALI_API_BASE_URL` / `KURALI_STAGING_API_BASE_URL` was configured. Branch `ci/enable-staging-readonly-api-smoke` adds the canonical staging URL as a fallback plus an explicit host/path guard; wait for that change's CI to prove the smoke actually runs.
+- The workflow's read-only API smoke step was skipped in run #38209942997. PR #60 fixes this with a canonical staging URL fallback and strict host/path guard. Its CI run #38210084448 passed all **10/10** read-only API checks; authenticated browser tests remained skipped because role secrets were unset. Re-run checks after the final documentation update before merging.
 - A Vercel deployment tied to `bcdc2f300cc8c8f5c3f0430d1ef81bb9d809c574` is now `READY` and includes the routing code merged in PR #58. A prior deployment API attempt hit the daily quota, but the later automatic main deployment succeeded.
 
 ### Current routing surface
