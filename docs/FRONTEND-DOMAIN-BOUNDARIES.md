@@ -97,7 +97,7 @@ At minimum inspect `src/components/Buyer/BuyerAccountPage.tsx`, `src/components/
 
 ## Open risks / unresolved items
 
-- The latest post-merge CI passed, but the API smoke step was skipped due to missing API base URL workflow configuration. Branch `ci/enable-staging-readonly-api-smoke` now adds a fallback to the documented staging API and a guard restricting smoke checks to that exact HTTPS host and `/api/v1` path.
+- The latest post-merge CI passed, but the API smoke step was skipped due to missing API base URL workflow configuration. PR #60 adds a fallback to the documented staging API and a guard restricting smoke checks to that exact HTTPS host and `/api/v1` path. Its CI run #38210084448 passed all 10 read-only API checks; 5 authenticated role tests were skipped due to missing identity/OTP secrets.
 - The current main deployment (`bcdc2f300cc8c8f5c3f0430d1ef81bb9d809c574`) is now `READY` and contains the route code from `1a8c1189`. Continue to record deployment ID and exact SHA for future runtime changes.
 - Existing authenticated E2E coverage may skip roles when secrets/OTP are missing. Read test reports and environment setup; do not equate a green job with all five roles authenticated.
 - Client-side route policy uses session-derived state for UX only; it is not a backend security control.
