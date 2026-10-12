@@ -36,6 +36,8 @@ jobs:
         run: node --import tsx --test tests/routeConfig.test.ts
       - name: Role route access policy regression tests
         run: node --import tsx --test tests/roleRouteAccess.test.ts
+      - name: Saved address mapping regression tests
+        run: node --import tsx --test tests/savedAddress.test.ts
       - name: Delivery OTP input validator regression
         run: |
           node --input-type=module -e "import fs from 'node:fs'; const src=fs.readFileSync('src/components/Delivery/DeliveryDashboard.tsx','utf8'); if (!src.includes('/^\\\\d{4}$/.test(enteredOtp.trim())')) { console.error('Delivery OTP validator must accept exactly four digits.'); process.exit(1); } if (src.includes('/^\\\\\\\\d{4}$/.test(enteredOtp.trim())')) { console.error('Delivery OTP validator is over-escaped.'); process.exit(1); }"
