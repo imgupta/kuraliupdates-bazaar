@@ -1,6 +1,6 @@
 # Frontend Modularisation Baseline and Execution Plan
 
-**Status:** Routing foundation merged; domain extraction not started.  
+**Status:** Routing and guarded smoke foundation merged; first pure helper extraction is in review.  
 **Baseline branch:** `main`  
 **Original architecture baseline commit:** `1c43319281573d23f1b22e1bc97f64ae5548e292`  
 **Scope:** Frontend only. Preserve current user-facing behaviour, Spring Boot API contracts, Oracle schema/data, and the existing single environment designated staging by the owner.
@@ -251,3 +251,12 @@ Read `docs/CHATGPT-CONTINUATION.md` first for the operational handoff and `docs/
 5. Extract one low-risk pure helper first, preserve the `useApp` compatibility facade, add tests, and keep auth/OTP/backend/schema behavior unchanged.
 6. Update all three docs (this plan, continuation handoff, domain boundary inventory) at every meaningful checkpoint.
 
+
+
+## First domain extraction — PR in progress
+
+- Branch: `refactor/extract-saved-address-mapper`.
+- Scope: move the existing pure saved-address mapper and interface into `src/entities/address.ts`; re-export `SavedAddress` from `src/context/AppContext.tsx` so existing imports remain valid.
+- Regression tests: `tests/savedAddress.test.ts`, run by the existing CI workflow.
+- No API call, session/local-storage key, auth/OTP behavior, backend contract, schema, or address-screen behavior is intentionally changed.
+- Merge gate: TypeScript, all frontend tests/build, backend suite, read-only API smoke, browser E2E, and Vercel preview must pass for the exact PR head.
