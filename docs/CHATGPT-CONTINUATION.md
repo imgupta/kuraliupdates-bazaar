@@ -77,15 +77,15 @@ A failed intermediate preview and E2E run caught a malformed mobile handler and 
 3. Verify refresh and Back/Forward. Report separately which authenticated-role tests were skipped due to missing isolated synthetic accounts/OTP.
 4. Confirm whether API smoke is skipped; do not report overall CI green as proof that API smoke ran.
 
-### Step C — next runtime phase (do not start until Step B is verified)
-Create a narrowly scoped PR to introduce **domain boundaries inside the current monolith**, without changing behavior:
-1. Start by mapping the large `src/context/AppContext.tsx` and `src/services/api.ts` into explicit domains.
-2. Extract a small, low-risk, testable domain first (prefer buyer saved-address/profile operations or a read-only catalogue adapter only after confirming actual dependency graph).
-3. Keep the existing `useApp` contract as a compatibility facade during the first extraction. Avoid broad edits across all five dashboards.
-4. Do not create a new all-purpose global context. Avoid duplicating auth/session state or token storage.
-5. Add unit tests for the extracted pure mapping/adapter logic; preserve API URLs, payloads, error handling, and local-storage key semantics.
-6. Use import-boundary tests/lint only after the initial extraction is stable.
-7. Verify TypeScript, unit tests, production build, backend tests, and browser E2E; check preview and merged deployment before continuing.
+### Step C — current runtime phase: pure saved-address mapper extraction
+
+Branch `refactor/extract-saved-address-mapper` moves only the existing `toSavedAddress` mapper and `SavedAddress` interface from `src/context/AppContext.tsx` into `src/entities/address.ts`, re-exporting the type from `AppContext` to preserve compatibility. It adds `tests/savedAddress.test.ts` and a CI step.
+
+1. Verify the exact PR-head CI and Vercel preview; do not merge until all jobs pass.
+2. Confirm the mapper's legacy behavior is unchanged: `addressId || id`, `Home` label fallback, empty address-line fallback, optional-field normalization, zero coordinates preserved, and numeric/boolean `isDefault` conversion.
+3. Preserve all `useApp` members, address API calls, session/localStorage behavior, network calls, and backend contracts.
+4. After merge, verify post-merge CI and deployment. Update docs with the exact merged SHA and test results before choosing the next extraction.
+5. Select the next candidate only after completing the consumer-to-`useApp`/API dependency map; do not combine this helper extraction with address API/state movement.
 
 ### Step D — later, not now
 - Extract Seller, Daily Help Provider, Delivery Agent, Buyer, and Admin feature modules incrementally.
