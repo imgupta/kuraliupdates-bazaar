@@ -1,6 +1,6 @@
 # Frontend Modularisation Baseline and Execution Plan
 
-**Status:** Routing and saved-address mapper are deployed; user-profile mapper is merged with CI green, but deployment of its merged SHA is pending verification. AppContext state/API-domain extraction has not started.  
+**Status:** Routing, saved-address mapper, user-profile mapper, and documentation PR #65 are merged; live alias is verified on `44374253b5fe3a5d65d946ffbece37d0b3cd1704`. The next bounded change is a pure Seller product mapper extraction with regression tests; AppContext state/API-domain extraction has not started.  
 **Baseline branch:** `main`  
 **Original architecture baseline commit:** `1c43319281573d23f1b22e1bc97f64ae5548e292`  
 **Scope:** Frontend only. Preserve current user-facing behaviour, Spring Boot API contracts, Oracle schema/data, and the existing single environment designated staging by the owner.
@@ -304,3 +304,13 @@ A read-only source pass now records direct API method names for Seller, Delivery
 
 
 - CI caveat (13 October 2026): workflow run #42 (`38296500979`) was created for earlier PR head `1be287fee41e8429941de20c346a455ac6769449`. The docs have since been expanded and the current PR head is newer (`a912fff08094d293912b4dde6e7c1fc3aa333eb5` at the time of this note). Therefore run #42 does **not** validate the latest PR head. At last check its backend and frontend jobs passed, but the browser/read-only API smoke job was still in progress. Do not merge until a successful run is associated with the current head and its required checks are complete.
+
+
+## Current execution checkpoint — 13 October 2026
+
+- PR #65 merged at `44374253b5fe3a5d65d946ffbece37d0b3cd1704`; its workflow run `38296784536` passed frontend, backend, browser E2E, and read-only API smoke.
+- Vercel deployment `dpl_GChRk727VyTCu2d6zBwThFVPE2NZ` is `READY` on the merge SHA and carries the custom-domain aliases; read-only fetch of `www.kuraliupdates.com` returned HTTP 200.
+- The quota blocker is cleared for this deployment.
+- Current PR branch: `refactor/extract-seller-product-mapper`. Scope: move the unchanged Seller product response mapper to `src/entities/sellerProduct.ts`, add deterministic mapper tests, and run those tests in the existing single CI workflow.
+- This is a pure mapping boundary, not a state/API split. Do not change seller product endpoints, CRUD handlers, fallback behavior, or product types. Merge only after exact-head CI and preview verification pass.
+- Modular monolith remains the target. No separate role deployments or runtime module federation in this phase.
