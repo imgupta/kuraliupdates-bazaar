@@ -1,8 +1,8 @@
 # Frontend Modularisation Baseline and Execution Plan
 
-**Status:** Phase 1 — architecture baseline and migration plan  
+**Status:** Routing foundation merged; domain extraction not started.  
 **Baseline branch:** `main`  
-**Baseline commit:** `1c43319281573d23f1b22e1bc97f64ae5548e292`  
+**Original architecture baseline commit:** `1c43319281573d23f1b22e1bc97f64ae5548e292`  
 **Scope:** Frontend only. Preserve current user-facing behaviour, Spring Boot API contracts, Oracle schema/data, and the existing single environment designated staging by the owner.
 
 ## Goals
@@ -219,3 +219,34 @@ Do not claim role coverage when the role's authenticated test was skipped. Do no
 - No backend/API/database schema change.
 - No change to authentication, OTP, order, payment, delivery, or Daily Help business rules.
 - No independent app deployments or module federation yet.
+
+
+## Current execution checkpoint — 2026-10-12
+
+Read `docs/CHATGPT-CONTINUATION.md` first for the operational handoff and `docs/FRONTEND-DOMAIN-BOUNDARIES.md` for the concrete state/API extraction inventory.
+
+### Completed and verified
+
+- PR #55 established this plan; merged.
+- PR #56 centralized legacy route resolution; merged as `5e348b1ed71640f526342de48d21e9b9d08df94a`.
+- PR #57 added deterministic route-registry regression tests; merged as `b6148e34ed4f36c4a05f89d1e24cfbfc95dd175f`.
+- PR #58 added canonical role dashboard routes and client-side route access policy; merged as `1a8c1189ebd9c8c86503e690f0e396e696391e70`.
+- Post-merge run https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38175672333 completed successfully for frontend, backend, and browser E2E.
+- The workflow's read-only API smoke step was **skipped** because no `KURALI_API_BASE_URL` / `KURALI_STAGING_API_BASE_URL` was configured. Do not report API smoke as passed.
+- A fresh Vercel deployment for merged SHA `1a8c1189` is not confirmed. Deployment API returned `402 payment_required` due to the daily deployment quota. Do not bypass quota or repeatedly retry before reset.
+
+### Current routing surface
+
+- Legacy routes retained: `/`, `/register/seller`, `/register/delivery`, `/register/daily-help`, `/register/buyer`, `/account`.
+- Canonical role routes: `/buyer`, `/seller`, `/delivery`, `/daily-help`, `/admin`.
+- Route access policy is for frontend navigation UX. Backend authorization remains authoritative.
+- Browser route tests cover direct navigation, refresh, and Back/Forward at the unauthenticated UI level. Authenticated role coverage may skip without test secrets/OTP; inspect reports before claiming all five roles passed authenticated flows.
+
+### Next gates
+
+1. Re-check Vercel deployment quota and verify the deployed commit matches `1a8c1189`. Run read-only route checks and ensure API smoke is configured and actually runs.
+2. Until the deployed routing build is verified, do not merge more runtime changes. Documentation and static dependency analysis can continue.
+3. Before the first domain extraction, create the consumer-to-`useApp`/API dependency map described in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`.
+4. Extract one low-risk pure helper first, preserve the `useApp` compatibility facade, add tests, and keep auth/OTP/backend/schema behavior unchanged.
+5. Update all three docs (this plan, continuation handoff, domain boundary inventory) at every meaningful checkpoint.
+
