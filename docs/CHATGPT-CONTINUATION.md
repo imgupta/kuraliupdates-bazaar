@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-10-13 (Asia/Kolkata)  
 **Repository:** https://github.com/imgupta/kuraliupdates-bazaar  
-**Latest merged runtime commit:** `9ee871abfb60d86cce3a396b816bf778e99f8e5d` · **latest merged main commit:** `7edd96455a57da73d76e03fdea817d30e629b577` · **verified Vercel deployment commit:** `7edd96455a57da73d76e03fdea817d30e629b577`  
-**Current state (verified 2026-10-13):** PR #66 runtime mapper extraction and PR #67 documentation checkpoint are merged. PR #67 merge SHA is `7edd96455a57da73d76e03fdea817d30e629b577`. Post-merge workflow run #38300351263 passed frontend checks, backend tests, browser E2E, and read-only API smoke checks. Vercel deployment `dpl_13kh7LcMfTADMQNUfdKte1V9JEHm` is `READY` on the exact main SHA and aliases include the root, www, and bazaar domains. A successful browser job does not by itself prove all five authenticated role flows ran rather than skipped.
+**Latest merged main SHA:** `0659a5e82d9eab755d017a6e8abdd8a0588f60db` (PR #69, docs-only).  
+**Current verified state:** Post-merge workflow #38301147128 passed frontend, backend, and browser E2E/read-only smoke jobs. Vercel deployment `dpl_CRKcGhvm2HMzFWzNhQEgRYWQXeQe` is READY on the exact SHA and carries the root, www, and bazaar aliases. Authenticated five-role E2E execution remains unproven unless test reports show those tests were not skipped.
 
 > Read this file first when continuing work in a new chat. Then read `docs/UI-MODULARIZATION-PLAN.md` and `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. Always re-check GitHub and Vercel state before acting; this file is a checkpoint, not a live status feed.
 
@@ -208,3 +208,14 @@ Use absolute commit SHAs and direct PR/run/deployment URLs. Distinguish verified
 - `OrderTrackingModal` calls live tracking and refreshes tracking/OTP-related state every 5 seconds. Keep tracking read-only, but verify OTP display semantics before moving it.
 - Both `src/components/Auth/AuthPage.tsx` and `AuthPageV2.tsx` exist and call OTP endpoints; `BuyerRegistrationPage.tsx` also directly checks registration and sends/verifies OTP. Do not remove or consolidate an auth component without confirming route/import reachability and compatibility first.
 - Next: finish call-site inventory for shared overlays and remaining nested components, then classify all API methods/payloads and stale-response cleanup. No runtime extraction yet.
+
+
+## Latest continuation — 13 October 2026 (after PR #69)
+
+- Rechecked main SHA: `0659a5e82d9eab755d017a6e8abdd8a0588f60db`.
+- PR #69 merged: https://github.com/imgupta/kuraliupdates-bazaar/pull/69.
+- Post-merge run #38301147128 completed successfully for all three jobs: https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38301147128.
+- Vercel exact-SHA deployment `dpl_CRKcGhvm2HMzFWzNhQEgRYWQXeQe` is READY; aliases include `kuraliupdates.com`, `www.kuraliupdates.com`, and `bazaar.kuraliupdates.com`.
+- PR #69 was docs-only and extends Buyer booking/tracking/checkout and auth consumers. No runtime refactor occurred.
+- A source-derived 72-method first-pass endpoint index was added to `docs/FRONTEND-DOMAIN-BOUNDARIES.md`; it is explicitly provisional pending manual verification of payloads, error contracts, timeout, auth headers, and multiple-fetch side effects.
+- **Next action:** manually validate the API method index and expand exact contracts for one domain at a time; trace every remaining `useApp()`/nested consumer, then review map completeness. Do not begin AppContext/API-domain extraction until the map is complete and reviewed. Do not infer five-role authenticated coverage from a green browser job.
