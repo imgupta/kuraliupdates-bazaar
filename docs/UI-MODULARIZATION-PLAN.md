@@ -1,6 +1,6 @@
 # Frontend Modularisation Baseline and Execution Plan
 
-**Status:** PR #66's pure Seller product mapper extraction and PR #67's documentation checkpoint are merged. Main and verified Vercel deployment are on `7edd96455a57da73d76e03fdea817d30e629b577`; post-merge workflow #38300351263 passed all three jobs. AppContext state/API-domain extraction has not started; the transitive dependency map remains incomplete.
+**Status:** PR #66's pure Seller product mapper extraction and documentation PRs #67–#68 are merged. Main SHA is `895864adcd0df99b06f93e41b33b0daa0fba1a1b`; CI run #38300661109 passed all three jobs. Last verified READY Vercel deployment is on `7edd96455a57da73d76e03fdea817d30e629b577`; the newer main commit is docs-only and its exact-SHA deployment is not yet verified. AppContext state/API-domain extraction has not started.
 **Baseline branch:** `main`  
 **Original architecture baseline commit:** `1c43319281573d23f1b22e1bc97f64ae5548e292`  
 **Scope:** Frontend only. Preserve current user-facing behaviour, Spring Boot API contracts, Oracle schema/data, and the existing single environment designated staging by the owner.
@@ -335,3 +335,14 @@ A read-only source pass now records direct API method names for Seller, Delivery
 - A read-only source pass documented polling cadence and API failure semantics in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`: shared backend sync 45s, Delivery jobs 10s, LiveOrderMap tracking 5s, Daily Help Provider refresh 10s plus active timer tick 1s, Admin refresh 45s.
 - `bazaarApi` methods do not share one error contract. Some catch failures and return empty/default values (`null`, `[]`, `false`), some return structured result objects, and others throw. Preserve the observed contract in any future domain grouping.
 - **Next gate:** finish the endpoint/payload/error/fallback inventory and mutation classification for every consumer. No AppContext state/API-domain extraction until that map is explicitly marked complete and reviewed.
+
+
+## Buyer/auth trace extension — 13 October 2026
+
+The source survey expanded to nested Buyer and auth components. Details are in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. Notable boundary rules:
+
+- Buyer Daily Help catalogue/booking remains in the Buyer domain; provider availability, job acceptance, OTP start, service timer, earnings, and slot management remain in the Daily Help Provider domain.
+- Buyer booking creation is transactional. The Buyer Daily Help UI polls booking state at 5 seconds during `IN_PROGRESS`, otherwise 15 seconds, and updates the active service timer display every second.
+- `OrderTrackingModal` and Delivery's `LiveOrderMap` both call live tracking. Avoid duplicate polling ownership or moving tracking logic without checking both call paths.
+- Legacy `AuthPage.tsx`, current `AuthPageV2.tsx`, and `BuyerRegistrationPage.tsx` all contain OTP-related paths. Check routing/import reachability before any auth consolidation; preserve OTP/session semantics.
+- Main CI #38300661109 passed after PR #68. No runtime changes in PR #67 or #68. The domain map remains partial.
