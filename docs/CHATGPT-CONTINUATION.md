@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-10-12 (Asia/Kolkata)  
 **Repository:** https://github.com/imgupta/kuraliupdates-bazaar  
-**Current `main` commit:** `1a8c1189ebd9c8c86503e690f0e396e696391e70`  
-**Current state:** role dashboard routing merged; post-merge CI is green; fresh Vercel deployment of the merged commit is not yet confirmed because the Vercel deployment API daily quota was exhausted.
+**Current `main` commit at last check:** `bcdc2f300cc8c8f5c3f0430d1ef81bb9d809c574`  
+**Current state:** role dashboard routing is merged and deployed; post-merge CI is green. The read-only API smoke step was skipped in run #38209942997 because the workflow variable was empty; branch `ci/enable-staging-readonly-api-smoke` adds a guarded staging-only fallback.
 
 > Read this file first when continuing work in a new chat. Then read `docs/UI-MODULARIZATION-PLAN.md` and `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. Always re-check GitHub and Vercel state before acting; this file is a checkpoint, not a live status feed.
 
@@ -43,7 +43,7 @@
 ## 3. Deployment status and blocker
 
 - A Vercel preview from the routing branch was marked READY before merge, and the latest PR-head CI passed.
-- **Do not claim the merged `main` commit is deployed.** The Vercel deployment list did not show a deployment for `1a8c1189`.
+- The current `main` commit `bcdc2f300cc8c8f5c3f0430d1ef81bb9d809c574` has a Vercel deployment marked `READY`. This deployment contains the runtime routing code merged in PR #58 (`1a8c1189`) plus docs-only changes.
 - An attempt to create a verification deployment was rejected by Vercel with `402 payment_required`: `api-deployments-free-per-day`, over 100 deployments in 24 hours, retry after 86400 seconds from the response.
 - This is a quota/billing gate, not an application CI failure. Do not retry repeatedly or attempt a bypass. Re-check existing deployment metadata and the quota window before attempting any deployment after the reset.
 - The most recent prior main deployment visible to the tool was commit `b6148e34` (older than the current merged commit). That is not proof the new route code is live.
@@ -65,10 +65,11 @@ A failed intermediate preview and E2E run caught a malformed mobile handler and 
 
 ## 5. Next steps — execute in this order
 
-### Step A — re-check deployment and docs PR
+### Step A — re-check deployment and API smoke PR
 1. Read current `main` SHA, PR state, CI run and Vercel deployment metadata.
-2. If Vercel still blocks deployment creation, do not make further runtime changes; continue with docs and static analysis only.
-3. Confirm this handoff and `UI-MODULARIZATION-PLAN.md` are merged and current.
+2. Deployment for `bcdc2f300cc8c8f5c3f0430d1ef81bb9d809c574` is `READY` and includes the routing code. Keep this exact SHA as the current runtime verification anchor until a later deployment is verified.
+3. Review PR for `ci/enable-staging-readonly-api-smoke`. It should make the existing GET-only API smoke run against the known staging API and reject any other host/path.
+4. Merge that PR only after CI passes and the API smoke step is **successfully executed**, not skipped. Record each endpoint result.
 
 ### Step B — finish routing verification
 1. Verify the current staging deployment matches commit `1a8c1189` once a deployment is available.
