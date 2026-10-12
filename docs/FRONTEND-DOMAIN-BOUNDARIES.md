@@ -183,3 +183,6 @@ The following method lists were extracted from the current `main` source snapsho
 
 
 - 2026-10-13: Source-read-only pass added exact direct `bazaarApi` call-site inventories for Seller, Delivery, Daily Help Provider, Admin, Auth and the AppContext bridge. The dependency map remains partial pending payload/error/side-effect tracing.
+
+
+- CI caveat (13 October 2026): workflow run #42 (`38296500979`) was created for earlier PR head `1be287fee41e8429941de20c346a455ac6769449`. The docs have since been expanded and the current PR head is newer (`a912fff08094d293912b4dde6e7c1fc3aa333eb5` at the time of this note). Therefore run #42 does **not** validate the latest PR head. At last check its backend and frontend jobs passed, but the browser/read-only API smoke job was still in progress. Do not merge until a successful run is associated with the current head and its required checks are complete.
