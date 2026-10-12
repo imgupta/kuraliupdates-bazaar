@@ -176,3 +176,15 @@ Use absolute commit SHAs and direct PR/run/deployment URLs. Distinguish verified
 - The previous Vercel rate-limit gate is cleared for this deployment.
 - Next bounded runtime change is a pure Seller product mapper extraction into `src/entities/sellerProduct.ts`, with regression tests. Keep API calls, CRUD behavior, shared state, auth/session, localStorage, backend contracts, and schema unchanged.
 - The current branch `refactor/extract-seller-product-mapper` contains that proposed extraction and a CI test step; do not merge until the exact PR head passes the existing workflow and its preview is checked.
+
+
+## Current verified checkpoint — 13 October 2026 (PR #66)
+
+- **Main / merged SHA:** `9ee871abfb60d86cce3a396b816bf778e99f8e5d`.
+- **PR #66:** https://github.com/imgupta/kuraliupdates-bazaar/pull/66 — merged at 2026-10-12T19:36:25Z; merge SHA matches current main.
+- **Post-merge workflow:** https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38298764709 — all three jobs completed successfully: frontend checks, browser E2E/read-only smoke, and backend tests.
+- **Deployment:** Vercel deployment `dpl_F1uvjC9QwBPdqPYJ6LH7eCkmQw6K` is `READY` on the exact main SHA; aliases include `kuraliupdates.com`, `www.kuraliupdates.com`, and `bazaar.kuraliupdates.com`.
+- **PR #66 scope:** pure Seller product mapper extraction to `src/entities/sellerProduct.ts`, regression tests in `tests/sellerProduct.test.ts`, and an existing-workflow test invocation. No API endpoint/CRUD, shared AppContext state/actions, auth/session, localStorage, backend contract, OTP, schema, or database changes.
+- **E2E caveat:** a successful browser job is not proof that authenticated buyer, seller, delivery agent, daily-help provider, and admin journeys ran non-skipped. Check the report and required secrets before claiming full role-flow coverage.
+- **Immediate next action:** update this handoff and the two architecture documents in a docs-only PR; then continue read-only tracing of transitive `useApp()` and `bazaarApi` dependencies, payload/error/fallback semantics, timers/listeners, and mutation classification. Do not begin AppContext/API-domain extraction until the dependency map is complete.
+- **Architecture decision:** retain a modular monolith in the existing React app; do not create five separately deployed frontends in this phase. Preserve the single environment designated staging and keep routine live checks read-only.
