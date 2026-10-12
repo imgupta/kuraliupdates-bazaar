@@ -1,6 +1,6 @@
 # Frontend Modularisation Baseline and Execution Plan
 
-**Status:** Routing, saved-address mapper, user-profile mapper, and documentation PR #65 are merged; live alias is verified on `44374253b5fe3a5d65d946ffbece37d0b3cd1704`. The next bounded change is a pure Seller product mapper extraction with regression tests; AppContext state/API-domain extraction has not started.  
+**Status:** PR #66's pure Seller product mapper extraction is merged and deployed. Main and verified Vercel deployment are on `9ee871abfb60d86cce3a396b816bf778e99f8e5d`; post-merge workflow #38298764709 passed all three jobs. AppContext state/API-domain extraction has not started; the transitive dependency map remains incomplete.
 **Baseline branch:** `main`  
 **Original architecture baseline commit:** `1c43319281573d23f1b22e1bc97f64ae5548e292`  
 **Scope:** Frontend only. Preserve current user-facing behaviour, Spring Boot API contracts, Oracle schema/data, and the existing single environment designated staging by the owner.
@@ -314,3 +314,15 @@ A read-only source pass now records direct API method names for Seller, Delivery
 - Current PR branch: `refactor/extract-seller-product-mapper`. Scope: move the unchanged Seller product response mapper to `src/entities/sellerProduct.ts`, add deterministic mapper tests, and run those tests in the existing single CI workflow.
 - This is a pure mapping boundary, not a state/API split. Do not change seller product endpoints, CRUD handlers, fallback behavior, or product types. Merge only after exact-head CI and preview verification pass.
 - Modular monolith remains the target. No separate role deployments or runtime module federation in this phase.
+
+
+## Current execution checkpoint — 13 October 2026 (PR #66)
+
+- PR #66 merged: https://github.com/imgupta/kuraliupdates-bazaar/pull/66
+- Main SHA: `9ee871abfb60d86cce3a396b816bf778e99f8e5d`.
+- CI run #38298764709 passed all three jobs: frontend checks, browser E2E/read-only smoke, and backend tests.
+- Vercel deployment `dpl_F1uvjC9QwBPdqPYJ6LH7eCkmQw6K` is `READY` and deployed from the exact main SHA.
+- Merged change: `mapSellerProduct` extracted to `src/entities/sellerProduct.ts`; regression tests are in `tests/sellerProduct.test.ts` and are invoked by the existing `.github/workflows/e2e-login.yml`.
+- This remains a pure mapper boundary. No endpoint, CRUD semantics, AppContext state/action, auth/session, localStorage, OTP, backend contract, or database schema/data behavior changed.
+- Do not infer authenticated five-role E2E coverage from the green browser job; verify per-role test report status (passed vs skipped).
+- **Next:** complete the transitive dependency inventory in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`, including indirect API calls, request/response and error/fallback contracts, storage/session reads, timers/listeners, and mutation classification. No broader runtime extraction until that checklist is complete.
