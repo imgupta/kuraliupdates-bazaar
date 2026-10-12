@@ -1,8 +1,8 @@
 # Frontend Domain Boundaries and Extraction Inventory
 
 **Last updated:** 2026-10-12  
-**Last verified deployed runtime baseline:** `main` at `89c434aa0f9f22aeba49003fbd9d7249c4bc273a`  
-**Status:** Pure saved-address mapper extraction merged in PR #61; no AppContext state/API-domain refactor has been merged yet.
+**Last verified deployed runtime baseline:** `main` at `89c434aa0f9f22aeba49003fbd9d7249c4bc273a`; latest docs-only commit `5a89345dfe26b078e57fe9f30dc83656ebb834ee` is also deployed `READY`.  
+**Status:** Pure saved-address mapper extraction merged in PR #61. Pure user-profile mapper extraction is in review on `refactor/extract-user-profile-mapper`; no AppContext state/API-domain refactor has been merged yet.
 
 ## Purpose
 
@@ -131,3 +131,4 @@ At minimum inspect `src/components/Buyer/BuyerAccountPage.tsx`, `src/components/
 - 2026-10-12: PR #60 made read-only API smoke checks execute by default with a strict staging API host/path guard; run #38210187887 passed 10/10 API checks. Post-merge run #38210267860 passed.
 - 2026-10-12: PR #61 merged the saved-address mapper/type into `src/entities/address.ts`; `AppContext` re-exports the type. Exact-head CI and post-merge CI passed, and the merged deployment is `READY`.
 - 2026-10-12: Added the current AppContext public compatibility contract and direct `bazaarApi` method inventory for new-chat continuation.
+- 2026-10-12: Started a second pure mapper extraction: `UserProfile`/`mapServerUser` to `src/entities/userProfile.ts`, with compatibility re-export and regression tests. Not yet merged.
