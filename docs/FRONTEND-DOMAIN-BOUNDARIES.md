@@ -1,7 +1,7 @@
 # Frontend Domain Boundaries and Extraction Inventory
 
 **Last updated:** 2026-10-13  
-**Latest verified deployed commit:** `7edd96455a57da73d76e03fdea817d30e629b577` (`READY`, deployment `dpl_13kh7LcMfTADMQNUfdKte1V9JEHm`). PR #66's Seller product mapper extraction and PR #67's docs checkpoint are merged. No AppContext state/API-domain refactor has been merged.
+**Latest main commit:** `895864adcd0df99b06f93e41b33b0daa0fba1a1b` (docs-only PR #68; CI passed). **Latest verified READY deployment:** `7edd96455a57da73d76e03fdea817d30e629b577`, deployment `dpl_13kh7LcMfTADMQNUfdKte1V9JEHm`. No AppContext state/API-domain refactor has been merged.
 
 ## Purpose
 
@@ -257,3 +257,28 @@ Do not assume a returned empty array means the server had no records; it can als
 - [ ] Resolve `LiveOrderMap` ownership only after searching all import sites.
 - [ ] Check the latest workflow report for authenticated five-role tests being skipped; do not infer their execution from a green browser job.
 - [ ] Keep this map marked partial until every row has evidence and review.
+
+
+## Buyer and auth nested-consumer trace — 13 October 2026
+
+| Consumer | Context/API dependencies observed | Polling / effects | Risk / constraint |
+|---|---|---|---|
+| `Buyer/CartDrawer.tsx` | `useApp()`; exact destructured members should be recorded from full declaration before extraction | No timer/storage effects observed in current file scan | Shared cart shell; preserve cart and overlay state compatibility. |
+| `Buyer/CheckoutModal.tsx` | `cart`, `cartCalculations`, `createOrder`, `user` from `useApp` | One timeout in checkout UI | `createOrder` can place a transactional order. Do not exercise against shared real data in E2E smoke. |
+| `Buyer/CompareSellersModal.tsx` | `products`, `sellers`, `addToCart`, `openChatForProduct`, `setIsCartOpen` | No timer/storage effects observed | Mixes catalogue, seller display, cart and chat entry points; avoid assigning ownership based on component folder alone. |
+| `Buyer/DailyHelpHome.tsx` | `user`, `showToast`; direct API: `getDailyHelpServices`, `getLatestDailyHelpBooking`, `getDailyHelpBooking`, `getDailyHelpAvailableSlots`, `createDailyHelpBooking` | Booking refresh every 5s for `IN_PROGRESS`, otherwise 15s; elapsed-time display ticks every second while active | Booking creation is transactional; timer and refresh intervals must be cleaned up and stale requests guarded before moving code. |
+| `Buyer/OrderTrackingModal.tsx` | `orders` from `useApp`; direct API: `getLiveTracking` | Tracking/OTP-related refresh every 5s | Overlaps with Delivery's `LiveOrderMap` polling. Determine whether both request identical data before extraction. |
+| `Auth/AuthPage.tsx` (legacy-looking) | `loginWithOtp`, `registerUserWithOtp`, `showToast`; direct `sendOtp` and `verifyOtp` calls | Countdown via recursive timeout; delayed OTP input focus | Do not delete or merge until import/route reachability is verified. Preserve OTP flow semantics. |
+| `Auth/BuyerRegistrationPage.tsx` | `registerUserWithOtp`, `showToast`; direct `checkRegistration`, `sendOtp`, `verifyOtp` | Countdown timeout | Auth/OTP-critical; route and error handling need explicit tests. |
+| `Auth/GmailAuthModal.tsx` | `loginWithGoogle`, `user`, and registration modal setters | No timer/storage effects observed in current scan | Shared authentication modal toggles role-specific registration UI; preserve shell/context facade. |
+| `Buyer/BuyerHome.tsx`, `SearchSuggestions.tsx`, `ProductCard.tsx`, `ProductDetailsModal.tsx` | No direct `useApp`/API call observed in their individual source snapshots (some are prop-driven) | No timer/storage effects observed in current scan | Trace parent-prop handlers before moving components. |
+
+### Important distinction: tracking and booking
+
+- `DailyHelpHome` is buyer-facing discovery and booking; `DailyHelpProfessionalDashboard` is provider-facing job execution. Do not combine them into one role module.
+- `OrderTrackingModal` and `LiveOrderMap` both consume live tracking. Delivery imports `LiveOrderMap` from the Buyer folder. Before relocating tracking UI, search all imports and compare payload fields used by both components.
+- Checkout `createOrder` and Daily Help `createDailyHelpBooking` are transactional paths. Keep the existing read-only smoke workflow from calling either.
+
+### Inventory status
+
+The scan covered all 38 `src/**/*.ts` and `src/**/*.tsx` paths for direct `useApp()`, `bazaarApi`, storage, timer and listener markers, with focused source inspection of the major role dashboards and Buyer/Auth consumers. This is a broad direct-call survey, **not yet a complete transitive contract map**: remaining work includes exact destructured fields in several shell/modal components, all endpoint payloads and response shapes, full error/fallback coverage, all storage writes and cleanup behavior, and mutation classification. Keep the required checklist above unchecked until those are traced and reviewed.
