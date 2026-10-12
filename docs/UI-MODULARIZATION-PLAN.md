@@ -1,6 +1,6 @@
 # Frontend Modularisation Baseline and Execution Plan
 
-**Status:** PR #66's pure Seller product mapper extraction is merged and deployed. Main and verified Vercel deployment are on `9ee871abfb60d86cce3a396b816bf778e99f8e5d`; post-merge workflow #38298764709 passed all three jobs. AppContext state/API-domain extraction has not started; the transitive dependency map remains incomplete.
+**Status:** PR #66's pure Seller product mapper extraction and PR #67's documentation checkpoint are merged. Main and verified Vercel deployment are on `7edd96455a57da73d76e03fdea817d30e629b577`; post-merge workflow #38300351263 passed all three jobs. AppContext state/API-domain extraction has not started; the transitive dependency map remains incomplete.
 **Baseline branch:** `main`  
 **Original architecture baseline commit:** `1c43319281573d23f1b22e1bc97f64ae5548e292`  
 **Scope:** Frontend only. Preserve current user-facing behaviour, Spring Boot API contracts, Oracle schema/data, and the existing single environment designated staging by the owner.
@@ -326,3 +326,12 @@ A read-only source pass now records direct API method names for Seller, Delivery
 - This remains a pure mapper boundary. No endpoint, CRUD semantics, AppContext state/action, auth/session, localStorage, OTP, backend contract, or database schema/data behavior changed.
 - Do not infer authenticated five-role E2E coverage from the green browser job; verify per-role test report status (passed vs skipped).
 - **Next:** complete the transitive dependency inventory in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`, including indirect API calls, request/response and error/fallback contracts, storage/session reads, timers/listeners, and mutation classification. No broader runtime extraction until that checklist is complete.
+
+
+## Source-tracing checkpoint — 13 October 2026
+
+- PR #67 merged at `7edd96455a57da73d76e03fdea817d30e629b577`; post-merge workflow #38300351263 passed frontend, backend, browser E2E, and read-only API smoke checks.
+- Vercel deployment `dpl_13kh7LcMfTADMQNUfdKte1V9JEHm` is `READY` on the exact main SHA.
+- A read-only source pass documented polling cadence and API failure semantics in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`: shared backend sync 45s, Delivery jobs 10s, LiveOrderMap tracking 5s, Daily Help Provider refresh 10s plus active timer tick 1s, Admin refresh 45s.
+- `bazaarApi` methods do not share one error contract. Some catch failures and return empty/default values (`null`, `[]`, `false`), some return structured result objects, and others throw. Preserve the observed contract in any future domain grouping.
+- **Next gate:** finish the endpoint/payload/error/fallback inventory and mutation classification for every consumer. No AppContext state/API-domain extraction until that map is explicitly marked complete and reviewed.

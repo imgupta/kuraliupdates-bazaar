@@ -1,9 +1,9 @@
 # KuraliUpdates Bazaar — ChatGPT Continuation Handoff
 
-**Last updated:** 2026-10-12 (Asia/Kolkata)  
+**Last updated:** 2026-10-13 (Asia/Kolkata)  
 **Repository:** https://github.com/imgupta/kuraliupdates-bazaar  
-**Latest merged runtime commit:** `a1ea642f4cf201053088d820dce3dced469b5bf2` · **latest merged main commit:** `44374253b5fe3a5d65d946ffbece37d0b3cd1704` · **live alias commit:** `44374253b5fe3a5d65d946ffbece37d0b3cd1704`  
-**Current state (verified 2026-10-12):** PR #65 merged as `44374253b5fe3a5d65d946ffbece37d0b3cd1704`; workflow run `38296784536` passed frontend, backend, browser E2E and read-only API smoke checks. Vercel deployment `dpl_GChRk727VyTCu2d6zBwThFVPE2NZ` is `READY` and custom-domain aliases include `kuraliupdates.com`, `www.kuraliupdates.com`, and `bazaar.kuraliupdates.com`. A read-only fetch of `www.kuraliupdates.com` returned HTTP 200. The Vercel build-rate-limit blocker is no longer blocking this deployment. PR #65 changed documentation only; it did not change runtime behavior.
+**Latest merged runtime commit:** `9ee871abfb60d86cce3a396b816bf778e99f8e5d` · **latest merged main commit:** `7edd96455a57da73d76e03fdea817d30e629b577` · **verified Vercel deployment commit:** `7edd96455a57da73d76e03fdea817d30e629b577`  
+**Current state (verified 2026-10-13):** PR #66 runtime mapper extraction and PR #67 documentation checkpoint are merged. PR #67 merge SHA is `7edd96455a57da73d76e03fdea817d30e629b577`. Post-merge workflow run #38300351263 passed frontend checks, backend tests, browser E2E, and read-only API smoke checks. Vercel deployment `dpl_13kh7LcMfTADMQNUfdKte1V9JEHm` is `READY` on the exact main SHA and aliases include the root, www, and bazaar domains. A successful browser job does not by itself prove all five authenticated role flows ran rather than skipped.
 
 > Read this file first when continuing work in a new chat. Then read `docs/UI-MODULARIZATION-PLAN.md` and `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. Always re-check GitHub and Vercel state before acting; this file is a checkpoint, not a live status feed.
 
@@ -188,3 +188,12 @@ Use absolute commit SHAs and direct PR/run/deployment URLs. Distinguish verified
 - **E2E caveat:** a successful browser job is not proof that authenticated buyer, seller, delivery agent, daily-help provider, and admin journeys ran non-skipped. Check the report and required secrets before claiming full role-flow coverage.
 - **Immediate next action:** update this handoff and the two architecture documents in a docs-only PR; then continue read-only tracing of transitive `useApp()` and `bazaarApi` dependencies, payload/error/fallback semantics, timers/listeners, and mutation classification. Do not begin AppContext/API-domain extraction until the dependency map is complete.
 - **Architecture decision:** retain a modular monolith in the existing React app; do not create five separately deployed frontends in this phase. Preserve the single environment designated staging and keep routine live checks read-only.
+
+
+## Source-tracing checkpoint — 13 October 2026
+
+- PR #67 merged as `7edd96455a57da73d76e03fdea817d30e629b577`; post-merge CI #38300351263 passed all three jobs. Exact-SHA Vercel deployment `dpl_13kh7LcMfTADMQNUfdKte1V9JEHm` is `READY`.
+- Read-only source pass expanded the dependency evidence in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`; this remains documentation only.
+- Newly recorded cadence/effect details: AppContext backend sync every 45 seconds; Delivery job refresh every 10 seconds and geolocation publish throttled to >=10 seconds / >=15 m movement with a 30-second heartbeat; LiveOrderMap reads tracking every 5 seconds; Daily Help Provider refreshes every 10 seconds and ticks service duration every second while an active started job exists; Admin dashboard refreshes every 45 seconds; auth UI has countdown/focus timeouts and API send/verify OTP timeout guards.
+- API failure contracts are mixed: methods return `null`, `[]`, `false`, or structured result objects in some cases and throw errors in others. Keep this inconsistency documented as current behavior; do not normalize it as part of a pure extraction.
+- Next: continue tracing remaining API methods and request/response payloads, classify storage/network effects and mutation risk, then review the map for completeness before proposing any state/API refactor. Keep all live smoke checks read-only and do not use shared real data for transactional tests.
