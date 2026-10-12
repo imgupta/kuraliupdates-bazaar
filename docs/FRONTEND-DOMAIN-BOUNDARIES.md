@@ -132,3 +132,57 @@ At minimum inspect `src/components/Buyer/BuyerAccountPage.tsx`, `src/components/
 - 2026-10-12: PR #61 merged the saved-address mapper/type into `src/entities/address.ts`; `AppContext` re-exports the type. Exact-head CI and post-merge CI passed, and the merged deployment is `READY`.
 - 2026-10-12: Added the current AppContext public compatibility contract and direct `bazaarApi` method inventory for new-chat continuation.
 - 2026-10-12: PR #63 merged `UserProfile`/`mapServerUser` into `src/entities/userProfile.ts`, with compatibility re-export and regression tests. CI #38211026737 and post-merge CI #38211155596 passed; exact PR preview is `READY`. Main alias still points to `5a89345d`, so deployment verification remains a gate.
+
+
+## Dependency-map checkpoint — 13 October 2026
+
+This is a **partial, source-informed map**, not yet a complete transitive call graph. The direct consumer survey above remains the current evidence; before runtime extraction, trace child props and indirect `AppContext` actions to API methods, storage, timers, and mutation effects.
+
+| Consumer / area | Confirmed dependency surface | Side-effect risk | Next read-only trace |
+|---|---|---|---|
+| Buyer account | `user`, `orders`, `updateUserProfile`, `createBuyerAddress`, `updateBuyerAddress`, `setDefaultBuyerAddress`, `showToast`; pure `toSavedAddress` and `mapServerUser` helpers | Medium: profile/address writes and refresh ordering | Trace mapper callers, address refresh and default selection; preserve zero coordinates and server-ID fallback. |
+| Buyer home/catalogue | Mostly props from `App.tsx`; shared catalogue/seller data crosses buyer and seller ownership | Medium: cart, coupon, checkout and order creation are reachable in composed app | Trace `App.tsx` props and child handlers before deciding Buyer state ownership. |
+| Seller dashboard | Context: `user`, `setIsSellerRegisterOpen`, `showToast`. Direct APIs: `getCurrentSeller`, `getSellerProducts`, `getSellerOrders`, `getSellerDiscounts`, `updateSellerProduct`, `createSellerProduct`, `deleteSellerProduct`, `createSellerDiscount`, `deleteSellerDiscount`, `updateSellerOrderStatus` | High: product/discount CRUD and order status updates | Record request/response contracts and error handling; do not combine API split with UI relocation. |
+| Delivery dashboard | Context: `currentAgent`, `deliveryAgents`, `orders`, `claimDeliveryJob`, `completeDelivery`, `setIsDeliveryRegisterOpen`, `showToast`, `syncWithBackend`. Direct APIs: `getCurrentDeliveryAgent`, `getDeliveryAvailableJobs`, `updateDeliveryLocation`, `resendDeliveryOtp`; imports `LiveOrderMap` from Buyer | High: claim, OTP, status and location updates | Trace each handler, timer cleanup and map props; move truly shared map UI only after checking all consumers. |
+| Daily Help Provider | Context: `user`, `showToast`. Direct APIs: `getDailyHelpProfessionalByPhone`, `getDailyHelpProfessionalAvailableJobs`, `getDailyHelpProfessionalJobs`, `getDailyHelpProfessionalEarnings`, `getDailyHelpProfessionalSlots`, `registerDailyHelpProfessional`, `updateDailyHelpProfessionalAvailability`, `acceptDailyHelpJob`, `updateDailyHelpBookingStatus`, `startDailyHelpBooking`, `completeDailyHelpBooking`, `createDailyHelpProfessionalSlot`, `cancelDailyHelpProfessionalSlot` | High: accept/start/complete and slot mutations | Separate provider-owned state from buyer catalogue/booking; document timer/polling cleanup and mutation failures. |
+| Admin | Context: `user`, `sellers`, `approveSeller`, `rejectSeller`, `approveDeliveryAgent`, `rejectDeliveryAgent`, `deliveryAgents`, `orders`, `products`, `setRole`, `setIsGmailAuthOpen`, `showToast`. Direct APIs: `getAdminSellers`, `getPendingSellers`, `getAdminDeliveryAgents`, `getAdminAnalytics`, `getAdminBuyers`, `getAdminSearchTrends`, `getAdminDailyHelpServices`, `getAdminDailyHelpHelpers`, `getAdminDiagnostics`, `approveSeller`, `rejectSeller`, `approveDeliveryAgent`, `rejectDeliveryAgent`, `updateAdminDailyHelpService`, `createAdminDailyHelpService` | High: approvals and CRUD; server authorization must remain authoritative | Separate read-only dashboard queries from mutations; trace all remaining handlers and never run live mutation tests. |
+| Header / shell | Context: `role`, `setRole`, `registeredRoles`, `user`, `logout`, `cart`, `setIsCartOpen`, `sellers`, `currentSeller`, `orders`, `setIsGmailAuthOpen`, `products`; imports `SearchSuggestions` from Buyer | High for auth/session regressions; shared UI state | Keep one auth/session source and existing storage keys; test direct route, refresh, Back/Forward and My Account. |
+| Auth page | Context: `loginWithOtp`, `registerUserWithOtp`, `showToast`. Direct APIs: `checkRegistration`, `sendOtp`, `verifyOtp`, `getOnboardingStatus`; uses timeout cleanup | Critical: auth/session/OTP semantics | Exclude from early extraction; do not change OTP behavior, token keys, or session persistence. |
+
+### Required completion before choosing a state/API extraction
+
+- [ ] Search every `useApp()` call site and capture the exact fields/actions consumed, including child components.
+- [ ] Inventory every `bazaarApi` method call by consumer, including indirect calls through `AppContext`.
+- [ ] Record local/session storage, polling/timers, event listeners, and network effects per consumer.
+- [ ] Classify each operation as read-only or backend-mutating and identify protecting tests.
+- [ ] Resolve the Delivery → Buyer-folder `LiveOrderMap` dependency and document whether it is generic shared UI or a domain-owned feature.
+- [ ] Verify the merged user-profile mapper SHA is live and read-only smoke checks run before runtime changes resume.
+
+
+## Continuation checkpoint — 13 October 2026
+
+- Latest `main` documentation checkpoint: `f2c354037ab2b25ba0f54397c2f535dd7325017d`.
+- Latest merged runtime change remains the pure user-profile mapper in PR #63 (`a1ea642f4cf201053088d820dce3dced469b5bf2`); its CI passed, but that merged SHA is not yet confirmed on the live custom-domain aliases.
+- Current verified alias is still deployment `dpl_HDZsaUHWJ9wJfKVrvCAkxbzRzhfm`, commit `5a89345dfe26b078e57fe9f30dc83656ebb834ee`.
+- A newer Vercel preview exists for `feat/staging-e2e-otp-capture` at `996ba97d`, but it is not the main deployment and does not satisfy the mapper deployment gate.
+- Vercel's check for `a1ea642f` reports a build-rate-limit failure (`upgradeToPro=build-rate-limit`). Do not retry repeatedly, bypass quota, or change billing/security settings automatically.
+- Continue with read-only inventory and documentation only until a main deployment for `a1ea642f` is visible and read-only route/API smoke checks are confirmed. No backend, database, OTP/auth, localStorage, or runtime behavior changes in this checkpoint.
+
+
+### Additional source evidence — direct API and shared-context bridge
+
+The following method lists were extracted from the current `main` source snapshot and represent **direct call sites only**; they do not yet constitute full payload/error-contract tracing.
+
+| Bridge / file | Observed API methods or effects | Implication |
+|---|---|---|
+| `src/context/AppContext.tsx` → `bazaarApi` | `updateCurrentUser`, `createBuyerAddress`, `updateBuyerAddress`, `setDefaultBuyerAddress`, `getBuyerAddresses`, `getDeliveryAvailableJobs`, `checkHealth`, `searchProducts`, `getPendingSellers`, `getPendingDeliveryAgents`, `getMe`, `getRegisteredRoles`, `logout`, `registerSeller`, `approveSeller`, `rejectSeller`, `approveDeliveryAgent`, `rejectDeliveryAgent`, `addProduct`, `placeOrder`, `claimDeliveryJob`, `verifyDeliveryOtp`, `registerDeliveryAgent` | These calls make `useApp` a compatibility facade over multiple domains. Trace each exposed action to exact endpoint, request shape, error/fallback semantics, and mutation classification before splitting state. This list is not exhaustive of the full `bazaarApi` object. |
+| `src/services/api.ts` | Reads `kurali_auth_token` and `kurali_user_id` from `localStorage`; API base URL can come from `VITE_API_BASE_URL`, otherwise falls back to the documented Render `/api/v1` endpoint; request timeout helpers are present | Keep one transport/auth-header/error contract. Do not rename storage keys or change API base selection during domain extraction. |
+| `src/App.tsx` | Composes all role dashboards, shared Header, buyer cart/checkout/tracking/chat overlays; listens for browser `popstate`; root context reads role/session state | Shell extraction should be composition-only first; route and overlay ownership must be explicit before splitting into app builds. |
+| Delivery + Daily Help Provider + Admin dashboards | Each has `useEffect`-driven async work; Delivery and Daily Help Provider have intervals with cleanup; Admin also has interval-related code | Before moving components, trace interval cadence, cancellation, stale responses, and whether refresh triggers writes. Do not change polling semantics in a pure move. |
+| `src/components/Buyer/BuyerHome.tsx` | No direct `useApp` or `bazaarApi` calls in the file snapshot; main dependencies are passed as props | Buyer state ownership is likely in `App.tsx`/descendants; trace prop graph rather than moving this component in isolation. |
+
+
+- 2026-10-13: Source-read-only pass added exact direct `bazaarApi` call-site inventories for Seller, Delivery, Daily Help Provider, Admin, Auth and the AppContext bridge. The dependency map remains partial pending payload/error/side-effect tracing.
+
+
+- CI caveat (13 October 2026): workflow run #42 (`38296500979`) was created for earlier PR head `1be287fee41e8429941de20c346a455ac6769449`. The docs have since been expanded and the current PR head is newer (`a912fff08094d293912b4dde6e7c1fc3aa333eb5` at the time of this note). Therefore run #42 does **not** validate the latest PR head. At last check its backend and frontend jobs passed, but the browser/read-only API smoke job was still in progress. Do not merge until a successful run is associated with the current head and its required checks are complete.

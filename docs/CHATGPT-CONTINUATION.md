@@ -141,3 +141,27 @@ At the end of each meaningful work session, update:
 3. `docs/FRONTEND-DOMAIN-BOUNDARIES.md`: dependency mapping and extraction progress.
 
 Use absolute commit SHAs and direct PR/run/deployment URLs. Distinguish verified, pending, skipped, blocked, and inferred facts. Never state a deployment or authenticated workflow succeeded unless tool results prove it.
+
+
+## 9. Continuation update — 13 October 2026
+
+### Rechecked live state
+- Current `main` docs checkpoint: `f2c354037ab2b25ba0f54397c2f535dd7325017d`.
+- PR #63 runtime merge: `a1ea642f4cf201053088d820dce3dced469b5bf2`; post-merge CI was recorded as passing in prior checkpoint.
+- Current custom-domain aliases still point to READY deployment `dpl_HDZsaUHWJ9wJfKVrvCAkxbzRzhfm`, SHA `5a89345dfe26b078e57fe9f30dc83656ebb834ee`.
+- Vercel's status check for `a1ea642f` is failure with `upgradeToPro=build-rate-limit`. A READY preview on branch `feat/staging-e2e-otp-capture` at `996ba97da84daf0c1b163cf5b9ebd4b32cfe4f78` is not the main alias and is not proof the mapper change is live.
+
+### Next action
+1. Do not make runtime changes or attempt to bypass the Vercel quota gate.
+2. Continue read-only dependency mapping across all `useApp()` consumers and direct/indirect `bazaarApi` calls.
+3. Keep this handoff, `docs/UI-MODULARIZATION-PLAN.md`, and `docs/FRONTEND-DOMAIN-BOUNDARIES.md` aligned.
+4. Resume runtime extraction only after a main deployment for `a1ea642f` is visible and read-only API/route smoke checks are confirmed executed.
+
+
+### Read-only dependency inventory progress
+- Added direct call-site names for each role dashboard and the AppContext-to-API bridge to `docs/FRONTEND-DOMAIN-BOUNDARIES.md`.
+- This is not a complete transitive API contract map; payloads, error/fallback behavior, timers, and mutation paths still need tracing.
+- PR #65 is open as a draft. CI run #42 was in progress at last check; backend and frontend jobs passed, while the browser job was still running read-only API smoke. Check the latest run before merge or changing this branch.
+
+
+- CI caveat (13 October 2026): workflow run #42 (`38296500979`) was created for earlier PR head `1be287fee41e8429941de20c346a455ac6769449`. The docs have since been expanded and the current PR head is newer (`a912fff08094d293912b4dde6e7c1fc3aa333eb5` at the time of this note). Therefore run #42 does **not** validate the latest PR head. At last check its backend and frontend jobs passed, but the browser/read-only API smoke job was still in progress. Do not merge until a successful run is associated with the current head and its required checks are complete.
