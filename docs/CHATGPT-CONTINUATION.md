@@ -197,3 +197,14 @@ Use absolute commit SHAs and direct PR/run/deployment URLs. Distinguish verified
 - Newly recorded cadence/effect details: AppContext backend sync every 45 seconds; Delivery job refresh every 10 seconds and geolocation publish throttled to >=10 seconds / >=15 m movement with a 30-second heartbeat; LiveOrderMap reads tracking every 5 seconds; Daily Help Provider refreshes every 10 seconds and ticks service duration every second while an active started job exists; Admin dashboard refreshes every 45 seconds; auth UI has countdown/focus timeouts and API send/verify OTP timeout guards.
 - API failure contracts are mixed: methods return `null`, `[]`, `false`, or structured result objects in some cases and throw errors in others. Keep this inconsistency documented as current behavior; do not normalize it as part of a pure extraction.
 - Next: continue tracing remaining API methods and request/response payloads, classify storage/network effects and mutation risk, then review the map for completeness before proposing any state/API refactor. Keep all live smoke checks read-only and do not use shared real data for transactional tests.
+
+
+## Buyer/auth consumer trace extension — 13 October 2026
+
+- PR #68 merged as `895864adcd0df99b06f93e41b33b0daa0fba1a1b`; its PR-head CI and post-merge main CI run #38300661109 passed all three jobs.
+- The latest Vercel deployment verified so far is still the READY deployment for `7edd96455a57da73d76e03fdea817d30e629b577`. PR #68 is docs-only; do not imply a deployment of `895864ad` has been verified until Vercel metadata ties a READY deployment to that exact SHA.
+- The source inventory now includes Buyer Daily Help discovery/booking and order tracking, checkout/cart children, and both legacy/current OTP auth components. See the per-consumer evidence in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`.
+- Buyer Daily Help is separate from the provider dashboard: it fetches service catalogue/slots/latest booking, polls booking state every 5s while IN_PROGRESS and 15s otherwise, and updates elapsed-time display every second while service is active. Booking creation is transactional and must not run in shared-data smoke tests.
+- `OrderTrackingModal` calls live tracking and refreshes tracking/OTP-related state every 5 seconds. Keep tracking read-only, but verify OTP display semantics before moving it.
+- Both `src/components/Auth/AuthPage.tsx` and `AuthPageV2.tsx` exist and call OTP endpoints; `BuyerRegistrationPage.tsx` also directly checks registration and sends/verifies OTP. Do not remove or consolidate an auth component without confirming route/import reachability and compatibility first.
+- Next: finish call-site inventory for shared overlays and remaining nested components, then classify all API methods/payloads and stale-response cleanup. No runtime extraction yet.
