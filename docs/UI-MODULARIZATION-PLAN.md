@@ -355,3 +355,11 @@ The source survey expanded to nested Buyer and auth components. Details are in `
 - Dependency map has been extended to Buyer Daily Help booking, order tracking, checkout/cart, and auth consumers. A provisional endpoint index has been added, but it is not a substitute for manually verified request/response/error contracts.
 - **Current phase:** read-only dependency analysis and docs only. No AppContext/API-domain extraction until all consumer edges, payload/error/fallback behavior, timers/listeners, storage effects, mutation classification, and protecting tests are documented and reviewed.
 - Keep transactional flows isolated from shared records. Authenticated role tests remain unverified until each role is shown to execute rather than skip.
+
+
+## Current phase — API contract tracing before state extraction
+
+- PR #70 merged as `5645a53bd9221c3c8240d68be881c7396a23d595`; exact-head CI passed. Post-merge workflow and deployment still require explicit verification.
+- Auth/session and buyer-address client contracts are now documented in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`.
+- This remains a documentation and source-inspection phase. Do not begin AppContext state/API-domain extraction until the full consumer graph, request/response contracts, failure/fallback semantics, storage effects, timer cleanup, mutation classes, and regression tests are complete.
+- Keep existing behavior, one session source, API endpoint/body/header/timeout semantics, and the single environment designated staging. Authenticated five-role E2E coverage is not proven by a green job if tests are skipped.
