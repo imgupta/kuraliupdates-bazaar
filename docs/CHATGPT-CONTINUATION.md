@@ -141,3 +141,18 @@ At the end of each meaningful work session, update:
 3. `docs/FRONTEND-DOMAIN-BOUNDARIES.md`: dependency mapping and extraction progress.
 
 Use absolute commit SHAs and direct PR/run/deployment URLs. Distinguish verified, pending, skipped, blocked, and inferred facts. Never state a deployment or authenticated workflow succeeded unless tool results prove it.
+
+
+## 9. Continuation update — 13 October 2026
+
+### Rechecked live state
+- Current `main` docs checkpoint: `f2c354037ab2b25ba0f54397c2f535dd7325017d`.
+- PR #63 runtime merge: `a1ea642f4cf201053088d820dce3dced469b5bf2`; post-merge CI was recorded as passing in prior checkpoint.
+- Current custom-domain aliases still point to READY deployment `dpl_HDZsaUHWJ9wJfKVrvCAkxbzRzhfm`, SHA `5a89345dfe26b078e57fe9f30dc83656ebb834ee`.
+- Vercel's status check for `a1ea642f` is failure with `upgradeToPro=build-rate-limit`. A READY preview on branch `feat/staging-e2e-otp-capture` at `996ba97da84daf0c1b163cf5b9ebd4b32cfe4f78` is not the main alias and is not proof the mapper change is live.
+
+### Next action
+1. Do not make runtime changes or attempt to bypass the Vercel quota gate.
+2. Continue read-only dependency mapping across all `useApp()` consumers and direct/indirect `bazaarApi` calls.
+3. Keep this handoff, `docs/UI-MODULARIZATION-PLAN.md`, and `docs/FRONTEND-DOMAIN-BOUNDARIES.md` aligned.
+4. Resume runtime extraction only after a main deployment for `a1ea642f` is visible and read-only API/route smoke checks are confirmed executed.
