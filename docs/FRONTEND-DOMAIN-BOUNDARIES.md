@@ -378,3 +378,40 @@ Source: `src/services/api.ts` at main baseline `ddb67904e14b8d75840389581d4a6c0b
 - Vercel deployment `dpl_CRKcGhvm2HMzFWzNhQEgRYWQXeQe` is READY for the exact merged SHA; aliases include `kuraliupdates.com`, `www.kuraliupdates.com`, and `bazaar.kuraliupdates.com`.
 - PR #69 only extended dependency documentation; no runtime behavior changed. The complete transitive dependency map is still **not complete**, and authenticated E2E for all five roles remains unproven until non-skipped role test results are inspected.
 - Next bounded task: manually verify the endpoint index against all `bazaarApi` exports and add payload/error/timeout details for one domain at a time. Do not begin state/API extraction yet.
+
+
+## Auth/profile API contract trace — source inspection, 13 October 2026
+
+Source reviewed: `src/services/api.ts`, blob `ddb67904e14b8d75840389581d4a6c0bcd8a5367`. These are client-side contracts as implemented, not a substitute for backend controller/security verification. Keep the behavior exactly as-is during modularisation.
+
+| Method | Request contract | Auth / timeout | Response and failure contract | Effect |
+|---|---|---|---|---|
+| `checkRegistration(email, phone, role)` | `POST /auth/registration-check`; JSON `{ email, phone, role }` | No bearer header; no explicit timeout | Parses JSON, defaulting to `{}`; non-2xx returns `{success:false,message: server message or fallback}`; network failure returns fixed unavailable message | Read-like registration eligibility check despite POST verb; backend semantics still need confirmation |
+| `sendOtp(identifier, type, mode)` | `POST /auth/send-otp`; JSON `{identifier,type,mode}`; type EMAIL/PHONE, mode LOGIN/REGISTER | No bearer header; AbortController at 30s | Parses JSON with fallback; LOGIN+404 has a specific “register first” message; other non-2xx returns server/fallback message; abort/network error returns structured failure | External/auth side effect; must not be triggered in routine live smoke |
+| `verifyOtp(payload)` | `POST /auth/verify-otp`; sends the supplied typed payload as JSON (includes optional role/profile/onboarding fields and OTP fields) | No bearer header in this request; 60s AbortController, always cleared in `finally` | Non-2xx returns structured failure using server message; malformed JSON returns invalid-response message; abort explicitly warns the OTP may need a fresh request; other network errors return unavailable | Critical transactional auth/session operation: consumes OTP and creates session; never exercise against shared data without isolated staging test mechanism |
+| `getOnboardingStatus(token, role?)` | `GET /auth/onboarding-status`, optional encoded `role` query | Explicit Bearer token; no explicit timeout | JSON parse fallback `{success:false}`; non-2xx returns structured failure; catch returns structured failure with error message | Read |
+| `getMe(token)` | `GET /auth/me?token={encoded token}` | Bearer header **and** token in query string; 4s AbortController | Successful response JSON returned as-is; non-OK, timeout, or network error collapses to `{authenticated:false}`; logs caught error message | Read/session validation; token-in-query is existing behavior and must not be changed in this extraction |
+| `getRegisteredRoles(token)` | `GET /auth/me/roles` | Bearer token; no explicit timeout | Returns `data.roles` only when `data.success` and array; non-OK, malformed shape, or exception defaults to `['BUYER']` | Read; fallback can mask a failed role lookup |
+| `logout(token)` | `POST /auth/logout`; JSON `{token}` | Bearer header and body token; no explicit timeout | Ignores network errors and always returns success-shaped `{success:true,message:'Logged out successfully'}` | Auth/session mutation; UI success does not prove server invalidation |
+| `updateCurrentUser(token, updates)` | `PUT /auth/me`; JSON updates object | Bearer token; no explicit timeout | Parses response or fallback; non-OK and network error return structured failure | Profile mutation |
+| `getBuyerAddresses(token)` | `GET /auth/me/addresses` | Bearer token; no explicit timeout | Only array JSON is accepted; non-OK, non-array, or exception returns `null` | Read; `null` does not mean an empty address list |
+| `createBuyerAddress(token, address)` | `POST /auth/me/addresses`; JSON address object | Bearer token; no explicit timeout | Parses JSON with null fallback; returns response JSON only if OK, otherwise `null` | Profile/address mutation |
+| `updateBuyerAddress(token, addressId, address)` | `PUT /auth/me/addresses/{encoded addressId}`; JSON address object | Bearer token; no explicit timeout | Parses JSON with null fallback; returns JSON only if OK, otherwise `null` | Profile/address mutation |
+| `setDefaultBuyerAddress(token, addressId)` | `PUT /auth/me/addresses/{encoded addressId}/default`; no body | Bearer token; no explicit timeout | Parses JSON with null fallback; returns JSON only if OK, otherwise `null` | Profile/address mutation |
+
+### Contract observations and cautions
+
+- OTP send/verify calls do not attach a bearer token in their request options; this is distinct from session-protected methods.
+- `getMe` transmits the token in both the query string and Authorization header. Record this as existing behavior, not as a recommendation; any security change requires a separately scoped backend/client review.
+- `getRegisteredRoles` falls back to BUYER on request or shape failure. Do not interpret this fallback as proof that BUYER is the only registered role.
+- `logout` reports success even when the network request fails. Session clearing elsewhere in the caller must be traced separately.
+- Address reads distinguish failure (`null`) from an empty array; address writes also return `null` on non-OK/network failure. Trace AppContext callers to determine whether they preserve or hide that distinction.
+- No runtime change was made. This trace is based on client source only; server-side validation, authorization, OTP persistence, and endpoint idempotency are not asserted here.
+
+### Next API contract slice
+
+- [ ] Trace Seller read/create/update/delete payloads, response mapping, token headers, and method-specific fallback behavior.
+- [ ] Trace Delivery job/location/OTP requests; separate GET reads from POST writes, including OTP resend and location publication.
+- [ ] Trace Daily Help booking versus provider job/slot operations; classify booking create/start/complete as transactional.
+- [ ] Trace Admin read endpoints separately from approvals and service CRUD.
+- [ ] Validate all 72 indexed methods against the actual `bazaarApi` object and call sites. The initial index is provisional, especially where methods contain multiple fetch calls.
