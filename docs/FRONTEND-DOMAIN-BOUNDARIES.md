@@ -1,7 +1,7 @@
 # Frontend Domain Boundaries and Extraction Inventory
 
 **Last updated:** 2026-10-13  
-**Latest verified deployed commit:** `9ee871abfb60d86cce3a396b816bf778e99f8e5d` (`READY`, deployment `dpl_F1uvjC9QwBPdqPYJ6LH7eCkmQw6K`). PR #66's Seller product mapper extraction is merged and deployed. No AppContext state/API-domain refactor has been merged.
+**Latest verified deployed commit:** `7edd96455a57da73d76e03fdea817d30e629b577` (`READY`, deployment `dpl_13kh7LcMfTADMQNUfdKte1V9JEHm`). PR #66's Seller product mapper extraction and PR #67's docs checkpoint are merged. No AppContext state/API-domain refactor has been merged.
 
 ## Purpose
 
@@ -219,3 +219,41 @@ The following method lists were extracted from the current `main` source snapsho
 - The map remains **partial**. Still trace each consumer's indirect `AppContext` actions to exact `bazaarApi` method/endpoint and request shape, response mapping, error/fallback behavior, storage/session effects, polling/timer/listener cleanup, and read-only vs mutating classification.
 - Keep Delivery's import of `LiveOrderMap` from the Buyer folder explicitly unresolved until all consumers, props, and behavior are inspected.
 - Do not start AppContext state/API-domain extraction until the required completion checklist below is fully checked. Preserve the modular-monolith approach and the one environment designated staging.
+
+
+## Read-only side-effect and cadence trace — 13 October 2026
+
+This section records source-observed behavior, not runtime test results. Line references are relative to the verified `main` source snapshot at `7edd96455a57da73d76e03fdea817d30e629b577`; source files were fetched read-only.
+
+| Area | Observed dependency / cadence | Current risk and extraction constraint |
+|---|---|---|
+| `src/context/AppContext.tsx` | Reads/writes browser local storage through helpers; bridges profile/address writes and multiple `bazaarApi` methods. Calls backend sync every 45 seconds. A separate 45-second refresh path also loads delivery jobs. | Context is a compatibility facade, not a single domain store. Keep storage keys and refresh ordering stable. Review async completion ordering before splitting. |
+| `src/services/api.ts` | Base URL is `VITE_API_BASE_URL` or the Render `/api/v1` fallback. Auth headers read `kurali_auth_token`; user-related calls also read `kurali_user_id`. Health has an 8-second abort timer; send OTP uses a 30-second timeout; verify OTP uses a 60-second timeout; `getMe` uses 4 seconds. | Transport/auth/error behavior is spread across method implementations. Do not change timeouts, headers, URL selection, or storage semantics during domain grouping. |
+| Seller dashboard / API | Seller reads often return `null` or `[]` after caught errors; create/update/status/discount methods may throw with server message or HTTP status; deletes can return `false` for missing token and throw on HTTP error. | Preserve the current method-specific result/error contract. Do not normalize errors during mapper extraction. Product mapper extraction in PR #66 did not alter these calls. |
+| Delivery dashboard | Refreshes current agent and available jobs every 10 seconds and clears the interval on unmount. Geolocation uses `watchPosition` and `clearWatch`; location posts are throttled to at least 10 seconds, normally require 15 m movement, and use a 30-second heartbeat. OTP resend is a mutating POST. | Location is a backend write, not a read-only smoke operation. Preserve watch cleanup and throttling; never exercise OTP resend in generic smoke tests. |
+| `LiveOrderMap` | Imported by Delivery from `src/components/Buyer/LiveOrderMap.tsx`. Polls `getLiveTracking(orderId)` every 5 seconds and clears interval/blocks state updates after cleanup. Loads Google Maps only when configured with `VITE_GOOGLE_MAPS_API_KEY`. | It is a cross-domain UI dependency with direct API access and map SDK behavior. Move only after checking all consumers and defining a neutral shared location. The current component's fallback center and marker logic are part of existing behavior. |
+| Daily Help Provider dashboard | Loads profile by `user.phone`, then jobs/history/earnings/slots; refreshes every 10 seconds; active service timer display ticks every second and cleans up the interval. Job accept, status, start OTP, complete, availability, and slot methods mutate backend state. | `load` has multiple sequential/parallel requests and updates component state; inspect stale-response/unmount handling before moving it. These mutations must never run against shared real records in routine checks. |
+| Admin dashboard | Root-admin gate guards the dashboard data loader. Eight read calls are grouped with `Promise.all`; refresh repeats every 45 seconds. Seller/delivery approvals and Daily Help service create/update are mutating calls. | Keep the server-side authorization authoritative. Preserve all-or-nothing `Promise.all` behavior and distinguish read-only analytics from approvals/catalogue writes. |
+| Auth page | Calls registration check, OTP send/verify, and onboarding status directly through `bazaarApi`; countdown/focus timers exist with cleanup for the countdown. | Critical auth/session boundary. Preserve OTP timeout and token/session behavior; exclude from early extraction. Verify each timer's cleanup before refactoring. |
+
+### Error/fallback behavior is not uniform
+
+Examples observed in `src/services/api.ts`:
+- `getSellerProducts`, `getSellerOrders`, and `getSellerDiscounts` return `[]` on missing token or caught failure.
+- `getCurrentSeller` returns `null` on missing token or caught failure.
+- `createSellerProduct`, `updateSellerProduct`, `updateSellerOrderStatus`, and discount creation throw when the token is missing or the response is not OK.
+- `deleteSellerProduct` / `deleteSellerDiscount` can return `false` for a missing token; HTTP failures throw.
+- `placeOrder` catches failure and returns `null`; `verifyDeliveryOtp` returns a structured `{success, message}` object; `getLiveTracking` returns `null` on failure.
+- Other API methods have additional per-method variants; this is a representative, not exhaustive, list.
+
+Do not assume a returned empty array means the server had no records; it can also mean the request failed. Any future refactor must preserve or deliberately test the caller's current handling of these fallback values.
+
+### Remaining map tasks
+
+- [ ] Continue through all `bazaarApi` methods, recording endpoint, HTTP method, request payload/query, response mapping, auth header source, timeout, and error/fallback semantics.
+- [ ] Trace all `useApp()` call sites, including nested child components and global shell overlays.
+- [ ] Record each storage read/write and every polling timer/listener/geolocation watch, including cleanup and stale-response protection.
+- [ ] Classify each operation as read-only, profile/catalogue mutation, approval/admin mutation, or transactional order/booking/OTP/location write.
+- [ ] Resolve `LiveOrderMap` ownership only after searching all import sites.
+- [ ] Check the latest workflow report for authenticated five-role tests being skipped; do not infer their execution from a green browser job.
+- [ ] Keep this map marked partial until every row has evidence and review.
