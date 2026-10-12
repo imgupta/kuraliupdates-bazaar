@@ -296,3 +296,8 @@ Read `docs/CHATGPT-CONTINUATION.md` first for the operational handoff and `docs/
 - A newer Vercel preview exists for `feat/staging-e2e-otp-capture` at `996ba97d`, but it is not the main deployment and does not satisfy the mapper deployment gate.
 - Vercel's check for `a1ea642f` reports a build-rate-limit failure (`upgradeToPro=build-rate-limit`). Do not retry repeatedly, bypass quota, or change billing/security settings automatically.
 - Continue with read-only inventory and documentation only until a main deployment for `a1ea642f` is visible and read-only route/API smoke checks are confirmed. No backend, database, OTP/auth, localStorage, or runtime behavior changes in this checkpoint.
+
+
+## Dependency inventory update — 13 October 2026
+
+A read-only source pass now records direct API method names for Seller, Delivery, Daily Help Provider, Admin and Auth, plus the `AppContext` bridge. This remains an inventory, not a behavior change or completed transitive call graph. The next code phase is still blocked on confirming the merged profile-mapper SHA is deployed and read-only smoke is executed. See `docs/FRONTEND-DOMAIN-BOUNDARIES.md` for the current per-consumer evidence and remaining checklist.
