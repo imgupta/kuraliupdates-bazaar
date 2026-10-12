@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-10-12 (Asia/Kolkata)  
 **Repository:** https://github.com/imgupta/kuraliupdates-bazaar  
-**Current `main` commit at last check:** `bcdc2f300cc8c8f5c3f0430d1ef81bb9d809c574`  
-**Current state:** role dashboard routing is merged and deployed; post-merge CI is green. The read-only API smoke step was skipped in run #38209942997 because the workflow variable was empty; branch `ci/enable-staging-readonly-api-smoke` adds a guarded staging-only fallback.
+**Last verified deployed `main` commit:** `96cd0cf36ffee801703c5d5d269e8072f7160a2f`  
+**Current state:** role dashboard routing is deployed; PR #60 made the GET-only staging API smoke run by default with a strict host/path guard. PR #60 merged as `96cd0cf`; post-merge run #38210267860 passed. The runtime extraction in PR branch `refactor/extract-saved-address-mapper` is in progress and must not be merged until its own checks/preview pass.
 
 > Read this file first when continuing work in a new chat. Then read `docs/UI-MODULARIZATION-PLAN.md` and `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. Always re-check GitHub and Vercel state before acting; this file is a checkpoint, not a live status feed.
 
