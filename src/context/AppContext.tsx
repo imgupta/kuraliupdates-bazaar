@@ -14,7 +14,9 @@ import {
 } from '../types';
 import { bazaarApi } from '../services/api';
 import { toSavedAddress, type SavedAddress } from '../entities/address';
+import { mapServerUser, type UserProfile } from '../entities/userProfile';
 export type { SavedAddress } from '../entities/address';
+export type { UserProfile } from '../entities/userProfile';
 import {
   INITIAL_SELLERS,
   INITIAL_PRODUCTS,
@@ -26,31 +28,6 @@ import {
   ADMIN_EMAILS,
   isRootAdminEmail,
 } from '../data/initialData';
-
-export interface UserProfile {
-  email?: string;
-  name: string;
-  avatarUrl: string;
-  phone?: string;
-  locality: string;
-  address?: string;
-  addressLine1?: string;
-  landmark?: string;
-  formattedAddress?: string;
-  placeId?: string;
-  latitude?: number;
-  longitude?: number;
-  sellerId?: string;
-  deliveryAgentId?: string;
-  role: UserRole;
-  isSignedIn: boolean;
-  phoneVerified?: boolean;
-  emailVerified?: boolean;
-  authMethod?: 'otp' | 'google';
-  isAdmin?: boolean;
-  savedAddresses?: SavedAddress[];
-  registeredRoles?: UserRole[];
-}
 
 interface AppContextType {
   // Roles & Auth
@@ -340,21 +317,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     return true;
   };
-
-  const mapServerUser = (serverUser: any, previous: UserProfile): UserProfile => ({
-    ...previous,
-    email: serverUser.email ?? previous.email,
-    name: serverUser.name ?? previous.name,
-    phone: serverUser.phone ?? previous.phone,
-    locality: serverUser.locality ?? previous.locality,
-    address: serverUser.address ?? previous.address,
-    addressLine1: serverUser.addressLine1 ?? previous.addressLine1,
-    landmark: serverUser.landmark ?? previous.landmark,
-    formattedAddress: serverUser.formattedAddress ?? previous.formattedAddress,
-    placeId: serverUser.placeId ?? previous.placeId,
-    latitude: serverUser.latitude ?? previous.latitude,
-    longitude: serverUser.longitude ?? previous.longitude,
-  });
 
   const createBuyerAddress = async (address: SavedAddress): Promise<SavedAddress | null> => {
     const token = safeStorageGet('kurali_auth_token');
