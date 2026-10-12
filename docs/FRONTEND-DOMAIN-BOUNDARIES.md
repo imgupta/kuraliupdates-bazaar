@@ -1,8 +1,7 @@
 # Frontend Domain Boundaries and Extraction Inventory
 
 **Last updated:** 2026-10-12  
-**Last confirmed live alias commit:** `5a89345dfe26b078e57fe9f30dc83656ebb834ee` (`READY`). Latest merged runtime commit `a1ea642f4cf201053088d820dce3dced469b5bf2` is CI-green but not yet visible as a main deployment.  
-**Status:** Pure saved-address mapper (PR #61) and user-profile mapper (PR #63) are merged. User-profile mapper's main deployment is pending confirmation; no AppContext state/API-domain refactor has been merged.
+**Latest verified live alias commit:** `44374253b5fe3a5d65d946ffbece37d0b3cd1704` (`READY`, deployment `dpl_GChRk727VyTCu2d6zBwThFVPE2NZ`). Runtime mapper commits PR #61 and #63 are included in the live branch history. PR #65 updated the dependency-map documentation only. No AppContext state/API-domain refactor has been merged.
 
 ## Purpose
 
@@ -186,3 +185,26 @@ The following method lists were extracted from the current `main` source snapsho
 
 
 - CI caveat (13 October 2026): workflow run #42 (`38296500979`) was created for earlier PR head `1be287fee41e8429941de20c346a455ac6769449`. The docs have since been expanded and the current PR head is newer (`a912fff08094d293912b4dde6e7c1fc3aa333eb5` at the time of this note). Therefore run #42 does **not** validate the latest PR head. At last check its backend and frontend jobs passed, but the browser/read-only API smoke job was still in progress. Do not merge until a successful run is associated with the current head and its required checks are complete.
+
+
+## Current continuation checkpoint — 13 October 2026
+
+### Verified deployment and CI
+- PR #65 merged: https://github.com/imgupta/kuraliupdates-bazaar/pull/65
+- Merge/live SHA: `44374253b5fe3a5d65d946ffbece37d0b3cd1704`.
+- CI run `38296784536` passed all three jobs, including read-only API smoke and browser E2E.
+- Vercel deployment `dpl_GChRk727VyTCu2d6zBwThFVPE2NZ` is `READY` with root, www, and bazaar aliases. Read-only fetch of `https://www.kuraliupdates.com` returned HTTP 200.
+- The earlier deployment quota blocker is cleared.
+
+### Next bounded extraction — Seller product mapper
+- Proposed branch: `refactor/extract-seller-product-mapper`.
+- Source: `src/components/Seller/SellerDashboard.tsx` previously contained a pure `mapProduct(p, seller?)` function used after seller product list reads and product create/update responses.
+- Target: `src/entities/sellerProduct.ts`, exported as `mapSellerProduct`; consumer imports the function and keeps both call sites.
+- Preserve existing response coercions/defaults, nested seller-over-fallback precedence, image fallback, tags normalization, stock availability, and featured flag behavior.
+- Regression suite: `tests/sellerProduct.test.ts`, invoked by the existing `.github/workflows/e2e-login.yml` frontend job.
+- No endpoint, request/response contract, mutation, shared context, auth/session, localStorage, backend, or database changes.
+- Verify exact-head CI and Vercel preview before merge. If checks fail, fix and re-run before moving to another domain.
+
+### Dependency map status
+- The cross-role inventory remains partial for payload/error semantics, timer cancellation/stale responses, and indirect API paths.
+- This pure mapper extraction does not claim the state/API dependency map is complete. Complete that trace before extracting domain state or API clients.
