@@ -32,6 +32,28 @@ Map the current monolithic frontend state and API layer into domains before movi
 | Negotiation/chat | `chats`, `activeChatId`, comparison product, offer/message methods | buyer/seller feature boundaries + shared contract if needed | Keep cross-role ownership explicit; avoid importing a dashboard directly into another role. |
 | Shared UI state | toast, cart drawer, registration modal flags, selected locality, backend status/URL, comparing product, tracking ID | split between shell UI, buyer UI, and backend health/config | Do not move transient shell state into a new global domain store by default. |
 
+
+## Initial consumer/API call-site survey (read-only inventory)
+
+The following observations come from the current `main` snapshot (`1a8c1189`). They are a starting point for the full dependency map, not a complete transitive call graph.
+
+| Consumer | Observed AppContext usage | Direct API usage observed | Extraction implication |
+|---|---|---|---|
+| `src/components/Buyer/BuyerAccountPage.tsx` | `user`, `orders`, `updateUserProfile`, `createBuyerAddress`, `updateBuyerAddress`, `setDefaultBuyerAddress`, `showToast` | None observed in this file | Strong candidate only after saved-address/default/refresh/display behavior is covered. |
+| `src/components/Buyer/BuyerHome.tsx` | No direct `useApp()` in this file | None observed | Receives data/handlers through props; trace parent `App.tsx` and child components before assigning domain ownership. |
+| `src/components/Seller/SellerDashboard.tsx` | `user`, `setIsSellerRegisterOpen`, `showToast` | `getCurrentSeller`, `getSellerProducts`, `getSellerOrders`, `getSellerDiscounts`, seller product CRUD, seller discount CRUD, seller order status update | Seller dashboard already calls the shared API object directly. Avoid simultaneously moving its UI/state and API layer. |
+| `src/components/Delivery/DeliveryDashboard.tsx` | Uses `useApp()`; exact destructured names require inspecting the component header | `getCurrentDeliveryAgent`, `getDeliveryAvailableJobs`, `updateDeliveryLocation`, `resendDeliveryOtp` | Delivery is side-effect sensitive; no OTP or assignment semantics changes. Trace all remaining methods and its map dependency. |
+| `src/components/DailyHelpProfessional/DailyHelpProfessionalDashboard.tsx` | `user`, `showToast` | provider lookup, available/jobs/earnings/slots, provider registration, availability, accept/status, start OTP, complete booking, slot CRUD | Keep provider workflow distinct from buyer-facing Daily Help catalogue/booking. Treat start/complete as transactional. |
+| `src/components/Admin/AdminDashboard.tsx` | Uses `useApp()`; exact destructured names require inspecting the component header | admin sellers/pending sellers/delivery agents/analytics/buyers/search trends/daily-help data/diagnostics, seller/agent approvals, daily-help service CRUD | Admin operations require server authorization and should not be used in smoke tests that mutate data. |
+| `src/components/Header.tsx` | Uses `useApp()`; exact destructured names require inspecting the component header | None observed | Shared shell/navigation boundary. Role selection and route navigation must stay synchronized. |
+| `src/components/Auth/AuthPageV2.tsx` | `loginWithOtp`, `registerUserWithOtp`, `showToast` | registration check, OTP send/verify, onboarding status | Keep out of role module extraction until routing and domain boundaries are stable. No OTP semantics changes. |
+
+### Immediate next analysis task
+
+Before choosing the first runtime extraction, inspect the full destructuring and callback use in each consumer above, then map each action through `AppContext` to the exact `bazaarApi` method and any local-storage/backend-sync effect. Mark actions as read-only, user-data mutation, or transactional. This is especially important because Seller, Delivery, Daily Help Provider, and Admin dashboards already call `bazaarApi` directly instead of relying exclusively on AppContext.
+
+Do not claim these components are fully decoupled merely because direct calls are visible. The current architecture mixes direct API access with shared context; migration must preserve this mixed contract until each module is deliberately moved.
+
 ## Suggested extraction sequence
 
 1. **First, map consumers and dependencies.** Search all `useApp()` consumers and record which fields/actions each role uses. Do not infer ownership solely from names.
