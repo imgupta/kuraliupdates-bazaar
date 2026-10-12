@@ -232,8 +232,8 @@ Read `docs/CHATGPT-CONTINUATION.md` first for the operational handoff and `docs/
 - PR #57 added deterministic route-registry regression tests; merged as `b6148e34ed4f36c4a05f89d1e24cfbfc95dd175f`.
 - PR #58 added canonical role dashboard routes and client-side route access policy; merged as `1a8c1189ebd9c8c86503e690f0e396e696391e70`.
 - Post-merge run https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38175672333 completed successfully for frontend, backend, and browser E2E.
-- The workflow's read-only API smoke step was **skipped** because no `KURALI_API_BASE_URL` / `KURALI_STAGING_API_BASE_URL` was configured. Do not report API smoke as passed.
-- A fresh Vercel deployment for merged SHA `1a8c1189` is not confirmed. Deployment API returned `402 payment_required` due to the daily deployment quota. Do not bypass quota or repeatedly retry before reset.
+- The workflow's read-only API smoke step was **skipped** in run #38209942997 because no `KURALI_API_BASE_URL` / `KURALI_STAGING_API_BASE_URL` was configured. Branch `ci/enable-staging-readonly-api-smoke` adds the canonical staging URL as a fallback plus an explicit host/path guard; wait for that change's CI to prove the smoke actually runs.
+- A Vercel deployment tied to `bcdc2f300cc8c8f5c3f0430d1ef81bb9d809c574` is now `READY` and includes the routing code merged in PR #58. A prior deployment API attempt hit the daily quota, but the later automatic main deployment succeeded.
 
 ### Current routing surface
 
@@ -244,9 +244,10 @@ Read `docs/CHATGPT-CONTINUATION.md` first for the operational handoff and `docs/
 
 ### Next gates
 
-1. Re-check Vercel deployment quota and verify the deployed commit matches `1a8c1189`. Run read-only route checks and ensure API smoke is configured and actually runs.
-2. Until the deployed routing build is verified, do not merge more runtime changes. Documentation and static dependency analysis can continue.
-3. Before the first domain extraction, create the consumer-to-`useApp`/API dependency map described in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`.
-4. Extract one low-risk pure helper first, preserve the `useApp` compatibility facade, add tests, and keep auth/OTP/backend/schema behavior unchanged.
-5. Update all three docs (this plan, continuation handoff, domain boundary inventory) at every meaningful checkpoint.
+1. Current runtime verification anchor is deployment `dpl_5R1ujZAkamjcnFEbDU7k6TcEqnrF` (`READY`), tied to `bcdc2f300cc8c8f5c3f0430d1ef81bb9d809c574`, which contains PR #58 routing code. Verify that deployment remains healthy.
+2. Complete PR `ci/enable-staging-readonly-api-smoke`; ensure API smoke runs and reports endpoint outcomes, not skipped.
+3. Until the deployed routing build and read-only API smoke are verified, do not merge more runtime changes. Documentation and static dependency analysis can continue.
+4. Before the first domain extraction, complete the consumer-to-`useApp`/API dependency map described in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`.
+5. Extract one low-risk pure helper first, preserve the `useApp` compatibility facade, add tests, and keep auth/OTP/backend/schema behavior unchanged.
+6. Update all three docs (this plan, continuation handoff, domain boundary inventory) at every meaningful checkpoint.
 
