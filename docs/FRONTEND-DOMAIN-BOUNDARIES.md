@@ -1,8 +1,8 @@
 # Frontend Domain Boundaries and Extraction Inventory
 
 **Last updated:** 2026-10-12  
-**Repository baseline:** `main` at `1a8c1189ebd9c8c86503e690f0e396e696391e70`  
-**Status:** Inventory/design only. No AppContext or API refactor has been merged yet.
+**Last verified deployed baseline:** `main` at `96cd0cf36ffee801703c5d5d269e8072f7160a2f`  
+**Status:** Initial pure-helper extraction is in review on `refactor/extract-saved-address-mapper`; no AppContext state/API-domain refactor has been merged yet.
 
 ## Purpose
 
@@ -106,3 +106,5 @@ At minimum inspect `src/components/Buyer/BuyerAccountPage.tsx`, `src/components/
 ## Change log
 
 - 2026-10-12: Created inventory after PR #58 merged. No runtime extraction implemented.
+- 2026-10-12: PR #60 made read-only API smoke checks execute by default with a strict staging API host/path guard; run #38210187887 passed 10/10 API checks. Post-merge run #38210267860 passed.
+- 2026-10-12: Began the first low-risk extraction: move the existing saved-address mapper/type into `src/entities/address.ts`, retain the `AppContext` type re-export, and add deterministic mapping tests. This is not yet merged.

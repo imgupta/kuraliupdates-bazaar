@@ -1,6 +1,6 @@
 # Frontend Modularisation Baseline and Execution Plan
 
-**Status:** Routing foundation merged; domain extraction not started.  
+**Status:** Routing and guarded smoke foundation merged; first pure helper extraction is in review.  
 **Baseline branch:** `main`  
 **Original architecture baseline commit:** `1c43319281573d23f1b22e1bc97f64ae5548e292`  
 **Scope:** Frontend only. Preserve current user-facing behaviour, Spring Boot API contracts, Oracle schema/data, and the existing single environment designated staging by the owner.
@@ -244,10 +244,17 @@ Read `docs/CHATGPT-CONTINUATION.md` first for the operational handoff and `docs/
 
 ### Next gates
 
-1. Current runtime verification anchor is deployment `dpl_5R1ujZAkamjcnFEbDU7k6TcEqnrF` (`READY`), tied to `bcdc2f300cc8c8f5c3f0430d1ef81bb9d809c574`, which contains PR #58 routing code. Verify that deployment remains healthy.
-2. Complete PR `ci/enable-staging-readonly-api-smoke`; ensure API smoke runs and reports endpoint outcomes, not skipped.
-3. Until the deployed routing build and read-only API smoke are verified, do not merge more runtime changes. Documentation and static dependency analysis can continue.
-4. Before the first domain extraction, complete the consumer-to-`useApp`/API dependency map described in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`.
-5. Extract one low-risk pure helper first, preserve the `useApp` compatibility facade, add tests, and keep auth/OTP/backend/schema behavior unchanged.
-6. Update all three docs (this plan, continuation handoff, domain boundary inventory) at every meaningful checkpoint.
+1. The verified runtime baseline is deployment `dpl_ALThn73jiVhUQqb3kVyzTHt9s31V` (`READY`), tied to `96cd0cf36ffee801703c5d5d269e8072f7160a2f`. It includes the routing code and staging smoke workflow.
+2. PR #60 made the read-only API smoke execute by default with a strict host/path guard. Run #38210187887 passed 10/10 API checks; post-merge run #38210267860 passed all three jobs.
+3. Current PR branch `refactor/extract-saved-address-mapper` is the first runtime extraction. Merge only after exact-head CI and Vercel preview pass.
+4. After merge, verify post-merge CI and deployment, then update all three docs with the merged SHA and test/deployment results.
+5. Complete the consumer-to-`useApp`/API dependency map before selecting the next extraction.
+6. Keep auth/OTP/backend/schema behavior unchanged; retain the `useApp` compatibility facade.
 
+## First domain extraction — PR in progress
+
+- Branch: `refactor/extract-saved-address-mapper`.
+- Scope: move the existing pure saved-address mapper and interface into `src/entities/address.ts`; re-export `SavedAddress` from `src/context/AppContext.tsx` so existing imports remain valid.
+- Regression tests: `tests/savedAddress.test.ts`, run by the existing CI workflow.
+- No API call, session/local-storage key, auth/OTP behavior, backend contract, schema, or address-screen behavior is intentionally changed.
+- Merge gate: TypeScript, all frontend tests/build, backend suite, read-only API smoke, browser E2E, and Vercel preview must pass for the exact PR head.
