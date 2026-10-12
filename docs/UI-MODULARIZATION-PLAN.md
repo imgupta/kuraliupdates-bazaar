@@ -277,3 +277,22 @@ Read `docs/CHATGPT-CONTINUATION.md` first for the operational handoff and `docs/
 - Tests: `tests/userProfile.test.ts` is run in the existing CI workflow.
 - Compatibility rules under test: nullish values retain previous fields; empty strings and zero coordinates are valid overrides; all unrelated profile/session/role/address fields survive via spread of the previous profile.
 - No state movement, API behavior, localStorage, authentication, OTP, backend, or schema changes are intended.
+
+
+## Continuation checkpoint — 13 October 2026
+
+- **Completed:** baseline docs, canonical role route/access-policy tests, saved-address pure mapper, user-profile pure mapper, compatibility exports and mapper regression tests.
+- **Deployment gate:** PR #63 runtime SHA `a1ea642f4cf201053088d820dce3dced469b5bf2` is merged and CI-green, but current custom-domain aliases still resolve to `5a89345dfe26b078e57fe9f30dc83656ebb834ee`. Vercel check for the merged SHA reports a build-rate-limit failure. Do not attempt quota bypass or repeated deployments.
+- **Allowed while blocked:** read-only code/dependency inventory and documentation updates only.
+- **Next execution order:** (1) verify main deployment SHA and aliases; (2) run read-only route and API smoke, confirming steps executed rather than skipped; (3) finish consumer-to-domain dependency map; (4) propose a small, test-first extraction PR; (5) only after gates pass, continue role module boundaries.
+- **Architecture decision unchanged:** build a modular monolith first. Do not create five separately deployed apps or introduce runtime module federation yet.
+
+
+## Continuation checkpoint — 13 October 2026
+
+- Latest `main` documentation checkpoint: `f2c354037ab2b25ba0f54397c2f535dd7325017d`.
+- Latest merged runtime change remains the pure user-profile mapper in PR #63 (`a1ea642f4cf201053088d820dce3dced469b5bf2`); its CI passed, but that merged SHA is not yet confirmed on the live custom-domain aliases.
+- Current verified alias is still deployment `dpl_HDZsaUHWJ9wJfKVrvCAkxbzRzhfm`, commit `5a89345dfe26b078e57fe9f30dc83656ebb834ee`.
+- A newer Vercel preview exists for `feat/staging-e2e-otp-capture` at `996ba97d`, but it is not the main deployment and does not satisfy the mapper deployment gate.
+- Vercel's check for `a1ea642f` reports a build-rate-limit failure (`upgradeToPro=build-rate-limit`). Do not retry repeatedly, bypass quota, or change billing/security settings automatically.
+- Continue with read-only inventory and documentation only until a main deployment for `a1ea642f` is visible and read-only route/API smoke checks are confirmed. No backend, database, OTP/auth, localStorage, or runtime behavior changes in this checkpoint.
