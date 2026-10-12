@@ -1,6 +1,6 @@
 # Frontend Modularisation Baseline and Execution Plan
 
-**Status:** PR #66's pure Seller product mapper extraction and documentation PRs #67–#68 are merged. Main SHA is `895864adcd0df99b06f93e41b33b0daa0fba1a1b`; CI run #38300661109 passed all three jobs. Last verified READY Vercel deployment is on `7edd96455a57da73d76e03fdea817d30e629b577`; the newer main commit is docs-only and its exact-SHA deployment is not yet verified. AppContext state/API-domain extraction has not started.
+**Status:** PR #66 pure Seller product mapper and documentation PRs #67–#69 are merged. Main SHA `0659a5e82d9eab755d017a6e8abdd8a0588f60db`; post-merge CI run #38301147128 passed all three jobs; Vercel deployment `dpl_CRKcGhvm2HMzFWzNhQEgRYWQXeQe` is READY on the exact SHA. AppContext state/API-domain extraction has not started; the dependency map remains partial pending endpoint payload/error/timeout tracing.
 **Baseline branch:** `main`  
 **Original architecture baseline commit:** `1c43319281573d23f1b22e1bc97f64ae5548e292`  
 **Scope:** Frontend only. Preserve current user-facing behaviour, Spring Boot API contracts, Oracle schema/data, and the existing single environment designated staging by the owner.
@@ -346,3 +346,12 @@ The source survey expanded to nested Buyer and auth components. Details are in `
 - `OrderTrackingModal` and Delivery's `LiveOrderMap` both call live tracking. Avoid duplicate polling ownership or moving tracking logic without checking both call paths.
 - Legacy `AuthPage.tsx`, current `AuthPageV2.tsx`, and `BuyerRegistrationPage.tsx` all contain OTP-related paths. Check routing/import reachability before any auth consolidation; preserve OTP/session semantics.
 - Main CI #38300661109 passed after PR #68. No runtime changes in PR #67 or #68. The domain map remains partial.
+
+
+## Checkpoint after PR #69 — 13 October 2026
+
+- Main commit: `0659a5e82d9eab755d017a6e8abdd8a0588f60db`; PR #69 merged and post-merge CI #38301147128 passed frontend, backend, and browser E2E/read-only smoke jobs.
+- Exact-SHA Vercel deployment `dpl_CRKcGhvm2HMzFWzNhQEgRYWQXeQe` is READY with root/www/bazaar aliases.
+- Dependency map has been extended to Buyer Daily Help booking, order tracking, checkout/cart, and auth consumers. A provisional endpoint index has been added, but it is not a substitute for manually verified request/response/error contracts.
+- **Current phase:** read-only dependency analysis and docs only. No AppContext/API-domain extraction until all consumer edges, payload/error/fallback behavior, timers/listeners, storage effects, mutation classification, and protecting tests are documented and reviewed.
+- Keep transactional flows isolated from shared records. Authenticated role tests remain unverified until each role is shown to execute rather than skip.
