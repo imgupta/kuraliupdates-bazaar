@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-10-12 (Asia/Kolkata)  
 **Repository:** https://github.com/imgupta/kuraliupdates-bazaar  
-**Last verified deployed runtime commit:** `89c434aa0f9f22aeba49003fbd9d7249c4bc273a` (address mapper) · latest docs-only main commit `5a89345dfe26b078e57fe9f30dc83656ebb834ee`  
-**Current state:** routing, guarded read-only staging API smoke, and saved-address mapper extraction are merged and deployed. PR #61 merged as `89c434aa`; post-merge run #38210571047 passed all CI jobs. The current docs-only main commit `5a89345d` also passed run #38210829173 and its Vercel deployment is `READY`. The next pure mapper extraction (user profile mapping) is in review on `refactor/extract-user-profile-mapper`.
+**Latest merged runtime commit:** `a1ea642f4cf201053088d820dce3dced469b5bf2` · **last confirmed live alias commit:** `5a89345dfe26b078e57fe9f30dc83656ebb834ee`  
+**Current state:** routing and saved-address mapper are deployed. PR #63 also merged the pure user-profile mapper as `a1ea642f`, and post-merge CI #38211155596 passed all jobs. However, the live Vercel aliases still resolve to deployment `dpl_HDZsaUHWJ9wJfKVrvCAkxbzRzhfm` for SHA `5a89345d`; a main deployment for `a1ea642f` is not yet visible. The exact PR preview was `READY`. Do not start another runtime extraction until the merged SHA is deployed and read-only smoke is verified.
 
 > Read this file first when continuing work in a new chat. Then read `docs/UI-MODULARIZATION-PLAN.md` and `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. Always re-check GitHub and Vercel state before acting; this file is a checkpoint, not a live status feed.
 
@@ -86,19 +86,23 @@ A failed intermediate preview and E2E run caught a malformed mobile handler and 
 - CI run #38210469528 passed exact PR-head checks; post-merge run #38210571047 passed all three jobs. Vercel deployment `dpl_EDB7FEt856PE5qjtyztZx7Tz2ivL` is `READY` for the merged SHA.
 - No AppContext state/action, address API, auth/session, localStorage, backend contract, or schema behavior was changed.
 
-### Step D — current phase: pure user profile mapper extraction
+### Step D — complete: user profile mapper extraction merged, deployment verification pending
 
-Branch `refactor/extract-user-profile-mapper` moves the existing `UserProfile` interface and `mapServerUser` pure mapper into `src/entities/userProfile.ts`, importing `SavedAddress` from `src/entities/address.ts` and re-exporting `UserProfile` from `AppContext` for compatibility. It adds `tests/userProfile.test.ts` and a CI step.
+- PR #63 merged as `a1ea642f4cf201053088d820dce3dced469b5bf2`.
+- `src/entities/userProfile.ts` now owns `UserProfile` and `mapServerUser`; `AppContext` re-exports the type.
+- `tests/userProfile.test.ts` passed on the PR head; CI run #38211026737 passed all jobs; post-merge run #38211155596 passed all jobs.
+- Exact PR preview for SHA `5f854644` was `READY`.
+- The live aliases still point to deployment `dpl_HDZsaUHWJ9wJfKVrvCAkxbzRzhfm` at SHA `5a89345d`. No deployment for merged SHA `a1ea642f` is visible yet.
+- **Hold further runtime changes** until the merged SHA is deployed and the read-only API smoke passes on the resulting main deployment.
 
-1. Verify exact-head TypeScript, tests/build, backend tests, read-only API smoke, browser E2E, and Vercel preview before merge.
-2. Confirm null/undefined server fields preserve prior values, empty strings and zero coordinates override prior values, and unrelated session/role/address fields are preserved.
-3. After merge, verify post-merge CI and deployment, update docs with exact SHA/results, then continue the broader consumer-to-domain dependency map.
-4. Do not move AppContext state, address API calls, token/localStorage, or auth/OTP behavior in this phase.
+### Step E — next phase after deployment verification
 
-### Step D — later, not now
-- Extract Seller, Daily Help Provider, Delivery Agent, Buyer, and Admin feature modules incrementally.
-- Only after stable module boundaries and test coverage, prototype separate app builds / module federation.
-- Do not introduce runtime federation, separate deployments, or separate auth clients in the current phase.
+1. Verify a Vercel main deployment tied to `a1ea642f4cf201053088d820dce3dced469b5bf2`, and confirm `kuraliupdates.com` / `bazaar.kuraliupdates.com` aliases point to it.
+2. Verify post-merge read-only API smoke (10 checks) and the unauthenticated browser checks. Keep the five authenticated role tests marked skipped until test identity/OTP secrets are safely configured.
+3. Complete the consumer-to-domain dependency map in `docs/FRONTEND-DOMAIN-BOUNDARIES.md` before selecting any state/API extraction.
+4. Keep backend contracts, database/schema, auth/session, OTP, and localStorage behavior unchanged.
+5. Update the three Markdown handoff files with the exact deployed SHA and test outcomes before continuing.
+
 
 ## 6. Known project architecture and file hotspots
 

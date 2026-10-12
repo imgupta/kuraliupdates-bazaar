@@ -1,6 +1,6 @@
 # Frontend Modularisation Baseline and Execution Plan
 
-**Status:** Routing, guarded read-only smoke, and saved-address mapper merged/deployed; second pure user-profile mapper extraction is in review. AppContext state/API-domain extraction has not started.  
+**Status:** Routing and saved-address mapper are deployed; user-profile mapper is merged with CI green, but deployment of its merged SHA is pending verification. AppContext state/API-domain extraction has not started.  
 **Baseline branch:** `main`  
 **Original architecture baseline commit:** `1c43319281573d23f1b22e1bc97f64ae5548e292`  
 **Scope:** Frontend only. Preserve current user-facing behaviour, Spring Boot API contracts, Oracle schema/data, and the existing single environment designated staging by the owner.
@@ -246,11 +246,11 @@ Read `docs/CHATGPT-CONTINUATION.md` first for the operational handoff and `docs/
 
 1. The verified runtime baseline is deployment `dpl_ALThn73jiVhUQqb3kVyzTHt9s31V` (`READY`), tied to `96cd0cf36ffee801703c5d5d269e8072f7160a2f`. It includes the routing code and staging smoke workflow.
 2. PR #60 made the read-only API smoke execute by default with a strict host/path guard. Run #38210187887 passed 10/10 API checks; post-merge run #38210267860 passed all three jobs.
-3. PR #61 extracted the pure saved-address mapper; merged SHA `89c434aa0f9f22aeba49003fbd9d7249c4bc273a` is deployed `READY`. Exact-head CI #38210469528 and post-merge CI #38210571047 passed.
-4. Current PR branch `refactor/extract-user-profile-mapper` extracts only the `UserProfile` type and pure `mapServerUser` mapper; preserve the AppContext re-export.
-5. After this PR passes and is deployed, continue the consumer-to-`useApp`/API dependency map before selecting state/API extraction.
-6. Keep auth/OTP/backend/schema behavior unchanged; retain the `useApp` compatibility facade.
-7. Update all three docs after each meaningful checkpoint.
+3. PR #61 extracted the saved-address mapper; SHA `89c434aa0f9f22aeba49003fbd9d7249c4bc273a` has a `READY` deployment.
+4. PR #63 merged the user-profile mapper as `a1ea642f4cf201053088d820dce3dced469b5bf2`; PR-head and post-merge CI passed, and its exact PR preview was `READY`.
+5. The live aliases still point to SHA `5a89345d`, so verify a main deployment tied to `a1ea642f` before any further runtime change.
+6. After that deployment and read-only smoke pass, complete the consumer-to-`useApp`/API dependency map before selecting state/API extraction.
+7. Keep auth/OTP/backend/schema behavior unchanged; retain the `useApp` compatibility facade and update all three docs after each checkpoint.
 
 ## First domain extraction — PR in progress
 
