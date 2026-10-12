@@ -363,3 +363,11 @@ The source survey expanded to nested Buyer and auth components. Details are in `
 - Auth/session and buyer-address client contracts are now documented in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`.
 - This remains a documentation and source-inspection phase. Do not begin AppContext state/API-domain extraction until the full consumer graph, request/response contracts, failure/fallback semantics, storage effects, timer cleanup, mutation classes, and regression tests are complete.
 - Keep existing behavior, one session source, API endpoint/body/header/timeout semantics, and the single environment designated staging. Authenticated five-role E2E coverage is not proven by a green job if tests are skipped.
+
+
+## Seller API trace checkpoint — 13 October 2026
+
+- PR #71 merge SHA `f0c08358faeb4acd06da0700ab6d4354aed5c24e` passed post-merge workflow #38302399531 (frontend, backend, browser E2E/read-only smoke).
+- Exact-SHA Vercel deployment for this merge SHA is not yet verified; the READY deployment currently verified is still on parent SHA `5645a53bd9221c3c8240d68be881c7396a23d595`.
+- Seller endpoint payload/auth/failure contracts are recorded in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. No runtime change was made.
+- Next bounded phase: Delivery API trace. Continue to prohibit state/API extraction until the full map is reviewed, and do not exercise transactional or destructive operations against shared data.

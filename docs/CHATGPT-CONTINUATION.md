@@ -228,3 +228,12 @@ Use absolute commit SHAs and direct PR/run/deployment URLs. Distinguish verified
 - Vercel deployment lookup for the new main SHA could not be completed because the Vercel tool returned a team-scope authorization error / 404 for the old preview URL. Re-check deployment metadata with the authorized team scope; do not infer deployment success from CI.
 - Started a second docs-only trace for authentication/session and buyer-address methods. The client-side request/error contract is documented in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`; no API/auth/OTP runtime code changed.
 - Next: verify post-merge CI and exact-SHA deployment for PR #70, then continue Seller, Delivery, Daily Help and Admin API contract traces in separate bounded slices. Keep the dependency map partial until all API methods and transitive consumers are reviewed. Never run OTP/order/booking/approval/location writes in routine live smoke.
+
+
+## Continuation — Seller API contract trace, 13 October 2026
+
+- PR #71 merged as `f0c08358faeb4acd06da0700ab6d4354aed5c24e`: https://github.com/imgupta/kuraliupdates-bazaar/pull/71.
+- Post-merge workflow #38302399531 completed successfully for frontend checks, backend tests, and browser E2E/read-only smoke: https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38302399531.
+- Vercel lookup confirms deployment `dpl_9rogp5mcRsBVLEjm2xRsVBmsQi6t` READY on SHA `5645a53bd9221c3c8240d68be881c7396a23d595` (PR #70 baseline), **not** the newer PR #71 merge SHA. Exact-SHA deployment of `f0c08358faeb4acd06da0700ab6d4354aed5c24e` remains unverified; do not claim it is deployed.
+- Seller API client contracts have now been traced in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`; only documentation changed. The legacy seller registration/product calls omit a bearer token in the client request, unlike `/sellers/me/**` methods; this is recorded as observed behavior, not changed.
+- Next: trace Delivery API request/response/error semantics. Continue one domain per docs-only PR, wait for all latest-head CI jobs, verify post-merge workflow and exact-SHA deployment. Keep shared-data smoke read-only and do not claim five-role authenticated E2E without non-skipped evidence.
