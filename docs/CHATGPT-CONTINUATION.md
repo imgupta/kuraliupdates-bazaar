@@ -162,3 +162,6 @@ Use absolute commit SHAs and direct PR/run/deployment URLs. Distinguish verified
 - Added direct call-site names for each role dashboard and the AppContext-to-API bridge to `docs/FRONTEND-DOMAIN-BOUNDARIES.md`.
 - This is not a complete transitive API contract map; payloads, error/fallback behavior, timers, and mutation paths still need tracing.
 - PR #65 is open as a draft. CI run #42 was in progress at last check; backend and frontend jobs passed, while the browser job was still running read-only API smoke. Check the latest run before merge or changing this branch.
+
+
+- CI caveat (13 October 2026): workflow run #42 (`38296500979`) was created for earlier PR head `1be287fee41e8429941de20c346a455ac6769449`. The docs have since been expanded and the current PR head is newer (`a912fff08094d293912b4dde6e7c1fc3aa333eb5` at the time of this note). Therefore run #42 does **not** validate the latest PR head. At last check its backend and frontend jobs passed, but the browser/read-only API smoke job was still in progress. Do not merge until a successful run is associated with the current head and its required checks are complete.
