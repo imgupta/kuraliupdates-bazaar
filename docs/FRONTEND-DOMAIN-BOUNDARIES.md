@@ -132,3 +132,38 @@ At minimum inspect `src/components/Buyer/BuyerAccountPage.tsx`, `src/components/
 - 2026-10-12: PR #61 merged the saved-address mapper/type into `src/entities/address.ts`; `AppContext` re-exports the type. Exact-head CI and post-merge CI passed, and the merged deployment is `READY`.
 - 2026-10-12: Added the current AppContext public compatibility contract and direct `bazaarApi` method inventory for new-chat continuation.
 - 2026-10-12: PR #63 merged `UserProfile`/`mapServerUser` into `src/entities/userProfile.ts`, with compatibility re-export and regression tests. CI #38211026737 and post-merge CI #38211155596 passed; exact PR preview is `READY`. Main alias still points to `5a89345d`, so deployment verification remains a gate.
+
+
+## Dependency-map checkpoint — 13 October 2026
+
+This is a **partial, source-informed map**, not yet a complete transitive call graph. The direct consumer survey above remains the current evidence; before runtime extraction, trace child props and indirect `AppContext` actions to API methods, storage, timers, and mutation effects.
+
+| Consumer / area | Confirmed dependency surface | Side-effect risk | Next read-only trace |
+|---|---|---|---|
+| Buyer account | `user`, `orders`, profile/address actions, toast; address/profile mappers now pure entity helpers | Medium: profile/address writes and refresh ordering | Trace mapper callers, address refresh and default selection; preserve zero coordinates and server-ID fallback. |
+| Buyer home/catalogue | Mostly props from `App.tsx`; shared catalogue/seller data crosses buyer and seller ownership | Medium: cart, coupon, checkout and order creation are reachable in composed app | Trace `App.tsx` props and child handlers before deciding Buyer state ownership. |
+| Seller dashboard | Seller/profile/product/order/discount APIs directly via `bazaarApi`; context used for user, registration modal and toast | High: product/discount CRUD and order status updates | Inventory exact API method names and payload types; do not combine API split with UI relocation. |
+| Delivery dashboard | Current agent, jobs/orders, claim/complete actions, sync, toast; direct agent/job/location/OTP APIs; imports map UI from Buyer folder | High: claim, OTP, status and location updates | Trace every handler and map dependency; move truly shared map UI only after checking all consumers. |
+| Daily Help Provider | Provider jobs, earnings, slots, availability, registration and booking lifecycle APIs | High: accept/start/complete and slot mutations | Separate provider-owned state from buyer catalogue/booking; document timer and polling lifecycle. |
+| Admin | Seller/agent approvals, role and catalogue/order data; admin analytics/search/diagnostics and Daily Help APIs | High: approvals and CRUD; server authorization must remain authoritative | Separate read-only dashboard queries from mutations; do not run live mutation tests. |
+| Header / shell | Role, registered roles, user/session/logout, cart and shared overlays; history navigation | High for auth/session regressions; shared UI state | Keep one auth/session source and existing storage keys; test direct route, refresh, Back/Forward and My Account. |
+| Auth page | OTP login/registration actions, registration checks, onboarding status and toast | Critical: auth/session/OTP semantics | Exclude from early extraction; do not change OTP behavior, token keys, or session persistence. |
+
+### Required completion before choosing a state/API extraction
+
+- [ ] Search every `useApp()` call site and capture the exact fields/actions consumed, including child components.
+- [ ] Inventory every `bazaarApi` method call by consumer, including indirect calls through `AppContext`.
+- [ ] Record local/session storage, polling/timers, event listeners, and network effects per consumer.
+- [ ] Classify each operation as read-only or backend-mutating and identify protecting tests.
+- [ ] Resolve the Delivery → Buyer-folder `LiveOrderMap` dependency and document whether it is generic shared UI or a domain-owned feature.
+- [ ] Verify the merged user-profile mapper SHA is live and read-only smoke checks run before runtime changes resume.
+
+
+## Continuation checkpoint — 13 October 2026
+
+- Latest `main` documentation checkpoint: `f2c354037ab2b25ba0f54397c2f535dd7325017d`.
+- Latest merged runtime change remains the pure user-profile mapper in PR #63 (`a1ea642f4cf201053088d820dce3dced469b5bf2`); its CI passed, but that merged SHA is not yet confirmed on the live custom-domain aliases.
+- Current verified alias is still deployment `dpl_HDZsaUHWJ9wJfKVrvCAkxbzRzhfm`, commit `5a89345dfe26b078e57fe9f30dc83656ebb834ee`.
+- A newer Vercel preview exists for `feat/staging-e2e-otp-capture` at `996ba97d`, but it is not the main deployment and does not satisfy the mapper deployment gate.
+- Vercel's check for `a1ea642f` reports a build-rate-limit failure (`upgradeToPro=build-rate-limit`). Do not retry repeatedly, bypass quota, or change billing/security settings automatically.
+- Continue with read-only inventory and documentation only until a main deployment for `a1ea642f` is visible and read-only route/API smoke checks are confirmed. No backend, database, OTP/auth, localStorage, or runtime behavior changes in this checkpoint.
