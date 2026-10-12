@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-10-12 (Asia/Kolkata)  
 **Repository:** https://github.com/imgupta/kuraliupdates-bazaar  
-**Last verified deployed runtime commit:** `89c434aa0f9f22aeba49003fbd9d7249c4bc273a`  
-**Current state:** routing, guarded read-only staging API smoke, and the first pure saved-address mapper extraction are merged and deployed. PR #61 merged as `89c434aa`; post-merge run #38210571047 passed all CI jobs and the Vercel deployment is `READY`. Five authenticated role E2E tests remain skipped because their identity/OTP secrets are unset.
+**Last verified deployed runtime commit:** `89c434aa0f9f22aeba49003fbd9d7249c4bc273a` (address mapper) · latest docs-only main commit `5a89345dfe26b078e57fe9f30dc83656ebb834ee`  
+**Current state:** routing, guarded read-only staging API smoke, and saved-address mapper extraction are merged and deployed. PR #61 merged as `89c434aa`; post-merge run #38210571047 passed all CI jobs. The current docs-only main commit `5a89345d` also passed run #38210829173 and its Vercel deployment is `READY`. The next pure mapper extraction (user profile mapping) is in review on `refactor/extract-user-profile-mapper`.
 
 > Read this file first when continuing work in a new chat. Then read `docs/UI-MODULARIZATION-PLAN.md` and `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. Always re-check GitHub and Vercel state before acting; this file is a checkpoint, not a live status feed.
 
@@ -86,12 +86,14 @@ A failed intermediate preview and E2E run caught a malformed mobile handler and 
 - CI run #38210469528 passed exact PR-head checks; post-merge run #38210571047 passed all three jobs. Vercel deployment `dpl_EDB7FEt856PE5qjtyztZx7Tz2ivL` is `READY` for the merged SHA.
 - No AppContext state/action, address API, auth/session, localStorage, backend contract, or schema behavior was changed.
 
-### Step D — next phase: complete consumer-to-domain dependency map
+### Step D — current phase: pure user profile mapper extraction
 
-1. Read `docs/FRONTEND-DOMAIN-BOUNDARIES.md`, especially the AppContext contract and observed consumer matrix.
-2. Continue source-backed mapping of remaining `useApp()` consumers and transitive API methods; distinguish read-only, user-data mutation, and transactional effects.
-3. Only then propose the next bounded extraction. Preserve the current `useApp` compatibility facade and keep backend/auth/OTP/schema unchanged.
-4. Every runtime PR must pass frontend tests/build, backend tests, read-only API smoke (not skipped), browser E2E, and a Vercel preview; verify post-merge CI/deployment before continuing.
+Branch `refactor/extract-user-profile-mapper` moves the existing `UserProfile` interface and `mapServerUser` pure mapper into `src/entities/userProfile.ts`, importing `SavedAddress` from `src/entities/address.ts` and re-exporting `UserProfile` from `AppContext` for compatibility. It adds `tests/userProfile.test.ts` and a CI step.
+
+1. Verify exact-head TypeScript, tests/build, backend tests, read-only API smoke, browser E2E, and Vercel preview before merge.
+2. Confirm null/undefined server fields preserve prior values, empty strings and zero coordinates override prior values, and unrelated session/role/address fields are preserved.
+3. After merge, verify post-merge CI and deployment, update docs with exact SHA/results, then continue the broader consumer-to-domain dependency map.
+4. Do not move AppContext state, address API calls, token/localStorage, or auth/OTP behavior in this phase.
 
 ### Step D — later, not now
 - Extract Seller, Daily Help Provider, Delivery Agent, Buyer, and Admin feature modules incrementally.
