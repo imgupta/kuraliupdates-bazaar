@@ -1,7 +1,7 @@
 # Frontend Domain Boundaries and Extraction Inventory
 
-**Last updated:** 2026-10-12  
-**Latest verified live alias commit:** `44374253b5fe3a5d65d946ffbece37d0b3cd1704` (`READY`, deployment `dpl_GChRk727VyTCu2d6zBwThFVPE2NZ`). Runtime mapper commits PR #61 and #63 are included in the live branch history. PR #65 updated the dependency-map documentation only. No AppContext state/API-domain refactor has been merged.
+**Last updated:** 2026-10-13  
+**Latest verified deployed commit:** `9ee871abfb60d86cce3a396b816bf778e99f8e5d` (`READY`, deployment `dpl_F1uvjC9QwBPdqPYJ6LH7eCkmQw6K`). PR #66's Seller product mapper extraction is merged and deployed. No AppContext state/API-domain refactor has been merged.
 
 ## Purpose
 
@@ -208,3 +208,14 @@ The following method lists were extracted from the current `main` source snapsho
 ### Dependency map status
 - The cross-role inventory remains partial for payload/error semantics, timer cancellation/stale responses, and indirect API paths.
 - This pure mapper extraction does not claim the state/API dependency map is complete. Complete that trace before extracting domain state or API clients.
+
+
+## Dependency-map checkpoint — 13 October 2026 (after PR #66)
+
+- Current main/deployed SHA: `9ee871abfb60d86cce3a396b816bf778e99f8e5d`; deployment `dpl_F1uvjC9QwBPdqPYJ6LH7eCkmQw6K` is `READY`.
+- PR #66 extracted the pure Seller product mapper to `src/entities/sellerProduct.ts`; tests in `tests/sellerProduct.test.ts` protect mapping/default/coercion behavior. Both Seller dashboard call sites remain in place.
+- CI run #38298764709 passed frontend, browser E2E/read-only smoke, and backend jobs.
+- This extraction did not alter API calls, CRUD behavior, context state/actions, auth/session, localStorage, backend contracts, OTP, or database behavior.
+- The map remains **partial**. Still trace each consumer's indirect `AppContext` actions to exact `bazaarApi` method/endpoint and request shape, response mapping, error/fallback behavior, storage/session effects, polling/timer/listener cleanup, and read-only vs mutating classification.
+- Keep Delivery's import of `LiveOrderMap` from the Buyer folder explicitly unresolved until all consumers, props, and behavior are inspected.
+- Do not start AppContext state/API-domain extraction until the required completion checklist below is fully checked. Preserve the modular-monolith approach and the one environment designated staging.
