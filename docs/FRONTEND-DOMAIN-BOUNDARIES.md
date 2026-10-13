@@ -410,8 +410,8 @@ Source reviewed: `src/services/api.ts`, blob `ddb67904e14b8d75840389581d4a6c0bcd
 
 ### Next API contract slice
 
-- [ ] Trace Seller read/create/update/delete payloads, response mapping, token headers, and method-specific fallback behavior.
-- [ ] Trace Delivery job/location/OTP requests; separate GET reads from POST writes, including OTP resend and location publication.
+- [x] Trace Seller read/create/update/delete payloads, response mapping, token headers, and method-specific fallback behavior (merged PR #72; main SHA `5235946abef42d15ec120a3509d835ae85b781de`).
+- [x] Trace Delivery job/location/OTP requests; separate GET reads from POST writes, including OTP resend and location publication (documented in this branch; pending CI/merge).
 - [ ] Trace Daily Help booking versus provider job/slot operations; classify booking create/start/complete as transactional.
 - [ ] Trace Admin read endpoints separately from approvals and service CRUD.
 - [ ] Validate all 72 indexed methods against the actual `bazaarApi` object and call sites. The initial index is provisional, especially where methods contain multiple fetch calls.
@@ -442,3 +442,33 @@ Source: `src/services/api.ts`, blob `ddb67904e14b8d75840389581d4a6c0bcd8a5367`. 
 - Read methods often collapse missing session, HTTP failure, parse failure, and legitimate empty data to `null` or `[]`; callers may not be able to distinguish an outage from no records.
 - Seller order status, product deletion, and discount deletion are writes and are prohibited in live smoke. No such request was issued during this trace.
 - No runtime/API behavior changed. Next: trace Delivery requests and classify job claiming, OTP resend/verification, and location publishing as writes.
+
+
+## Delivery API contract trace — source inspection, 13 October 2026
+
+Source: `src/services/api.ts`, blob `ddb67904e14b8d75840389581d4a6c0bcd8a5367`. This documents client behavior only; it does not assert server authorization or backend semantics.
+
+| Method | Request and payload | Auth / timeout | Response and failure behavior | Effect classification |
+|---|---|---|---|---|
+| `trackOrder(orderId)` | `GET /buyers/orders/{encoded orderId}/track` | Reads `kurali_auth_token` from localStorage; sends Bearer only when token exists; no explicit timeout | Non-OK throws internally; catch logs and returns `null`; success returns JSON | Read; optional auth header in client |
+| `getLiveTracking(orderId)` | `GET /tracking/orders/{encoded orderId}` | localStorage token; optional Bearer; no explicit timeout | Non-OK or exception returns `null`; success returns JSON | Read; polling can generate repeated requests |
+| `resendDeliveryOtp(orderId)` | `POST /delivery/jobs/{encoded orderId}/resend-otp`; no body | Requires localStorage token; Bearer; no explicit timeout | Parses JSON with null fallback; non-OK throws server/fallback message; success returns response data | OTP delivery side effect; never call in routine shared-data smoke |
+| `updateDeliveryLocation(agentId, latitude, longitude)` | `POST /tracking/delivery/{encoded agentId}/location`; JSON `{latitude,longitude}` | localStorage token added if present; Bearer is not enforced client-side; no explicit timeout | Returns `res.ok`; catch logs and returns `false` | Location write / live tracking side effect; never use real agent IDs in smoke |
+| `registerDeliveryAgent(agent)` | `POST /delivery/register`; selected identity, vehicle, licence and locality fields; locality defaults to `Main Bazaar` | No bearer token; JSON Content-Type; no explicit timeout | Non-OK/network error returns `null`; success returns JSON | Registration mutation; no shared-data testing |
+| `getAvailableDeliveryJobs()` | `GET /delivery/jobs/available` | No bearer header in this method; no explicit timeout | Non-OK/network error returns `[]`; success returns JSON without explicit array validation | Read of potentially real job/order data; inspect backend access rules separately |
+| `claimDeliveryJob(orderId, agentId)` | `POST /delivery/jobs/{encoded orderId}/claim?agentId={encoded agentId}`; no body | Requires localStorage token; Bearer; no explicit timeout | Missing token, network failure or non-OK returns `false`; otherwise `true` | Transactional job claim; never run against shared data |
+| `verifyDeliveryOtp(orderId, otp)` | `POST /delivery/jobs/{encoded orderId}/verify-otp`; JSON `{otp}` | Requires localStorage token; Bearer and JSON headers; no explicit timeout | Parses JSON with empty-object fallback; returns success only when HTTP OK and `data.success !== false`; catch returns structured failure | Delivery completion/OTP verification transaction; never run against shared data |
+| `getCurrentDeliveryAgent()` | `GET /delivery/me` | localStorage token; requires token; Bearer; no explicit timeout | Missing token, non-OK or exception returns `null`; success returns JSON | Read/session-scoped |
+| `getDeliveryAvailableJobs()` | `GET /delivery/jobs/available` | localStorage token; requires token; Bearer; no explicit timeout | Parses JSON with `[]` fallback; non-OK throws internally then catch returns `[]`; success maps array items through `mapBackendOrder` (non-array becomes `[]`) | Read; duplicate client methods have different auth/fallback behavior |
+| `getAdminDeliveryAgents()` | `GET /admin/delivery` | Uses `adminAuthHeaders()`; no explicit timeout | Failure logs and returns `[]`; success returns parsed data | Admin read; backend authorization not established by this client trace |
+| `getPendingDeliveryAgents()` | `GET /admin/delivery/pending` | Uses `adminAuthHeaders()`; no explicit timeout | Failure logs and returns `[]`; success returns parsed data | Admin read |
+| `approveDeliveryAgent(agentId)` | `POST /admin/delivery/{encoded agentId}/approve`; no body | `adminAuthHeaders()`; no explicit timeout | Failure logs and returns `false`; success returns boolean from HTTP status | Approval mutation; do not test on real agents |
+| `rejectDeliveryAgent(agentId)` | `POST /admin/delivery/{encoded agentId}/reject`; no body | `adminAuthHeaders()`; no explicit timeout | Failure logs and returns `false`; success returns boolean from HTTP status | Rejection mutation; do not test on real agents |
+
+### Delivery trace cautions
+
+- There are two client methods for the same available-jobs endpoint: `getAvailableDeliveryJobs()` has no bearer header, while `getDeliveryAvailableJobs()` requires the local token and maps backend orders. Call-site/backend security review is required before any behavior change.
+- `updateDeliveryLocation` adds a bearer header only if a token exists and reduces all HTTP failures to `false`; client code alone does not establish whether the endpoint is protected server-side.
+- `getLiveTracking` and `trackOrder` are reads but may expose order/delivery data and are not equivalent to anonymous public smoke. Use authenticated synthetic identities only in an isolated test setup.
+- OTP resend, OTP verification, job claim, rider registration, location updates, and Admin approval/rejection are writes. No such request was issued during this source trace.
+- No runtime/API behavior changed. Next: trace Daily Help booking/provider slot/job contracts, then Admin reads and mutations separately.
