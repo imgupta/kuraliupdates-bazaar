@@ -371,3 +371,11 @@ The source survey expanded to nested Buyer and auth components. Details are in `
 - Exact-SHA Vercel deployment for this merge SHA is not yet verified; the READY deployment currently verified is still on parent SHA `5645a53bd9221c3c8240d68be881c7396a23d595`.
 - Seller endpoint payload/auth/failure contracts are recorded in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. No runtime change was made.
 - Next bounded phase: Delivery API trace. Continue to prohibit state/API extraction until the full map is reviewed, and do not exercise transactional or destructive operations against shared data.
+
+
+## Delivery API trace checkpoint — 13 October 2026
+
+- Seller API trace PR #72 is merged at main SHA `5235946abef42d15ec120a3509d835ae85b781de`; main workflow #38303688063 passed frontend, backend, and browser E2E/read-only smoke jobs.
+- Delivery request contracts and side-effect classifications are now recorded in `docs/FRONTEND-DOMAIN-BOUNDARIES.md` on the active docs branch. This change is documentation-only.
+- Exact-SHA Vercel deployment for current main is not verified; the known READY deployment remains tied to prior SHA `5645a53bd9221c3c8240d68be881c7396a23d595`.
+- Continue to block API/state extraction until all domain contracts and consumer call sites are traced. Never test job claiming, OTP resend/verification, location publication, or delivery registration against shared data.
