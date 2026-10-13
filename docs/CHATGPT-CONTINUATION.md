@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-10-13 (Asia/Kolkata)  
 **Repository:** https://github.com/imgupta/kuraliupdates-bazaar  
-**Latest merged main SHA:** `5235946abef42d15ec120a3509d835ae85b781de` (PR #72, Seller API trace docs-only).
-**Current verified state:** Main workflow #38303688063 passed frontend checks, backend tests, and browser E2E/read-only smoke for SHA `5235946abef42d15ec120a3509d835ae85b781de`. Vercel deployment `dpl_9rogp5mcRsBVLEjm2xRsVBmsQi6t` is READY only for prior SHA `5645a53bd9221c3c8240d68be881c7396a23d595`; deployment for current main SHA is not verified. Authenticated five-role E2E execution remains unproven unless reports show tests actually ran and were not skipped.
+**Latest merged main SHA:** `84944cea8961084bf5bf488e324cb7b287d15674` (PR #73, Delivery API trace docs-only).
+**Current verified state:** PR #73 head workflow #38366106002 passed frontend checks, backend tests, and browser E2E/read-only API smoke. Post-merge main workflow #38366636788 is running on exact main SHA `84944cea8961084bf5bf488e324cb7b287d15674`. Vercel's latest queried main deployment is READY for prior SHA `5235946abef42d15ec120a3509d835ae85b781de`; deployment for current main SHA is not yet verified. Authenticated five-role E2E execution remains unproven unless reports show tests actually ran and were not skipped.
 
 > Read this file first when continuing work in a new chat. Then read `docs/UI-MODULARIZATION-PLAN.md` and `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. Always re-check GitHub and Vercel state before acting; this file is a checkpoint, not a live status feed.
 
@@ -246,3 +246,11 @@ Use absolute commit SHAs and direct PR/run/deployment URLs. Distinguish verified
 - Delivery client methods were traced from `src/services/api.ts` blob `ddb67904e14b8d75840389581d4a6c0bcd8a5367`. Current PR branch is docs-only; no API/runtime/auth/OTP behavior changed.
 - Current READY Vercel deployment `dpl_9rogp5mcRsBVLEjm2xRsVBmsQi6t` still points to SHA `5645a53bd9221c3c8240d68be881c7396a23d595`; exact-SHA deployment for newer main is unverified. Do not claim current main is deployed.
 - Next: wait for all latest-head checks on Delivery trace PR, merge only if docs-only and green, verify post-merge CI and exact-SHA deployment, then continue Daily Help and Admin traces. Keep shared-data checks read-only; do not run OTP resend/verify, claim jobs, location writes, order creation, booking, approvals, or destructive actions against real data.
+
+
+## Continuation — Daily Help API contract trace, 13 October 2026
+
+- PR #73 Delivery API trace merged at `84944cea8961084bf5bf488e324cb7b287d15674`. PR-head workflow #38366106002 passed all three jobs, including read-only API smoke and browser E2E: https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38366106002.
+- Post-merge main workflow #38366636788 is running; do not report post-merge CI as passed until its conclusion is success: https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38366636788.
+- The latest Vercel deployment lookup is READY on prior SHA `5235946abef42d15ec120a3509d835ae85b781de`; exact-SHA deployment for current main is not yet verified.
+- Daily Help client contracts are being documented in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. Do not trigger bookings, provider registration, slot changes, availability changes, job acceptance, OTP start, or completion against shared data.
