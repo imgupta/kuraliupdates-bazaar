@@ -422,3 +422,12 @@ The source survey expanded to nested Buyer and auth components. Details are in `
 - The tracked frontend/test source scan finds no direct call to `getDemandAnalytics()`, `trackOrder()`, or `getAvailableDeliveryJobs()`; this is not sufficient evidence to delete them. Preserve all API methods until route/import reachability, indirect/dynamic consumers and API contract tests are resolved.
 - Remaining blockers: transitive props/callback graph; auth page reachability; explicit tests for raw-vs-mapped delivery jobs, auth header behavior and fallback contracts; mutation-to-test matrix; effect/listener/timer cleanup review.
 - Modular monolith remains the target. No runtime extraction, API deletion, module federation, independent role deployments, backend/schema changes or shared staging writes in this documentation phase.
+
+
+## Checkpoint — 15 October 2026
+
+- PR #78 post-merge CI is verified green on main SHA `a54dcf963048ccda0311a42e10d623811f5d9ef9`: workflow #38620540447 passed frontend checks, backend tests, and browser E2E/read-only staging smoke. Run: https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38620540447.
+- Vercel deployment `dpl_H7X9WD6ZhHSBcxdmUPJ2qJbipvN8` is READY for the exact same SHA and carries the KuraliUpdates custom-domain aliases.
+- Route entry trace from `src/App.tsx`: current active auth component is `AuthPageV2`; buyer registration is handled separately by `BuyerRegistrationPage`. Legacy `src/components/Auth/AuthPage.tsx` is present but not imported by App.tsx. Do not remove it until repository-wide reference and behavior checks confirm it is unused.
+- The active root composition is still a single React app with one AppProvider and role-selected dashboards. Keep the modular-monolith plan; do not move to module federation or separate role deployments.
+- Remaining gate before runtime extraction: complete indirect import/prop/callback reachability, mutation-to-test matrix, and contract tests around API auth headers, raw-vs-mapped delivery jobs, and error fallbacks. Shared staging remains read-only.
