@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/Header';
 import { SellerDashboard as SellerPortal } from './features/seller/SellerPortal';
-import { DeliveryDashboard } from './components/Delivery/DeliveryDashboard';
+import { DeliveryDashboard as DeliveryPortal } from './features/delivery/DeliveryPortal';
 import { DailyHelpProfessionalDashboard } from './components/DailyHelpProfessional/DailyHelpProfessionalDashboard';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
 import { AuthPageV2 } from './components/Auth/AuthPageV2';
@@ -41,7 +41,7 @@ const MainLayout: React.FC = () => {
           />
         )}
         {role === 'seller' && <SellerPortal />}
-        {role === 'delivery' && <DeliveryDashboard />}
+        {role === 'delivery' && <DeliveryPortal />}
         {role === 'professional' && <DailyHelpProfessionalDashboard />}
         {role === 'admin' && <AdminDashboard />}
       </main>
