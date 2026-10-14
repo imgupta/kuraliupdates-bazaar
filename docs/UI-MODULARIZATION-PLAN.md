@@ -395,3 +395,12 @@ The source survey expanded to nested Buyer and auth components. Details are in `
 - Next bounded phase: document Admin read and mutation client contracts from `src/services/api.ts`; preserve observed response/error behavior and classify approval/rejection/service-management methods as writes.
 - The full endpoint-to-consumer graph is still incomplete. Continue documentation/source inspection only; do not begin AppContext/state/API-domain extraction until every export and transitive consumer, payload/error/fallback contract, storage effect, timer/listener, mutation class, and protecting test is reviewed.
 - Keep all live smoke checks read-only. Do not use shared data for seller/delivery approval, Daily Help service changes, booking, OTP, job claiming, location publishing, or destructive actions. A green browser job is not evidence of authenticated coverage for all five roles.
+
+
+## API consumer reconciliation — 15 October 2026
+
+- PR #75 merged at `f7c0495b5c0d94368e55e5c4654cfbd55e0138d5`; exact PR-head workflow #38617516236 passed frontend, backend, and browser E2E/read-only staging API smoke.
+- Vercel deployment `dpl_3TtDhsbihxognX7G8yctGiKC8RYw` is READY for that exact SHA; domain aliases are attached.
+- Static source inventory: 72 `bazaarApi` methods; 69 have apparent direct-call references in the scanned source. Review `getDemandAnalytics()`, `trackOrder()`, and `getAvailableDeliveryJobs()` as possible unused/legacy duplicates, but do not delete or consolidate without resolving indirect/aliased references and test coverage.
+- Domain ownership currently observed: cross-role shared state and several sync/mutation adapters in `AppContext`; seller CRUD/orders/discounts in Seller Dashboard; Admin read/approval/service-management flows in Admin Dashboard; OTP/auth in auth pages; buyer booking in Buyer Daily Help; provider slots/jobs/booking lifecycle in Daily Help Provider; job claim/OTP/location in Delivery; live tracking in buyer tracking UI.
+- Status: **inventory in progress, extraction blocked**. Next: validate candidate methods and transitive call chains; trace AppContext actions to all component consumers; record effect/cleanup and test protection. Keep this phase documentation-only, preserve API/error/auth/storage semantics, and keep live checks read-only.
