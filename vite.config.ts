@@ -1,7 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig } from 'vite';
 
 const root = import.meta.dirname || process.cwd();
 const portalHtmlByRole: Record<string, string> = {
@@ -12,32 +12,11 @@ const portalHtmlByRole: Record<string, string> = {
   admin: 'portal-admin.html',
 };
 
-function renamePortalHtml(sourceHtml: string): Plugin {
-  return {
-    name: 'kuraliupdates-portal-index',
-    enforce: 'post',
-    generateBundle(_options, bundle) {
-      const htmlName = Object.keys(bundle).find((fileName) => fileName.endsWith('.html'));
-      if (!htmlName || bundle[htmlName]?.type !== 'asset') {
-        throw new Error(`Expected an HTML asset for portal entry "${sourceHtml}" in the build output.`);
-      }
-      if (htmlName !== 'index.html') {
-        const html = bundle[htmlName];
-        bundle['index.html'] = { ...html, fileName: 'index.html' };
-        delete bundle[htmlName];
-      }
-    },
-  };
-}
-
 export default defineConfig(() => {
   const portal = process.env.VITE_PORTAL;
   const portalHtml = portal ? portalHtmlByRole[portal] : undefined;
-  const plugins = [react(), tailwindcss()];
-  if (portalHtml) plugins.push(renamePortalHtml(portalHtml));
-
   return {
-    plugins,
+    plugins: [react(), tailwindcss()],
     resolve: { alias: { '@': path.resolve(root, '.') } },
     ...(portalHtml ? { build: { rollupOptions: { input: path.resolve(root, portalHtml) } } } : {}),
     server: {
