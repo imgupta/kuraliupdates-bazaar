@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pathForRole, resolveAppRoute } from '../src/app/routing/routeConfig.ts';
+import { pathForRole, resolveAppRoute, resolvePortalRoute } from '../src/app/routing/routeConfig.ts';
 
 test('resolves all existing registration routes to their legacy registration roles', () => {
   assert.deepEqual(resolveAppRoute('/register/seller'), { kind: 'register', role: 'seller' });
@@ -37,4 +37,17 @@ test('normalizes trailing slashes without changing route identity', () => {
 
 test('uses the current home fallback for unknown paths', () => {
   assert.deepEqual(resolveAppRoute('/not-yet-supported'), { kind: 'home' });
+});
+
+test('portal builds default to their configured dashboard only at the root path', () => {
+  assert.deepEqual(resolvePortalRoute('/', 'buyer'), { kind: 'role-dashboard', role: 'buyer' });
+  assert.deepEqual(resolvePortalRoute('/', 'professional'), { kind: 'role-dashboard', role: 'professional' });
+  assert.deepEqual(resolvePortalRoute('/register/seller', 'buyer'), { kind: 'register', role: 'seller' });
+  assert.deepEqual(resolvePortalRoute('/admin', 'buyer'), { kind: 'role-dashboard', role: 'admin' });
+});
+
+test('invalid or missing portal configuration preserves the shared app routes', () => {
+  assert.deepEqual(resolvePortalRoute('/', undefined), { kind: 'home' });
+  assert.deepEqual(resolvePortalRoute('/', 'unknown'), { kind: 'home' });
+  assert.deepEqual(resolvePortalRoute('/seller', 'unknown'), { kind: 'role-dashboard', role: 'seller' });
 });

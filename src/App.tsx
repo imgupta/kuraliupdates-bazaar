@@ -9,7 +9,7 @@ import { AuthPageV2 } from './components/Auth/AuthPageV2';
 import { BuyerRegistrationPage } from './components/Auth/BuyerRegistrationPage';
 import { BuyerAccountPage } from './components/Buyer/BuyerAccountPage';
 import { BuyerPortal } from './features/buyer/BuyerPortal';
-import { resolveAppRoute } from './app/routing/routeConfig';
+import { resolvePortalRoute } from './app/routing/routeConfig';
 import { authorizeRoleRoute } from './app/routing/roleRouteAccess';
 import {
   CheckCircle2,
@@ -89,14 +89,18 @@ const AccessDenied: React.FC = () => (
 const RootNavigation: React.FC = () => {
   const { user, role, setRole, registeredRoles } = useApp();
   const [pathname, setPathname] = useState(() => window.location.pathname);
-  const route = resolveAppRoute(pathname);
+  const configuredPortalRole = import.meta.env.VITE_PORTAL as string | undefined;
+  const isPortalScopedBuild = ['buyer', 'seller', 'delivery', 'professional', 'admin'].includes(configuredPortalRole ?? '');
+  const route = resolvePortalRoute(pathname, isPortalScopedBuild ? configuredPortalRole : undefined);
   const dashboardRole = route.kind === 'role-dashboard' ? route.role : null;
   const dashboardAccess = dashboardRole
-    ? authorizeRoleRoute(dashboardRole, {
-        isSignedIn: user.isSignedIn,
-        registeredRoles,
-        isAdmin: Boolean(user.isAdmin),
-      })
+    ? isPortalScopedBuild && dashboardRole !== configuredPortalRole
+      ? { allowed: false, reason: 'portal-mismatch' as const }
+      : authorizeRoleRoute(dashboardRole, {
+          isSignedIn: user.isSignedIn,
+          registeredRoles,
+          isAdmin: Boolean(user.isAdmin),
+        })
     : null;
 
   useEffect(() => {

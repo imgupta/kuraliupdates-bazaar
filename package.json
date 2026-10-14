@@ -8,7 +8,13 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "build:buyer": "VITE_PORTAL=buyer vite build --outDir dist/buyer",
+    "build:seller": "VITE_PORTAL=seller vite build --outDir dist/seller",
+    "build:delivery": "VITE_PORTAL=delivery vite build --outDir dist/delivery",
+    "build:daily-help": "VITE_PORTAL=professional vite build --outDir dist/daily-help",
+    "build:admin": "VITE_PORTAL=admin vite build --outDir dist/admin",
+    "build:portals": "bun run build:buyer && bun run build:seller && bun run build:delivery && bun run build:daily-help && bun run build:admin"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
