@@ -81,3 +81,16 @@ Do not merge a routing or domain cutover unless all are true:
 ## Immediate next implementation task
 
 Complete the Phase 0 route/dependency inventory and propose the first vertical slice. Do not create additional Vercel projects, change domains, enable Microfrontends, or split application code until that inventory and authentication handoff are reviewed.
+
+## Phase 0 evidence links and current gate
+
+Use these source-backed artifacts together; they are review drafts unless explicitly merged:
+- [Route and dependency inventory (PR #86)](https://github.com/imgupta/kuraliupdates-bazaar/pull/86)
+- [Mutation and test-coverage map (PR #87)](https://github.com/imgupta/kuraliupdates-bazaar/pull/87)
+- [Authentication/session contract (PR #88)](https://github.com/imgupta/kuraliupdates-bazaar/pull/88)
+
+The auth/session review specifically needs to address the current localStorage-backed session snapshot and bearer token, server-authoritative session restoration, logout propagation, cross-app deep links, role enforcement, and the API client's `getMe` token-in-query behavior. Do not change that behavior as incidental frontend extraction; make any remediation a separately tested backend-compatible change.
+
+The mutation map is a safety boundary: do not use shared staging for order/booking creation, product writes, approval changes, OTP resend/verification, delivery claims, availability changes, or location publishing. Use mocks or a separately approved isolated test environment. Inspect E2E output for skipped authenticated role scenarios before claiming complete role coverage.
+
+**Current implementation gate:** Phase 0 only. Do not create independently deployed role apps or change public routing until the session/API contract and seller-portal mocked API/component test plan are reviewed.
