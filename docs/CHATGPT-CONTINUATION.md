@@ -316,3 +316,13 @@ Use absolute commit SHAs and direct PR/run/deployment URLs. Distinguish verified
 - Next work: finish the source-backed mutation-to-test matrix and indirect dependency graph before runtime extraction. Keep shared staging read-only.
 - Open PR #52 (staging OTP capture) is not approved by this checkpoint. Review its latest base/head, security boundaries, tests and CI separately; do not enable its endpoint or secrets until the backend database target is verified as isolated staging.
 
+## Latest verified checkpoint — 15 October 2026 (PR #81)
+
+- Reconciled staging OTP capture work was merged in PR [#81](https://github.com/imgupta/kuraliupdates-bazaar/pull/81). Current main SHA: `3464047f4f4ee62900cbdba0a6c30bd3992ec2ff`.
+- Post-merge workflow [#38623461379](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38623461379) completed successfully on the exact merge SHA. Frontend checks, backend tests, and guarded browser E2E/read-only API smoke jobs all passed.
+- Exact-SHA Vercel deployment `dpl_A2dALK97gYPm9GqyeMggDYESXiYU` is READY on that same SHA and carries the configured aliases `kuraliupdates.com`, `www.kuraliupdates.com`, and `bazaar.kuraliupdates.com`. Provider target metadata says `production`; owner-designated environment remains the single staging environment.
+- Stale PR #52 was closed without merging; its implementation was rebuilt on current main to avoid restoring stale Flyway configuration/migrations. PR #81 is the replacement.
+- OTP capture is disabled by default. No Render environment variables/secrets were changed and no transactional E2E was run. Read-only browser/API smoke passing is not proof of authenticated five-role E2E.
+- Before enabling capture, verify in the selected Render workspace that the backend service's Oracle JDBC target and schema are isolated staging, then configure the staging marker, generated token, allowlist, and dedicated identities. Never expose environment variable values in logs or handoff docs.
+- Main workflow pins frontend target to `https://bazaar.kuraliupdates.com` and validates API smoke target as `https://kuraliupdates-bazaar.onrender.com/api/v1`. Authenticated test logic requires the exact designated frontend/API hosts, `E2E_ENVIRONMENT=staging`, a token of at least 32 characters, and a dedicated role identity. Keep those guards.
+- Next: inspect Render service/database target metadata after the owner confirms which Render workspace to inspect; then decide whether it is safe to enable the OTP test interface. Keep shared staging business flows read-only until isolated synthetic fixtures and cleanup are explicitly established.
