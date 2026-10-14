@@ -5,8 +5,17 @@ import { AuthPageV2 } from '../components/Auth/AuthPageV2';
 import { BuyerRegistrationPage } from '../components/Auth/BuyerRegistrationPage';
 import { BuyerAccountPage } from '../components/Buyer/BuyerAccountPage';
 import { resolvePortalRoute } from './routing/routeConfig';
+import { buildPortalRedirectUrl } from './routing/portalRedirect';
 import { authorizeRoleRoute } from './routing/roleRouteAccess';
 import type { UserRole } from '../types';
+
+const PORTAL_URLS: Partial<Record<UserRole, string | undefined>> = {
+  buyer: import.meta.env.VITE_BUYER_PORTAL_URL,
+  seller: import.meta.env.VITE_SELLER_PORTAL_URL,
+  delivery: import.meta.env.VITE_DELIVERY_PORTAL_URL,
+  professional: import.meta.env.VITE_DAILY_HELP_PORTAL_URL,
+  admin: import.meta.env.VITE_ADMIN_PORTAL_URL,
+};
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 export interface PortalAppShellProps {
@@ -60,12 +69,26 @@ const RootNavigation: React.FC<PortalAppShellProps> = ({ portalRole, Dashboard }
       ? { allowed: false, reason: 'portal-mismatch' as const }
       : authorizeRoleRoute(dashboardRole, { isSignedIn: user.isSignedIn, registeredRoles, isAdmin: Boolean(user.isAdmin) })
     : null;
+  const redirectRole = portalRole
+    ? dashboardRole && dashboardRole !== portalRole
+      ? dashboardRole
+      : user.isSignedIn && !registeredRoles.includes(portalRole) && role !== portalRole
+        ? role
+        : null
+    : null;
+  const redirectUrl = redirectRole
+    ? buildPortalRedirectUrl(redirectRole, window.location.origin, PORTAL_URLS)
+    : null;
 
   useEffect(() => {
     const syncPathname = () => setPathname(window.location.pathname);
     window.addEventListener('popstate', syncPathname);
     return () => window.removeEventListener('popstate', syncPathname);
   }, []);
+
+  useEffect(() => {
+    if (redirectUrl) window.location.replace(redirectUrl);
+  }, [redirectUrl]);
 
   useEffect(() => {
     if (dashboardRole && dashboardAccess?.allowed && role !== dashboardRole) setRole(dashboardRole);
@@ -79,6 +102,7 @@ const RootNavigation: React.FC<PortalAppShellProps> = ({ portalRole, Dashboard }
     case 'account':
       return user.isSignedIn ? <BuyerAccountPage /> : <AuthPageV2 />;
     case 'role-dashboard':
+      if (redirectUrl) return <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6"><p className="text-sm font-semibold text-slate-600">Opening your authorized portal…</p></main>;
       if (dashboardAccess?.allowed) return <MainLayout Dashboard={Dashboard} />;
       if (dashboardAccess?.reason === 'authentication-required') return <AuthPageV2 />;
       return <AccessDenied />;
