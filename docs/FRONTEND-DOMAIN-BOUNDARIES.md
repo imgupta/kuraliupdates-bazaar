@@ -660,3 +660,30 @@ Other presentational components (for example product cards, product details, sea
 3. Build the mutation-to-test matrix for order lifecycle, seller product/discount CRUD, admin approvals, delivery claim/OTP/location, Daily Help booking/availability/OTP, and address/profile changes.
 4. Add isolated unit/API contract tests for auth-header presence, raw-versus-mapped delivery-job methods, and error fallback semantics before considering any API consolidation.
 5. Do not infer safety from client route guards; backend authorization remains authoritative. Do not mutate shared staging to test transactional flows.
+
+## Verified CI and mutation coverage checkpoint — 15 October 2026
+
+### Post-merge evidence
+
+- Main SHA: `d4ac9c2e4b4c7e7eac6e1dbc183218dd50344cf2` (PR #79).
+- Workflow [#38621606099](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38621606099) finished successfully on the exact merge SHA. Frontend checks/build, focused and full backend tests, staging-target guards, read-only API smoke and browser E2E all passed.
+- Exact-SHA Vercel deployment `dpl_EUto8fe5gsizKn2ttYVrf6beqes3` is READY with the configured aliases.
+- Scope limitation: these checks are not proof that authenticated buyer, seller, delivery, Daily Help and admin transactions ran end-to-end. No shared staging writes were performed.
+
+### Mutation-to-test inventory (evidence status)
+
+| Mutation family | Protecting tests needed | Current evidence |
+|---|---|---|
+| Buyer order/checkout lifecycle | create/read/status transition, idempotency, validation, authorization, synthetic DB lifecycle | Full transactional lifecycle not established; shared staging remains read-only |
+| Address/profile | field mapping, validation, default-address semantics, session persistence and reload | Saved-address/profile mapping regressions passed; persistence E2E still needs isolated evidence |
+| Seller product/discount CRUD | payload mapping, validation, owner authorization, CRUD lifecycle | Seller product mapping regression passed; full lifecycle needs verification |
+| Admin approvals | role authorization and approve/reject transitions using synthetic applications | Client route policy is not backend authorization evidence; no real approvals exercised |
+| Delivery claim/OTP/completion | competing claim/idempotency, OTP valid/invalid/expired/attempt limit, state transitions | OTP input validator regression passed; full backend workflow needs evidence |
+| Delivery location/tracking | geolocation lifecycle/cleanup, throttling, auth and response contract | Read-only API/browser smoke passed; no location publishing or job claims |
+| Daily Help | availability/slot changes, booking lifecycle, accept/start/complete OTP, timer cleanup | Authenticated transactional flow not established |
+| Authentication/onboarding | role-specific login/registration, expiry/attempt limits, session hydration, backend authorization | CI passed; do not infer five-role authenticated coverage from browser smoke |
+| API compatibility | auth headers, raw-vs-mapped delivery jobs, null/empty/false/throw error contracts | Must be tested before API method consolidation |
+
+### Next gate
+
+Attach exact source/test locations to each row, inspect backend controller/service authorization and current tests, then add the smallest focused contract tests. Do not remove API methods, change runtime behavior, enable staging OTP capture, or start AppContext/state extraction until the dependency graph and test protection are verified. Any authenticated mutation test requires a confirmed isolated staging database and dedicated synthetic identities.
