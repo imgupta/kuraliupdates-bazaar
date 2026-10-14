@@ -1,11 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/Header';
-import { BuyerHome } from './components/Buyer/BuyerHome';
-import { CartDrawer } from './components/Buyer/CartDrawer';
-import { CheckoutModal } from './components/Buyer/CheckoutModal';
-import { OrderTrackingModal } from './components/Buyer/OrderTrackingModal';
-import { NegotiationChatModal } from './components/Buyer/NegotiationChatModal';
 import { SellerDashboard } from './components/Seller/SellerDashboard';
 import { DeliveryDashboard } from './components/Delivery/DeliveryDashboard';
 import { DailyHelpProfessionalDashboard } from './components/DailyHelpProfessional/DailyHelpProfessionalDashboard';
@@ -13,6 +8,7 @@ import { AdminDashboard } from './components/Admin/AdminDashboard';
 import { AuthPageV2 } from './components/Auth/AuthPageV2';
 import { BuyerRegistrationPage } from './components/Auth/BuyerRegistrationPage';
 import { BuyerAccountPage } from './components/Buyer/BuyerAccountPage';
+import { BuyerPortal } from './features/buyer/BuyerPortal';
 import { resolveAppRoute } from './app/routing/routeConfig';
 import { authorizeRoleRoute } from './app/routing/roleRouteAccess';
 import {
@@ -22,22 +18,12 @@ import {
 } from 'lucide-react';
 
 const MainLayout: React.FC = () => {
-  const {
-    role,
-    user,
-    trackingOrderId,
-    setTrackingOrderId,
-    addToCart,
-    toast,
-  } = useApp();
-
+  const { role, toast } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 flex flex-col text-slate-900 font-sans">
-      {/* Global Header */}
       <Header
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -45,19 +31,13 @@ const MainLayout: React.FC = () => {
         setSelectedCategory={setSelectedCategory}
       />
 
-      {/* Main Body - Render Portal According to User Role */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {role === 'buyer' && (
-          <BuyerHome
+          <BuyerPortal
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             selectedCategory={selectedCategory}
             setSelectedCategory={setSelectedCategory}
-            onOpenTracking={(orderId) => setTrackingOrderId(orderId)}
-            onBuyNow={(product) => {
-              addToCart(product, 1);
-              setIsCheckoutOpen(true);
-            }}
           />
         )}
         {role === 'seller' && <SellerDashboard />}
@@ -66,7 +46,6 @@ const MainLayout: React.FC = () => {
         {role === 'admin' && <AdminDashboard />}
       </main>
 
-      {/* Toast Notification Banner */}
       {toast && (
         <div className="fixed bottom-5 right-5 z-50 animate-in slide-in-from-bottom-5">
           <div
@@ -86,20 +65,6 @@ const MainLayout: React.FC = () => {
         </div>
       )}
 
-      {/* Global Modals for Active Operations */}
-      <CartDrawer onProceedToCheckout={() => setIsCheckoutOpen(true)} />
-      {isCheckoutOpen && (
-        <CheckoutModal onClose={() => setIsCheckoutOpen(false)} />
-      )}
-      {trackingOrderId && (
-        <OrderTrackingModal
-          orderId={trackingOrderId}
-          onClose={() => setTrackingOrderId(null)}
-        />
-      )}
-      <NegotiationChatModal />
-
-      {/* Minimal copyright */}
       <footer className="mt-auto border-t border-slate-200 bg-white py-3 text-center text-[11px] text-slate-500">
         &copy; 2026 kuraliupdates.com
       </footer>
@@ -152,7 +117,6 @@ const RootNavigation: React.FC = () => {
     case 'register-buyer':
       return <BuyerRegistrationPage />;
     case 'account':
-      // Account remains available to every authenticated role.
       return user.isSignedIn ? <BuyerAccountPage /> : <AuthPageV2 />;
     case 'role-dashboard':
       if (dashboardAccess?.allowed) return <MainLayout />;
