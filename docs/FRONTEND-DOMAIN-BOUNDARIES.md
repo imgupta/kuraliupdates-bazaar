@@ -571,3 +571,27 @@ Source: `src/services/api.ts`, blob `ddb67904e14b8d75840389581d4a6c0bcd8a5367`. 
 4. Cross-check effect lifetimes and cleanup for 45-second context/Admin refresh, 10-second Delivery and Provider polling, 5-second tracking reads, geolocation throttling/heartbeat, one-second active-service timer, and auth/OTP timeout/countdown/focus handlers.
 5. Link each high-risk mutation to existing regression tests; mark missing coverage as a gap rather than inventing a test pass.
 6. Do not begin AppContext/state/API extraction until the call-site graph and side-effect/test review are complete. No runtime changes or live mutations were made during this inventory.
+
+
+### Targeted source validation — 15 October 2026
+
+This pass validated the three apparent no-direct-call candidates against the current source on `main` (base SHA `204ff778b513310663d4b3c058ee45ae5482a6b8`). This is still a source inventory, not permission to delete or consolidate methods.
+
+- `getDemandAnalytics()`: Admin Dashboard does not call this symbol. `AdminDashboard.tsx` calls `getAdminAnalytics()`, which requests the same `/admin/analytics/demand-trends` endpoint and returns `null` on failure. The methods are similar, but the duplicate is not yet safe to remove: verify imports outside the current tracked TS/TSX inventory, test usage, and compatibility before proposing deletion.
+- `trackOrder(orderId)`: no direct reference was found in the current tracked frontend source inventory. It performs a GET to `/buyers/orders/{orderId}/track`, includes the stored auth token when present, and returns `null` on errors. `LiveOrderMap.tsx` and `OrderTrackingModal.tsx` are tracking surfaces but did not directly reference this method in the targeted scan. Trace their actual polling helpers before deciding whether this is legacy or a compatibility surface.
+- `getAvailableDeliveryJobs()`: no direct reference was found in the current tracked frontend source inventory. **Do not merge it with or substitute it for `getDeliveryAvailableJobs()`.** Both call `/delivery/jobs/available`, but the former sends no auth header and returns the raw JSON array; the latter requires `kurali_auth_token`, sends a bearer token, maps records through `mapBackendOrder`, and normalizes failures to `[]`. `AppContext.syncDeliveryJobs` and `DeliveryDashboard.tsx` use `getDeliveryAvailableJobs()`.
+
+#### Verified shared-context/effect facts
+
+- `AppContextType` exposes a broad cross-role contract (auth/session, buyer addresses, seller/product/coupon/cart/order, delivery, negotiation chat, UI modal/filter state, toast, backend health and sync). Treat this as a compatibility facade until every destructured consumer is inventoried.
+- `AppContext.tsx` hydrates session and role from `kurali_auth_session` / `kurali_role`; it persists role, user, sellers, products, coupons, delivery agents, orders, chats, cart, applied coupon and backend URL through guarded storage helpers. Address/profile mutations also update the serialized auth session. These keys and sequencing are behavior contracts, not incidental implementation details.
+- The provider schedules `syncWithBackend` every 45 seconds and separately runs an initial sync/session bootstrap effect. `AdminDashboard.tsx` refreshes its read models every 45 seconds with interval cleanup. Delivery polling runs every 10 seconds and has a 1-second cooldown tick; geolocation watch cleanup and permission behavior must be reviewed. Provider refresh is 10 seconds with a 1-second active timer. Buyer tracking surfaces poll at 5 seconds and must retain cancellation/interval cleanup.
+- `showToast` schedules a 4-second timeout without currently retaining a timeout handle for cleanup. Record this as a lifecycle/test review item; do not silently alter timing as part of a domain extraction.
+
+#### Remaining gates
+
+1. Search the full tracked repository and test tree for all candidate symbols, including aliases, indirect references, and string-based/dynamic access; add exact file/line evidence.
+2. Complete the per-component `useApp()` destructuring inventory and map each public member to consumers, including App.tsx route/header flows and callbacks passed through modals.
+3. Trace the actual tracking polling helper(s) and compare endpoint, auth, response and fallback behavior before considering `trackOrder()`.
+4. Build a mutation-to-test matrix for order creation/status, seller/delivery approvals, product and discount CRUD, Daily Help booking/slot/job/OTP lifecycle, delivery job claim/OTP/location, and address changes.
+5. Keep this phase documentation/source inspection only. No shared staging writes, runtime extraction, endpoint changes, auth/session changes, or method deletion.
