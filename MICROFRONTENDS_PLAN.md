@@ -94,3 +94,10 @@ The auth/session review specifically needs to address the current localStorage-b
 The mutation map is a safety boundary: do not use shared staging for order/booking creation, product writes, approval changes, OTP resend/verification, delivery claims, availability changes, or location publishing. Use mocks or a separately approved isolated test environment. Inspect E2E output for skipped authenticated role scenarios before claiming complete role coverage.
 
 **Current implementation gate:** Phase 0 only. Do not create independently deployed role apps or change public routing until the session/API contract and seller-portal mocked API/component test plan are reviewed.
+
+## Latest verification snapshot (2026-10-14)
+
+- Refreshed migration-plan commit `5a03ceff0595cfa08ee757903db4b1a20b6af9d1`: all CI jobs passed in [run 38630788989](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38630788989).
+- [Seller product form validation PR #89](https://github.com/imgupta/kuraliupdates-bazaar/pull/89) isolates validation from React/API side effects and adds boundary tests. Its CI passed all three jobs in [run 38631176589](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38631176589).
+- **Authenticated E2E is not yet verified.** In run 38631176589, three unauthenticated browser checks passed and all five authenticated role journeys (buyer, seller, delivery agent, service provider, admin) were skipped because the designated staging OTP capture token and role identity secrets were absent. Read-only API smoke checks passed. Do not interpret the green workflow as proof of authenticated role coverage.
+- Before the first role-app extraction, configure dedicated staging-only E2E identities and the secure OTP test interface, rerun the authenticated journeys, and inspect test output for skips. Continue to prohibit transactional tests against shared staging.
