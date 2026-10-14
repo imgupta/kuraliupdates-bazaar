@@ -74,17 +74,15 @@ jobs:
       CI: "true"
       # This repository has one deployed environment, designated staging by the owner.
       # Never allow a manual input to redirect authenticated tests to an arbitrary/production host.
+      E2E_ENVIRONMENT: ${{ vars.E2E_ENVIRONMENT }}
       E2E_BASE_URL: "https://bazaar.kuraliupdates.com"
+      E2E_API_BASE_URL: ${{ vars.E2E_API_BASE_URL }}
+      E2E_OTP_CAPTURE_TOKEN: ${{ secrets.E2E_OTP_CAPTURE_TOKEN }}
       E2E_BUYER_IDENTITY: ${{ secrets.E2E_BUYER_IDENTITY }}
-      E2E_BUYER_OTP: ${{ secrets.E2E_BUYER_OTP }}
       E2E_SELLER_IDENTITY: ${{ secrets.E2E_SELLER_IDENTITY }}
-      E2E_SELLER_OTP: ${{ secrets.E2E_SELLER_OTP }}
       E2E_DELIVERY_IDENTITY: ${{ secrets.E2E_DELIVERY_IDENTITY }}
-      E2E_DELIVERY_OTP: ${{ secrets.E2E_DELIVERY_OTP }}
       E2E_PROVIDER_IDENTITY: ${{ secrets.E2E_PROVIDER_IDENTITY }}
-      E2E_PROVIDER_OTP: ${{ secrets.E2E_PROVIDER_OTP }}
       E2E_ADMIN_IDENTITY: ${{ secrets.E2E_ADMIN_IDENTITY }}
-      E2E_ADMIN_OTP: ${{ secrets.E2E_ADMIN_OTP }}
       KURALI_API_BASE_URL: ${{ vars.KURALI_API_BASE_URL || vars.KURALI_STAGING_API_BASE_URL || 'https://kuraliupdates-bazaar.onrender.com/api/v1' }}
       SMOKE_READINESS_TIMEOUT_MS: "360000"
       SMOKE_RETRY_INTERVAL_MS: "10000"
