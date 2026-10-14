@@ -379,3 +379,11 @@ The source survey expanded to nested Buyer and auth components. Details are in `
 - Delivery request contracts and side-effect classifications are now recorded in `docs/FRONTEND-DOMAIN-BOUNDARIES.md` on the active docs branch. This change is documentation-only.
 - Exact-SHA Vercel deployment for current main is not verified; the known READY deployment remains tied to prior SHA `5645a53bd9221c3c8240d68be881c7396a23d595`.
 - Continue to block API/state extraction until all domain contracts and consumer call sites are traced. Never test job claiming, OTP resend/verification, location publication, or delivery registration against shared data.
+
+
+## Daily Help API trace checkpoint — 13 October 2026
+
+- PR #73 Delivery API trace merged at main SHA `84944cea8961084bf5bf488e324cb7b287d15674`; PR-head workflow #38366106002 passed all three jobs. Post-merge workflow #38366636788 is still running at the time of this checkpoint.
+- Daily Help booking, availability, provider slot/job, OTP-start and completion contracts are being traced in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. This branch is documentation-only.
+- Exact-SHA Vercel deployment for current main is not yet verified; latest queried READY deployment points to SHA `5235946abef42d15ec120a3509d835ae85b781de`.
+- Do not start runtime/state/API extraction until all domain contracts and direct consumer call sites are traced and reviewed. Shared-data checks remain read-only.

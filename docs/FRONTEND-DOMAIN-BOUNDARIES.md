@@ -411,8 +411,8 @@ Source reviewed: `src/services/api.ts`, blob `ddb67904e14b8d75840389581d4a6c0bcd
 ### Next API contract slice
 
 - [x] Trace Seller read/create/update/delete payloads, response mapping, token headers, and method-specific fallback behavior (merged PR #72; main SHA `5235946abef42d15ec120a3509d835ae85b781de`).
-- [x] Trace Delivery job/location/OTP requests; separate GET reads from POST writes, including OTP resend and location publication (documented in this branch; pending CI/merge).
-- [ ] Trace Daily Help booking versus provider job/slot operations; classify booking create/start/complete as transactional.
+- [x] Trace Delivery job/location/OTP requests; separate GET reads from POST writes, including OTP resend and location publication (merged PR #73; main SHA `84944cea8961084bf5bf488e324cb7b287d15674`).
+- [x] Trace Daily Help booking versus provider job/slot operations; classify booking create/start/complete as transactional (documented in this branch; pending CI/merge).
 - [ ] Trace Admin read endpoints separately from approvals and service CRUD.
 - [ ] Validate all 72 indexed methods against the actual `bazaarApi` object and call sites. The initial index is provisional, especially where methods contain multiple fetch calls.
 
@@ -472,3 +472,37 @@ Source: `src/services/api.ts`, blob `ddb67904e14b8d75840389581d4a6c0bcd8a5367`. 
 - `getLiveTracking` and `trackOrder` are reads but may expose order/delivery data and are not equivalent to anonymous public smoke. Use authenticated synthetic identities only in an isolated test setup.
 - OTP resend, OTP verification, job claim, rider registration, location updates, and Admin approval/rejection are writes. No such request was issued during this source trace.
 - No runtime/API behavior changed. Next: trace Daily Help booking/provider slot/job contracts, then Admin reads and mutations separately.
+
+
+## Daily Help API contract trace — source inspection, 13 October 2026
+
+Source: `src/services/api.ts`, blob `ddb67904e14b8d75840389581d4a6c0bcd8a5367`. This records client behavior only; backend authorization, OTP persistence, booking atomicity, and idempotency require separate server-side verification.
+
+| Method | Request and payload | Auth / timeout | Response and failure behavior | Effect classification |
+|---|---|---|---|---|
+| `getDailyHelpServices()` | `GET /daily-help/services` | No bearer header; no explicit timeout | Non-OK/network/parse failure returns `[]`; success returns JSON | Public-looking catalogue read; server access not inferred |
+| `createDailyHelpBooking(payload)` | `POST /daily-help/bookings`; JSON payload as supplied | Adds Bearer if `kurali_auth_token` exists; no explicit timeout | Parses JSON with null fallback; non-OK throws server message/error/status; catch rethrows a new Error | Buyer booking creation; transactional/business-critical write, never run against shared data |
+| `getDailyHelpAvailableSlots(date, requestedHours, locality?)` | `GET /daily-help/availability?date=…&requestedHours=…[&locality=…]`; trims locality and omits blank value | No bearer header; no explicit timeout | JSON parse fallback `[]`; non-OK throws internally then catch returns `[]`; non-array becomes `[]` | Availability read |
+| `getDailyHelpProfessionalSlots(professionalId, date)` | `GET /daily-help/professionals/{encoded professionalId}/slots?date={encoded date}` | Optional Bearer from localStorage; no explicit timeout | Non-OK/network error returns `[]`; success returns JSON without array guard | Provider slot read |
+| `createDailyHelpProfessionalSlot(professionalId, slotDate, startTime, endTime)` | `POST /daily-help/professionals/{encoded professionalId}/slots`; JSON `{slotDate,startTime,endTime}` | Optional Bearer; JSON headers; no explicit timeout | Parses JSON with null fallback; non-OK throws server message/error/status; catch rethrows Error | Provider availability mutation |
+| `cancelDailyHelpProfessionalSlot(professionalId, slotId)` | `DELETE /daily-help/professionals/{encoded professionalId}/slots/{encoded slotId}` | Optional Bearer; no explicit timeout | Parses JSON with null fallback; non-OK throws server message/error/status; catch rethrows Error | Destructive slot mutation; never test on real slot IDs |
+| `getLatestDailyHelpBooking(buyerPhone)` | `GET /daily-help/bookings/latest?buyerPhone={encoded phone}` | Optional Bearer; no explicit timeout | Non-OK/network error returns `null`; success returns JSON | Booking read; phone in query is existing behavior |
+| `getDailyHelpBooking(bookingId)` | `GET /daily-help/bookings/{encoded bookingId}` | Optional Bearer; no explicit timeout | Non-OK/network error returns `null`; success returns JSON | Booking read |
+| `registerDailyHelpProfessional(payload)` | `POST /daily-help/professionals/register`; JSON `{name,phone,locality}` | Optional Bearer read from localStorage inline; no explicit timeout | Non-OK/network/parse failure returns `null`; success returns JSON | Provider registration mutation; avoid shared-data testing |
+| `getDailyHelpProfessionalByPhone(phone)` | `GET /daily-help/professionals/by-phone/{encoded phone}` | Optional Bearer; no explicit timeout | Non-OK/network error returns `null`; success returns JSON | Provider lookup; phone is in path |
+| `updateDailyHelpProfessionalAvailability(professionalId,status,locality?)` | `POST /daily-help/professionals/{encoded professionalId}/availability`; JSON `{status,locality}`; status AVAILABLE/OFFLINE | Optional Bearer; JSON headers; no explicit timeout | Non-OK/network error returns `null`; success returns JSON | Provider availability mutation |
+| `getDailyHelpProfessionalAvailableJobs(professionalId)` | `GET /daily-help/professionals/{encoded professionalId}/jobs/available` | Optional Bearer; no explicit timeout | Non-OK/network error returns `[]`; success returns JSON without array guard | Provider job read |
+| `acceptDailyHelpJob(professionalId,bookingId)` | `POST /daily-help/professionals/{encoded professionalId}/jobs/{encoded bookingId}/accept`; no body | Optional Bearer; no explicit timeout | Non-OK/network error returns `null`; success returns JSON | Job acceptance/assignment mutation; no shared-data testing |
+| `getDailyHelpProfessionalJobs(professionalId)` | `GET /daily-help/professionals/{encoded professionalId}/jobs` | Optional Bearer; no explicit timeout | Non-OK/network error returns `[]`; success returns JSON without array guard | Provider job-history read |
+| `getDailyHelpProfessionalEarnings(professionalId)` | `GET /daily-help/professionals/{encoded professionalId}/earnings` | Optional Bearer; no explicit timeout | Non-OK/network error returns `null`; success returns JSON | Earnings read; no payout effect in this client method |
+| `updateDailyHelpBookingStatus(bookingId,professionalId,status)` | `POST /daily-help/bookings/{encoded bookingId}/status`; JSON `{professionalId,status}`, status ARRIVING/READY_TO_START | Optional Bearer; JSON headers; no explicit timeout | Non-OK/network error returns `null`; success returns JSON | Booking lifecycle mutation |
+| `startDailyHelpBooking(bookingId,professionalId,otp)` | `POST /daily-help/bookings/{encoded bookingId}/start`; JSON `{professionalId,otp}` | Optional Bearer; JSON headers; no explicit timeout | Non-OK/network error returns `null`; success returns JSON | OTP-authenticated service start; transactional/business-critical, never run against shared data |
+| `completeDailyHelpBooking(bookingId,professionalId)` | `POST /daily-help/bookings/{encoded bookingId}/complete?professionalId={encoded professionalId}`; no body | Optional Bearer; no explicit timeout | Non-OK/network error returns `null`; success returns JSON | Service completion/state transition; transactional/business-critical, never run against shared data |
+
+### Daily Help trace cautions
+
+- Most provider methods attach the token only if present; client-side optional headers do not prove backend endpoints are anonymous or secure. Verify server authorization before changing contracts.
+- Several reads collapse HTTP/network errors into `[]` or `null`, which can hide service outages as empty state. Preserve behavior during docs-only modularisation.
+- Booking create, provider registration, slot create/cancel, availability changes, job acceptance, booking status, OTP start, and completion all mutate state. No requests were issued during this trace.
+- `getLatestDailyHelpBooking` places buyer phone in a query parameter and `getDailyHelpProfessionalByPhone` places phone in a path; this is observed client behavior, not a security endorsement.
+- No runtime/API behavior changed. Next: trace Admin reads versus approvals/service CRUD and reconcile the provisional 72-method inventory against exports and direct call sites.
