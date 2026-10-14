@@ -254,3 +254,13 @@ Use absolute commit SHAs and direct PR/run/deployment URLs. Distinguish verified
 - Post-merge main workflow #38366636788 is running; do not report post-merge CI as passed until its conclusion is success: https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38366636788.
 - The latest Vercel deployment lookup is READY on prior SHA `5235946abef42d15ec120a3509d835ae85b781de`; exact-SHA deployment for current main is not yet verified.
 - Daily Help client contracts are being documented in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. Do not trigger bookings, provider registration, slot changes, availability changes, job acceptance, OTP start, or completion against shared data.
+
+
+## Admin API trace checkpoint — 15 October 2026
+
+- PR #74 (Daily Help API client contract trace) merged as `6d1616bc40823e00d7d58ef3d212725ee3792e37`.
+- Exact PR-head workflow #38366764090 passed all three jobs: frontend checks, backend tests, and browser E2E/read-only staging API smoke. The smoke-target guards and read-only API smoke steps executed successfully; authenticated five-role flows are not proven by this job alone.
+- The Admin API contract trace is now being prepared as a separate documentation-only change on branch `docs/trace-admin-api-contracts`.
+- Source inspected: `src/services/api.ts` blob `ddb67904e14b8d75840389581d4a6c0bcd8a5367`. The Admin trace records request methods/paths, token header behavior, response fallbacks, and mutation classification. No Admin mutation or live transactional request was issued.
+- Post-merge workflow for `6d1616bc` and exact-SHA Vercel deployment still need explicit verification; do not infer either from PR-head CI. Keep this as a deployment verification gate.
+- Next after Admin trace: reconcile all API exports with direct and transitive call sites, validate the provisional endpoint index, then review timer/listener cleanup, storage effects, duplicate requests and regression-test coverage. Do not begin AppContext/state/API extraction until this inventory is complete and reviewed.
