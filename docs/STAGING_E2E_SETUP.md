@@ -22,10 +22,9 @@ In repository **Settings → Secrets and variables → Actions**, configure:
 ### Variables
 
 - `E2E_ENVIRONMENT=staging`
-- `E2E_BASE_URL=https://<verified-staging-frontend-host>`
-- `E2E_API_BASE_URL=https://<verified-staging-api-host>/api/v1`
+- `E2E_API_BASE_URL=https://kuraliupdates-bazaar.onrender.com/api/v1` (the current workflow's exact allowed API target)
 
-Set `E2E_API_BASE_URL` to the API base including `/api/v1`. Do not set the staging environment marker until the frontend, Render service and Oracle schema have been independently verified as the intended staging target.
+The workflow pins the browser target to `https://bazaar.kuraliupdates.com` and validates the API target against `https://kuraliupdates-bazaar.onrender.com/api/v1`; it intentionally does not accept a free-form URL override. Do not set `E2E_ENVIRONMENT=staging` or the API variable until the frontend, Render service and Oracle schema have been independently verified as the intended isolated staging target.
 
 ### Secrets
 
