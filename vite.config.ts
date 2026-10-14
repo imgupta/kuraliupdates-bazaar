@@ -16,10 +16,15 @@ function renamePortalHtml(sourceHtml: string): Plugin {
   return {
     name: 'kuraliupdates-portal-index',
     generateBundle(_options, bundle) {
-      const html = bundle[sourceHtml];
-      if (html?.type !== 'asset') throw new Error(`Expected portal HTML entry "${sourceHtml}" in the build output.`);
-      bundle['index.html'] = { ...html, fileName: 'index.html' };
-      delete bundle[sourceHtml];
+      const htmlName = Object.keys(bundle).find((fileName) => fileName.endsWith('.html'));
+      if (!htmlName || bundle[htmlName]?.type !== 'asset') {
+        throw new Error(`Expected an HTML asset for portal entry "${sourceHtml}" in the build output.`);
+      }
+      if (htmlName !== 'index.html') {
+        const html = bundle[htmlName];
+        bundle['index.html'] = { ...html, fileName: 'index.html' };
+        delete bundle[htmlName];
+      }
     },
   };
 }
