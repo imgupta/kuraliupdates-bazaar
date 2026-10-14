@@ -387,3 +387,11 @@ The source survey expanded to nested Buyer and auth components. Details are in `
 - Daily Help booking, availability, provider slot/job, OTP-start and completion contracts are being traced in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. This branch is documentation-only.
 - Exact-SHA Vercel deployment for current main is not yet verified; latest queried READY deployment points to SHA `5235946abef42d15ec120a3509d835ae85b781de`.
 - Do not start runtime/state/API extraction until all domain contracts and direct consumer call sites are traced and reviewed. Shared-data checks remain read-only.
+
+
+## Admin API contract trace — 15 October 2026
+
+- Daily Help API trace PR #74 merged after exact-head workflow #38366764090 passed frontend checks, backend tests, and browser E2E/read-only staging API smoke.
+- Next bounded phase: document Admin read and mutation client contracts from `src/services/api.ts`; preserve observed response/error behavior and classify approval/rejection/service-management methods as writes.
+- The full endpoint-to-consumer graph is still incomplete. Continue documentation/source inspection only; do not begin AppContext/state/API-domain extraction until every export and transitive consumer, payload/error/fallback contract, storage effect, timer/listener, mutation class, and protecting test is reviewed.
+- Keep all live smoke checks read-only. Do not use shared data for seller/delivery approval, Daily Help service changes, booking, OTP, job claiming, location publishing, or destructive actions. A green browser job is not evidence of authenticated coverage for all five roles.
