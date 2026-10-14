@@ -3,8 +3,19 @@ name: KuraliUpdates CI and E2E
 on:
   pull_request:
     branches: [main]
+    # Skip expensive CI when a change contains only documentation. Mixed docs/code
+    # changes still run the full workflow because paths-ignore only skips when all
+    # changed paths match these patterns.
+    paths-ignore:
+      - '**/*.md'
+      - '*.md'
+      - 'docs/**'
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - '*.md'
+      - 'docs/**'
   workflow_dispatch:
   schedule:
     - cron: "30 3 * * 1-5"
