@@ -47,6 +47,8 @@ jobs:
         run: node --import tsx --test tests/routeConfig.test.ts
       - name: Role route access policy regression tests
         run: node --import tsx --test tests/roleRouteAccess.test.ts
+      - name: Cross-portal redirect regression tests
+        run: node --import tsx --test tests/portalRedirect.test.ts
       - name: Saved address mapping regression tests
         run: node --import tsx --test tests/savedAddress.test.ts
       - name: User profile mapping regression tests
