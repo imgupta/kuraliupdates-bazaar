@@ -15,6 +15,7 @@ const portalHtmlByRole: Record<string, string> = {
 function renamePortalHtml(sourceHtml: string): Plugin {
   return {
     name: 'kuraliupdates-portal-index',
+    enforce: 'post',
     generateBundle(_options, bundle) {
       const htmlName = Object.keys(bundle).find((fileName) => fileName.endsWith('.html'));
       if (!htmlName || bundle[htmlName]?.type !== 'asset') {
