@@ -116,3 +116,39 @@ test('uses nested seller fields before dashboard seller fallbacks', () => {
   assert.equal(product.sellerRating, 4.7);
   assert.equal(product.isFeatured, true);
 });
+
+import { validateSellerProductForm } from '../src/entities/sellerProduct.ts';
+
+test('accepts valid seller product form values', () => {
+  assert.equal(validateSellerProductForm({
+    title: 'Apples', mrp: '120', sellerPrice: '95', stock: '8', additionalDiscount: '5',
+  }), null);
+});
+
+test('rejects missing title and non-positive or non-numeric prices', () => {
+  const base = { title: 'Apples', mrp: '120', sellerPrice: '95', stock: '8', additionalDiscount: '0' };
+  assert.equal(validateSellerProductForm({ ...base, title: '  ' }), 'Enter a valid product name, MRP and selling price.');
+  assert.equal(validateSellerProductForm({ ...base, mrp: '0' }), 'Enter a valid product name, MRP and selling price.');
+  assert.equal(validateSellerProductForm({ ...base, sellerPrice: 'not-a-number' }), 'Enter a valid product name, MRP and selling price.');
+});
+
+test('rejects a seller price above MRP', () => {
+  assert.equal(validateSellerProductForm({
+    title: 'Apples', mrp: '100', sellerPrice: '101', stock: '8', additionalDiscount: '0',
+  }), 'Seller price cannot be higher than MRP.');
+});
+
+test('rejects invalid discount and stock values', () => {
+  const base = { title: 'Apples', mrp: '120', sellerPrice: '95', stock: '8', additionalDiscount: '5' };
+  assert.equal(validateSellerProductForm({ ...base, additionalDiscount: '101' }), 'Check discount and stock values.');
+  assert.equal(validateSellerProductForm({ ...base, additionalDiscount: 'invalid' }), 'Check discount and stock values.');
+  assert.equal(validateSellerProductForm({ ...base, stock: '-1' }), 'Check discount and stock values.');
+  assert.equal(validateSellerProductForm({ ...base, stock: 'NaN' }), 'Check discount and stock values.');
+});
+
+test('allows zero stock and blank discount as the existing defaults intend', () => {
+  assert.equal(validateSellerProductForm({
+    title: 'Apples', mrp: '120', sellerPrice: '95', stock: '0', additionalDiscount: '',
+  }), null);
+});
+
