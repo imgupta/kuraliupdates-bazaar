@@ -4,7 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { PRODUCT_CATEGORIES } from '../../data/initialData';
 import { Product, Seller } from '../../types';
 import { bazaarApi } from '../../services/api';
-import { mapSellerProduct } from '../../entities/sellerProduct';
+import { mapSellerProduct, validateSellerProductForm } from '../../entities/sellerProduct';
 
 
 export const SellerDashboard: React.FC = () => {
@@ -61,12 +61,12 @@ export const SellerDashboard: React.FC = () => {
 
   const submitProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    const mrp = Number(form.mrp), price = Number(form.sellerPrice), stock = Number(form.stock), discount = Number(form.additionalDiscount || 0);
-    if (!form.title.trim() || !Number.isFinite(mrp) || !Number.isFinite(price) || mrp <= 0 || price <= 0) {
-      showToast('Enter a valid product name, MRP and selling price.', 'error'); return;
+    const validationError = validateSellerProductForm(form);
+    if (validationError) {
+      showToast(validationError, 'error');
+      return;
     }
-    if (price > mrp) { showToast('Seller price cannot be higher than MRP.', 'error'); return; }
-    if (discount < 0 || discount > 100 || stock < 0) { showToast('Check discount and stock values.', 'error'); return; }
+    const mrp = Number(form.mrp), price = Number(form.sellerPrice), stock = Number(form.stock), discount = Number(form.additionalDiscount || 0);
 
     const payload = {
       title: form.title.trim(), category: form.category, description: form.description.trim(),
