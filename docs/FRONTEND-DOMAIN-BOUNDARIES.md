@@ -538,3 +538,36 @@ Source: `src/services/api.ts`, blob `ddb67904e14b8d75840389581d4a6c0bcd8a5367`. 
 - Seller/delivery approval or rejection and Daily Help service create/update are mutations. No such requests were sent during this trace.
 - The Daily Help Admin service methods overlap with the provider/buyer Daily Help domain but belong to Admin management. Keep ownership and authorization distinct.
 - This trace covers the Admin methods observed in `src/services/api.ts`; the full transitive component-to-method call graph and reconciliation against every exported API method remain to be completed. Do not mark the domain map complete or start state/API extraction yet.
+
+
+## API export-to-consumer reconciliation — 15 October 2026
+
+### Static inventory result
+
+- `src/services/api.ts` exposes 72 methods in the current source snapshot.
+- A static name-based scan across frontend source files found direct-call references for 69 methods. Apparent no-direct-call candidates are `getDemandAnalytics()`, `trackOrder()`, and `getAvailableDeliveryJobs()`.
+- **Do not remove these methods based on this scan alone.** Confirm imports/aliases, callback references, any dynamic property access, test-only consumers, and whether they are intentionally retained compatibility surfaces. In particular, delivery has both `getAvailableDeliveryJobs()` and `getDeliveryAvailableJobs()`; their auth and response-mapping behavior differs in the source trace. `getAdminAnalytics()` and `getDemandAnalytics()` both target the demand-trends endpoint, but only the former has an observed Admin Dashboard direct call in the scanned files.
+- This scan is a static source cross-check, not a runtime trace. It does not prove backend authorization or whether authenticated role flows execute in E2E.
+
+### Observed domain-to-consumer map
+
+| Domain / surface | Observed source consumers | Boundary and risk notes |
+|---|---|---|
+| Shared state, session, address normalization, periodic backend sync | `src/context/AppContext.tsx`; consumers include `src/App.tsx`, `src/components/Header.tsx`, auth and buyer/seller/delivery role components | Context is a high-fan-out compatibility boundary. Trace every exported value/action before extraction; preserve auth/session, localStorage, sync cadence, optimistic/fallback behavior, and address mapper compatibility. |
+| Authentication and onboarding | `AuthPage.tsx`, `AuthPageV2.tsx`, `BuyerRegistrationPage.tsx`, `AppContext.tsx`, role registration modals | OTP send/verify, registration checks, onboarding status, user updates and role resolution have side effects/timeouts. Do not invoke live OTP or registration writes during smoke. |
+| Seller products, orders, discounts | `SellerDashboard.tsx`; selected legacy product/seller methods also flow through `AppContext.tsx` | Product/order/discount writes are business mutations. Preserve distinct legacy versus authenticated endpoint contracts and error behavior. |
+| Admin management and analytics | `AdminDashboard.tsx` and the existing market-trends visualization surface | Read methods have mixed `[]`/throw/null behavior; approvals/rejections and service create/update are writes. Backend remains authoritative for admin authorization. |
+| Buyer shop, cart, checkout, address and orders | `BuyerHome.tsx`, `OnlineShopHome.tsx`, cart/checkout/account components, `AppContext.tsx` | Checkout/order creation and address updates mutate state; use only synthetic isolated data for transactional tests. |
+| Buyer Daily Help | `DailyHelpHome.tsx` | Catalogue and availability are reads; booking creation is a transaction. Phone-bearing lookup parameters are existing behavior, not a security endorsement. |
+| Daily Help Provider | `DailyHelpProfessionalDashboard.tsx` | Slot create/cancel, availability, job acceptance, booking status, OTP start and completion are writes; preserve polling/timer cleanup and service-duration semantics. |
+| Delivery and tracking | `DeliveryDashboard.tsx`, `AppContext.tsx`, `LiveOrderMap.tsx`, `OrderTrackingModal.tsx` | Job claim, OTP resend/verification, registration and location publishing have side effects; tracking requests poll and can expose real order data. Do not run them against shared records. |
+| Route and presentation-only helpers | `App.tsx`, route policy/config, UI-only buyer components and entity mappers | Keep route policy separate from backend security; mapper extractions must retain shape/default/null/zero-coordinate behavior. |
+
+### Reconciliation gaps and next review
+
+1. Confirm all 72 method declarations against the source, and attach exact call-site file/line references rather than relying only on symbol search.
+2. Resolve the three apparent no-direct-call methods. Confirm whether they are legacy duplicates, callback/alias references, or required compatibility surfaces before proposing deletion.
+3. Trace `AppContext` public values/actions to each consuming component, including indirect callback flows and initial/fallback state.
+4. Cross-check effect lifetimes and cleanup for 45-second context/Admin refresh, 10-second Delivery and Provider polling, 5-second tracking reads, geolocation throttling/heartbeat, one-second active-service timer, and auth/OTP timeout/countdown/focus handlers.
+5. Link each high-risk mutation to existing regression tests; mark missing coverage as a gap rather than inventing a test pass.
+6. Do not begin AppContext/state/API extraction until the call-site graph and side-effect/test review are complete. No runtime changes or live mutations were made during this inventory.
