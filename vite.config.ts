@@ -1,16 +1,39 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import { defineConfig, type Plugin } from 'vite';
+
+const root = import.meta.dirname || process.cwd();
+const portalHtmlByRole: Record<string, string> = {
+  buyer: 'portal-buyer.html',
+  seller: 'portal-seller.html',
+  delivery: 'portal-delivery.html',
+  professional: 'portal-daily-help.html',
+  admin: 'portal-admin.html',
+};
+
+function renamePortalHtml(sourceHtml: string): Plugin {
+  return {
+    name: 'kuraliupdates-portal-index',
+    generateBundle(_options, bundle) {
+      const html = bundle[sourceHtml];
+      if (html?.type !== 'asset') throw new Error(`Expected portal HTML entry "${sourceHtml}" in the build output.`);
+      bundle['index.html'] = { ...html, fileName: 'index.html' };
+      delete bundle[sourceHtml];
+    },
+  };
+}
 
 export default defineConfig(() => {
+  const portal = process.env.VITE_PORTAL;
+  const portalHtml = portal ? portalHtmlByRole[portal] : undefined;
+  const plugins = [react(), tailwindcss()];
+  if (portalHtml) plugins.push(renamePortalHtml(portalHtml));
+
   return {
-    plugins: [react(), tailwindcss()],
-    resolve: {
-      alias: {
-        '@': path.resolve(import.meta.dirname || process.cwd(), '.'),
-      },
-    },
+    plugins,
+    resolve: { alias: { '@': path.resolve(root, '.') } },
+    ...(portalHtml ? { build: { rollupOptions: { input: path.resolve(root, portalHtml) } } } : {}),
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
