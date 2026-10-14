@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/Header';
-import { SellerDashboard } from './components/Seller/SellerDashboard';
+import { SellerDashboard as SellerPortal } from './features/seller/SellerPortal';
 import { DeliveryDashboard } from './components/Delivery/DeliveryDashboard';
 import { DailyHelpProfessionalDashboard } from './components/DailyHelpProfessional/DailyHelpProfessionalDashboard';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
@@ -40,7 +40,7 @@ const MainLayout: React.FC = () => {
             setSelectedCategory={setSelectedCategory}
           />
         )}
-        {role === 'seller' && <SellerDashboard />}
+        {role === 'seller' && <SellerPortal />}
         {role === 'delivery' && <DeliveryDashboard />}
         {role === 'professional' && <DailyHelpProfessionalDashboard />}
         {role === 'admin' && <AdminDashboard />}
