@@ -9,11 +9,11 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "build:buyer": "VITE_PORTAL=buyer vite build --outDir dist/buyer",
-    "build:seller": "VITE_PORTAL=seller vite build --outDir dist/seller",
-    "build:delivery": "VITE_PORTAL=delivery vite build --outDir dist/delivery",
-    "build:daily-help": "VITE_PORTAL=professional vite build --outDir dist/daily-help",
-    "build:admin": "VITE_PORTAL=admin vite build --outDir dist/admin",
+    "build:buyer": "VITE_PORTAL=buyer vite build --outDir dist/buyer && cp dist/buyer/portal-buyer.html dist/buyer/index.html",
+    "build:seller": "VITE_PORTAL=seller vite build --outDir dist/seller && cp dist/seller/portal-seller.html dist/seller/index.html",
+    "build:delivery": "VITE_PORTAL=delivery vite build --outDir dist/delivery && cp dist/delivery/portal-delivery.html dist/delivery/index.html",
+    "build:daily-help": "VITE_PORTAL=professional vite build --outDir dist/daily-help && cp dist/daily-help/portal-daily-help.html dist/daily-help/index.html",
+    "build:admin": "VITE_PORTAL=admin vite build --outDir dist/admin && cp dist/admin/portal-admin.html dist/admin/index.html",
     "build:portals": "bun run build:buyer && bun run build:seller && bun run build:delivery && bun run build:daily-help && bun run build:admin"
   },
   "dependencies": {
