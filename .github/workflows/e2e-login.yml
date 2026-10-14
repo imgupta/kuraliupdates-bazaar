@@ -123,3 +123,32 @@ jobs:
             test-results/
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Summarize authenticated role E2E readiness
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Authenticated role E2E readiness"
+            echo
+            echo "This is a configuration summary, not proof that a role journey passed. Inspect the Playwright results above for actual pass/skip counts."
+            echo
+            if [ "$E2E_ENVIRONMENT" = "staging" ] && [ -n "$E2E_API_BASE_URL" ] && [ "${#E2E_OTP_CAPTURE_TOKEN}" -ge 32 ]; then
+              echo "- Staging target, API target and OTP capture token: configured"
+            else
+              echo "- Staging target, API target and OTP capture token: incomplete; authenticated role tests may be skipped"
+            fi
+            echo
+            echo "| Role | Dedicated identity configured |"
+            echo "|---|---|"
+            for role in BUYER SELLER DELIVERY PROVIDER ADMIN; do
+              var="E2E_${role}_IDENTITY"
+              if [ -n "${!var}" ]; then
+                echo "| ${role} | Yes |"
+              else
+                echo "| ${role} | No |"
+              fi
+            done
+            echo
+            echo "No identity or token values are printed by this summary."
+          } >> "$GITHUB_STEP_SUMMARY"
