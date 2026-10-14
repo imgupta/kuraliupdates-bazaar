@@ -4,7 +4,7 @@ import { Header } from './components/Header';
 import { SellerDashboard as SellerPortal } from './features/seller/SellerPortal';
 import { DeliveryDashboard as DeliveryPortal } from './features/delivery/DeliveryPortal';
 import { DailyHelpProfessionalDashboard as DailyHelpPortal } from './features/daily-help/DailyHelpPortal';
-import { AdminDashboard } from './components/Admin/AdminDashboard';
+import { AdminDashboard as AdminPortal } from './features/admin/AdminPortal';
 import { AuthPageV2 } from './components/Auth/AuthPageV2';
 import { BuyerRegistrationPage } from './components/Auth/BuyerRegistrationPage';
 import { BuyerAccountPage } from './components/Buyer/BuyerAccountPage';
@@ -43,7 +43,7 @@ const MainLayout: React.FC = () => {
         {role === 'seller' && <SellerPortal />}
         {role === 'delivery' && <DeliveryPortal />}
         {role === 'professional' && <DailyHelpPortal />}
-        {role === 'admin' && <AdminDashboard />}
+        {role === 'admin' && <AdminPortal />}
       </main>
 
       {toast && (
