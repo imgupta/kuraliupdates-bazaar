@@ -306,3 +306,13 @@ Use absolute commit SHAs and direct PR/run/deployment URLs. Distinguish verified
 - `src/components/Auth/AuthPage.tsx` exists in the tree but is not imported by `src/App.tsx`. Treat it as a likely legacy/unreachable candidate only; do not delete until a whole-repository import/dynamic-reference scan and its unique OTP/modal contracts are checked.
 - Next bounded step: finish repository-wide route/import/callback reachability and add a mutation-to-test matrix, then add focused API contract tests before any API cleanup. No runtime extraction/deletion yet.
 - Safety remains unchanged: shared staging checks must be read-only. Do not create orders/bookings, mutate approvals/inventory/availability, trigger OTP writes, claim delivery jobs, or publish delivery location. Authenticated five-role transactional E2E coverage is not claimed merely because the read-only browser job passed.
+
+## Latest verified checkpoint — 15 October 2026
+
+- PR #79 is merged; main is `d4ac9c2e4b4c7e7eac6e1dbc183218dd50344cf2`.
+- Post-merge workflow [#38621606099](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/38621606099) completed **success** on that exact SHA. Frontend checks/build, focused backend regressions/full backend suite, staging-target guards, read-only API smoke and browser E2E jobs all passed.
+- Exact-SHA Vercel deployment `dpl_EUto8fe5gsizKn2ttYVrf6beqes3` is **READY** and carries the configured KuraliUpdates aliases.
+- This confirms CI/read-only smoke only. It does not prove authenticated transactional E2E for buyer, seller, delivery agent, Daily Help provider and admin.
+- Next work: finish the source-backed mutation-to-test matrix and indirect dependency graph before runtime extraction. Keep shared staging read-only.
+- Open PR #52 (staging OTP capture) is not approved by this checkpoint. Review its latest base/head, security boundaries, tests and CI separately; do not enable its endpoint or secrets until the backend database target is verified as isolated staging.
+
