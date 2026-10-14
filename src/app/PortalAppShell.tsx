@@ -77,7 +77,7 @@ const RootNavigation: React.FC<PortalAppShellProps> = ({ portalRole, Dashboard }
         : null
     : null;
   const redirectUrl = redirectRole
-    ? buildPortalRedirectUrl(redirectRole, window.location.origin, PORTAL_URLS)
+    ? buildPortalRedirectUrl(redirectRole, window.location.href, PORTAL_URLS)
     : null;
 
   useEffect(() => {
