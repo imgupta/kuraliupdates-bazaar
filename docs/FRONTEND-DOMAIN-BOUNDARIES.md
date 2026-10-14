@@ -595,3 +595,47 @@ This pass validated the three apparent no-direct-call candidates against the cur
 3. Trace the actual tracking polling helper(s) and compare endpoint, auth, response and fallback behavior before considering `trackOrder()`.
 4. Build a mutation-to-test matrix for order creation/status, seller/delivery approvals, product and discount CRUD, Daily Help booking/slot/job/OTP lifecycle, delivery job claim/OTP/location, and address changes.
 5. Keep this phase documentation/source inspection only. No shared staging writes, runtime extraction, endpoint changes, auth/session changes, or method deletion.
+
+
+### Direct `useApp()` consumer map — 15 October 2026
+
+This table records the directly destructured `useApp()` contract from the current tracked TS/TSX component set. It is not yet a full transitive graph: values passed as props, callbacks that close over context, route reachability, and nested component ownership still need review.
+
+| Consumer | Direct context contract observed |
+|---|---|
+| `App.tsx` | role/user, tracking modal state, add-to-cart, toast, role selection and registered roles; also owns provider/router composition. |
+| `Header.tsx` | role/session/logout, registered roles, cart, seller/current seller, orders, products, cart modal and Gmail auth modal state. |
+| `AdminDashboard.tsx` | user, seller and delivery approval callbacks/data, orders/products, role switch, Gmail auth modal and toast; admin read models and mutations are also called directly through `bazaarApi`. |
+| `AuthPage.tsx`, `AuthPageV2.tsx` | login/register OTP actions and toast; both files remain in source, so route/import reachability must be proven before auth consolidation. |
+| `BuyerRegistrationPage.tsx` | register-with-OTP action and toast; calls registration/OTP API methods directly. |
+| `GmailAuthModal.tsx` | Google login, current user, and seller/delivery/buyer registration-modal toggles. |
+| `BuyerAccountPage.tsx` | user/orders, profile update, buyer address create/update/default actions and toast. |
+| `BuyerRegistrationModal.tsx` | user and legacy buyer-registration action. |
+| `CartDrawer.tsx` | cart/coupon collections, quantity/removal/clear actions, coupon apply/remove, cart calculations, modal state and toast. |
+| `CheckoutModal.tsx` | cart, cart calculations, user and order creation. Order creation is transactional; never exercise against shared records. |
+| `CompareSellersModal.tsx` | products/sellers, add-to-cart, chat start and cart-modal opening. |
+| `DailyHelpHome.tsx` | user and toast; calls catalogue/availability/latest-booking reads and booking creation directly. Booking creation is transactional. |
+| `NegotiationChatModal.tsx` | active chat/chats, send/respond actions, products, cart actions, role/user. |
+| `OnlineShopHome.tsx` | products/orders, add-to-cart/chat actions, locality filter, comparison state and cart modal. |
+| `OrderTrackingModal.tsx` | orders; separately polls the live-tracking API. |
+| `LiveOrderMap.tsx` | no direct `useApp()`; polls live tracking independently. |
+| `DeliveryDashboard.tsx` | current agent, agents/orders, claim/complete delivery, registration modal, toast and backend sync; directly calls agent/jobs/location/OTP API methods. |
+| `DeliveryRegistrationModal.tsx` | delivery-registration modal state, register action, user and toast. |
+| `DailyHelpProfessionalDashboard.tsx` | user and toast; directly owns provider availability/slots/jobs/earnings/accept/start/complete calls and 10s/1s timers. |
+| `SellerDashboard.tsx` | user, seller-registration modal and toast; directly calls seller product/order/discount APIs. |
+| `SellerRegistrationModal.tsx` | seller-registration modal state, register action, user and toast. |
+
+Other presentational components (for example product cards, product details, search suggestions, route-policy helpers and entity mappers) do not directly call `useApp()` in the scanned source. They may still receive state/actions through props; do not treat absence of direct context usage as proof of no dependency.
+
+#### API candidate search result across tracked frontend/test source
+
+- No direct symbol reference was found for `getDemandAnalytics()`, `trackOrder()`, or `getAvailableDeliveryJobs()` outside their declarations in `src/services/api.ts` across the tracked TS/TSX/test source inventory.
+- `getAdminAnalytics()` is directly used by Admin Dashboard; `getLiveTracking()` is used by both `LiveOrderMap.tsx` and `OrderTrackingModal.tsx`; `getDeliveryAvailableJobs()` is used by AppContext sync and Delivery Dashboard.
+- This scan does not exclude runtime dynamic access, generated code, external consumers, or future tests. Keep all three candidates intact until those compatibility possibilities and explicit API tests are reviewed.
+
+#### Next dependency-graph review
+
+1. Trace App.tsx/Header prop and modal handoffs, including context actions passed through callbacks and nested components.
+2. Confirm import/route reachability of legacy/current auth pages before removing any duplicated-looking OTP path.
+3. Build a mutation-to-test matrix and add focused API contract tests for auth-header presence, raw-vs-mapped delivery-job response, and error fallback semantics before any API cleanup.
+4. Keep runtime extraction blocked until the transitive graph and protecting tests are reviewed.
