@@ -431,3 +431,29 @@ The source survey expanded to nested Buyer and auth components. Details are in `
 - Route entry trace from `src/App.tsx`: current active auth component is `AuthPageV2`; buyer registration is handled separately by `BuyerRegistrationPage`. Legacy `src/components/Auth/AuthPage.tsx` is present but not imported by App.tsx. Do not remove it until repository-wide reference and behavior checks confirm it is unused.
 - The active root composition is still a single React app with one AppProvider and role-selected dashboards. Keep the modular-monolith plan; do not move to module federation or separate role deployments.
 - Remaining gate before runtime extraction: complete indirect import/prop/callback reachability, mutation-to-test matrix, and contract tests around API auth headers, raw-vs-mapped delivery jobs, and error fallbacks. Shared staging remains read-only.
+
+## Mutation-to-test matrix checkpoint — 15 October 2026
+
+This matrix separates existing evidence from missing proof. “CI passed” means the current repository checks passed; it does not mean the corresponding authenticated business workflow was executed.
+
+| Domain / mutation | Required isolated test coverage | Current evidence / gap |
+|---|---|---|
+| Buyer checkout/order creation and order status lifecycle | Service/API contract tests plus synthetic isolated-database lifecycle test; assert idempotency and status transitions | Current frontend/backend CI passed; shared-staging transactional execution is intentionally not performed. End-to-end lifecycle evidence remains a gap. |
+| Buyer address/profile changes | Mapper/validation tests; persistence and session-refresh tests with a dedicated isolated identity | Saved-address and profile mapping regressions passed. Full authenticated persistence lifecycle remains to be proven in isolated staging. |
+| Seller product and discount CRUD | API payload/validation tests; create-read-update-delete lifecycle using synthetic seller/product records | Seller-product mapping regression passed; full CRUD lifecycle coverage needs explicit verification. |
+| Admin seller/delivery/provider approvals | Authorization tests for allowed/denied roles plus synthetic application approval/rejection tests | Client route tests are not backend authorization proof. Do not approve/reject real staging records. |
+| Delivery job claim and completion | Concurrent claim/idempotency tests, status transition tests, OTP valid/invalid/expired/attempt-limit tests | Delivery OTP input validator regression passed; backend lifecycle and authorization coverage must be checked separately. |
+| Delivery OTP retrieval for E2E | Staging-only allowlist, one-time retrieval, expiry, non-cacheable response, no logging, disabled-by-default and environment/database isolation tests | Open PR #52 proposes this mechanism; it remains a separate review gate. Do not enable runtime configuration until the database target is verified. |
+| Delivery location/live tracking | Mocked geolocation permission/watch cleanup, throttling and request-contract tests; read-only live endpoint smoke only | Current read-only browser/API smoke passed; no location publishing or job mutation performed. |
+| Daily Help booking, slots, job acceptance, start/complete OTP | Unit/API tests for state transitions, concurrency, expiry and timer cleanup; synthetic isolated transaction lifecycle | No shared-staging booking or provider writes allowed. Authenticated full lifecycle remains unverified. |
+| Auth / role onboarding | OTP expiry/attempt limits, role resolution, session persistence, backend authorization, dedicated identity registration/login flows | CI passed; browser read-only success does not establish all five authenticated role flows. |
+| API compatibility boundaries | Tests for auth-header presence, raw vs mapped delivery-job responses, null/empty/false/throw fallbacks | Must be in place before consolidation/removal of apparently unused methods. |
+
+### Gate before runtime modularization
+
+1. Add exact source/test file references for each matrix row and label each assertion as existing, newly added, or missing.
+2. Verify backend authorization at the service/controller boundary; UI role guards are not a security boundary.
+3. Run business lifecycle tests only against a verified isolated staging database with dedicated identities and synthetic records.
+4. Keep read-only smoke checks separate from authenticated transactional E2E reporting.
+5. Preserve shared AppContext, auth/session storage, polling/timer cleanup and current API error semantics during extraction.
+
