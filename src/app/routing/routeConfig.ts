@@ -44,3 +44,21 @@ export function resolveAppRoute(pathname: string): AppRoute {
 export function pathForRole(role: UserRole): string {
   return ROLE_PATHS[role];
 }
+
+/** Select a role-specific landing route for independently deployed portal builds. */
+export function resolvePortalRoute(pathname: string, configuredPortalRole?: string): AppRoute {
+  const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+  const supportedRoles: readonly UserRole[] = [
+    'buyer',
+    'seller',
+    'delivery',
+    'professional',
+    'admin',
+  ];
+
+  if (normalizedPath === '/' && configuredPortalRole && supportedRoles.includes(configuredPortalRole as UserRole)) {
+    return { kind: 'role-dashboard', role: configuredPortalRole as UserRole };
+  }
+
+  return resolveAppRoute(pathname);
+}
