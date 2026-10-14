@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { bazaarApi } from '../../services/api';
-import { MarketTrendsVisualization } from './MarketTrendsVisualization';
+import { MarketTrendsVisualization } from '../../components/Admin/MarketTrendsVisualization';
 import { ROOT_ADMIN_EMAIL, isRootAdminEmail } from '../../data/initialData';
 
 export const AdminDashboard: React.FC = () => {
