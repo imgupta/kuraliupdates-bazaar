@@ -3,7 +3,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/Header';
 import { SellerDashboard as SellerPortal } from './features/seller/SellerPortal';
 import { DeliveryDashboard as DeliveryPortal } from './features/delivery/DeliveryPortal';
-import { DailyHelpProfessionalDashboard } from './components/DailyHelpProfessional/DailyHelpProfessionalDashboard';
+import { DailyHelpProfessionalDashboard as DailyHelpPortal } from './features/daily-help/DailyHelpPortal';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
 import { AuthPageV2 } from './components/Auth/AuthPageV2';
 import { BuyerRegistrationPage } from './components/Auth/BuyerRegistrationPage';
@@ -42,7 +42,7 @@ const MainLayout: React.FC = () => {
         )}
         {role === 'seller' && <SellerPortal />}
         {role === 'delivery' && <DeliveryPortal />}
-        {role === 'professional' && <DailyHelpProfessionalDashboard />}
+        {role === 'professional' && <DailyHelpPortal />}
         {role === 'admin' && <AdminDashboard />}
       </main>
 
