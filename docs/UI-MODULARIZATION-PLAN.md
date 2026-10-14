@@ -413,3 +413,12 @@ The source survey expanded to nested Buyer and auth components. Details are in `
 - `getDemandAnalytics()` overlaps the endpoint of `getAdminAnalytics()`, while Admin Dashboard uses `getAdminAnalytics()`; `trackOrder()` has no direct reference in the scanned TS/TSX source set and needs tracking-helper/test search.
 - `AppContext` owns session/role hydration, many localStorage-backed cross-role collections, profile/address session persistence, and periodic backend sync. The existing 45s/10s/5s polling intervals, 1s timer ticks, geolocation lifecycle and toast timeout must be preserved or explicitly regression-tested before refactoring.
 - **Gate unchanged:** no runtime/state/API extraction until the full consumer graph, exact request/response/error/fallback behavior, storage effects, effect cleanup, mutation classes and protecting tests are reviewed. Keep the modular-monolith direction; no module federation or separate role deployments.
+
+
+## Direct context dependency checkpoint — 15 October 2026
+
+- PR #77 merged at `79a152b8565d3d0fc5fc698875495d8e8d439030`; post-merge CI #38619689342 passed all three jobs and exact-SHA Vercel deployment `dpl_EcA45gc8UrMEfXUfzcXPjiPQ9M1L` is READY.
+- A direct `useApp()` consumer matrix is now documented in `docs/FRONTEND-DOMAIN-BOUNDARIES.md`, including Admin, Auth, Buyer, Seller, Delivery, Daily Help Provider, App and Header.
+- The tracked frontend/test source scan finds no direct call to `getDemandAnalytics()`, `trackOrder()`, or `getAvailableDeliveryJobs()`; this is not sufficient evidence to delete them. Preserve all API methods until route/import reachability, indirect/dynamic consumers and API contract tests are resolved.
+- Remaining blockers: transitive props/callback graph; auth page reachability; explicit tests for raw-vs-mapped delivery jobs, auth header behavior and fallback contracts; mutation-to-test matrix; effect/listener/timer cleanup review.
+- Modular monolith remains the target. No runtime extraction, API deletion, module federation, independent role deployments, backend/schema changes or shared staging writes in this documentation phase.
