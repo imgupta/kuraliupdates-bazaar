@@ -62,6 +62,9 @@ jobs:
         run: bun run build
       - name: Independently targeted portal builds
         run: bun run build:portals
+      - name: Verify all role-specific build outputs
+        run: |
+          node --input-type=module -e "import fs from 'node:fs'; const paths=['dist/buyer/index.html','dist/seller/index.html','dist/delivery/index.html','dist/daily-help/index.html','dist/admin/index.html']; const missing=paths.filter(path=>!fs.existsSync(path)); if(missing.length){console.error('Missing portal outputs:',missing.join(', '));process.exit(1)}"
 
   backend:
     name: Backend tests
