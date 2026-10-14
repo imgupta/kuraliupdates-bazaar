@@ -286,3 +286,12 @@ Use absolute commit SHAs and direct PR/run/deployment URLs. Distinguish verified
 - `getDemandAnalytics()` and `getAdminAnalytics()` request the same demand-trends endpoint, but only `getAdminAnalytics()` was observed in `AdminDashboard.tsx`. `trackOrder()` had no direct use in the scanned frontend sources; track the actual polling helper behind the tracking components before any deletion decision.
 - `AppContext` remains a broad cross-role facade with guarded localStorage hydration/persistence, a 45-second backend sync, and session/address mutation sequencing. No runtime code was changed.
 - Next: finish full-repository candidate search and consumer map, trace tracking helper contracts, map public `useApp` members to consumers, then link mutations to regression tests. Runtime extraction remains blocked until this review is complete and documented. Live staging checks stay read-only; no real/shared transactional records, OTPs, approvals, bookings, job claims or location writes.
+
+
+## Continuation checkpoint — direct context consumer map
+
+- PR #77 merged at `79a152b8565d3d0fc5fc698875495d8e8d439030`; its post-merge workflow #38619689342 passed frontend checks, backend tests and browser E2E/read-only staging smoke. Exact-SHA Vercel deployment `dpl_EcA45gc8UrMEfXUfzcXPjiPQ9M1L` is READY and carries the domain aliases.
+- New documentation-only branch: `docs/map-appcontext-consumers`. It extends `docs/FRONTEND-DOMAIN-BOUNDARIES.md` with directly destructured `useApp()` contracts by component and candidate API symbol scan results.
+- Direct consumers now recorded for App/Header, Admin, both auth pages, buyer account/registration/cart/checkout/compare/Daily Help/chat/shop/tracking, Delivery, Daily Help Provider and Seller dashboards/registration modals. Prop/callback/route reachability is still not a complete transitive graph.
+- The tracked TS/TSX/test scan found no direct references to `getDemandAnalytics()`, `trackOrder()`, or `getAvailableDeliveryJobs()` outside their declarations. Preserve these methods pending dynamic/external compatibility review and API-contract tests; the raw unauthenticated `getAvailableDeliveryJobs()` differs materially from authenticated/mapped `getDeliveryAvailableJobs()`.
+- Next: map callback/prop handoffs and auth route reachability, then link every mutation category to tests. No runtime extraction until the transitive dependency graph is reviewed. Keep staging checks read-only and do not create orders/bookings, claim jobs, trigger OTP writes, publish location, or change approvals/services.
