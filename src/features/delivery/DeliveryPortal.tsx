@@ -17,7 +17,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { Order } from '../../types';
 import { bazaarApi } from '../../services/api';
-import { LiveOrderMap } from '../Buyer/LiveOrderMap';
+import { LiveOrderMap } from '../../components/Buyer/LiveOrderMap';
 
 
 const uniqueOrdersById = (items: Order[]): Order[] => {
