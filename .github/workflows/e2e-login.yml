@@ -55,7 +55,7 @@ jobs:
         run: node --import tsx --test tests/sellerProduct.test.ts
       - name: Delivery OTP input validator regression
         run: |
-          node --input-type=module -e "import fs from 'node:fs'; const src=fs.readFileSync('src/components/Delivery/DeliveryDashboard.tsx','utf8'); if (!src.includes('/^\\\\d{4}$/.test(enteredOtp.trim())')) { console.error('Delivery OTP validator must accept exactly four digits.'); process.exit(1); } if (src.includes('/^\\\\\\\\d{4}$/.test(enteredOtp.trim())')) { console.error('Delivery OTP validator is over-escaped.'); process.exit(1); }"
+          node --input-type=module -e "import fs from 'node:fs'; const src=fs.readFileSync('src/features/delivery/DeliveryPortal.tsx','utf8'); if (!src.includes('/^\\\\d{4}$/.test(enteredOtp.trim())')) { console.error('Delivery OTP validator must accept exactly four digits.'); process.exit(1); } if (src.includes('/^\\\\\\\\d{4}$/.test(enteredOtp.trim())')) { console.error('Delivery OTP validator is over-escaped.'); process.exit(1); }"
       - name: Production build
         run: bun run build
 
