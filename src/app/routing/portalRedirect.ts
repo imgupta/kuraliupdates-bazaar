@@ -5,12 +5,12 @@ export type PortalUrlMap = Partial<Record<UserRole, string | undefined>>;
 
 /**
  * Build a safe cross-portal redirect for an authenticated user.
- * Only HTTPS portal origins are accepted, and same-origin redirects are rejected
- * to avoid loops when role URLs have not yet been configured.
+ * Only HTTPS portal URLs are accepted. Same-origin role paths are supported so
+ * portals can share browser storage when routed beneath one canonical origin.
  */
 export function buildPortalRedirectUrl(
   role: UserRole,
-  currentOrigin: string,
+  currentUrl: string,
   portalUrls: PortalUrlMap,
 ): string | null {
   const configuredUrl = portalUrls[role]?.trim();
@@ -18,11 +18,12 @@ export function buildPortalRedirectUrl(
 
   try {
     const target = new URL(configuredUrl);
-    const current = new URL(currentOrigin);
-    if (target.protocol !== 'https:' || target.origin === current.origin) return null;
+    const current = new URL(currentUrl);
+    if (target.protocol !== 'https:') return null;
     target.pathname = pathForRole(role);
     target.search = '';
     target.hash = '';
+    if (target.origin === current.origin && target.pathname === current.pathname) return null;
     return target.toString();
   } catch {
     return null;

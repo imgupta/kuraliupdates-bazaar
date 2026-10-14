@@ -11,11 +11,19 @@ const portalHtmlByRole: Record<string, string> = {
   professional: 'portal-daily-help.html',
   admin: 'portal-admin.html',
 };
+const portalBaseByRole: Record<string, string> = {
+  buyer: '/buyer/',
+  seller: '/seller/',
+  delivery: '/delivery/',
+  professional: '/daily-help/',
+  admin: '/admin/',
+};
 
 export default defineConfig(() => {
   const portal = process.env.VITE_PORTAL;
   const portalHtml = portal ? portalHtmlByRole[portal] : undefined;
   return {
+    base: portalHtml && portal ? portalBaseByRole[portal] : '/',
     plugins: [react(), tailwindcss()],
     resolve: { alias: { '@': path.resolve(root, '.') } },
     ...(portalHtml ? { build: { rollupOptions: { input: path.resolve(root, portalHtml) } } } : {}),
