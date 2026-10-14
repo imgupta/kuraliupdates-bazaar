@@ -506,3 +506,35 @@ Source: `src/services/api.ts`, blob `ddb67904e14b8d75840389581d4a6c0bcd8a5367`. 
 - Booking create, provider registration, slot create/cancel, availability changes, job acceptance, booking status, OTP start, and completion all mutate state. No requests were issued during this trace.
 - `getLatestDailyHelpBooking` places buyer phone in a query parameter and `getDailyHelpProfessionalByPhone` places phone in a path; this is observed client behavior, not a security endorsement.
 - No runtime/API behavior changed. Next: trace Admin reads versus approvals/service CRUD and reconcile the provisional 72-method inventory against exports and direct call sites.
+
+
+## Admin API contract trace — source inspection, 15 October 2026
+
+Source: `src/services/api.ts`, blob `ddb67904e14b8d75840389581d4a6c0bcd8a5367`. This is a client-side contract inventory, not proof of backend authorization or server-side effects.
+
+| Method | Request and auth | Response/error behavior | Effect classification |
+|---|---|---|---|
+| `getAdminDiagnostics()` | `GET /admin/diagnostics`; `adminAuthHeaders()` reads `kurali_auth_token` from localStorage; `cache: no-store` | JSON parse fallback `null`; non-OK throws response message or HTTP status; success returns parsed payload | Read; diagnostic details may be sensitive |
+| `getAdminDailyHelpHelpers()` | `GET /admin/daily-help/helpers`; admin headers | Non-OK/network failure logs warning and returns `[]`; success returns parsed JSON without array guard | Read |
+| `getAdminDailyHelpServices()` | `GET /admin/daily-help/services`; admin headers | Non-OK/network failure logs warning and returns `[]`; success returns parsed JSON without array guard | Read |
+| `createAdminDailyHelpService(payload)` | `POST /admin/daily-help/services`; JSON body; admin bearer header when token exists | JSON parse fallback `null`; non-OK throws message/error/HTTP status | Service/catalogue mutation; never run against shared data |
+| `updateAdminDailyHelpService(serviceId,payload)` | `PUT /admin/daily-help/services/{encoded serviceId}`; JSON body; admin headers | JSON parse fallback `null`; non-OK throws message/error/HTTP status | Service/catalogue mutation; never run against shared data |
+| `getAdminSellers()` | `GET /admin/sellers`; admin headers | Failure logs warning and returns `[]`; success returns parsed JSON without array guard | Read |
+| `getPendingSellers()` | `GET /admin/sellers/pending`; admin headers | Failure logs warning and returns `[]`; success returns parsed JSON without array guard | Read |
+| `approveSeller(sellerId)` | `POST /admin/sellers/{encoded sellerId}/approve`; admin headers; no body | Returns `res.ok`; network error logs and returns `false` | Seller approval mutation; do not call on real sellers |
+| `rejectSeller(sellerId)` | `POST /admin/sellers/{encoded sellerId}/reject`; admin headers; no body | Returns `res.ok`; network error logs and returns `false` | Seller rejection mutation; do not call on real sellers |
+| `getAdminDeliveryAgents()` | `GET /admin/delivery`; admin headers | Explicitly validates array; non-array, HTTP failure, or exception becomes `[]` | Read |
+| `getPendingDeliveryAgents()` | `GET /admin/delivery/pending`; admin headers | Failure logs warning and returns `[]`; success returns parsed JSON without array guard | Read |
+| `approveDeliveryAgent(agentId)` | `POST /admin/delivery/{encoded agentId}/approve`; admin headers; no body | Returns `res.ok`; network error logs and returns `false` | Delivery-agent approval mutation; do not call on real agents |
+| `rejectDeliveryAgent(agentId)` | `POST /admin/delivery/{encoded agentId}/reject`; admin headers; no body | Returns `res.ok`; network error logs and returns `false` | Delivery-agent rejection mutation; do not call on real agents |
+| `getAdminBuyers()` | `GET /admin/buyers`; admin headers | Failure logs warning and returns `[]`; success returns parsed JSON without array guard | Read; contains user/account data |
+| `getAdminSearchTrends()` | `GET /admin/analytics/search-trends`; admin headers | Failure logs warning and returns `[]`; success returns parsed JSON without array guard | Read/analytics |
+| `getAdminAnalytics()` and `getDemandAnalytics()` | Both call `GET /admin/analytics/demand-trends`; admin headers | Both return `null` after HTTP/network failure; successful response is returned as JSON | Duplicate client surface for the same endpoint; call-site consolidation requires separate review |
+
+### Admin trace cautions
+
+- `adminAuthHeaders()` conditionally adds a bearer token; a missing token does not prevent the browser from issuing the request. This is not a security guarantee. Backend authorization must remain authoritative.
+- Error contracts differ: list methods usually collapse errors into empty arrays; diagnostics and Daily Help service writes throw; approval/rejection methods return booleans. Preserve these semantics during any later refactor.
+- Seller/delivery approval or rejection and Daily Help service create/update are mutations. No such requests were sent during this trace.
+- The Daily Help Admin service methods overlap with the provider/buyer Daily Help domain but belong to Admin management. Keep ownership and authorization distinct.
+- This trace covers the Admin methods observed in `src/services/api.ts`; the full transitive component-to-method call graph and reconciliation against every exported API method remain to be completed. Do not mark the domain map complete or start state/API extraction yet.
