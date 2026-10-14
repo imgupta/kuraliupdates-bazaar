@@ -26,3 +26,34 @@ export const mapSellerProduct = (p: any, seller?: any): Product => ({
   tags: Array.isArray(p.tags) ? p.tags : [],
   isFeatured: Number(p.isFeatured) === 1 || p.isFeatured === true,
 });
+
+export interface SellerProductFormInput {
+  title: string;
+  mrp: string;
+  sellerPrice: string;
+  stock: string;
+  additionalDiscount: string;
+}
+
+/**
+ * Validate seller product form values without side effects so the rules can be
+ * regression-tested independently of React and API calls.
+ * Returns the existing user-facing validation message, or null when valid.
+ */
+export const validateSellerProductForm = (form: SellerProductFormInput): string | null => {
+  const mrp = Number(form.mrp);
+  const price = Number(form.sellerPrice);
+  const stock = Number(form.stock);
+  const discount = Number(form.additionalDiscount || 0);
+
+  if (!form.title.trim() || !Number.isFinite(mrp) || !Number.isFinite(price) || mrp <= 0 || price <= 0) {
+    return 'Enter a valid product name, MRP and selling price.';
+  }
+  if (price > mrp) {
+    return 'Seller price cannot be higher than MRP.';
+  }
+  if (!Number.isFinite(discount) || !Number.isFinite(stock) || discount < 0 || discount > 100 || stock < 0) {
+    return 'Check discount and stock values.';
+  }
+  return null;
+};
