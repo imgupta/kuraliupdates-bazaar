@@ -639,3 +639,24 @@ Other presentational components (for example product cards, product details, sea
 2. Confirm import/route reachability of legacy/current auth pages before removing any duplicated-looking OTP path.
 3. Build a mutation-to-test matrix and add focused API contract tests for auth-header presence, raw-vs-mapped delivery-job response, and error fallback semantics before any API cleanup.
 4. Keep runtime extraction blocked until the transitive graph and protecting tests are reviewed.
+
+
+## Route and component reachability checkpoint — 15 October 2026
+
+### Verified from `src/App.tsx`
+
+- `App` mounts `AppProvider` and `RootNavigation`; the route resolver is the entry point for pathname-to-view selection.
+- `AuthPageV2` is the active shared auth/registration page for `register` routes, signed-out home, signed-out `/account`, and signed-out role-dashboard routes.
+- `/register/buyer` resolves to `BuyerRegistrationPage`, not `AuthPageV2`.
+- Authenticated `/account` resolves to `BuyerAccountPage` (the component is shared despite the name); authorized role-dashboard routes render `MainLayout` and set the selected role. `MainLayout` selects BuyerHome, SellerDashboard, DeliveryDashboard, DailyHelpProfessionalDashboard, or AdminDashboard based on the shared role.
+- `Header` is passed search/category state setters from `MainLayout` and also calls `useApp()`; it is therefore a bridge between navigation/search UI and shared app state, not a purely presentational component.
+- `CartDrawer`, `CheckoutModal`, `OrderTrackingModal`, and `NegotiationChatModal` are mounted at the shared layout level, so they can cross the buyer page/component boundary. Preserve their global lifetime/visibility semantics during any extraction.
+- The legacy-looking file `src/components/Auth/AuthPage.tsx` exists in the repository tree but is not imported by `src/App.tsx`. This only establishes no direct App import, not repository-wide unreachability; inspect all imports, dynamic imports, tests, and OTP-specific behavior before removing it.
+
+### Next verification steps
+
+1. Search every tracked TS/TSX/test file for imports or dynamic references to `AuthPage.tsx`, `AuthPageV2`, and `GmailAuthModal`; record direct route and modal ownership.
+2. Trace Header callbacks, AppContext actions, and modal props to their downstream effects before moving files or state.
+3. Build the mutation-to-test matrix for order lifecycle, seller product/discount CRUD, admin approvals, delivery claim/OTP/location, Daily Help booking/availability/OTP, and address/profile changes.
+4. Add isolated unit/API contract tests for auth-header presence, raw-versus-mapped delivery-job methods, and error fallback semantics before considering any API consolidation.
+5. Do not infer safety from client route guards; backend authorization remains authoritative. Do not mutate shared staging to test transactional flows.
