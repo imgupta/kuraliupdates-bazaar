@@ -11,19 +11,17 @@ const portalHtmlByRole: Record<string, string> = {
   professional: 'portal-daily-help.html',
   admin: 'portal-admin.html',
 };
-const portalBaseByRole: Record<string, string> = {
-  buyer: '/buyer/',
-  seller: '/seller/',
-  delivery: '/delivery/',
-  professional: '/daily-help/',
-  admin: '/admin/',
-};
 
 export default defineConfig(() => {
   const portal = process.env.VITE_PORTAL;
   const portalHtml = portal ? portalHtmlByRole[portal] : undefined;
   return {
-    base: portalHtml && portal ? portalBaseByRole[portal] : '/',
+    // Each role portal is deployed as a standalone Vercel project at the
+    // hostname root (e.g. buyer.kuraliupdates.com/). Using /buyer/, /seller/,
+    // etc. here makes the browser request bundles from nonexistent nested
+    // paths and leaves the React root blank. The monolithic app also uses /
+    // and keeps its role routes client-side.
+    base: '/',
     plugins: [react(), tailwindcss()],
     resolve: { alias: { '@': path.resolve(root, '.') } },
     ...(portalHtml ? { build: { rollupOptions: { input: path.resolve(root, portalHtml) } } } : {}),
