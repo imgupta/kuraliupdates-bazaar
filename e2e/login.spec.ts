@@ -53,26 +53,34 @@ test.describe("KuraliUpdates Bazaar production-safe E2E", () => {
   });
 
 
-  test("direct dashboard URLs remain navigable and guarded through refresh and browser history", async ({ page }) => {
-    const sellerUrl = new URL("/seller", baseURL).toString();
-    const deliveryUrl = new URL("/delivery", baseURL).toString();
+  test("standalone role portals load at their hostname roots and survive refresh/history", async ({ page }) => {
+    // Role dashboards are independently deployed micro-frontends. Their
+    // canonical entry points are each hostname's "/" route, not legacy
+    // monolith paths such as bazaar.kuraliupdates.com/seller.
+    const sellerUrl = "https://seller.kuraliupdates.com/";
+    const deliveryUrl = "https://delivery.kuraliupdates.com/";
+    const authIdentityInput = 'input[type="email"], input[type="tel"], input[name*="email" i], input[name*="mobile" i], input[placeholder*="email" i], input[placeholder*="mobile" i]';
 
     await page.goto(sellerUrl, { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(sellerUrl);
     await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator(authIdentityInput).first()).toBeVisible();
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(sellerUrl);
-    await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible({ timeout: 15_000 });
 
     await page.goto(deliveryUrl, { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(deliveryUrl);
-    await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator(authIdentityInput).first()).toBeVisible();
 
     await page.goBack({ waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(sellerUrl);
+    await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible({ timeout: 15_000 });
     await page.goForward({ waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(deliveryUrl);
+    await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible({ timeout: 15_000 });
   });
 
   test("login form validates required input", async ({ page }) => {
