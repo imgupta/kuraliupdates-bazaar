@@ -2,7 +2,6 @@ package com.kuraliupdates.bazaar.controller;
 
 import com.kuraliupdates.bazaar.service.E2eOtpCaptureService;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +17,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/e2e/otp")
-@ConditionalOnProperty(name = "app.e2e-otp.enabled", havingValue = "true")
 public class E2eOtpController {
     private final E2eOtpCaptureService captureService;
     private final String environment;
@@ -26,8 +24,8 @@ public class E2eOtpController {
 
     public E2eOtpController(
             E2eOtpCaptureService captureService,
-            @Value("${app.e2e-otp.environment:}") String environment,
-            @Value("${app.e2e-otp.token:}") String token) {
+            @Value("${E2E_OTP_CAPTURE_ENV:}") String environment,
+            @Value("${E2E_OTP_CAPTURE_TOKEN:}") String token) {
         this.captureService = captureService;
         this.environment = environment == null ? "" : environment.trim().toLowerCase();
         this.token = token == null ? "" : token;
