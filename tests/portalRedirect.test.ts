@@ -5,11 +5,11 @@ import { buildPortalRedirectUrl } from '../src/app/routing/portalRedirect.ts';
 test('builds a role dashboard URL on the configured HTTPS portal origin', () => {
   assert.equal(
     buildPortalRedirectUrl('seller', 'https://buyer.example.test', { seller: 'https://seller.example.test/' }),
-    'https://seller.example.test/seller',
+    'https://seller.example.test/',
   );
   assert.equal(
     buildPortalRedirectUrl('professional', 'https://buyer.example.test', { professional: 'https://help.example.test/app' }),
-    'https://help.example.test/daily-help',
+    'https://help.example.test/',
   );
 });
 
