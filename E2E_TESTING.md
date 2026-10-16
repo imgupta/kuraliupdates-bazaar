@@ -1,30 +1,26 @@
-# KuraliUpdates Bazaar E2E tests
+# KuraliUpdates Bazaar development smoke tests
 
-These Playwright tests cover homepage/login availability, empty-input validation, and optional authenticated login/session checks for Buyer, Seller, Delivery Agent, Service Provider, and Admin.
+These Playwright tests deliberately skip authentication and OTP flows during development. They use the existing deployed environment and require no new GitHub variables, secrets, test identities, database fixtures, or backend configuration.
+
+## What is tested
+
+- Bazaar and all five role portal URLs respond without HTTP errors.
+- The browser can directly navigate to role portal paths through the Bazaar domain.
+- Refresh and browser history navigation work.
+- Uncaught JavaScript runtime errors are captured as failures.
+- The existing CI workflow runs read-only API smoke checks against the canonical API URL.
 
 ## Run locally
 
 ```bash
-bun install --frozen-lockfile
+bun install
 bun add --dev @playwright/test
 bunx playwright install chromium
-E2E_BASE_URL=https://bazaar.kuraliupdates.com bunx playwright test
+bunx playwright test
 ```
 
-## Authenticated tests
+## Boundaries for this development phase
 
-Authenticated tests are skipped unless both an identity and OTP are provided for that role:
+This suite does **not** test login, OTP, session restoration, role authorization after login, or authenticated mutations. It does not create orders/bookings, edit profiles or addresses, complete deliveries, or delete records. These can be added when the login flow is ready for explicit testing.
 
-- `E2E_BUYER_IDENTITY`, `E2E_BUYER_OTP`
-- `E2E_SELLER_IDENTITY`, `E2E_SELLER_OTP`
-- `E2E_DELIVERY_IDENTITY`, `E2E_DELIVERY_OTP`
-- `E2E_PROVIDER_IDENTITY`, `E2E_PROVIDER_OTP`
-- `E2E_ADMIN_IDENTITY`, `E2E_ADMIN_OTP`
-
-Add these as GitHub Actions secrets only for dedicated test accounts. OTPs are time-sensitive; a static secret is not a reliable OTP automation strategy. For unattended authenticated runs, connect the test harness to a dedicated test mailbox/SMS provider or use a staging-only test OTP mechanism that is disabled in production. Do not bypass production OTP security or put credentials/OTP values in source control.
-
-## Run in GitHub Actions
-
-Run **Actions → End-to-end login tests → Run workflow**. Use production only for non-mutating smoke checks. Run profile edits, address writes, orders, bookings, delivery completion, and logout/session mutation tests against an isolated staging environment with synthetic data.
-
-The current suite intentionally does not create orders, bookings, or change profiles. Business-flow coverage should be added after test fixtures and safe staging reset/cleanup are established.
+The workflow uses the existing Bazaar and Render API URLs as defaults. No additional environment variables or secrets are required for these unauthenticated smoke tests. Keep any future write-flow tests limited to synthetic records and ensure they cannot run against real customer data.

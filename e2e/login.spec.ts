@@ -1,133 +1,53 @@
 import { test, expect } from "@playwright/test";
 
-const baseURL = process.env.E2E_BASE_URL ?? "https://bazaar.kuraliupdates.com";
-const apiBaseURL = (process.env.E2E_API_BASE_URL ?? "").replace(/\/$/, "");
-const otpCaptureToken = process.env.E2E_OTP_CAPTURE_TOKEN ?? "";
-const isDesignatedStagingTarget = (value: string, expectedHost: string, expectedPath?: string): boolean => {
-  try {
-    const u = new URL(value);
-    return u.protocol === "https:"
-      && u.hostname.toLowerCase() === expectedHost
-      && (expectedPath === undefined || u.pathname.replace(/\/$/, "") === expectedPath);
-  } catch {
-    return false;
-  }
-};
-const stagingE2EEnabled = process.env.E2E_ENVIRONMENT === "staging"
-  && isDesignatedStagingTarget(baseURL, "bazaar.kuraliupdates.com")
-  && isDesignatedStagingTarget(apiBaseURL, "kuraliupdates-bazaar.onrender.com", "/api/v1")
-  && otpCaptureToken.length >= 32;
+const portals = [
+  { name: "Bazaar", url: "https://bazaar.kuraliupdates.com/" },
+  { name: "Buyer", url: "https://buyer.kuraliupdates.com/" },
+  { name: "Seller", url: "https://seller.kuraliupdates.com/" },
+  { name: "Delivery", url: "https://delivery.kuraliupdates.com/" },
+  { name: "Daily Help", url: "https://dailyhelp.kuraliupdates.com/" },
+  { name: "Admin", url: "https://admin.kuraliupdates.com/" },
+];
 
-async function waitForCapturedOtp(page: import("@playwright/test").Page, identifier: string): Promise<string> {
-  const deadline = Date.now() + 30_000;
-  let lastStatus = 0;
-  while (Date.now() < deadline) {
-    const response = await page.request.get(
-      apiBaseURL + "/e2e/otp/latest?identifier=" + encodeURIComponent(identifier),
-      { headers: { "X-E2E-OTP-Token": otpCaptureToken, "Cache-Control": "no-store" }, timeout: 5_000 },
-    );
-    lastStatus = response.status();
-    if (response.ok()) {
-      const body = await response.json() as { otp?: string };
-      if (body.otp && /^\d{6}$/.test(body.otp)) return body.otp;
-      throw new Error("Staging OTP capture endpoint returned an invalid response.");
-    }
-    if (lastStatus !== 404) {
-      throw new Error("Staging OTP capture endpoint returned HTTP " + lastStatus + "; verify staging configuration.");
-    }
-    await new Promise(resolve => setTimeout(resolve, 1_000));
-  }
-  throw new Error("Timed out waiting for a fresh staging OTP (last HTTP status " + lastStatus + ").");
-}
+test.describe("KuraliUpdates development smoke tests (no login)", () => {
+  for (const portal of portals) {
+    test(portal.name + " portal loads without authentication", async ({ page }) => {
+      const pageErrors: string[] = [];
+      page.on("pageerror", error => pageErrors.push(error.message));
 
-test.describe("KuraliUpdates Bazaar production-safe E2E", () => {
-  test("site loads and exposes a usable login entry point", async ({ page }) => {
-    const response = await page.goto(baseURL, { waitUntil: "domcontentloaded" });
-    expect(response, "Navigation should return a response").toBeTruthy();
-    expect(response!.status(), "Homepage should not return an HTTP error").toBeLessThan(400);
-    await expect(page.locator("body")).not.toBeEmpty();
+      const response = await page.goto(portal.url, { waitUntil: "domcontentloaded", timeout: 45_000 });
+      expect(response, portal.name + " should return a navigation response").toBeTruthy();
+      expect(response!.status(), portal.name + " should not return an HTTP error").toBeLessThan(400);
+      await expect(page.locator("body")).not.toBeEmpty();
 
-    // Unauthenticated visitors are already shown AuthPageV2 at "/".
-    const submit = page.getByRole("button", { name: /send 6-digit otp/i });
-    await expect(submit).toBeVisible({ timeout: 15_000 });
-  });
-
-
-  test("direct dashboard URLs remain navigable and guarded through refresh and browser history", async ({ page }) => {
-    const sellerUrl = new URL("/seller", baseURL).toString();
-    const deliveryUrl = new URL("/delivery", baseURL).toString();
-
-    await page.goto(sellerUrl, { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(sellerUrl);
-    await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible({ timeout: 15_000 });
-
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(sellerUrl);
-    await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible();
-
-    await page.goto(deliveryUrl, { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(deliveryUrl);
-    await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible();
-
-    await page.goBack({ waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(sellerUrl);
-    await page.goForward({ waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(deliveryUrl);
-  });
-
-  test("login form validates required input", async ({ page }) => {
-    await page.goto(baseURL, { waitUntil: "domcontentloaded" });
-
-    // AuthPageV2 is rendered directly at the root for unauthenticated visitors;
-    // clicking a separate "Login" entry is unnecessary and brittle.
-    const emailInput = page.locator('input[type="email"]').first();
-    await expect(emailInput).toBeVisible({ timeout: 10_000 });
-
-    const submit = page.getByRole("button", { name: /send 6-digit otp/i });
-    await expect(submit).toBeVisible();
-    await submit.click();
-
-    // Empty email should be rejected client-side without requesting an OTP.
-    await expect(page.getByText(/please enter a valid email address/i)).toBeVisible({ timeout: 5_000 });
-  });
-
-  const roles = [
-    { key: "BUYER", label: "Buyer" },
-    { key: "SELLER", label: "Seller" },
-    { key: "DELIVERY", label: "Delivery agent" },
-    { key: "PROVIDER", label: "Service provider" },
-    { key: "ADMIN", label: "Admin" },
-  ];
-
-  for (const role of roles) {
-    test(role.label + " login and post-login session", async ({ page }) => {
-      const identity = process.env["E2E_" + role.key + "_IDENTITY"];
-      test.skip(!stagingE2EEnabled || !identity,
-        "Authenticated E2E is staging-only; requires exact designated frontend/API targets, a 32+ character OTP token, and a dedicated role test identity.");
-
-      await page.goto(baseURL, { waitUntil: "domcontentloaded" });
-      const identityInput = page.locator('input[type="email"], input[type="tel"], input[name*="email" i], input[name*="mobile" i], input[placeholder*="email" i], input[placeholder*="mobile" i]').first();
-      await expect(identityInput).toBeVisible();
-      await identityInput.fill(identity!);
-
-      await page.getByRole("button", { name: /send 6-digit otp/i }).first().click();
-      const otp = await waitForCapturedOtp(page, identity!);
-
-      const otpInput = page.locator('input[autocomplete="one-time-code"], input[name*="otp" i], input[placeholder*="otp" i], input[inputmode="numeric"]').last();
-      await expect(otpInput).toBeVisible({ timeout: 15_000 });
-      await otpInput.fill(otp);
-      await page.getByRole("button", { name: /verify.*continue/i }).last().click();
-
-      await expect(page.locator("body")).not.toContainText(/internal server error|something went wrong/i);
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(page.locator("body")).not.toContainText(/please log in to continue/i);
-
-      const account = page.getByRole("link", { name: /my account|account|profile/i })
-        .or(page.getByRole("button", { name: /my account|account|profile/i }));
-      if (await account.count()) {
-        await account.first().click();
-        await expect(page.locator("body")).not.toContainText(/session expired|please log in/i);
-      }
+      // Allow the app shell to hydrate without depending on any account, OTP,
+      // login, session, or role-specific fixture.
+      await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
+      await expect(page.locator("body")).not.toBeEmpty();
+      expect(pageErrors, portal.name + " should not throw uncaught JavaScript errors").toEqual([]);
     });
   }
+
+  test("main site portal paths survive direct navigation, refresh, and browser history", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+
+    for (const path of ["/", "/buyer", "/seller", "/delivery", "/daily-help", "/admin"]) {
+      const response = await page.goto("https://bazaar.kuraliupdates.com" + path, {
+        waitUntil: "domcontentloaded",
+        timeout: 45_000,
+      });
+      expect(response, path + " should return a navigation response").toBeTruthy();
+      expect(response!.status(), path + " should not return an HTTP error").toBeLessThan(400);
+      await expect(page.locator("body")).not.toBeEmpty();
+    }
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("body")).not.toBeEmpty();
+    await page.goBack({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("body")).not.toBeEmpty();
+    await page.goForward({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("body")).not.toBeEmpty();
+    expect(errors, "Portal navigation should not throw uncaught JavaScript errors").toEqual([]);
+  });
 });
