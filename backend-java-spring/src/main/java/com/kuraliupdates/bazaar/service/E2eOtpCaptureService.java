@@ -25,9 +25,9 @@ public class E2eOtpCaptureService {
     private final Map<String, CapturedOtp> latest = new ConcurrentHashMap<>();
 
     public E2eOtpCaptureService(
-            @Value("${app.e2e-otp.enabled:false}") boolean enabled,
-            @Value("${app.e2e-otp.environment:}") String environment,
-            @Value("${app.e2e-otp.allowed-identifiers:}") String allowedIdentifiers) {
+            @Value("${E2E_OTP_CAPTURE_ENABLED:false}") boolean enabled,
+            @Value("${E2E_OTP_CAPTURE_ENV:}") String environment,
+            @Value("${E2E_OTP_ALLOWED_IDENTIFIERS:}") String allowedIdentifiers) {
         this.enabled = enabled;
         this.environment = environment == null ? "" : environment.trim().toLowerCase();
         this.allowedIdentifiers = Arrays.stream((allowedIdentifiers == null ? "" : allowedIdentifiers).split(","))
