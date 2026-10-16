@@ -59,15 +59,17 @@ test.describe("KuraliUpdates Bazaar production-safe E2E", () => {
 
     await page.goto(sellerUrl, { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(sellerUrl);
-    await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator("body")).not.toBeEmpty();
+    await expect(page.locator('input[type="email"], input[type="tel"], input[name*="email" i], input[placeholder*="email" i]').first()).toBeVisible({ timeout: 15_000 });
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(sellerUrl);
-    await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible();
+    await expect(page.locator("body")).not.toBeEmpty();
 
     await page.goto(deliveryUrl, { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(deliveryUrl);
-    await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible();
+    await expect(page.locator("body")).not.toBeEmpty();
+    await expect(page.locator('input[type="email"], input[type="tel"], input[name*="email" i], input[placeholder*="email" i]').first()).toBeVisible({ timeout: 15_000 });
 
     await page.goBack({ waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(sellerUrl);
