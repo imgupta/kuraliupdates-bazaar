@@ -45,6 +45,24 @@ export const Header: React.FC<HeaderProps> = ({
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
   const selectRole = (targetRole: UserRole) => {
+    const portalUrls: Record<UserRole, string> = {
+      buyer: import.meta.env.VITE_BUYER_PORTAL_URL || 'https://buyer.kuraliupdates.com/',
+      seller: import.meta.env.VITE_SELLER_PORTAL_URL || 'https://seller.kuraliupdates.com/',
+      delivery: import.meta.env.VITE_DELIVERY_PORTAL_URL || 'https://delivery.kuraliupdates.com/',
+      professional: import.meta.env.VITE_DAILY_HELP_PORTAL_URL || 'https://dailyhelp.kuraliupdates.com/',
+      admin: import.meta.env.VITE_ADMIN_PORTAL_URL || 'https://admin.kuraliupdates.com/',
+    };
+    const targetUrl = new URL(portalUrls[targetRole]);
+    if (targetUrl.protocol !== 'https:') return;
+
+    // Standalone role portals are separate origins and mount at "/".
+    // Keep role-path navigation only when running the legacy monolithic app
+    // without a separately configured portal hostname.
+    if (targetUrl.origin !== window.location.origin) {
+      window.location.assign(targetUrl.toString());
+      return;
+    }
+
     setRole(targetRole);
     const nextPath = pathForRole(targetRole);
     if (window.location.pathname !== nextPath) {
