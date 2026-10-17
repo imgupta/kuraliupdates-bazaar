@@ -8,7 +8,8 @@ spring:
   application:
     name: kuraliupdates-bazaar-service
   main:
-    lazy-initialization: false
+    # Defer non-essential bean creation so the HTTP server can bind within Render's startup window.
+    lazy-initialization: true
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
@@ -32,6 +33,10 @@ spring:
         javax.net.ssl.trustStorePassword: ${WALLET_PASSWORD:Vasu@123!2026}
         javax.net.ssl.keyStore: /app/wallet/keystore.jks
         javax.net.ssl.keyStorePassword: ${WALLET_PASSWORD:Vasu@123!2026}
+  data:
+    jpa:
+      repositories:
+        bootstrap-mode: lazy
   jpa:
     hibernate:
       ddl-auto: none
