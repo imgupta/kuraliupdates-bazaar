@@ -71,7 +71,6 @@ export interface BackendOrder {
   deliveryOtp?: string;
   deliveryAgentId?: string;
   sellerId?: string;
-  sellerId?: string;
   deliveryAgent?: any;
   placedAt?: string;
   distanceKm?: number;
