@@ -18,6 +18,20 @@ const stagingE2EEnabled = process.env.E2E_ENVIRONMENT === "staging"
   && isDesignatedStagingTarget(apiBaseURL, "kuraliupdates-bazaar.onrender.com", "/api/v1")
   && otpCaptureToken.length >= 32;
 
+async function readCapturedOtpIfAvailable(page: import("@playwright/test").Page, identifier: string): Promise<string | null> {
+  const response = await page.request.get(
+    apiBaseURL + "/e2e/otp/latest?identifier=" + encodeURIComponent(identifier),
+    { headers: { "X-E2E-OTP-Token": otpCaptureToken, "Cache-Control": "no-store" }, timeout: 5_000 },
+  );
+  if (response.status() === 404) return null;
+  if (!response.ok()) {
+    throw new Error("Staging OTP capture endpoint returned HTTP " + response.status() + "; verify staging configuration.");
+  }
+  const body = await response.json() as { otp?: string };
+  if (body.otp && /^\\d{6}$/.test(body.otp)) return body.otp;
+  throw new Error("Staging OTP capture endpoint returned an invalid response.");
+}
+
 async function waitForCapturedOtp(page: import("@playwright/test").Page, identifier: string): Promise<string> {
   const deadline = Date.now() + 90_000;
   let lastStatus = 0;
@@ -121,32 +135,31 @@ test.describe("KuraliUpdates Bazaar production-safe E2E", () => {
       await expect(identityInput).toBeVisible();
       await identityInput.fill(identity!);
 
-      // The UI click does not wait for the backend's synchronous email-delivery call.
-      // Wait for the send-OTP API response first; otherwise OTP polling can start
-      // before the backend has persisted/captured the OTP, producing a false 404 timeout.
-      // The backend enforces a 60-second per-identifier OTP cooldown. Staging
-      // identities may have been used by a recent run, so honor one cooldown
-      // rather than polling for an OTP after a rejected send or spamming retries.
+      // Wait for the send-OTP response before polling, so capture cannot race persistence.
+      // A 429 means the identifier is still in its 60-second cooldown. Do not sleep
+      // for the full cooldown in CI: reuse an already-captured OTP if one is still
+      // available; otherwise fail fast with a clear message and use a fresh dedicated
+      // staging identity. Production rate limiting remains unchanged.
       const sendOtpButton = page.getByRole("button", { name: /send 6-digit otp/i }).first();
-      let sendOtpStatus = 0;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const responsePromise = page.waitForResponse(response =>
-          response.request().method() === "POST"
-          && new URL(response.url()).pathname.endsWith("/auth/send-otp"),
-        { timeout: 120_000 });
-        await sendOtpButton.click();
-        const response = await responsePromise;
-        sendOtpStatus = response.status();
-        if (sendOtpStatus === 200) break;
-        if (sendOtpStatus !== 429 || attempt === 1) {
-          throw new Error("Send-OTP request returned HTTP " + sendOtpStatus
-            + "; verify staging OTP delivery and per-identity rate limits.");
+      const responsePromise = page.waitForResponse(response =>
+        response.request().method() === "POST"
+        && new URL(response.url()).pathname.endsWith("/auth/send-otp"),
+      { timeout: 30_000 });
+      await sendOtpButton.click();
+      const sendOtpResponse = await responsePromise;
+      let otp: string;
+      if (sendOtpResponse.status() === 200) {
+        otp = await waitForCapturedOtp(page, identity!);
+      } else if (sendOtpResponse.status() === 429) {
+        const existingOtp = await readCapturedOtpIfAvailable(page, identity!);
+        if (!existingOtp) {
+          throw new Error("Send-OTP returned HTTP 429 because this staging identity is in the 60-second cooldown, and no captured OTP is available. Use a fresh dedicated E2E identity or rerun after cooldown; CI no longer waits 61 seconds.");
         }
-        // OtpService rejects sends within 60 seconds of the last successful OTP.
-        await page.waitForTimeout(61_000);
+        otp = existingOtp;
+      } else {
+        throw new Error("Send-OTP request returned HTTP " + sendOtpResponse.status()
+          + "; verify staging OTP delivery and per-identity rate limits.");
       }
-      expect(sendOtpStatus, "Send-OTP request should succeed before polling for its captured OTP").toBe(200);
-      const otp = await waitForCapturedOtp(page, identity!);
 
       const otpInput = page.locator('input[autocomplete="one-time-code"], input[name*="otp" i], input[placeholder*="otp" i], input[inputmode="numeric"]').last();
       await expect(otpInput).toBeVisible({ timeout: 15_000 });
