@@ -46,6 +46,11 @@ public class AuthService {
 
     @Transactional
     public OtpSendResult sendOtp(String rawIdentifier, String requestedType, String mode) {
+        return sendOtp(rawIdentifier, requestedType, mode, false);
+    }
+
+    @Transactional
+    public OtpSendResult sendOtp(String rawIdentifier, String requestedType, String mode, boolean e2eCooldownBypass) {
         String raw = rawIdentifier == null ? "" : rawIdentifier.trim();
         if (raw.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "Email address or mobile phone number is required");
 
@@ -63,7 +68,7 @@ public class AuthService {
         // Registration OTP is also allowed for an existing account so the same
         // identity can add another marketplace role (seller, rider or Daily Help).
         // The requested role is validated during OTP verification.
-        otpService.send(identifier, type);
+        otpService.send(identifier, type, e2eCooldownBypass);
         return new OtpSendResult(mask(identifier), type, 600);
     }
 
