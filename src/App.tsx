@@ -1,10 +1,10 @@
 import React from 'react';
 import { PortalAppShell } from './app/PortalAppShell';
-import { BuyerPortal } from './features/buyer/BuyerPortal';
-import { SellerDashboard } from './features/seller/SellerPortal';
-import { DeliveryDashboard } from './features/delivery/DeliveryPortal';
-import { DailyHelpProfessionalDashboard } from './features/daily-help/DailyHelpPortal';
-import { AdminDashboard } from './features/admin/AdminPortal';
+import { BuyerPortal } from './features/buyer';
+import { SellerDashboard } from './features/seller';
+import { DeliveryDashboard } from './features/delivery';
+import { DailyHelpProfessionalDashboard } from './features/daily-help';
+import { AdminDashboard } from './features/admin';
 import type { UserRole } from './types';
 
 interface DashboardProps {
