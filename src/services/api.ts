@@ -71,6 +71,7 @@ export interface BackendOrder {
   deliveryOtp?: string;
   deliveryAgentId?: string;
   sellerId?: string;
+  sellerId?: string;
   deliveryAgent?: any;
   placedAt?: string;
   distanceKm?: number;
@@ -85,10 +86,10 @@ const mapBackendOrder = (bo: BackendOrder): Order => ({
   deliveryAddress: bo.deliveryAddress || '',
   deliveryLocality: bo.deliveryLocality || 'Kurali',
   items: (bo.items || []) as any,
-  sellerId: bo.deliveryAgent?.sellerId || '',
+  sellerId: bo.sellerId || '',
   sellerName: bo.deliveryAgent?.sellerName || 'Kurali Store',
   sellerLocality: bo.deliveryAgent?.sellerLocality || bo.deliveryLocality || 'Kurali',
-  subtotal: Number(bo.totalAmount || 0),
+  subtotal: Number((bo as any).subtotal ?? bo.totalAmount ?? 0),
   billDiscountAmount: Number(bo.discountAmount || 0),
   couponDiscountAmount: 0,
   deliveryFee: Number(bo.deliveryFee || 0),
