@@ -4,7 +4,9 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  // A failed E2E is actionable evidence; do not rerun slow staging logins automatically.
+  retries: 0,
+  timeout: 60_000,
   workers: process.env.CI ? 1 : undefined,
   reporter: [["list"], ["html", { outputFolder: "playwright-report", open: "never" }]],
   use: {
