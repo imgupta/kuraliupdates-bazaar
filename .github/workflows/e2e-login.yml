@@ -191,6 +191,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # The configured project name may be new. Create the report-only Pages project once if absent.
+          if ! npx --yes wrangler@4 pages project list 2>&1 | tee /tmp/cloudflare-pages-projects.log | grep -Fq "$CLOUDFLARE_PAGES_PROJECT"; then
+            echo "Cloudflare Pages project not found; creating $CLOUDFLARE_PAGES_PROJECT."
+            npx --yes wrangler@4 pages project create "$CLOUDFLARE_PAGES_PROJECT" --production-branch main
+          fi
           npx --yes wrangler@4 pages deploy ./site --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main 2>&1 | tee /tmp/cloudflare-pages-deploy.log
           REPORT_URL="$(grep -Eo 'https://[^[:space:]]+\.pages\.dev' /tmp/cloudflare-pages-deploy.log | tail -n 1 || true)"
           {
