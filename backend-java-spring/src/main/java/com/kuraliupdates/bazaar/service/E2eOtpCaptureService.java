@@ -40,6 +40,15 @@ public class E2eOtpCaptureService {
         return enabled && "staging".equals(environment) && !allowedIdentifiers.isEmpty();
     }
 
+    /**
+     * Allows the OTP cooldown to be skipped only for explicitly allowlisted staging E2E identities.
+     * This must remain false unless the capture feature is enabled in staging with an allowlist.
+     */
+    public boolean mayBypassCooldown(String identifier) {
+        String key = normalize(identifier);
+        return isSafelyConfigured() && !key.isBlank() && allowedIdentifiers.contains(key);
+    }
+
     public void capture(String identifier, String otp) {
         String key = normalize(identifier);
         if (!isSafelyConfigured() || !allowedIdentifiers.contains(key)
