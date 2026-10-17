@@ -71,6 +71,15 @@ class OrderServiceTest {
     }
 
     @Test
+    void rejectsOnlinePaymentUntilGatewayIsConfigured() {
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.placeOrder(request("UPI", List.of(new OrderItemRequest("P-1", 1, null)))));
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verify(productRepository, never()).findLockedByProductId(anyString());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
     void rejectsMissingProductWithoutPersistingOrder() {
         when(productRepository.findLockedByProductId("missing")).thenReturn(Optional.empty());
 
