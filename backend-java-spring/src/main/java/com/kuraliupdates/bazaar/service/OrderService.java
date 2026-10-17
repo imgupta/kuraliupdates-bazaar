@@ -33,6 +33,10 @@ public class OrderService {
 
     @Transactional
     public OrderPlacementResponse placeOrder(PlaceOrderRequest request) {
+        if (!"COD".equalsIgnoreCase(request.paymentMethod())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Online payment is not enabled yet. Please select Cash on Delivery.");
+        }
         if (request.items() == null || request.items().isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "At least one order item is required");
         }
@@ -117,7 +121,7 @@ public class OrderService {
                 .isFreeDelivery(deliveryFee.signum() == 0 ? 1 : 0)
                 .totalAmount(total)
                 .paymentMethod(request.paymentMethod().trim())
-                .paymentStatus("COD".equalsIgnoreCase(request.paymentMethod()) ? "PENDING_COD" : "FAILED")
+                .paymentStatus("PENDING_COD")
                 .status("PLACED")
                 .deliveryOtp(String.format("%04d", random.nextInt(10000)))
                 .distanceKm(request.distanceKm() == null ? BigDecimal.valueOf(1.5) : request.distanceKm())
