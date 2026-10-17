@@ -108,3 +108,14 @@ Customer-facing Daily Help discovery and booking stays within Buyer; provider av
 ## Change log
 
 - 2026-10-15: Added source-backed route and coupling inventory. Documentation only; no application code, Vercel routing, Render configuration or database records changed.
+
+
+## Runtime boundary checkpoint — 17 October 2026
+
+- Branch: `refactor/shared-live-order-map-boundary` (implementation PR pending review).
+- Moved the `LiveOrderMap` implementation into `src/components/shared/LiveOrderMap.tsx`. The Delivery portal now imports the shared component instead of importing a component from the Buyer folder.
+- Kept `src/components/Buyer/LiveOrderMap.tsx` as a backwards-compatible re-export so Buyer order tracking keeps its existing import path while consumers can migrate incrementally.
+- Added `tests/moduleBoundaries.test.ts` to guard the Delivery-to-shared import and the Buyer compatibility re-export; added this test to the existing frontend CI workflow.
+- Updated `E2E_TESTING.md` and `docs/POST_LOGIN_PLAYWRIGHT_E2E.md` to match the merged OTP cooldown behavior: one OTP send attempt, immediate check for an already captured OTP on HTTP 429, no 61-second sleep or retry. The docs also record the latest verified workflow #167 and clarify that a skipped report-publish job is not proof of a hosted report.
+- This is a bounded shared-component ownership change, not yet five independently deployed micro-frontends. It does not change API payloads, polling intervals, map behavior, auth/session, backend, database, or deployment aliases.
+- Validation status at PR creation: automated CI has not yet run for this branch. The required module-boundary test is now part of CI; do not mark the runtime change verified until the branch workflow passes.
