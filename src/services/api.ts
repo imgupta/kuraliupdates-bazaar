@@ -70,10 +70,11 @@ export interface BackendOrder {
   status?: string;
   deliveryOtp?: string;
   deliveryAgentId?: string;
+  sellerId?: string;
   deliveryAgent?: any;
   placedAt?: string;
   distanceKm?: number;
-  items?: any[];
+  items?: { productId: string; title: string; quantity: number; unitPrice: number; negotiatedPrice?: number; totalPrice: number }[];
 }
 
 const mapBackendOrder = (bo: BackendOrder): Order => ({
