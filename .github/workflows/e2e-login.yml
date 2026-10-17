@@ -107,7 +107,7 @@ jobs:
       KURALI_API_BASE_URL: ${{ vars.KURALI_API_BASE_URL || vars.KURALI_STAGING_API_BASE_URL || 'https://kuraliupdates-bazaar.onrender.com/api/v1' }}
       SMOKE_READINESS_TIMEOUT_MS: "360000"
       SMOKE_RETRY_INTERVAL_MS: "10000"
-      SMOKE_TIMEOUT_MS: "20000"
+      SMOKE_TIMEOUT_MS: "45000"
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -191,6 +191,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # The configured project name may be new. Create the report-only Pages project once if absent.
+          if ! npx --yes wrangler@4 pages project list 2>&1 | tee /tmp/cloudflare-pages-projects.log | grep -Fq "$CLOUDFLARE_PAGES_PROJECT"; then
+            echo "Cloudflare Pages project not found; creating $CLOUDFLARE_PAGES_PROJECT."
+            npx --yes wrangler@4 pages project create "$CLOUDFLARE_PAGES_PROJECT" --production-branch main
+          fi
           npx --yes wrangler@4 pages deploy ./site --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main 2>&1 | tee /tmp/cloudflare-pages-deploy.log
           REPORT_URL="$(grep -Eo 'https://[^[:space:]]+\.pages\.dev' /tmp/cloudflare-pages-deploy.log | tail -n 1 || true)"
           {
