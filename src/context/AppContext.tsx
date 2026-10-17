@@ -528,6 +528,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       await syncDeliveryJobs();
 
+      if (user.isSignedIn && user.role === 'buyer') {
+        const remoteBuyerOrders = await bazaarApi.getMyOrders();
+        if (remoteBuyerOrders.length > 0) {
+          setOrders(prev => {
+            const remoteIds = new Set(remoteBuyerOrders.map(order => order.id));
+            return [...remoteBuyerOrders, ...prev.filter(order => !remoteIds.has(order.id))];
+          });
+        }
+      }
+
       // Synchronize Products from Oracle DB
       const remoteProducts = await bazaarApi.searchProducts();
       if (remoteProducts && remoteProducts.length > 0) {
