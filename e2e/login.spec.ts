@@ -19,25 +19,18 @@ const stagingE2EEnabled = process.env.E2E_ENVIRONMENT === "staging"
   && otpCaptureToken.length >= 32;
 
 async function waitForCapturedOtp(page: import("@playwright/test").Page, identifier: string): Promise<string> {
-  const deadline = Date.now() + 30_000;
-  let lastStatus = 0;
-  while (Date.now() < deadline) {
-    const response = await page.request.get(
-      apiBaseURL + "/e2e/otp/latest?identifier=" + encodeURIComponent(identifier),
-      { headers: { "X-E2E-OTP-Token": otpCaptureToken, "Cache-Control": "no-store" }, timeout: 5_000 },
-    );
-    lastStatus = response.status();
-    if (response.ok()) {
-      const body = await response.json() as { otp?: string };
-      if (body.otp && /^\d{6}$/.test(body.otp)) return body.otp;
-      throw new Error("Staging OTP capture endpoint returned an invalid response.");
-    }
-    if (lastStatus !== 404) {
-      throw new Error("Staging OTP capture endpoint returned HTTP " + lastStatus + "; verify staging configuration.");
-    }
-    await new Promise(resolve => setTimeout(resolve, 1_000));
+  // Read once and fail fast: a 404 means the capture endpoint/configuration is
+  // unavailable or no OTP was captured. Polling only delays an already-failing test.
+  const response = await page.request.get(
+    apiBaseURL + "/e2e/otp/latest?identifier=" + encodeURIComponent(identifier),
+    { headers: { "X-E2E-OTP-Token": otpCaptureToken, "Cache-Control": "no-store" }, timeout: 5_000 },
+  );
+  if (!response.ok()) {
+    throw new Error("Staging OTP capture endpoint returned HTTP " + response.status() + "; verify staging configuration and OTP capture.");
   }
-  throw new Error("Timed out waiting for a fresh staging OTP (last HTTP status " + lastStatus + ").");
+  const body = await response.json() as { otp?: string };
+  if (body.otp && /^\\d{6}$/.test(body.otp)) return body.otp;
+  throw new Error("Staging OTP capture endpoint returned an invalid response.");
 }
 
 test.describe("KuraliUpdates Bazaar production-safe E2E", () => {
