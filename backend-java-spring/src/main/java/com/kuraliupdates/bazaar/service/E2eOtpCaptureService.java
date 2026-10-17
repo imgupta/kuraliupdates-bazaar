@@ -3,6 +3,8 @@ package com.kuraliupdates.bazaar.service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Map;
@@ -21,15 +23,18 @@ public class E2eOtpCaptureService {
 
     private final boolean enabled;
     private final String environment;
+    private final String token;
     private final Set<String> allowedIdentifiers;
     private final Map<String, CapturedOtp> latest = new ConcurrentHashMap<>();
 
     public E2eOtpCaptureService(
             @Value("${E2E_OTP_CAPTURE_ENABLED:false}") boolean enabled,
             @Value("${E2E_OTP_CAPTURE_ENV:}") String environment,
-            @Value("${E2E_OTP_ALLOWED_IDENTIFIERS:}") String allowedIdentifiers) {
+            @Value("${E2E_OTP_ALLOWED_IDENTIFIERS:}") String allowedIdentifiers,
+            @Value("${E2E_OTP_CAPTURE_TOKEN:}") String token) {
         this.enabled = enabled;
         this.environment = environment == null ? "" : environment.trim().toLowerCase();
+        this.token = token == null ? "" : token;
         this.allowedIdentifiers = Arrays.stream((allowedIdentifiers == null ? "" : allowedIdentifiers).split(","))
                 .map(E2eOtpCaptureService::normalize)
                 .filter(value -> !value.isBlank())
@@ -38,6 +43,13 @@ public class E2eOtpCaptureService {
 
     public boolean isSafelyConfigured() {
         return enabled && "staging".equals(environment) && !allowedIdentifiers.isEmpty();
+    }
+
+    /** Fail-closed authorization for the staging-only OTP cooldown bypass. */
+    public boolean isAuthorizedForSend(String identifier, String suppliedToken) {
+        if (!isSafelyConfigured() || token.length() < 32 || suppliedToken == null
+                || !allowedIdentifiers.contains(normalize(identifier))) return false;
+        return MessageDigest.isEqual(token.getBytes(StandardCharsets.UTF_8), suppliedToken.getBytes(StandardCharsets.UTF_8));
     }
 
     public void capture(String identifier, String otp) {
