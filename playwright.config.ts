@@ -10,8 +10,8 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "https://bazaar.kuraliupdates.com",
     trace: "retain-on-failure",
-    screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    screenshot: "on",
+    video: "on",
     ...devices["Desktop Chrome"],
   },
 });
