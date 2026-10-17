@@ -21,6 +21,7 @@ on:
     - cron: "30 3 * * 1-5"
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -144,3 +145,64 @@ jobs:
             test-results/
           if-no-files-found: ignore
           retention-days: 14
+
+  publish-playwright-report:
+    name: Publish private Playwright report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: e2e
+    # Never publish artifacts produced by pull-request code. This runs only for trusted
+    # main-branch push, schedule, or manual runs, and only after Access protection is confirmed.
+    if: ${{ always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.CLOUDFLARE_REPORT_ACCESS_CONFIGURED == 'true' }}
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - name: Verify Cloudflare configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing repository variable CLOUDFLARE_ACCOUNT_ID"; exit 1; }
+          test -n "$CLOUDFLARE_PAGES_PROJECT" || { echo "Missing repository variable CLOUDFLARE_PAGES_PROJECT"; exit 1; }
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing repository secret CLOUDFLARE_API_TOKEN"; exit 1; }
+          echo "Cloudflare credentials are present; report access-protection confirmation is enabled."
+      - name: Download report artifact from this workflow run
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-e2e-report
+          path: downloaded-artifact
+      - name: Prepare report-only site
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s downloaded-artifact/playwright-report/index.html || {
+            echo "The artifact does not contain playwright-report/index.html."
+            echo "Check the E2E job's Upload Playwright report and traces step."
+            exit 1
+          }
+          mkdir -p site
+          cp -a downloaded-artifact/playwright-report/. site/
+          test -s site/index.html
+          echo "Prepared the HTML report and its supporting assets. test-results and traces are not published."
+      - name: Deploy report to Cloudflare Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4 pages deploy ./site --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main 2>&1 | tee /tmp/cloudflare-pages-deploy.log
+          REPORT_URL="$(grep -Eo 'https://[^[:space:]]+\.pages\.dev' /tmp/cloudflare-pages-deploy.log | tail -n 1 || true)"
+          {
+            echo "## Playwright HTML report"
+            echo
+            echo "The report-only site was deployed after a trusted main-branch run."
+            echo "Access is expected to be restricted by the Cloudflare Access configuration confirmed in repository variable `CLOUDFLARE_REPORT_ACCESS_CONFIGURED=true`."
+            if [ -n "$REPORT_URL" ]; then
+              echo
+              echo "Deployment URL: $REPORT_URL"
+            else
+              echo
+              echo "See the Cloudflare Pages deployment output for the deployment URL."
+            fi
+            echo
+            echo "Only the HTML report folder was deployed; test-results and trace files were excluded."
+          } >> "$GITHUB_STEP_SUMMARY"
