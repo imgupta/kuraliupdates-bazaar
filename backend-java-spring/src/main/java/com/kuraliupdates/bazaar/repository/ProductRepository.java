@@ -2,6 +2,9 @@ package com.kuraliupdates.bazaar.repository;
 
 import com.kuraliupdates.bazaar.entity.ProductEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -13,6 +16,10 @@ import java.util.Map;
 public interface ProductRepository extends JpaRepository<ProductEntity, String> {
 
     List<ProductEntity> findBySeller_SellerId(String sellerId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from ProductEntity p join fetch p.seller where p.productId = :productId")
+    Optional<ProductEntity> findLockedByProductId(@Param("productId") String productId);
 
     List<ProductEntity> findByCategory(String category);
 
