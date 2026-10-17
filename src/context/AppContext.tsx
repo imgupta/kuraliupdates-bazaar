@@ -140,7 +140,7 @@ interface AppContextType {
     deliveryPhone?: string;
     customerNotes?: string;
     paymentMethod: 'COD' | 'UPI' | 'StorePay' | 'Card' | 'NetBanking';
-  }) => Order;
+  }) => Promise<Order | null>;
   updateOrderStatus: (orderId: string, status: OrderStatus, note?: string) => void;
 
   // Delivery
