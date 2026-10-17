@@ -58,6 +58,8 @@ jobs:
         run: node --import tsx --test tests/userProfile.test.ts
       - name: Seller product mapping regression tests
         run: node --import tsx --test tests/sellerProduct.test.ts
+      - name: Frontend module-boundary regression tests
+        run: node --import tsx --test tests/moduleBoundaries.test.ts
       - name: Delivery OTP input validator regression
         run: |
           node --input-type=module -e "import fs from 'node:fs'; const src=fs.readFileSync('src/features/delivery/DeliveryPortal.tsx','utf8'); if (!src.includes('/^\\\\d{4}$/.test(enteredOtp.trim())')) { console.error('Delivery OTP validator must accept exactly four digits.'); process.exit(1); } if (src.includes('/^\\\\\\\\d{4}$/.test(enteredOtp.trim())')) { console.error('Delivery OTP validator is over-escaped.'); process.exit(1); }"

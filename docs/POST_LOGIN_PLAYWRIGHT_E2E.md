@@ -92,7 +92,7 @@ Each authenticated role test:
 1. Is enabled only when the designated staging environment, exact allowed frontend/API hosts and path, an OTP capture token of at least 32 characters, and the role's identity are present. Otherwise Playwright marks that role test skipped.
 2. Opens the staging frontend and fills the identity field.
 3. Clicks the “Send 6-digit OTP” button and waits for the matching `POST .../auth/send-otp` response.
-4. Allows at most two send attempts. A first HTTP 429 waits 61 seconds for the backend's known 60-second per-identifier cooldown before retrying once. Any other non-200 response, or a second 429, fails the test. This avoids polling for an OTP after a rejected send and avoids unbounded retries.
+4. Sends OTP once per role test. On HTTP 200, it polls the protected capture endpoint for the freshly generated OTP. On HTTP 429, it immediately checks whether a still-valid captured OTP already exists; if not, the test fails with guidance to use a fresh dedicated test identity or rerun after the cooldown. It does **not** sleep 61 seconds or retry the send. Other non-200 responses fail promptly.
 5. Polls the authenticated OTP capture endpoint for up to 90 seconds, every second, using `X-E2E-OTP-Token` and `Cache-Control: no-store`. HTTP 404 means the OTP is not available yet; other non-success statuses fail immediately. Only a six-digit OTP is accepted.
 6. Enters the captured OTP and clicks the “Verify … Continue” button.
 7. Checks the page does not show common internal-error text.
@@ -100,6 +100,14 @@ Each authenticated role test:
 9. If an account/profile control is present, opens it and checks for common session-expired/login-required text.
 
 These are post-login/session smoke checks, not full business-workflow coverage. They do not place orders, create service bookings, change delivery state, or intentionally mutate customer records.
+
+## Latest verified workflow snapshot — 17 October 2026
+
+- Workflow run [#167](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/39033828124) passed the Backend tests, Frontend checks, and Browser E2E/read-only smoke jobs on PR head `b95d03646f3234be36a2b0b8ffc2d3480051f4d7`.
+- The `playwright-e2e-report` artifact was uploaded (about 6.1 MB) with expiry on 31 October 2026. It includes the configured report and test-results paths; treat all contents as sensitive.
+- The Cloudflare publish job was skipped on the pull-request run by design. A successful hosted report URL is not implied by this run.
+- The smoke probe timeout is 45 seconds and read-only API probes execute sequentially to reduce load on the single staging backend.
+- The run's green status means its jobs passed; inspect the Playwright report for passed/skipped role-level test counts before claiming that all five authenticated role tests executed.
 
 ## Staging-only safety guards
 
