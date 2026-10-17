@@ -6,6 +6,7 @@ The single workflow is [`.github/workflows/e2e-login.yml`](.github/workflows/e2e
 
 - Playwright config: [`playwright.config.ts`](playwright.config.ts)
 - Browser tests: [`e2e/login.spec.ts`](e2e/login.spec.ts)
+- Full order lifecycle and cross-role coverage matrix: [`docs/ORDER-LIFECYCLE-E2E-MATRIX.md`](docs/ORDER-LIFECYCLE-E2E-MATRIX.md)
 - Private report and OTP operations guide: [`docs/POST_LOGIN_PLAYWRIGHT_E2E.md`](docs/POST_LOGIN_PLAYWRIGHT_E2E.md)
 - Staging-only OTP setup: [`docs/STAGING_E2E_SETUP.md`](docs/STAGING_E2E_SETUP.md)
 
