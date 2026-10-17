@@ -4,14 +4,16 @@
  * Never creates/modifies customer data. Set KURALI_API_BASE_URL to override.
  *
  * Render free instances can take several minutes to wake up. Wait for /health
- * before running endpoint checks, then probe independent endpoints in parallel.
+ * before running endpoint checks, then probe database-backed endpoints one at a time to avoid exhausting the staging database pool.
  */
 // The owner confirms that this deployment has one environment and that it is staging.
 // Prefer an explicit workflow secret/variable, while retaining the repository's
 // canonical documented API as a single-environment fallback.
 const baseUrl = process.env.KURALI_API_BASE_URL || "https://kuraliupdates-bazaar.onrender.com/api/v1";
 const base = baseUrl.replace(/\/$/, "");
-const timeoutMs = Number(process.env.SMOKE_TIMEOUT_MS || 20000);
+// Oracle-backed endpoints can take longer than the old 20s cutoff on a cold staging instance.
+// Keep probes serial so a low-resource instance is not hit with concurrent database work.
+const timeoutMs = Number(process.env.SMOKE_TIMEOUT_MS || 45000);
 const readinessTimeoutMs = Number(process.env.SMOKE_READINESS_TIMEOUT_MS || 360000);
 const retryIntervalMs = Number(process.env.SMOKE_RETRY_INTERVAL_MS || 10000);
 const failures = [];
@@ -110,9 +112,12 @@ if (ready) {
     ["/daily-help/professionals/by-phone/0000000000", protectedRoute, "Professional profile requires authentication"],
     ["/buyers/orders/__smoke_test_missing_order__/track", (status) => status === 404, "Unknown order returns 404"],
   ];
-  const endpointResults = await Promise.all(checks.map(([path, expected, label]) => request(path, expected, label)));
-  results.push(...endpointResults);
-  failures.push(...endpointResults.filter((result) => !result.ok));
+  for (const [path, expected, label] of checks) {
+    const result = await request(path, expected, label);
+    results.push(result);
+    if (!result.ok) failures.push(result);
+    console.log(`${result.ok ? "PASS" : "FAIL"} ${label}: ${result.status || result.detail}`);
+  }
 }
 
 console.log(JSON.stringify({
