@@ -1,6 +1,7 @@
 package com.kuraliupdates.bazaar.dto.order;
 
 import com.kuraliupdates.bazaar.entity.OrderEntity;
+import java.util.List;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,7 +31,8 @@ public record OrderResponse(
         BigDecimal distanceKm,
         Integer estimatedDeliveryMins,
         LocalDateTime placedAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        List<OrderItemResponse> items
 ) {
     public static OrderResponse from(OrderEntity order) {
         return new OrderResponse(
@@ -42,7 +44,8 @@ public record OrderResponse(
                 order.getCouponCode(), order.getDeliveryFee(), order.getIsFreeDelivery(),
                 order.getTotalAmount(), order.getPaymentMethod(), order.getPaymentStatus(),
                 order.getStatus(), order.getDeliveryAgent() == null ? null : order.getDeliveryAgent().getAgentId(),
-                order.getDistanceKm(), order.getEstimatedDeliveryMins(), order.getPlacedAt(), order.getUpdatedAt()
+                order.getDistanceKm(), order.getEstimatedDeliveryMins(), order.getPlacedAt(), order.getUpdatedAt(),
+                order.getItems() == null ? List.of() : order.getItems().stream().map(OrderItemResponse::from).toList()
         );
     }
 }

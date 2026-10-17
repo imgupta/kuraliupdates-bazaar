@@ -1,6 +1,8 @@
 package com.kuraliupdates.bazaar.service;
 
 import com.kuraliupdates.bazaar.entity.OrderEntity;
+import com.kuraliupdates.bazaar.entity.OrderItemEntity;
+import com.kuraliupdates.bazaar.entity.ProductEntity;
 import com.kuraliupdates.bazaar.entity.SellerEntity;
 import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
@@ -74,6 +76,29 @@ class SellerServiceTest {
         OrderEntity updated = sellerService.updateOrderStatus(TOKEN, "ORD-1", "CANCELLED");
 
         assertEquals("CANCELLED", updated.getStatus());
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    void cancellingPlacedOrderRestoresReservedInventoryExactlyOnce() {
+        SellerEntity seller = approvedSeller("SELLER-1");
+        ProductEntity product = ProductEntity.builder().productId("P-1").seller(seller)
+                .title("Synthetic Product").stock(3).build();
+        OrderItemEntity item = OrderItemEntity.builder().itemId("ITEM-1").product(product)
+                .quantity(2).unitPrice(BigDecimal.TEN).totalPrice(BigDecimal.valueOf(20)).build();
+        OrderEntity order = order(seller, "PLACED");
+        order.setItems(new java.util.ArrayList<>(List.of(item)));
+        item.setOrder(order);
+        stubSeller(seller);
+        when(orderRepository.findById("ORD-1")).thenReturn(Optional.of(order));
+        when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderEntity updated = sellerService.updateOrderStatus(TOKEN, "ORD-1", "CANCELLED");
+
+        assertEquals("CANCELLED", updated.getStatus());
+        assertEquals(5, product.getStock());
+        verify(productRepository, times(1)).findLockedByProductId("P-1");
         verify(orderRepository).save(order);
     }
 

@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "ORDERS")
@@ -39,6 +41,10 @@ public class OrderEntity {
     @Column(name = "DELIVERY_OTP", nullable = false, length = 6) private String deliveryOtp;
     @Column(name = "DISTANCE_KM", precision = 5, scale = 2) private BigDecimal distanceKm;
     @Column(name = "ESTIMATED_DELIVERY_MINS") private Integer estimatedDeliveryMins;
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<OrderItemEntity> items = new ArrayList<>();
+
     @Column(name = "PLACED_AT") private LocalDateTime placedAt;
     @Column(name = "UPDATED_AT") private LocalDateTime updatedAt;
 }
