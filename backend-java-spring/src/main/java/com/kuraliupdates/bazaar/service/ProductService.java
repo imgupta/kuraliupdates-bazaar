@@ -20,7 +20,6 @@ public class ProductService {
                 ? productRepository.findAllApprovedSortedByLowestPrice()
                 : productRepository.searchProductsAcrossSellers(normalized))
                 .stream()
-                .filter(product -> product.getSeller() != null && "APPROVED".equalsIgnoreCase(product.getSeller().getStatus()))
                 .map(ProductResponse::from)
                 .toList();
     }
