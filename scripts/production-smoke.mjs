@@ -11,7 +11,7 @@
 // canonical documented API as a single-environment fallback.
 const baseUrl = process.env.KURALI_API_BASE_URL || "https://kuraliupdates-bazaar.onrender.com/api/v1";
 const base = baseUrl.replace(/\/$/, "");
-const timeoutMs = Number(process.env.SMOKE_TIMEOUT_MS || 20000);
+const timeoutMs = Number(process.env.SMOKE_TIMEOUT_MS || 45000);
 const readinessTimeoutMs = Number(process.env.SMOKE_READINESS_TIMEOUT_MS || 360000);
 const retryIntervalMs = Number(process.env.SMOKE_RETRY_INTERVAL_MS || 10000);
 const failures = [];
@@ -110,7 +110,7 @@ if (ready) {
     ["/daily-help/professionals/by-phone/0000000000", protectedRoute, "Professional profile requires authentication"],
     ["/buyers/orders/__smoke_test_missing_order__/track", (status) => status === 404, "Unknown order returns 404"],
   ];
-  const endpointResults = await Promise.all(checks.map(([path, expected, label]) => request(path, expected, label)));
+  // Keep DB-backed smoke probes sequential. Parallel unauthenticated reads previously\n  // saturated the single staging service and caused every endpoint to time out together.\n  const endpointResults = [];\n  for (const [path, expected, label] of checks) {\n    endpointResults.push(await request(path, expected, label));\n  }
   results.push(...endpointResults);
   failures.push(...endpointResults.filter((result) => !result.ok));
 }
