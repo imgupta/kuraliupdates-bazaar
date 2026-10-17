@@ -19,7 +19,7 @@ const stagingE2EEnabled = process.env.E2E_ENVIRONMENT === "staging"
   && otpCaptureToken.length >= 32;
 
 async function waitForCapturedOtp(page: import("@playwright/test").Page, identifier: string): Promise<string> {
-  const deadline = Date.now() + 30_000;
+  const deadline = Date.now() + 90_000;
   let lastStatus = 0;
   while (Date.now() < deadline) {
     const response = await page.request.get(
@@ -109,6 +109,9 @@ test.describe("KuraliUpdates Bazaar production-safe E2E", () => {
 
   for (const role of roles) {
     test(role.label + " login and post-login session", async ({ page }) => {
+      // OTP capture can lag behind the login request on a cold staging service.
+      // Allow a bounded 90-second capture window while still failing on non-404 errors.
+      test.setTimeout(120_000);
       const identity = process.env["E2E_" + role.key + "_IDENTITY"];
       test.skip(!stagingE2EEnabled || !identity,
         "Authenticated E2E is staging-only; requires exact designated frontend/API targets, a 32+ character OTP token, and a dedicated role test identity.");
