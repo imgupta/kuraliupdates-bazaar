@@ -8,6 +8,7 @@ import com.kuraliupdates.bazaar.dto.auth.UserResponse;
 import com.kuraliupdates.bazaar.dto.auth.VerifyOtpRequest;
 import com.kuraliupdates.bazaar.service.AuthService;
 import com.kuraliupdates.bazaar.service.BuyerAddressService;
+import com.kuraliupdates.bazaar.service.E2eOtpCaptureService;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,11 +26,17 @@ import java.util.Map;
 public class AuthController {
     private final AuthService authService;
     private final BuyerAddressService addressService;
+    private final E2eOtpCaptureService e2eOtpCaptureService;
 
     @PostMapping("/send-otp")
-    public ResponseEntity<Map<String, Object>> sendOtp(@Valid @RequestBody SendOtpRequest request) {
-        AuthService.OtpSendResult result =
-                authService.sendOtp(request.identifier(), request.type(), request.mode());
+    public ResponseEntity<Map<String, Object>> sendOtp(
+            @Valid @RequestBody SendOtpRequest request,
+            @RequestHeader(value = "X-E2E-OTP-Token", required = false) String suppliedE2eToken) {
+        // Only an explicitly configured staging environment and an allowlisted test identity
+        // with the shared secret can bypass the 60-second cooldown.
+        boolean authorizedE2e = e2eOtpCaptureService.isAuthorizedForSend(request.identifier(), suppliedE2eToken);
+        AuthService.OtpSendResult result = authService.sendOtp(
+                request.identifier(), request.type(), request.mode(), authorizedE2e);
 
         return ResponseEntity.ok(Map.of(
                 "success", true,
