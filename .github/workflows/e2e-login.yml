@@ -107,7 +107,7 @@ jobs:
       KURALI_API_BASE_URL: ${{ vars.KURALI_API_BASE_URL || vars.KURALI_STAGING_API_BASE_URL || 'https://kuraliupdates-bazaar.onrender.com/api/v1' }}
       SMOKE_READINESS_TIMEOUT_MS: "360000"
       SMOKE_RETRY_INTERVAL_MS: "10000"
-      SMOKE_TIMEOUT_MS: "20000"
+      SMOKE_TIMEOUT_MS: "45000"
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
