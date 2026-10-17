@@ -24,9 +24,11 @@ permissions:
   actions: read
   contents: read
 
+# All refs share one E2E concurrency lane because role identities and OTP cooldowns
+# are shared by the single staging environment. Queue runs instead of racing OTP sends.
 concurrency:
-  group: kuraliupdates-ci-e2e-${{ github.ref }}
-  cancel-in-progress: true
+  group: kuraliupdates-single-staging-e2e
+  cancel-in-progress: false
 
 jobs:
   frontend:
