@@ -17,6 +17,22 @@ class E2eOtpCaptureServiceTest {
     }
 
     @Test
+    void cooldownBypassIsLimitedToAllowlistedStagingIdentities() {
+        E2eOtpCaptureService staging = new E2eOtpCaptureService(
+                true, "staging", "buyer@example.com,admin@example.com");
+        assertTrue(staging.mayBypassCooldown("Buyer@Example.com"));
+        assertFalse(staging.mayBypassCooldown("other@example.com"));
+
+        E2eOtpCaptureService production = new E2eOtpCaptureService(
+                true, "production", "buyer@example.com");
+        assertFalse(production.mayBypassCooldown("buyer@example.com"));
+
+        E2eOtpCaptureService disabled = new E2eOtpCaptureService(
+                false, "staging", "buyer@example.com");
+        assertFalse(disabled.mayBypassCooldown("buyer@example.com"));
+    }
+
+    @Test
     void doesNotCaptureOtpWhenEnvironmentIsNotStaging() {
         E2eOtpCaptureService service = new E2eOtpCaptureService(
                 true, "production", "buyer@example.com");
