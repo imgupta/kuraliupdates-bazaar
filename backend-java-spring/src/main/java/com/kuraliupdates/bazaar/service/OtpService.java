@@ -27,7 +27,10 @@ public class OtpService {
     @Transactional
     public void send(String identifier, String type) {
         LocalDateTime now = LocalDateTime.now();
-        if (repository.existsRecentOtp(identifier, type, now.minusSeconds(60))) {
+        // Only allowlisted identities in explicitly enabled staging E2E may skip cooldown.
+        // Normal users and production keep the standard 60-second rate limit.
+        if (!e2eOtpCaptureService.mayBypassCooldown(identifier)
+                && repository.existsRecentOtp(identifier, type, now.minusSeconds(60))) {
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Please wait 60 seconds before requesting another OTP");
         }
 
