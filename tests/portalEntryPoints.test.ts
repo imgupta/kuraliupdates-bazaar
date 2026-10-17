@@ -33,4 +33,9 @@ test('each role portal publishes its dashboard from a stable module entry point'
   for (const [path, contract] of contracts) {
     assert.match(read(path), contract, `${path} must publish its dashboard`);
   }
+
+  assert.match(
+    read('../src/features/buyer/index.ts'),
+    /export type \{ BuyerPortalProps \} from ['"]\.\/BuyerPortal['"]/
+  );
 });
