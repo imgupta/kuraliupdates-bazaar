@@ -8,7 +8,7 @@ class E2eOtpCaptureServiceTest {
     @Test
     void capturesAndConsumesOtpOnlyForAllowlistedStagingIdentity() {
         E2eOtpCaptureService service = new E2eOtpCaptureService(
-                true, "staging", "buyer@example.com,admin@example.com");
+                true, "staging", "buyer@example.com,admin@example.com", "test-token-123456789012345678901234567890");
 
         service.capture("Buyer@Example.com", "012345");
 
@@ -19,7 +19,7 @@ class E2eOtpCaptureServiceTest {
     @Test
     void doesNotCaptureOtpWhenEnvironmentIsNotStaging() {
         E2eOtpCaptureService service = new E2eOtpCaptureService(
-                true, "production", "buyer@example.com");
+                true, "production", "buyer@example.com", "test-token-123456789012345678901234567890");
 
         service.capture("buyer@example.com", "123456");
 
@@ -29,7 +29,7 @@ class E2eOtpCaptureServiceTest {
     @Test
     void doesNotCaptureUnallowlistedIdentityOrMalformedOtp() {
         E2eOtpCaptureService service = new E2eOtpCaptureService(
-                true, "staging", "buyer@example.com");
+                true, "staging", "buyer@example.com", "test-token-123456789012345678901234567890");
 
         service.capture("other@example.com", "123456");
         service.capture("buyer@example.com", "12ab56");
@@ -39,9 +39,21 @@ class E2eOtpCaptureServiceTest {
     }
 
     @Test
+    void cooldownBypassRequiresStagingSecretAndAllowlistedIdentity() {
+        String token = "test-token-123456789012345678901234567890";
+        E2eOtpCaptureService service = new E2eOtpCaptureService(
+                true, "staging", "buyer@example.com", token);
+
+        assertTrue(service.isAuthorizedForSend("Buyer@Example.com", token));
+        assertFalse(service.isAuthorizedForSend("buyer@example.com", "wrong-token"));
+        assertFalse(service.isAuthorizedForSend("other@example.com", token));
+        assertFalse(service.isAuthorizedForSend("buyer@example.com", null));
+    }
+
+    @Test
     void disabledByDefaultAndRequiresStagingAndAllowlist() {
-        assertFalse(new E2eOtpCaptureService(false, "staging", "buyer@example.com").isSafelyConfigured());
-        assertFalse(new E2eOtpCaptureService(true, "production", "buyer@example.com").isSafelyConfigured());
-        assertFalse(new E2eOtpCaptureService(true, "staging", "").isSafelyConfigured());
+        assertFalse(new E2eOtpCaptureService(false, "staging", "buyer@example.com", "test-token-123456789012345678901234567890").isSafelyConfigured());
+        assertFalse(new E2eOtpCaptureService(true, "production", "buyer@example.com", "test-token-123456789012345678901234567890").isSafelyConfigured());
+        assertFalse(new E2eOtpCaptureService(true, "staging", "", "test-token-123456789012345678901234567890").isSafelyConfigured());
     }
 }

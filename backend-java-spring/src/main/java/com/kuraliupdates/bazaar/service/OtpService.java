@@ -26,8 +26,14 @@ public class OtpService {
 
     @Transactional
     public void send(String identifier, String type) {
+        send(identifier, type, false);
+    }
+
+    /** Cooldown bypass is reserved for the authenticated, allowlisted staging E2E path. */
+    @Transactional
+    public void send(String identifier, String type, boolean bypassCooldown) {
         LocalDateTime now = LocalDateTime.now();
-        if (repository.existsRecentOtp(identifier, type, now.minusSeconds(60))) {
+        if (!bypassCooldown && repository.existsRecentOtp(identifier, type, now.minusSeconds(60))) {
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Please wait 60 seconds before requesting another OTP");
         }
 

@@ -54,6 +54,7 @@ Current relevant settings in `playwright.config.ts`:
 - `video: "on"` records a video for each test, including passing tests.
 - `trace: "retain-on-failure"` retains traces on failures, limiting trace storage.
 - Capture-on-every-test increases artifact size and runtime. Treat screenshots, videos, traces, and reports as sensitive test artifacts.
+- Authenticated E2E sends no longer wait 61 seconds on an expected 429. The backend's tightly gated staging-only bypass is restricted to allowlisted E2E identities; ordinary user rate limiting is unchanged.
 - The HTML report can display attachments that Playwright has associated with the test result. The workflow also uploads `test-results/` separately as part of the same artifact for debugging. Do not assume every file in `test-results/` is automatically embedded in the HTML report; validate the report UI and video playback when changing reporter or attachment configuration.
 
 ## Test coverage in `e2e/login.spec.ts`
@@ -92,7 +93,7 @@ Each authenticated role test:
 1. Is enabled only when the designated staging environment, exact allowed frontend/API hosts and path, an OTP capture token of at least 32 characters, and the role's identity are present. Otherwise Playwright marks that role test skipped.
 2. Opens the staging frontend and fills the identity field.
 3. Clicks the “Send 6-digit OTP” button and waits for the matching `POST .../auth/send-otp` response.
-4. Allows at most two send attempts. A first HTTP 429 waits 61 seconds for the backend's known 60-second per-identifier cooldown before retrying once. Any other non-200 response, or a second 429, fails the test. This avoids polling for an OTP after a rejected send and avoids unbounded retries.
+4. Adds `X-E2E-OTP-Token` only to the browser's OTP-send request. The backend bypasses the 60-second cooldown only when E2E OTP capture is explicitly enabled for staging, the configured shared secret is at least 32 characters and matches in constant time, and the normalized identity is in the explicit allowlist. Normal requests, invalid/missing tokens, non-allowlisted identities, and non-staging configuration retain the normal cooldown. The test fails promptly on non-200 responses instead of sleeping 61 seconds and retrying.
 5. Polls the authenticated OTP capture endpoint for up to 90 seconds, every second, using `X-E2E-OTP-Token` and `Cache-Control: no-store`. HTTP 404 means the OTP is not available yet; other non-success statuses fail immediately. Only a six-digit OTP is accepted.
 6. Enters the captured OTP and clicks the “Verify … Continue” button.
 7. Checks the page does not show common internal-error text.
@@ -112,6 +113,7 @@ The repository has one deployed environment that the owner designates as staging
 - A sufficiently long `E2E_OTP_CAPTURE_TOKEN` and all five role identities are required for authenticated tests.
 - Do not change these guards to accept arbitrary hostnames or production targets.
 - The OTP capture token and role identities must be stored as GitHub Actions secrets, never committed into the repository or copied into logs.
+- The same `E2E_OTP_CAPTURE_TOKEN` secret must be configured in the staging backend as `E2E_OTP_CAPTURE_TOKEN`; the backend must also have `E2E_OTP_CAPTURE_ENV=staging`, `E2E_OTP_CAPTURE_ENABLED=true`, and `E2E_OTP_ALLOWED_IDENTIFIERS` containing only the dedicated test identities. Do not enable this path on production.
 - The E2E tests must continue to use dedicated test identities and synthetic test data. Never delete real/customer records, and never create transactional test data against production. Keep production checks read-only.
 
 ## GitHub Actions workflow
