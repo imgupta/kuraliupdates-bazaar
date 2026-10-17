@@ -110,7 +110,12 @@ if (ready) {
     ["/daily-help/professionals/by-phone/0000000000", protectedRoute, "Professional profile requires authentication"],
     ["/buyers/orders/__smoke_test_missing_order__/track", (status) => status === 404, "Unknown order returns 404"],
   ];
-  // Keep DB-backed smoke probes sequential. Parallel unauthenticated reads previously\n  // saturated the single staging service and caused every endpoint to time out together.\n  const endpointResults = [];\n  for (const [path, expected, label] of checks) {\n    endpointResults.push(await request(path, expected, label));\n  }
+  // Keep DB-backed smoke probes sequential. Parallel unauthenticated reads previously
+  // saturated the single staging service and caused every endpoint to time out together.
+  const endpointResults = [];
+  for (const [path, expected, label] of checks) {
+    endpointResults.push(await request(path, expected, label));
+  }
   results.push(...endpointResults);
   failures.push(...endpointResults.filter((result) => !result.ok));
 }
