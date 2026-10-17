@@ -178,6 +178,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
               <button
                 type="button"
                 onClick={() => setPaymentMethod('UPI')}
+                disabled
                 className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
                   paymentMethod === 'UPI'
                     ? 'border-amber-500 bg-amber-50/50 shadow-xs'
@@ -191,14 +192,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
                   )}
                 </div>
                 <div>
-                  <p className="font-bold text-xs text-slate-900">Instant UPI</p>
-                  <p className="text-[11px] text-slate-500">GPay, PhonePe, Paytm</p>
+                  <p className="font-bold text-xs text-slate-900">UPI (Coming soon)</p>
+                  <p className="text-[11px] text-slate-500">Online payments are not enabled yet</p>
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setPaymentMethod('Card')}
+                disabled
                 className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
                   paymentMethod === 'Card'
                     ? 'border-amber-500 bg-amber-50/50 shadow-xs'
@@ -212,8 +214,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
                   )}
                 </div>
                 <div>
-                  <p className="font-bold text-xs text-slate-900">Cards</p>
-                  <p className="text-[11px] text-slate-500">Visa, Mastercard, RuPay</p>
+                  <p className="font-bold text-xs text-slate-900">Cards (Coming soon)</p>
+                  <p className="text-[11px] text-slate-500">Online payments are not enabled yet</p>
                 </div>
               </button>
 
