@@ -580,7 +580,7 @@ export const bazaarApi = {
     try {
       const res = await fetch(`${API_BASE_URL}/buyers/orders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(localStorage.getItem('kurali_auth_token') ? { Authorization: `Bearer ${localStorage.getItem('kurali_auth_token')}` } : {}) },
         body: JSON.stringify({
           buyerName: order.buyerName,
           buyerEmail: order.buyerEmail,
@@ -598,6 +598,7 @@ export const bazaarApi = {
           deliveryLatitude: (order as any).deliveryLatitude,
           deliveryLongitude: (order as any).deliveryLongitude,
           deliveryPlaceId: (order as any).deliveryPlaceId,
+          items: (order.items || []).map(item => ({ productId: item.product.id, quantity: item.quantity, negotiatedPrice: item.negotiatedPrice })),
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -611,6 +612,22 @@ export const bazaarApi = {
   /**
    * Track order from Oracle DB
    */
+  async getMyOrders(): Promise<Order[]> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) return [];
+    try {
+      const res = await fetch(`${API_BASE_URL}/buyers/me/orders`, {
+        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: BackendOrder[] = await res.json();
+      return data.map(order => mapBackendOrder(order));
+    } catch (err) {
+      console.warn('Backend getMyOrders failed:', err);
+      return [];
+    }
+  },
+
   async trackOrder(orderId: string): Promise<any> {
     try {
       const token = localStorage.getItem('kurali_auth_token');
