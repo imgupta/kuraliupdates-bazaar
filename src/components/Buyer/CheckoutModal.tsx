@@ -31,15 +31,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Card' | 'COD' | 'NetBanking'>('UPI');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleSubmitOrder = (e: React.FormEvent) => {
+  const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (cart.length === 0) return;
+    if (cart.length === 0 || isProcessing) return;
 
     setIsProcessing(true);
-
-    setTimeout(() => {
+    try {
       const fullAddress = `${streetAddress}, ${deliveryLocality}, Kurali (Punjab)`;
-      const created = createOrder({
+      const created = await createOrder({
         buyerName,
         buyerPhone,
         deliveryAddress: fullAddress,
@@ -47,18 +46,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
         paymentMethod,
       });
 
-      setIsProcessing(false);
-
       if (created) {
-        // Trigger celebratory confetti
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
         onClose();
       }
-    }, 1200);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
