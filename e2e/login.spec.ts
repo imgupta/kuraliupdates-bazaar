@@ -121,7 +121,16 @@ test.describe("KuraliUpdates Bazaar production-safe E2E", () => {
       await expect(identityInput).toBeVisible();
       await identityInput.fill(identity!);
 
+      // The UI click does not wait for the backend's synchronous email-delivery call.
+      // Wait for the send-OTP API response first; otherwise OTP polling can start
+      // before the backend has persisted/captured the OTP, producing a false 404 timeout.
+      const sendOtpResponsePromise = page.waitForResponse(response =>
+        response.request().method() === "POST"
+        && new URL(response.url()).pathname.endsWith("/auth/send-otp"),
+      { timeout: 120_000 });
       await page.getByRole("button", { name: /send 6-digit otp/i }).first().click();
+      const sendOtpResponse = await sendOtpResponsePromise;
+      expect(sendOtpResponse.status(), "Send-OTP request should succeed before polling for its captured OTP").toBe(200);
       const otp = await waitForCapturedOtp(page, identity!);
 
       const otpInput = page.locator('input[autocomplete="one-time-code"], input[name*="otp" i], input[placeholder*="otp" i], input[inputmode="numeric"]').last();
