@@ -417,7 +417,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // UI state
   const [registeredRoles, setRegisteredRoles] = useState<UserRole[]>(['buyer']);
-  const [authInitializing, setAuthInitializing] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('sso_code'));
+  const [authInitializing, setAuthInitializing] = useState(() => typeof window !== 'undefined' && (new URLSearchParams(window.location.search).has('sso_code') || new URLSearchParams(window.location.hash.slice(1)).has('sso_code')));
   const [selectedCityLocality, setSelectedCityLocality] = useState('All Localities (Kurali City)');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [comparingProduct, setComparingProduct] = useState<Product | null>(null);
@@ -678,7 +678,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     const url = new URL(window.location.href);
-    const code = url.searchParams.get('sso_code');
+    const code = url.searchParams.get('sso_code') || new URLSearchParams(url.hash.slice(1)).get('sso_code');
     if (!code) {
       setAuthInitializing(false);
       return;
@@ -686,7 +686,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Remove the one-time code from browser history before exchanging it.
     url.searchParams.delete('sso_code');
-    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    url.hash = '';
+    window.history.replaceState({}, '', `${url.pathname}${url.search}`);
 
     let cancelled = false;
     bazaarApi.redeemPortalHandoff(code).then(result => {
