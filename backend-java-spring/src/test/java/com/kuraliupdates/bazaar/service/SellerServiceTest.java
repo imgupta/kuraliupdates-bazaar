@@ -95,9 +95,9 @@ class SellerServiceTest {
         when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        OrderEntity updated = sellerService.updateOrderStatus(TOKEN, "ORD-1", "CANCELLED");
+        OrderResponse updated = sellerService.updateOrderStatus(TOKEN, "ORD-1", "CANCELLED");
 
-        assertEquals("CANCELLED", updated.getStatus());
+        assertEquals("CANCELLED", updated.status());
         assertEquals(5, product.getStock());
         verify(productRepository, times(1)).findLockedByProductId("P-1");
         verify(orderRepository).save(order);
