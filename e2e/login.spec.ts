@@ -160,9 +160,9 @@ test.describe("KuraliUpdates Bazaar production-safe E2E", () => {
 
     const transitions = [
       { button: /Seller Portal/, active: /Seller Portal/, url: "https://seller.kuraliupdates.com/" },
-      { button: /Delivery Agent/, active: /Delivery Agent/, url: "https://delivery.kuraliupdates.com/" },
+      { button: /Delivery Agent/, active: /Delivery Agent/, url: "https://bazaar.kuraliupdates.com/" },
       { button: /Daily Help/, active: /Daily Help/, url: "https://dailyhelp.kuraliupdates.com/" },
-      { button: /Admin Desk/, active: /Admin Desk/, url: "https://admin.kuraliupdates.com/" },
+      { button: /Admin Desk/, active: /Admin Desk/, url: "https://bazaar.kuraliupdates.com/" },
       { button: /Buyer/, active: /Buyer/, url: "https://buyer.kuraliupdates.com/" },
     ];
 
