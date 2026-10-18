@@ -639,6 +639,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (res.authenticated && res.user) {
           const u = res.user;
           const effectiveRole: UserRole = (u.role?.toLowerCase() as UserRole) || 'buyer';
+          const hadStoredSession = Boolean(safeStorageGet('kurali_auth_session'));
           setUser(prev => ({
             ...prev,
             email: u.email,
@@ -659,13 +660,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             placeId: u.placeId || prev.placeId,
             latitude: u.latitude ?? prev.latitude,
             longitude: u.longitude ?? prev.longitude,
-            role: effectiveRole,
+            // Keep the user's selected portal when refreshing a valid session.
+            // The backend's primary role is only a fallback for a missing local session.
+            role: prev.isSignedIn ? prev.role : effectiveRole,
             isSignedIn: true,
             phoneVerified: true,
             emailVerified: Boolean(u.email),
             isAdmin: Number(u.isAdmin) === 1 || effectiveRole === 'admin',
           }));
-          setRoleState(effectiveRole);
+          if (!hadStoredSession) setRoleState(effectiveRole);
         }
       });
     }
