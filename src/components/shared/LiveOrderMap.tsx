@@ -87,7 +87,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({ orderId, fallbackBuy
   const buyerPoint = coordinate(tracking?.buyerLatitude) && coordinate(tracking?.buyerLongitude)
     ? { lat: Number(tracking.buyerLatitude), lng: Number(tracking.buyerLongitude) }
     : coordinate(fallbackBuyer?.latitude) && coordinate(fallbackBuyer?.longitude)
-      ? { lat: Number(fallbackBuyer.latitude), lng: Number(fallbackBuyer.longitude) }
+      ? { lat: Number(fallbackBuyer?.latitude), lng: Number(fallbackBuyer?.longitude) }
       : null;
   const riderPoint = coordinate(tracking?.agentLatitude) && coordinate(tracking?.agentLongitude)
     ? { lat: Number(tracking.agentLatitude), lng: Number(tracking.agentLongitude) }
