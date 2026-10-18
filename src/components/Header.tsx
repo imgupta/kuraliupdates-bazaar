@@ -15,6 +15,7 @@ import { isRootAdminEmail } from '../data/initialData';
 import { UserRole } from '../types';
 import { pathForRole } from '../app/routing/routeConfig';
 import { SearchSuggestions } from './Buyer/SearchSuggestions';
+import { bazaarApi } from '../services/api';
 
 interface HeaderProps {
   searchQuery: string;
@@ -40,11 +41,12 @@ export const Header: React.FC<HeaderProps> = ({
     orders,
     setIsGmailAuthOpen,
     products,
+    showToast,
   } = useApp();
 
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
-  const selectRole = (targetRole: UserRole) => {
+  const selectRole = async (targetRole: UserRole) => {
     const portalUrls: Record<UserRole, string> = {
       buyer: import.meta.env.VITE_BUYER_PORTAL_URL || 'https://buyer.kuraliupdates.com/',
       seller: import.meta.env.VITE_SELLER_PORTAL_URL || 'https://seller.kuraliupdates.com/',
@@ -59,6 +61,23 @@ export const Header: React.FC<HeaderProps> = ({
     // Keep role-path navigation only when running the legacy monolithic app
     // without a separately configured portal hostname.
     if (targetUrl.origin !== window.location.origin) {
+      if (user.isSignedIn) {
+        if (!registeredRoles.includes(targetRole)) {
+          showToast('This account does not have access to that profile.', 'error');
+          return;
+        }
+        const token = localStorage.getItem('kurali_auth_token');
+        if (!token) {
+          showToast('Your session has expired. Please sign in again.', 'error');
+          return;
+        }
+        const handoff = await bazaarApi.createPortalHandoff(token, targetRole);
+        if (!handoff) {
+          showToast('Could not securely open that profile. Please try again.', 'error');
+          return;
+        }
+        targetUrl.searchParams.set('sso_code', handoff.code);
+      }
       window.location.assign(targetUrl.toString());
       return;
     }
