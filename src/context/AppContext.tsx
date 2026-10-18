@@ -1601,7 +1601,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         role,
-      registeredRoles,
+        registeredRoles,
+        authInitializing,
         setRole,
         user,
         loginWithOtp,
