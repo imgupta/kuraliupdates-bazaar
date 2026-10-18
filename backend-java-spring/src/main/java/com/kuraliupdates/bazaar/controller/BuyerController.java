@@ -11,6 +11,7 @@ import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.Authentication;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -37,8 +38,11 @@ public class BuyerController {
 
     @PostMapping("/orders")
     @Operation(summary = "Place a validated buyer order")
-    public ResponseEntity<OrderPlacementResponse> placeOrder(@Valid @RequestBody PlaceOrderRequest request) {
-        return ResponseEntity.ok(orderService.placeOrder(request));
+    public ResponseEntity<OrderPlacementResponse> placeOrder(@Valid @RequestBody PlaceOrderRequest request, Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
+        }
+        return ResponseEntity.ok(orderService.placeOrder(request, user));
     }
 
     @GetMapping("/me/orders")
