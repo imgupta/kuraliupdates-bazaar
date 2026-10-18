@@ -198,6 +198,14 @@ public class AdminController {
     }
 
 
+    @PostMapping("/daily-help/helpers/{professionalId}/availability")
+    @Operation(summary = "Set a Daily Help professional's availability from the admin desk")
+    public ResponseEntity<DailyHelpProfessionalResponse> updateDailyHelpProfessionalAvailability(
+            @PathVariable String professionalId,
+            @jakarta.validation.Valid @RequestBody com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalAvailabilityRequest request) {
+        return ResponseEntity.ok(dailyHelpService.updateProfessionalAvailability(professionalId, request));
+    }
+
     @GetMapping("/daily-help/services")
     @Operation(summary = "Get all Daily Help services for admin management")
     public ResponseEntity<List<DailyHelpServiceAdminResponse>> getDailyHelpServices() {
