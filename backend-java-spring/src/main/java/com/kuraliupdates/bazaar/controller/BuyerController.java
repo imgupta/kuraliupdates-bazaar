@@ -6,6 +6,12 @@ import com.kuraliupdates.bazaar.dto.order.PlaceOrderRequest;
 import com.kuraliupdates.bazaar.dto.product.ProductResponse;
 import com.kuraliupdates.bazaar.service.OrderService;
 import com.kuraliupdates.bazaar.service.ProductService;
+import com.kuraliupdates.bazaar.service.AuthService;
+import com.kuraliupdates.bazaar.entity.UserEntity;
+import com.kuraliupdates.bazaar.exception.ApiException;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.Authentication;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,6 +28,7 @@ import java.util.List;
 public class BuyerController {
     private final ProductService productService;
     private final OrderService orderService;
+    private final AuthService authService;
 
     @GetMapping("/products/search")
     @Operation(summary = "Search products across approved Kurali sellers")
@@ -31,8 +38,20 @@ public class BuyerController {
 
     @PostMapping("/orders")
     @Operation(summary = "Place a validated buyer order")
-    public ResponseEntity<OrderPlacementResponse> placeOrder(@Valid @RequestBody PlaceOrderRequest request) {
-        return ResponseEntity.ok(orderService.placeOrder(request));
+    public ResponseEntity<OrderPlacementResponse> placeOrder(@Valid @RequestBody PlaceOrderRequest request, Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
+        }
+        return ResponseEntity.ok(orderService.placeOrder(request, user));
+    }
+
+    @GetMapping("/me/orders")
+    @Operation(summary = "Get order history for the authenticated buyer")
+    public ResponseEntity<List<OrderResponse>> myOrders(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
+        }
+        return ResponseEntity.ok(orderService.history(user.getEmail()));
     }
 
     @GetMapping("/orders/{orderId}/track")

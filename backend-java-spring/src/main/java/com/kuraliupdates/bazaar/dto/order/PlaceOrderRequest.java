@@ -1,8 +1,10 @@
 package com.kuraliupdates.bazaar.dto.order;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public record PlaceOrderRequest(
         @NotBlank(message = "Buyer name is required")
@@ -29,5 +31,7 @@ public record PlaceOrderRequest(
         @DecimalMin(value = "0.0", inclusive = true) BigDecimal distanceKm,
         @DecimalMin(value = "-90.0") @DecimalMax(value = "90.0") Double deliveryLatitude,
         @DecimalMin(value = "-180.0") @DecimalMax(value = "180.0") Double deliveryLongitude,
-        @Size(max = 255) String deliveryPlaceId
+        @Size(max = 255) String deliveryPlaceId,
+        @NotEmpty(message = "At least one order item is required")
+        @Valid List<OrderItemRequest> items
 ) {}

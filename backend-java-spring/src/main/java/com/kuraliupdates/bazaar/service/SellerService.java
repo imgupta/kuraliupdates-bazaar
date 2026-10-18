@@ -132,6 +132,20 @@ public class SellerService {
                     "Order cannot transition from " + current + " to " + next);
         }
 
+        if ("CANCELLED".equals(next)) {
+            // Stock was reserved at checkout. Restore each line once inside this
+            // transaction; subsequent cancellation attempts fail the transition guard above.
+            if (order.getItems() != null) {
+                order.getItems().forEach(item -> {
+                    ProductEntity product = productRepository.findLockedByProductId(item.getProduct().getProductId())
+                            .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT,
+                                    "Cannot restore inventory because a product no longer exists"));
+                    int currentStock = product.getStock() == null ? 0 : product.getStock();
+                    product.setStock(Math.addExact(currentStock, item.getQuantity()));
+                });
+            }
+        }
+
         order.setStatus(next);
         order.setUpdatedAt(LocalDateTime.now());
         return orderRepository.save(order);

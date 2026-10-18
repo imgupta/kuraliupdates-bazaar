@@ -140,7 +140,7 @@ interface AppContextType {
     deliveryPhone?: string;
     customerNotes?: string;
     paymentMethod: 'COD' | 'UPI' | 'StorePay' | 'Card' | 'NetBanking';
-  }) => Order;
+  }) => Promise<Order | null>;
   updateOrderStatus: (orderId: string, status: OrderStatus, note?: string) => void;
 
   // Delivery
@@ -527,6 +527,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
 
       await syncDeliveryJobs();
+
+      if (user.isSignedIn && user.role === 'buyer') {
+        const remoteBuyerOrders = await bazaarApi.getMyOrders();
+        if (remoteBuyerOrders.length > 0) {
+          setOrders(prev => {
+            const remoteIds = new Set(remoteBuyerOrders.map(order => order.id));
+            return [...remoteBuyerOrders, ...prev.filter(order => !remoteIds.has(order.id))];
+          });
+        }
+      }
 
       // Synchronize Products from Oracle DB
       const remoteProducts = await bazaarApi.searchProducts();
@@ -1178,7 +1188,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [cart, sellers, appliedCoupon]);
 
   // Order Actions
-  const createOrder = (orderData: {
+  const createOrder = async (orderData: {
     buyerName?: string;
     buyerPhone?: string;
     deliveryAddress: string;
@@ -1186,27 +1196,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     deliveryPhone?: string;
     customerNotes?: string;
     paymentMethod: 'COD' | 'UPI' | 'StorePay' | 'Card' | 'NetBanking';
-  }): Order => {
-        const newOrderId = `ORD-KUR-${Math.floor(100000 + Math.random() * 900000)}`;
-    const sellerIds = Array.from(new Set(cart.map(c => c.product.sellerId)));
-    const sellerNames = Array.from(new Set(cart.map(c => c.product.sellerName)));
-    const primarySellerName = sellerNames[0] || 'Local Kurali Store';
-    const primarySellerId = sellerIds[0] || 'seller-kurali';
-    const primarySellerLocality = cart[0]?.product.sellerLocality || 'Main Bazaar';
+  }): Promise<Order | null> => {
+    if (cart.length === 0) return null;
+    const sellerIds = Array.from(new Set(cart.map(item => item.product.sellerId)));
+    if (sellerIds.length !== 1) {
+      showToast('Please place separate orders for products from different stores.', 'error');
+      return null;
+    }
 
     const newOrder: Order = {
-      id: newOrderId,
+      id: '',
       buyerName: orderData.buyerName || user.name || 'Local Shopper',
-      buyerEmail: user.email || 'shopper@kuraliupdates.com',
-      buyerPhone: orderData.deliveryPhone || orderData.buyerPhone || '9876543210',
+      buyerEmail: user.email || '',
+      buyerPhone: orderData.deliveryPhone || orderData.buyerPhone || user.phone || '',
       deliveryAddress: orderData.deliveryAddress,
       deliveryLocality: orderData.deliveryLocality || user.locality || 'Main Bazaar',
-      sellerId: primarySellerId,
-      sellerName: primarySellerName,
-      sellerLocality: primarySellerLocality,
+      sellerId: sellerIds[0],
+      sellerName: cart[0].product.sellerName,
+      sellerLocality: cart[0].product.sellerLocality,
       sellerIds,
-      sellerNames,
-      items: [...cart],
+      sellerNames: [cart[0].product.sellerName],
+      items: cart.map(item => ({ ...item })),
       subtotal: cartCalculations.itemSubtotal,
       itemSubtotal: cartCalculations.itemSubtotal,
       billDiscountAmount: cartCalculations.totalBillDiscount,
@@ -1217,52 +1227,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isFreeDelivery: cartCalculations.isFreeDelivery,
       totalAmount: cartCalculations.finalTotal,
       paymentMethod: orderData.paymentMethod,
-      paymentStatus: orderData.paymentMethod === 'UPI' ? 'paid' : 'pending',
+      paymentStatus: 'pending',
       status: 'placed',
       deliveryOtp: '',
-      placedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      placedAt: new Date().toISOString(),
       estimatedDeliveryTime: '30-45 mins (Local Express)',
       distanceKm: 1.4,
       deliveryLatitude: user.latitude,
       deliveryLongitude: user.longitude,
       deliveryPlaceId: user.placeId,
-      statusUpdates: [
-        {
-          status: 'placed',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          note: 'Order placed by buyer. Waiting for store packing.',
-        },
-      ],
+      statusUpdates: [{ status: 'placed', timestamp: new Date().toISOString(), note: 'Order placed by buyer.' }],
       customerNotes: orderData.customerNotes,
     };
 
-    setOrders(prev => [newOrder, ...prev]);
+    const response = await bazaarApi.placeOrder(newOrder);
+    const serverOrder = response?.order;
+    if (!serverOrder?.orderId) {
+      showToast('Order was not confirmed by the server. Your cart has been kept; please retry after checking order history.', 'error');
+      return null;
+    }
+
+    const confirmed: Order = {
+      ...newOrder,
+      id: serverOrder.orderId,
+      subtotal: Number(serverOrder.subtotal ?? newOrder.subtotal),
+      itemSubtotal: Number(serverOrder.subtotal ?? newOrder.itemSubtotal),
+      billDiscountAmount: Number(serverOrder.billDiscountAmount ?? 0),
+      couponDiscountAmount: Number(serverOrder.couponDiscountAmount ?? 0),
+      deliveryFee: Number(serverOrder.deliveryFee ?? 0),
+      isFreeDelivery: Number(serverOrder.isFreeDelivery) === 1,
+      totalAmount: Number(serverOrder.totalAmount ?? newOrder.totalAmount),
+      paymentStatus: String(serverOrder.paymentStatus || 'PENDING_COD').toLowerCase() as Order['paymentStatus'],
+      status: String(serverOrder.status || 'PLACED').toLowerCase() as OrderStatus,
+    };
+    setOrders(prev => [confirmed, ...prev.filter(order => order.id !== confirmed.id)]);
     clearCart();
-    setTrackingOrderId(newOrderId);
-    showToast(`Order #${newOrderId} placed successfully!`, 'success');
-
-    // Async sync to Oracle DB via Render backend
-    bazaarApi.placeOrder(newOrder).then(res => {
-      const placedOrder = res?.order;
-      const serverOtp = res?.deliveryOtp;
-      if (!placedOrder) {
-        showToast('Order could not be synchronized with the Bazaar server.', 'error');
-        return;
-      }
-      // Use the server's canonical order ID for all subsequent delivery actions.
-      // The delivery dashboard verifies OTP against Oracle using this ID; keeping
-      // the browser-generated ID causes the customer and delivery agent to refer
-      // to different order records.
-      const serverOrderId = placedOrder.orderId || placedOrder.id || newOrderId;
-      setOrders(prev => prev.map(order => order.id === newOrderId
-        ? { ...order, id: serverOrderId, deliveryOtp: serverOtp || order.deliveryOtp }
-        : order
-      ));
-      setTrackingOrderId(serverOrderId);
-      if (serverOtp) showToast(`Delivery OTP for order #${serverOrderId}: ${serverOtp}`, 'info');
-    });
-
-    return newOrder;
+    setTrackingOrderId(confirmed.id);
+    showToast(`Order #${confirmed.id} placed successfully!`, 'success');
+    return confirmed;
   };
 
   const updateOrderStatus = (orderId: string, status: OrderStatus, note?: string) => {
