@@ -87,7 +87,7 @@ public class SellerController {
     @Operation(summary = "Get orders for the authenticated seller")
     public ResponseEntity<List<OrderResponse>> getMyOrders(
             @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return ResponseEntity.ok(sellerService.getOrders(bearerToken(authorization)).stream().map(OrderResponse::from).toList());
+        return ResponseEntity.ok(sellerService.getOrders(bearerToken(authorization)));
     }
 
     @PostMapping("/me/orders/{orderId}/status")
@@ -96,7 +96,7 @@ public class SellerController {
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @PathVariable String orderId,
             @RequestParam String status) {
-        return ResponseEntity.ok(OrderResponse.from(sellerService.updateOrderStatus(bearerToken(authorization), orderId, status)));
+        return ResponseEntity.ok(sellerService.updateOrderStatus(bearerToken(authorization), orderId, status));
     }
 
     @GetMapping("/me/discounts")

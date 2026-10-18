@@ -1,6 +1,7 @@
 package com.kuraliupdates.bazaar.service;
 
 import com.kuraliupdates.bazaar.dto.product.ProductResponse;
+import com.kuraliupdates.bazaar.dto.order.OrderResponse;
 import com.kuraliupdates.bazaar.dto.seller.SellerProductRequest;
 import com.kuraliupdates.bazaar.dto.seller.SellerDiscountRequest;
 import com.kuraliupdates.bazaar.entity.BillDiscountEntity;
@@ -102,13 +103,15 @@ public class SellerService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrderEntity> getOrders(String token) {
+    public List<OrderResponse> getOrders(String token) {
         SellerEntity seller = getCurrentSeller(token);
-        return orderRepository.findBySeller_SellerId(seller.getSellerId());
+        return orderRepository.findBySeller_SellerId(seller.getSellerId()).stream()
+                .map(OrderResponse::from)
+                .toList();
     }
 
     @Transactional
-    public OrderEntity updateOrderStatus(String token, String orderId, String requestedStatus) {
+    public OrderResponse updateOrderStatus(String token, String orderId, String requestedStatus) {
         SellerEntity seller = requireApprovedSeller(token);
         OrderEntity order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
@@ -148,7 +151,10 @@ public class SellerService {
 
         order.setStatus(next);
         order.setUpdatedAt(LocalDateTime.now());
-        return orderRepository.save(order);
+        OrderEntity saved = orderRepository.save(order);
+        // Materialize the response while this transaction is still open. OrderResponse
+        // reads lazy order items and related entities.
+        return OrderResponse.from(saved);
     }
 
     @Transactional(readOnly = true)
