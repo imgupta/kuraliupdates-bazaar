@@ -59,10 +59,14 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({ orderId, fallbackBuy
 
   useEffect(() => {
     if (!map.current || !window.google?.maps || !tracking) return;
-    const buyer = Number.isFinite(Number(tracking.buyerLatitude)) && Number.isFinite(Number(tracking.buyerLongitude))
+    const hasBuyerCoordinates = tracking.buyerLatitude !== null && tracking.buyerLatitude !== undefined && tracking.buyerLongitude !== null && tracking.buyerLongitude !== undefined;
+    const hasRiderCoordinates = tracking.agentLatitude !== null && tracking.agentLatitude !== undefined && tracking.agentLongitude !== null && tracking.agentLongitude !== undefined;
+    const buyer = hasBuyerCoordinates && Number.isFinite(Number(tracking.buyerLatitude)) && Number.isFinite(Number(tracking.buyerLongitude))
       ? { lat: Number(tracking.buyerLatitude), lng: Number(tracking.buyerLongitude) }
-      : null;
-    const rider = Number.isFinite(Number(tracking.agentLatitude)) && Number.isFinite(Number(tracking.agentLongitude))
+      : fallbackBuyer?.latitude != null && fallbackBuyer?.longitude != null && Number.isFinite(Number(fallbackBuyer.latitude)) && Number.isFinite(Number(fallbackBuyer.longitude))
+        ? { lat: Number(fallbackBuyer.latitude), lng: Number(fallbackBuyer.longitude) }
+        : null;
+    const rider = hasRiderCoordinates && Number.isFinite(Number(tracking.agentLatitude)) && Number.isFinite(Number(tracking.agentLongitude))
       ? { lat: Number(tracking.agentLatitude), lng: Number(tracking.agentLongitude) }
       : null;
     if (buyer) {
@@ -81,7 +85,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({ orderId, fallbackBuy
     } else if (points.length === 1) {
       map.current.setCenter(points[0]);
     }
-  }, [tracking]);
+  }, [tracking, fallbackBuyer]);
 
   const coordinate = (value: unknown) => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
   const buyerPoint = coordinate(tracking?.buyerLatitude) && coordinate(tracking?.buyerLongitude)
