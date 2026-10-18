@@ -18,6 +18,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.Instant;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 @RestController
 @RequestMapping("/auth")
@@ -25,6 +29,8 @@ import java.util.Map;
 public class AuthController {
     private final AuthService authService;
     private final BuyerAddressService addressService;
+    private final ConcurrentMap<String, PortalHandoff> portalHandoffs = new ConcurrentHashMap<>();
+    private static final long PORTAL_HANDOFF_TTL_SECONDS = 60;
 
     @PostMapping("/send-otp")
     public ResponseEntity<Map<String, Object>> sendOtp(@Valid @RequestBody SendOtpRequest request) {
@@ -52,6 +58,65 @@ public class AuthController {
         AuthService.AuthResult result = authService.verifyOtp(request);
         return authResponse(result);
     }
+
+    /**
+     * Creates a short-lived, one-time code for moving an authenticated session
+     * between the separate role portal origins. The bearer token is never placed
+     * in the redirect URL.
+     */
+    @PostMapping("/portal-handoff")
+    public ResponseEntity<Map<String, Object>> createPortalHandoff(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody(required = false) Map<String, String> body) {
+        String token = bearerToken(authorization);
+        if (token == null) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authentication is required to switch profiles");
+        }
+        String requestedRole = body == null ? null : body.get("role");
+        String role = requestedRole == null ? "" : requestedRole.trim().toUpperCase();
+        List<String> roles = authService.registeredRoles(token);
+        if (role.isBlank() || !roles.contains(role)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This account is not authorized for that profile");
+        }
+
+        Instant now = Instant.now();
+        portalHandoffs.entrySet().removeIf(entry -> !entry.getValue().expiresAt().isAfter(now));
+        String code = UUID.randomUUID().toString().replace("-", "");
+        portalHandoffs.put(code, new PortalHandoff(token, role, now.plusSeconds(PORTAL_HANDOFF_TTL_SECONDS)));
+        return ResponseEntity.ok(Map.of("success", true, "code", code, "role", role,
+                "expiresInSeconds", PORTAL_HANDOFF_TTL_SECONDS));
+    }
+
+    /** Redeems a handoff code once and returns the authenticated session to the target portal. */
+    @PostMapping("/portal-handoff/redeem")
+    public ResponseEntity<Map<String, Object>> redeemPortalHandoff(
+            @RequestBody(required = false) Map<String, String> body) {
+        String code = body == null ? null : body.get("code");
+        if (code == null || code.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A portal handoff code is required");
+        }
+        PortalHandoff handoff = portalHandoffs.remove(code);
+        if (handoff == null || !handoff.expiresAt().isAfter(Instant.now())) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "This profile-switch link has expired or was already used");
+        }
+
+        List<String> roles = authService.registeredRoles(handoff.token());
+        if (!roles.contains(handoff.role())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This account is no longer authorized for that profile");
+        }
+        UserResponse user = authService.currentUser(handoff.token());
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "authenticated", true,
+                "token", handoff.token(),
+                "user", user,
+                "addresses", user.addresses(),
+                "roles", roles,
+                "role", handoff.role()
+        ));
+    }
+
+    private record PortalHandoff(String token, String role, Instant expiresAt) {}
 
     @GetMapping("/me/roles")
     public ResponseEntity<Map<String, Object>> registeredRoles(

@@ -34,6 +34,7 @@ interface AppContextType {
   role: UserRole;
   setRole: (role: UserRole) => void;
   registeredRoles: UserRole[];
+  authInitializing: boolean;
   user: UserProfile;
   loginWithOtp: (params: {
     identifier?: string;
@@ -416,6 +417,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // UI state
   const [registeredRoles, setRegisteredRoles] = useState<UserRole[]>(['buyer']);
+  const [authInitializing, setAuthInitializing] = useState(() => typeof window !== 'undefined' && (new URLSearchParams(window.location.search).has('sso_code') || new URLSearchParams(window.location.hash.slice(1)).has('sso_code')));
   const [selectedCityLocality, setSelectedCityLocality] = useState('All Localities (Kurali City)');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [comparingProduct, setComparingProduct] = useState<Product | null>(null);
@@ -637,6 +639,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (res.authenticated && res.user) {
           const u = res.user;
           const effectiveRole: UserRole = (u.role?.toLowerCase() as UserRole) || 'buyer';
+          const hadStoredSession = Boolean(safeStorageGet('kurali_auth_session'));
           setUser(prev => ({
             ...prev,
             email: u.email,
@@ -657,13 +660,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             placeId: u.placeId || prev.placeId,
             latitude: u.latitude ?? prev.latitude,
             longitude: u.longitude ?? prev.longitude,
-            role: effectiveRole,
+            // Keep the user's selected portal when refreshing a valid session.
+            // The backend's primary role is only a fallback for a missing local session.
+            role: prev.isSignedIn ? prev.role : effectiveRole,
             isSignedIn: true,
             phoneVerified: true,
             emailVerified: Boolean(u.email),
             isAdmin: Number(u.isAdmin) === 1 || effectiveRole === 'admin',
           }));
-          setRoleState(effectiveRole);
+          if (!hadStoredSession) setRoleState(effectiveRole);
         }
       });
     }
@@ -672,6 +677,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [backendUrl]);
 
   useEffect(() => {
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get('sso_code') || new URLSearchParams(url.hash.slice(1)).get('sso_code');
+    if (!code) {
+      setAuthInitializing(false);
+      return;
+    }
+
+    // Remove the one-time code from browser history before exchanging it.
+    url.searchParams.delete('sso_code');
+    url.hash = '';
+    window.history.replaceState({}, '', `${url.pathname}${url.search}`);
+
+    let cancelled = false;
+    bazaarApi.redeemPortalHandoff(code).then(result => {
+      if (cancelled) return;
+      if (!result?.success || !result.token || !result.user || !result.role) {
+        safeStorageRemove('kurali_auth_token');
+        safeStorageRemove('kurali_auth_session');
+        setAuthInitializing(false);
+        return;
+      }
+
+      const roles = (result.roles || []).map((r: string) => r.toLowerCase() as UserRole)
+        .filter((r: UserRole) => ['buyer', 'seller', 'delivery', 'professional', 'admin'].includes(r));
+      const targetRole = result.role.toLowerCase() as UserRole;
+      if (!roles.includes(targetRole)) {
+        safeStorageRemove('kurali_auth_token');
+        safeStorageRemove('kurali_auth_session');
+        setAuthInitializing(false);
+        return;
+      }
+
+      const previous = user;
+      const profile: UserProfile = {
+        ...previous,
+        ...mapServerUser(result.user, previous),
+        email: result.user.email || previous.email,
+        name: result.user.name || previous.name,
+        phone: result.user.phone || previous.phone,
+        role: targetRole,
+        isSignedIn: true,
+        isAdmin: roles.includes('admin'),
+        registeredRoles: roles,
+      };
+      safeStorageSet('kurali_auth_token', result.token);
+      safeStorageSet('kurali_auth_session', JSON.stringify(profile));
+      setUser(profile);
+      setRoleState(targetRole);
+      setRegisteredRoles(Array.from(new Set(['buyer', ...roles])));
+      setAuthInitializing(false);
+    }).catch(() => {
+      if (!cancelled) setAuthInitializing(false);
+    });
+
+    return () => { cancelled = true; };
+  // This bootstrap must run once per portal load, before role discovery.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (authInitializing) return;
     const token = safeStorageGet('kurali_auth_token');
     if (!user.isSignedIn || !token) {
       setRegisteredRoles(['buyer']);
@@ -683,10 +749,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .filter(r => ['buyer', 'seller', 'delivery', 'professional', 'admin'].includes(r));
       setRegisteredRoles(Array.from(new Set(['buyer', ...normalized])));
     });
-  }, [user.isSignedIn, user.email, user.phone, role]);
+  }, [authInitializing, user.isSignedIn, user.email, user.phone, role]);
 
   // Secure Role Switcher: Admin is strictly restricted to authorized Root Admins
   const setRole = (targetRole: UserRole) => {
+    if (!registeredRoles.includes(targetRole)) {
+      showToast('This account does not have access to that profile. Register or sign in with an authorized account.', 'error');
+      return;
+    }
     if (targetRole === 'admin') {
       if (!user.isAdmin) {
         showToast(`Access Restricted: City Admin portal is reserved exclusively for verified Root Admins.`, 'error');
@@ -1532,7 +1602,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         role,
-      registeredRoles,
+        registeredRoles,
+        authInitializing,
         setRole,
         user,
         loginWithOtp,
