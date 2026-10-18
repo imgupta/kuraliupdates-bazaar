@@ -505,7 +505,7 @@ export const AdminDashboard: React.FC = () => {
                                 const nextStatus = String(helper.status).toUpperCase() === 'AVAILABLE' ? 'OFFLINE' : 'AVAILABLE';
                                 setUpdatingHelperId(helper.professionalId);
                                 try {
-                                  const updated = await bazaarApi.updateDailyHelpProfessionalAvailability(helper.professionalId, nextStatus, helper.currentLocality);
+                                  const updated = await bazaarApi.updateAdminDailyHelpProfessionalAvailability(helper.professionalId, nextStatus, helper.currentLocality);
                                   if (!updated) throw new Error('The server rejected this availability change. Confirm the admin role is authorized for this action.');
                                   showToast(nextStatus === 'AVAILABLE' ? 'Daily Help professional is now available.' : 'Daily Help professional is now offline.', 'success');
                                   await refreshAdminData();
