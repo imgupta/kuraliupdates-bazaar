@@ -15,6 +15,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({ orderId, fallbackBuy
   const buyerMarker = useRef<any>(null);
   const riderMarker = useRef<any>(null);
   const [tracking, setTracking] = useState<any>(null);
+  const [googleMapsFailed, setGoogleMapsFailed] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -41,7 +42,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({ orderId, fallbackBuy
         fullscreenControl: false,
       });
     };
-    load().catch(() => undefined);
+    load().catch(() => { if (mounted) setGoogleMapsFailed(true); });
     return () => { mounted = false; };
   }, [orderId]);
 
@@ -82,9 +83,25 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({ orderId, fallbackBuy
     }
   }, [tracking]);
 
+  const coordinate = (value: unknown) => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+  const buyerPoint = coordinate(tracking?.buyerLatitude) && coordinate(tracking?.buyerLongitude)
+    ? { lat: Number(tracking.buyerLatitude), lng: Number(tracking.buyerLongitude) }
+    : coordinate(fallbackBuyer?.latitude) && coordinate(fallbackBuyer?.longitude)
+      ? { lat: Number(fallbackBuyer.latitude), lng: Number(fallbackBuyer.longitude) }
+      : null;
+  const riderPoint = coordinate(tracking?.agentLatitude) && coordinate(tracking?.agentLongitude)
+    ? { lat: Number(tracking.agentLatitude), lng: Number(tracking.agentLongitude) }
+    : null;
+  const fallbackPoint = riderPoint || buyerPoint || { lat: 30.903, lng: 76.426 };
+  const bbox = `${fallbackPoint.lng - 0.012},${fallbackPoint.lat - 0.008},${fallbackPoint.lng + 0.012},${fallbackPoint.lat + 0.008}`;
+  const useOpenStreetMap = !import.meta.env.VITE_GOOGLE_MAPS_API_KEY || googleMapsFailed;
+
   return (
     <div className="relative h-52 sm:h-64 bg-slate-100">
-      <div ref={mapRef} className="absolute inset-0" />
+      {useOpenStreetMap ? (
+        <iframe title="Live order map" className="absolute inset-0 w-full h-full border-0" loading="lazy" referrerPolicy="no-referrer"
+          src={`https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${fallbackPoint.lat}%2C${fallbackPoint.lng}`} />
+      ) : <div ref={mapRef} className="absolute inset-0" />}
       <div className="absolute top-3 left-3 flex flex-wrap gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/95 px-2.5 py-1.5 text-[10px] font-black shadow"><Navigation className="w-3.5 h-3.5 text-amber-600" /> Rider</span>
         <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/95 px-2.5 py-1.5 text-[10px] font-black shadow"><MapPin className="w-3.5 h-3.5 text-emerald-600" /> Your address</span>
