@@ -113,6 +113,69 @@ test.describe("KuraliUpdates Bazaar production-safe E2E", () => {
     await expect(page.getByText(/please enter a valid email address/i)).toBeVisible({ timeout: 5_000 });
   });
 
+  test("one authenticated multi-role account switches portals without another login", async ({ page }) => {
+    test.setTimeout(180_000);
+    const identities = [
+      process.env.E2E_BUYER_IDENTITY,
+      process.env.E2E_SELLER_IDENTITY,
+      process.env.E2E_DELIVERY_IDENTITY,
+      process.env.E2E_PROVIDER_IDENTITY,
+      process.env.E2E_ADMIN_IDENTITY,
+    ].map(value => (value ?? "").trim().toLowerCase());
+    test.skip(
+      !stagingE2EEnabled || identities.some(value => !value) || new Set(identities).size !== 1,
+      "Requires the five staging role secrets to identify the same authorized multi-role test account.",
+    );
+
+    const identity = identities[0];
+    await page.goto(baseURL, { waitUntil: "domcontentloaded" });
+    const identityInput = page.locator('input[type="email"], input[type="tel"], input[name*="email" i], input[name*="mobile" i], input[placeholder*="email" i], input[placeholder*="mobile" i]').first();
+    await expect(identityInput).toBeVisible({ timeout: 15_000 });
+    await identityInput.fill(identity);
+
+    const sendOtpButton = page.getByRole("button", { name: /send 6-digit otp/i }).first();
+    const responsePromise = page.waitForResponse(response =>
+      response.request().method() === "POST"
+      && new URL(response.url()).pathname.endsWith("/auth/send-otp"),
+    { timeout: 30_000 });
+    await sendOtpButton.click();
+    const sendOtpResponse = await responsePromise;
+    let otp: string;
+    if (sendOtpResponse.status() === 200) {
+      otp = await waitForCapturedOtp(page, identity);
+    } else if (sendOtpResponse.status() === 429) {
+      const existingOtp = await readCapturedOtpIfAvailable(page, identity);
+      if (!existingOtp) {
+        throw new Error("Multi-role staging identity is in the OTP cooldown and no captured OTP is available.");
+      }
+      otp = existingOtp;
+    } else {
+      throw new Error("Multi-role send-OTP request returned HTTP " + sendOtpResponse.status());
+    }
+
+    const otpInput = page.locator('input[autocomplete="one-time-code"], input[name*="otp" i], input[placeholder*="otp" i], input[inputmode="numeric"]').last();
+    await expect(otpInput).toBeVisible({ timeout: 15_000 });
+    await otpInput.fill(otp);
+    await page.getByRole("button", { name: /verify.*continue/i }).last().click();
+
+    const transitions = [
+      { button: /Seller Portal/, active: /Seller Portal/, url: "https://seller.kuraliupdates.com/" },
+      { button: /Delivery Agent/, active: /Delivery Agent/, url: "https://delivery.kuraliupdates.com/" },
+      { button: /Daily Help/, active: /Daily Help/, url: "https://dailyhelp.kuraliupdates.com/" },
+      { button: /Admin Desk/, active: /Admin Desk/, url: "https://admin.kuraliupdates.com/" },
+      { button: /Buyer/, active: /Buyer/, url: "https://buyer.kuraliupdates.com/" },
+    ];
+
+    for (const transition of transitions) {
+      const switchButton = page.getByRole("button", { name: transition.button }).first();
+      await expect(switchButton, "The currently authenticated account should expose its authorized role switcher").toBeVisible({ timeout: 20_000 });
+      await switchButton.click();
+      await expect(page).toHaveURL(transition.url, { timeout: 30_000 });
+      await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: transition.active }).first()).toBeVisible({ timeout: 20_000 });
+    }
+  });
+
   const roles = [
     { key: "BUYER", label: "Buyer" },
     { key: "SELLER", label: "Seller" },
