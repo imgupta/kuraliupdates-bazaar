@@ -76,7 +76,8 @@ export const Header: React.FC<HeaderProps> = ({
           showToast('Could not securely open that profile. Please try again.', 'error');
           return;
         }
-        targetUrl.searchParams.set('sso_code', handoff.code);
+        // Put the one-time code in the URL fragment so it is not sent in HTTP requests or Referer headers.
+        targetUrl.hash = new URLSearchParams({ sso_code: handoff.code }).toString();
       }
       window.location.assign(targetUrl.toString());
       return;
