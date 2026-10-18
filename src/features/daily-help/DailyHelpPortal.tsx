@@ -6,6 +6,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { bazaarApi } from '../../services/api';
 import { DailyHelpBooking, DailyHelpProfessional, DailyHelpProfessionalEarnings, DailyHelpSlot } from '../../types';
+import { KURALI_LOCALITIES } from '../../data/initialData';
 
 const ACTIVE_STATUSES = ['PROFESSIONAL_ASSIGNED', 'ARRIVING', 'READY_TO_START', 'IN_PROGRESS'];
 
@@ -42,6 +43,10 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
   const [slotStart, setSlotStart] = useState('09:00');
   const [slotEnd, setSlotEnd] = useState('11:00');
   const [mySlots, setMySlots] = useState<DailyHelpSlot[]>([]);
+  const [registrationName, setRegistrationName] = useState(user.name || '');
+  const [registrationPhone, setRegistrationPhone] = useState(user.phone || '');
+  const [registrationLocality, setRegistrationLocality] = useState(user.locality || KURALI_LOCALITIES.find(l => !l.startsWith('All')) || 'Kurali');
+  const [registering, setRegistering] = useState(false);
 
   const load = async (silent = false) => {
     if (!user.phone) return;
@@ -91,22 +96,28 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
   );
 
   const register = async () => {
-    if (!user.name || !user.phone || !user.locality) {
-      showToast('Name, mobile number and locality are required.', 'error');
+    const name = registrationName.trim();
+    const phone = registrationPhone.trim();
+    const locality = registrationLocality.trim();
+    if (!name || !phone || !locality) {
+      showToast('Enter your full name, mobile number and locality to register.', 'error');
       return;
     }
-    const created = await bazaarApi.registerDailyHelpProfessional({
-      name: user.name,
-      phone: user.phone,
-      locality: user.locality,
-    });
-    if (!created) {
-      showToast('Unable to create Daily Help professional profile.', 'error');
-      return;
+    setRegistering(true);
+    try {
+      const created = await bazaarApi.registerDailyHelpProfessional({ name, phone, locality });
+      if (!created) {
+        showToast('Profile was not created. Check your signed-in mobile number and try again.', 'error');
+        return;
+      }
+      setProfessional(created);
+      showToast('Professional profile created successfully.', 'success');
+      await load(true);
+    } catch (error: any) {
+      showToast(error?.message || 'Unable to create Daily Help professional profile.', 'error');
+    } finally {
+      setRegistering(false);
     }
-    setProfessional(created);
-    showToast('Professional profile created successfully.', 'success');
-    await load(true);
   };
 
   const toggleAvailability = async () => {
@@ -192,8 +203,21 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
       <div className="max-w-xl mx-auto bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 text-center shadow-sm">
         <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center"><ShieldCheck className="w-8 h-8" /></div>
         <h1 className="text-xl font-black text-slate-900 mt-4">Become a Daily Help professional</h1>
-        <p className="text-sm text-slate-500 mt-2">Use your signed-in profile to create your professional account and start receiving hourly home-help jobs.</p>
-        <button onClick={register} className="mt-5 px-5 py-3 rounded-xl bg-slate-900 text-white text-sm font-black cursor-pointer">Create Professional Profile</button>
+        <p className="text-sm text-slate-500 mt-2">Confirm your contact details and locality to create your professional account.</p>
+        <div className="mt-5 space-y-3 text-left">
+          <label className="block text-xs font-bold text-slate-700">Full name
+            <input value={registrationName} onChange={e => setRegistrationName(e.target.value)} autoComplete="name" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" required />
+          </label>
+          <label className="block text-xs font-bold text-slate-700">Mobile number
+            <input value={registrationPhone} onChange={e => setRegistrationPhone(e.target.value)} type="tel" autoComplete="tel" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" required />
+          </label>
+          <label className="block text-xs font-bold text-slate-700">Locality
+            <select value={registrationLocality} onChange={e => setRegistrationLocality(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+              {KURALI_LOCALITIES.filter(l => !l.startsWith('All')).map(locality => <option key={locality} value={locality}>{locality}</option>)}
+            </select>
+          </label>
+        </div>
+        <button onClick={register} disabled={registering} className="mt-5 px-5 py-3 rounded-xl bg-slate-900 text-white text-sm font-black cursor-pointer disabled:opacity-60">{registering ? 'Creating profile…' : 'Create Professional Profile'}</button>
       </div>
     );
   }
