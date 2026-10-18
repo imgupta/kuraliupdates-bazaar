@@ -1,6 +1,7 @@
 package com.kuraliupdates.bazaar.service;
 
 import com.kuraliupdates.bazaar.entity.OrderEntity;
+import com.kuraliupdates.bazaar.dto.order.OrderResponse;
 import com.kuraliupdates.bazaar.entity.OrderItemEntity;
 import com.kuraliupdates.bazaar.entity.ProductEntity;
 import com.kuraliupdates.bazaar.entity.SellerEntity;
@@ -44,10 +45,10 @@ class SellerServiceTest {
         when(orderRepository.findById("ORD-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        OrderEntity updated = sellerService.updateOrderStatus(TOKEN, "ORD-1", "accepted_by_seller");
+        OrderResponse updated = sellerService.updateOrderStatus(TOKEN, "ORD-1", "accepted_by_seller");
 
-        assertEquals("ACCEPTED_BY_SELLER", updated.getStatus());
-        assertNotNull(updated.getUpdatedAt());
+        assertEquals("ACCEPTED_BY_SELLER", updated.status());
+        assertNotNull(updated.updatedAt());
         verify(orderRepository).save(order);
     }
 
@@ -59,9 +60,9 @@ class SellerServiceTest {
         when(orderRepository.findById("ORD-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        OrderEntity updated = sellerService.updateOrderStatus(TOKEN, "ORD-1", "READY_FOR_PICKUP");
+        OrderResponse updated = sellerService.updateOrderStatus(TOKEN, "ORD-1", "READY_FOR_PICKUP");
 
-        assertEquals("READY_FOR_PICKUP", updated.getStatus());
+        assertEquals("READY_FOR_PICKUP", updated.status());
         verify(orderRepository).save(order);
     }
 
@@ -73,9 +74,9 @@ class SellerServiceTest {
         when(orderRepository.findById("ORD-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        OrderEntity updated = sellerService.updateOrderStatus(TOKEN, "ORD-1", "CANCELLED");
+        OrderResponse updated = sellerService.updateOrderStatus(TOKEN, "ORD-1", "CANCELLED");
 
-        assertEquals("CANCELLED", updated.getStatus());
+        assertEquals("CANCELLED", updated.status());
         verify(orderRepository).save(order);
     }
 
@@ -168,7 +169,10 @@ class SellerServiceTest {
         stubSeller(seller);
         when(orderRepository.findBySeller_SellerId("SELLER-1")).thenReturn(expected);
 
-        assertSame(expected, sellerService.getOrders(TOKEN));
+        List<OrderResponse> actual = sellerService.getOrders(TOKEN);
+        assertEquals(1, actual.size());
+        assertEquals("ORD-1", actual.get(0).orderId());
+        assertEquals("PLACED", actual.get(0).status());
         verify(orderRepository).findBySeller_SellerId("SELLER-1");
         verify(orderRepository, never()).findAll();
     }
