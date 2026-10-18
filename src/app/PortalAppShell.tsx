@@ -60,7 +60,7 @@ const AccessDenied: React.FC = () => (
 );
 
 const RootNavigation: React.FC<PortalAppShellProps> = ({ portalRole, Dashboard }) => {
-  const { user, role, setRole, registeredRoles } = useApp();
+  const { user, role, setRole, registeredRoles, authInitializing } = useApp();
   const [pathname, setPathname] = useState(() => window.location.pathname);
   const route = resolvePortalRoute(pathname, portalRole);
   const dashboardRole = route.kind === 'role-dashboard' ? route.role : null;
@@ -93,6 +93,10 @@ const RootNavigation: React.FC<PortalAppShellProps> = ({ portalRole, Dashboard }
   useEffect(() => {
     if (dashboardRole && dashboardAccess?.allowed && role !== dashboardRole) setRole(dashboardRole);
   }, [dashboardRole, dashboardAccess?.allowed, role, setRole]);
+
+  if (authInitializing) {
+    return <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6"><p className="text-sm font-semibold text-slate-600">Securely opening your profile…</p></main>;
+  }
 
   switch (route.kind) {
     case 'register':
