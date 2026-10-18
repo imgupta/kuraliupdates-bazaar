@@ -1156,6 +1156,37 @@ export const bazaarApi = {
     }
   },
 
+  async createPortalHandoff(token: string, role: string): Promise<{ code: string; role: string } | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/portal-handoff`, {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ role: role.toUpperCase() }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.success && data.code && data.role ? { code: data.code, role: data.role } : null;
+    } catch (err) {
+      console.warn('Backend createPortalHandoff failed:', err);
+      return null;
+    }
+  },
+
+  async redeemPortalHandoff(code: string): Promise<{ success: boolean; token?: string; user?: any; roles?: string[]; role?: string } | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/portal-handoff/redeem`, {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend redeemPortalHandoff failed:', err);
+      return null;
+    }
+  },
+
   async getRegisteredRoles(token: string): Promise<string[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/me/roles`, {
