@@ -8,6 +8,7 @@ import com.kuraliupdates.bazaar.entity.OrderEntity;
 import com.kuraliupdates.bazaar.entity.OrderItemEntity;
 import com.kuraliupdates.bazaar.entity.ProductEntity;
 import com.kuraliupdates.bazaar.entity.SellerEntity;
+import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.repository.OrderRepository;
 import com.kuraliupdates.bazaar.repository.ProductRepository;
@@ -32,7 +33,7 @@ public class OrderService {
     private final SecureRandom random = new SecureRandom();
 
     @Transactional
-    public OrderPlacementResponse placeOrder(PlaceOrderRequest request) {
+    public OrderPlacementResponse placeOrder(PlaceOrderRequest request, UserEntity buyer) {
         if (!"COD".equalsIgnoreCase(request.paymentMethod())) {
             throw new ApiException(HttpStatus.BAD_REQUEST,
                     "Online payment is not enabled yet. Please select Cash on Delivery.");
@@ -105,9 +106,9 @@ public class OrderService {
         LocalDateTime now = LocalDateTime.now();
         OrderEntity order = OrderEntity.builder()
                 .orderId("ORD-KUR-" + UUID.randomUUID().toString().substring(0, 8))
-                .buyerName(request.buyerName().trim())
-                .buyerPhone(request.buyerPhone().trim())
-                .buyerEmail(request.buyerEmail() == null ? null : request.buyerEmail().trim().toLowerCase())
+                .buyerName(buyer.getName())
+                .buyerPhone(buyer.getPhone())
+                .buyerEmail(buyer.getEmail() == null ? null : buyer.getEmail().trim().toLowerCase())
                 .deliveryAddress(request.deliveryAddress().trim())
                 .deliveryLocality(request.deliveryLocality().trim())
                 .deliveryLatitude(request.deliveryLatitude() == null ? null : BigDecimal.valueOf(request.deliveryLatitude()))
