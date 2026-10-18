@@ -28,7 +28,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
   const [buyerPhone, setBuyerPhone] = useState(user.phone || '+91 98760 12345');
   const [deliveryLocality, setDeliveryLocality] = useState(KURALI_LOCALITIES[1] || 'Main Bazaar');
   const [streetAddress, setStreetAddress] = useState('House 42, Dashmesh Nagar, Near Gurudwara');
-  const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Card' | 'COD' | 'NetBanking'>('UPI');
+  const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Card' | 'COD' | 'NetBanking'>('COD');
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
@@ -245,11 +245,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
             {paymentMethod === 'UPI' && (
               <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between">
                 <div>
-                  <span className="font-bold text-slate-800">Scan &amp; Pay via UPI App</span>
-                  <p className="text-[11px] text-slate-500">UPI ID: kuraliupdates@okhdfcbank</p>
+                  <span className="font-bold text-slate-800">UPI payments are not enabled yet</span>
+                  <p className="text-[11px] text-slate-500">Choose Cash on Delivery to place this order. No payment has been taken.</p>
                 </div>
                 <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                  Zero Processing Fees
+                  Unavailable
                 </span>
               </div>
             )}
@@ -297,7 +297,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
               <span>Confirming Order with Kurali Store...</span>
             ) : (
               <span>
-                Pay &amp; Confirm Order &bull; ₹{cartCalculations.finalTotal}
+                {paymentMethod === 'COD' ? 'Place COD Order' : 'Online payment unavailable'} &bull; ₹{cartCalculations.finalTotal}
               </span>
             )}
           </button>
