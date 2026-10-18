@@ -5,6 +5,7 @@ import com.kuraliupdates.bazaar.dto.order.PlaceOrderRequest;
 import com.kuraliupdates.bazaar.entity.ProductEntity;
 import com.kuraliupdates.bazaar.entity.SellerEntity;
 import com.kuraliupdates.bazaar.entity.OrderEntity;
+import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.repository.OrderRepository;
 import com.kuraliupdates.bazaar.repository.ProductRepository;
@@ -41,9 +42,11 @@ class OrderServiceTest {
         when(sellerRepository.findById("SELLER-1")).thenReturn(Optional.of(seller));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var result = orderService.placeOrder(request("COD", List.of(new OrderItemRequest("P-1", 2, null))));
+        var result = orderService.placeOrder(request("COD", List.of(new OrderItemRequest("P-1", 2, null))), buyer());
 
         assertEquals("PLACED", result.order().status());
+        assertEquals("authenticated@example.test", result.order().buyerEmail());
+        assertEquals("Authenticated Buyer", result.order().buyerName());
         assertEquals("PENDING_COD", result.order().paymentStatus());
         assertNotNull(result.order().orderId());
         assertTrue(result.deliveryOtp().matches("\\d{4}"));
@@ -63,7 +66,7 @@ class OrderServiceTest {
         when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
 
         ApiException error = assertThrows(ApiException.class,
-                () -> orderService.placeOrder(request("COD", List.of(new OrderItemRequest("P-1", 2, null)))));
+                () -> orderService.placeOrder(request("COD", List.of(new OrderItemRequest("P-1", 2, null))), buyer()));
 
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
         assertEquals(1, product.getStock());
@@ -73,7 +76,7 @@ class OrderServiceTest {
     @Test
     void rejectsOnlinePaymentUntilGatewayIsConfigured() {
         ApiException error = assertThrows(ApiException.class,
-                () -> orderService.placeOrder(request("UPI", List.of(new OrderItemRequest("P-1", 1, null)))));
+                () -> orderService.placeOrder(request("UPI", List.of(new OrderItemRequest("P-1", 1, null))), buyer()));
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
         verify(productRepository, never()).findLockedByProductId(anyString());
         verify(orderRepository, never()).save(any());
@@ -84,10 +87,15 @@ class OrderServiceTest {
         when(productRepository.findLockedByProductId("missing")).thenReturn(Optional.empty());
 
         ApiException error = assertThrows(ApiException.class,
-                () -> orderService.placeOrder(request("COD", List.of(new OrderItemRequest("missing", 1, null)))));
+                () -> orderService.placeOrder(request("COD", List.of(new OrderItemRequest("missing", 1, null))), buyer()));
 
         assertEquals(HttpStatus.NOT_FOUND, error.getStatus());
         verify(orderRepository, never()).save(any());
+    }
+
+    private UserEntity buyer() {
+        return UserEntity.builder().userId("USER-1").name("Authenticated Buyer")
+                .email("authenticated@example.test").phone("9876543210").role("BUYER").build();
     }
 
     private SellerEntity seller() {
