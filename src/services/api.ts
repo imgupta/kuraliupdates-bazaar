@@ -363,6 +363,17 @@ export const bazaarApi = {
     return data;
   },
 
+  async updateAdminDailyHelpProfessionalAvailability(professionalId: string, status: 'AVAILABLE' | 'OFFLINE', locality?: string): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/daily-help/helpers/${encodeURIComponent(professionalId)}/availability`, {
+      method: 'POST',
+      headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, locality }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || data?.error || `Unable to update Daily Help availability (HTTP ${res.status}).`);
+    return data;
+  },
+
   async getAdminDailyHelpHelpers(): Promise<any[]> {
     const headers = adminAuthHeaders();
     try {
