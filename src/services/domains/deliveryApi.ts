@@ -1,10 +1,13 @@
 /**
  * Delivery API boundary.
  *
- * This typed facade limits callers to the domain methods listed here while preserving
- * the existing shared transport, endpoint paths, auth headers, response mapping, and
- * error/fallback behavior. Move implementations behind this boundary incrementally.
+ * Delivery workflows use this facade while each domain operation is moved out
+ * of the monolithic API client incrementally.
  */
 import { bazaarApi } from '../api';
+import { trackingApi } from './trackingApi';
 
-export const deliveryApi: Pick<typeof bazaarApi, 'getCurrentDeliveryAgent' | 'getDeliveryAvailableJobs' | 'updateDeliveryLocation' | 'resendDeliveryOtp'> = bazaarApi;
+export const deliveryApi: Pick<typeof bazaarApi, 'getCurrentDeliveryAgent' | 'getDeliveryAvailableJobs' | 'updateDeliveryLocation' | 'resendDeliveryOtp'> = {
+  ...bazaarApi,
+  updateDeliveryLocation: trackingApi.updateDeliveryLocation,
+};

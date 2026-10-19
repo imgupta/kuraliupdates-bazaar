@@ -20,4 +20,19 @@ export const trackingApi = {
       return null;
     }
   },
+
+  async updateDeliveryLocation(agentId: string, latitude: number, longitude: number): Promise<boolean> {
+    try {
+      const token = localStorage.getItem('kurali_auth_token');
+      const res = await fetch(`${API_BASE_URL}/tracking/delivery/${encodeURIComponent(agentId)}/location`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ latitude, longitude }),
+      });
+      return res.ok;
+    } catch (err) {
+      console.warn('Backend updateDeliveryLocation failed:', err);
+      return false;
+    }
+  },
 };
