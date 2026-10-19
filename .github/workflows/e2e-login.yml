@@ -118,21 +118,9 @@ jobs:
       # Mutating lifecycle tests are allowed only on trusted scheduled/manual runs after
       # the owner explicitly enables them and provisions dedicated synthetic fixtures.
       E2E_TRANSACTIONAL_FLOWS_ENABLED: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && vars.E2E_TRANSACTIONAL_FLOWS_ENABLED == 'true' }}
-      E2E_FLOW_BUYER_TOKEN: ${{ secrets.E2E_FLOW_BUYER_TOKEN }}
-      E2E_FLOW_SELLER_TOKEN: ${{ secrets.E2E_FLOW_SELLER_TOKEN }}
-      E2E_FLOW_DELIVERY_TOKEN: ${{ secrets.E2E_FLOW_DELIVERY_TOKEN }}
-      E2E_FLOW_PROVIDER_TOKEN: ${{ secrets.E2E_FLOW_PROVIDER_TOKEN }}
-      E2E_FLOW_BUYER_PHONE: ${{ secrets.E2E_FLOW_BUYER_PHONE }}
-      E2E_FLOW_BUYER_EMAIL: ${{ secrets.E2E_FLOW_BUYER_EMAIL }}
-      E2E_FLOW_PRODUCT_ID: ${{ vars.E2E_FLOW_PRODUCT_ID }}
-      E2E_FLOW_SELLER_ID: ${{ vars.E2E_FLOW_SELLER_ID }}
-      E2E_FLOW_DELIVERY_AGENT_ID: ${{ vars.E2E_FLOW_DELIVERY_AGENT_ID }}
-      E2E_FLOW_ORDER_QUANTITY: ${{ vars.E2E_FLOW_ORDER_QUANTITY }}
-      E2E_FLOW_DAILY_HELP_SERVICE_ID: ${{ vars.E2E_FLOW_DAILY_HELP_SERVICE_ID }}
-      E2E_FLOW_DAILY_HELP_SLOT_ID: ${{ vars.E2E_FLOW_DAILY_HELP_SLOT_ID }}
-      E2E_FLOW_PROFESSIONAL_ID: ${{ vars.E2E_FLOW_PROFESSIONAL_ID }}
-      E2E_FLOW_DAILY_HELP_START: ${{ vars.E2E_FLOW_DAILY_HELP_START }}
-      E2E_FLOW_DAILY_HELP_HOURS: ${{ vars.E2E_FLOW_DAILY_HELP_HOURS }}
+      # All transactional fixture data and role tokens are supplied as one protected JSON secret.
+      # The trusted manual/scheduled run expands it into job-local env only after staging guards pass.
+      E2E_TRANSACTIONAL_FIXTURES_JSON: ${{ secrets.E2E_TRANSACTIONAL_FIXTURES_JSON }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -160,6 +148,55 @@ jobs:
       - name: Verify authenticated E2E configuration is complete
         run: |
           node --input-type=module -e "const env=process.env; if(env.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED!=='true'){console.log('Skipping authenticated OTP E2E: staging no-email OTP capture mode has not been explicitly verified.');process.exit(0)} const required=['E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY','E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY']; const missing=required.filter(k=>!env[k]?.trim()); const api=new URL(env.E2E_API_BASE_URL); const valid=env.E2E_ENVIRONMENT==='staging' && api.protocol==='https:' && api.hostname==='kuraliupdates-bazaar.onrender.com' && api.pathname==='/api/v1' && (env.E2E_OTP_CAPTURE_TOKEN||'').length>=32; if(!valid||missing.length){console.error('Authenticated E2E is not configured. Check staging targets, no-email confirmation, OTP token length, and all five role identity secrets. Missing identities:',missing.join(', ')||'none');process.exit(1)} console.log('Authenticated E2E configuration present for all five roles; staging no-email mode was explicitly confirmed.');"
+      - name: Load consolidated transactional fixture secret
+        if: env.E2E_TRANSACTIONAL_FLOWS_ENABLED == 'true'
+        env:
+          E2E_TRANSACTIONAL_FIXTURES_JSON: ${{ secrets.E2E_TRANSACTIONAL_FIXTURES_JSON }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const raw = process.env.E2E_TRANSACTIONAL_FIXTURES_JSON;
+          if (!raw?.trim()) {
+            console.error('Missing repository secret E2E_TRANSACTIONAL_FIXTURES_JSON. Store transactional test fixtures in this single JSON secret.');
+            process.exit(1);
+          }
+          let config;
+          try { config = JSON.parse(raw); }
+          catch { console.error('E2E_TRANSACTIONAL_FIXTURES_JSON must contain valid JSON.'); process.exit(1); }
+          const required = [
+            'E2E_FLOW_BUYER_TOKEN', 'E2E_FLOW_SELLER_TOKEN', 'E2E_FLOW_DELIVERY_TOKEN',
+            'E2E_FLOW_PROVIDER_TOKEN', 'E2E_FLOW_BUYER_PHONE', 'E2E_FLOW_BUYER_EMAIL',
+            'E2E_FLOW_PRODUCT_ID', 'E2E_FLOW_SELLER_ID', 'E2E_FLOW_DELIVERY_AGENT_ID',
+            'E2E_FLOW_ORDER_QUANTITY', 'E2E_FLOW_DAILY_HELP_SERVICE_ID',
+            'E2E_FLOW_DAILY_HELP_SLOT_ID', 'E2E_FLOW_PROFESSIONAL_ID',
+            'E2E_FLOW_DAILY_HELP_START', 'E2E_FLOW_DAILY_HELP_HOURS'
+          ];
+          const missing = required.filter(key => typeof config[key] !== 'string' && typeof config[key] !== 'number' || String(config[key] ?? '').trim() === '');
+          if (missing.length) {
+            console.error('Consolidated fixture JSON is missing required keys:', missing.join(', '));
+            process.exit(1);
+          }
+          const ids = ['E2E_FLOW_PRODUCT_ID','E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_DAILY_HELP_SERVICE_ID','E2E_FLOW_DAILY_HELP_SLOT_ID','E2E_FLOW_PROFESSIONAL_ID'];
+          for (const key of ids) {
+            if (!/^E2E-[A-Za-z0-9_-]{3,80}$/.test(String(config[key]))) {
+              console.error(key + ' must be a dedicated synthetic ID beginning E2E-; refusing to run.');
+              process.exit(1);
+            }
+          }
+          const quantity = Number(config.E2E_FLOW_ORDER_QUANTITY);
+          const hours = Number(config.E2E_FLOW_DAILY_HELP_HOURS);
+          if (!Number.isInteger(quantity) || quantity < 1 || quantity > 2 || !Number.isInteger(hours) || hours < 1 || hours > 2) {
+            console.error('Order quantity and Daily Help hours must be integers from 1 to 2.');
+            process.exit(1);
+          }
+          if (!Number.isFinite(Date.parse(config.E2E_FLOW_DAILY_HELP_START))) {
+            console.error('E2E_FLOW_DAILY_HELP_START must be a valid ISO-8601 date/time.');
+            process.exit(1);
+          }
+          const lines = required.map(key => key + '=' + String(config[key]).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A'));
+          fs.appendFileSync(process.env.GITHUB_ENV, lines.join('\n') + '\n', { mode: 0o600 });
+          console.log('Loaded consolidated transactional fixtures into this job; values are not printed.');
+          NODE
       - name: Verify transactional lifecycle fixture configuration
         shell: bash
         run: |
