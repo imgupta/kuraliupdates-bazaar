@@ -3,7 +3,7 @@ import { Store, PlusCircle, Package, ShoppingBag, Percent, Trash2, Pencil, Refre
 import { useApp } from '../../context/AppContext';
 import { PRODUCT_CATEGORIES } from '../../data/initialData';
 import { Product, Seller } from '../../types';
-import { bazaarApi } from '../../services/api';
+import { sellerApi } from '../../services/domains/sellerApi';
 import { mapSellerProduct } from '../../entities/sellerProduct';
 
 
@@ -29,10 +29,10 @@ export const SellerDashboard: React.FC = () => {
     setLoading(true);
     try {
       const [remoteSeller, remoteProducts, remoteOrders, remoteDiscounts] = await Promise.all([
-        bazaarApi.getCurrentSeller(),
-        bazaarApi.getSellerProducts(),
-        bazaarApi.getSellerOrders(),
-        bazaarApi.getSellerDiscounts(),
+        sellerApi.getCurrentSeller(),
+        sellerApi.getSellerProducts(),
+        sellerApi.getSellerOrders(),
+        sellerApi.getSellerDiscounts(),
       ]);
       setSeller(remoteSeller);
       setProducts((remoteProducts || []).map((p: any) => mapSellerProduct(p, remoteSeller)));
@@ -78,8 +78,8 @@ export const SellerDashboard: React.FC = () => {
     setSaving(true);
     try {
       const saved = editingId
-        ? await bazaarApi.updateSellerProduct(editingId, payload)
-        : await bazaarApi.createSellerProduct(payload);
+        ? await sellerApi.updateSellerProduct(editingId, payload)
+        : await sellerApi.createSellerProduct(payload);
       if (!saved) throw new Error('No response from seller service');
       const mapped = mapSellerProduct(saved, seller);
       setProducts(prev => editingId ? prev.map(p => p.id === mapped.id ? mapped : p) : [mapped, ...prev]);
@@ -93,7 +93,7 @@ export const SellerDashboard: React.FC = () => {
   const removeProduct = async (id: string) => {
     if (!window.confirm('Remove this product from your store?')) return;
     try {
-      await bazaarApi.deleteSellerProduct(id);
+      await sellerApi.deleteSellerProduct(id);
       setProducts(prev => prev.filter(p => p.id !== id));
       showToast('Product removed from inventory.', 'success');
     } catch (err: any) { showToast(err?.message || 'Unable to remove product.', 'error'); }
@@ -107,7 +107,7 @@ export const SellerDashboard: React.FC = () => {
     }
     if (discountType === 'percentage' && value > 100) { showToast('Percentage cannot exceed 100%.', 'error'); return; }
     try {
-      const saved = await bazaarApi.createSellerDiscount({
+      const saved = await sellerApi.createSellerDiscount({
         minBillAmount,
         discountPercentage: discountType === 'percentage' ? value : null,
         flatDiscount: discountType === 'flat' ? value : null,
@@ -121,7 +121,7 @@ export const SellerDashboard: React.FC = () => {
 
   const removeDiscount = async (ruleId: string) => {
     try {
-      await bazaarApi.deleteSellerDiscount(ruleId);
+      await sellerApi.deleteSellerDiscount(ruleId);
       setDiscounts(prev => prev.filter(d => d.ruleId !== ruleId));
       showToast('Discount rule removed.', 'success');
     } catch (err: any) { showToast(err?.message || 'Unable to remove discount.', 'error'); }
@@ -130,7 +130,7 @@ export const SellerDashboard: React.FC = () => {
   const advanceOrder = async (order: any) => {
     const next = String(order.status).toUpperCase() === 'PLACED' ? 'ACCEPTED_BY_SELLER' : 'READY_FOR_PICKUP';
     try {
-      const saved = await bazaarApi.updateSellerOrderStatus(order.orderId, next);
+      const saved = await sellerApi.updateSellerOrderStatus(order.orderId, next);
       setOrders(prev => prev.map(o => o.orderId === order.orderId ? saved : o));
       showToast(next === 'ACCEPTED_BY_SELLER' ? 'Order accepted.' : 'Order marked ready for pickup.', 'success');
     } catch (err: any) { showToast(err?.message || 'Unable to update order.', 'error'); }
