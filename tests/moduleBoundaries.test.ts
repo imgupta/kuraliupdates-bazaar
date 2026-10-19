@@ -54,7 +54,7 @@ test('seller, admin and Daily Help domain APIs own their HTTP operations', () =>
     assert.ok(sellerApi.includes(`${method}(`), `sellerApi should own ${method}`);
     assert.ok(!legacyApi.includes(`${method}(`), `legacy API should not own ${method}`);
   }
-  for (const method of ['getAdminDiagnostics', 'getAdminSellers', 'getAdminDeliveryAgents', 'getAdminSearchTrends', 'getAdminAnalytics', 'getPendingSellers', 'getAdminBuyers', 'getPendingDeliveryAgents', 'approveDeliveryAgent', 'rejectDeliveryAgent', 'approveSeller', 'rejectSeller']) {
+  for (const method of ['getAdminDiagnostics', 'getDemandAnalytics', 'getAdminSellers', 'getAdminDeliveryAgents', 'getAdminSearchTrends', 'getAdminAnalytics', 'getPendingSellers', 'getAdminBuyers', 'getPendingDeliveryAgents', 'approveDeliveryAgent', 'rejectDeliveryAgent', 'approveSeller', 'rejectSeller']) {
     assert.ok(adminApi.includes(`${method}(`), `adminApi should own ${method}`);
     assert.ok(!legacyApi.includes(`${method}(`), `legacy API should not own ${method}`);
   }
