@@ -4,7 +4,7 @@
  * Tracking HTTP requests are implemented here so buyer and delivery screens can
  * depend on the tracking domain without reaching into the monolithic API client.
  */
-import { API_BASE_URL } from '../api';
+import { API_BASE_URL } from '../http/apiConfig';
 
 export const trackingApi = {
   async getLiveTracking(orderId: string): Promise<any> {
