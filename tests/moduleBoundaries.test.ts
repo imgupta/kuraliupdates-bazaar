@@ -27,9 +27,10 @@ test('delivery API owns delivery lifecycle HTTP operations outside the legacy AP
     assert.ok(!legacyApi.includes(`${method}(`), `legacy API should not own ${method}`);
   }
   assert.ok(!deliveryApi.includes('...bazaarApi'), 'delivery API must not spread the legacy client');
-  assert.ok(appContext.includes('deliveryApi.claimDeliveryJob'));
-  assert.ok(appContext.includes('deliveryApi.verifyDeliveryOtp'));
-  assert.ok(appContext.includes('deliveryApi.registerDeliveryAgent'));
+  const operations = read('../src/context/useMarketplaceOperations.ts');
+  assert.ok(operations.includes('deliveryApi.claimDeliveryJob'));
+  assert.ok(operations.includes('deliveryApi.verifyDeliveryOtp'));
+  assert.ok(operations.includes('deliveryApi.registerDeliveryAgent'));
 });
 
 test('API configuration and backend order mapping are shared modules', () => {
