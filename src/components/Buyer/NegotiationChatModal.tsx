@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Send, Tag, CheckCircle2, XCircle, ArrowRight, MessageSquare, AlertCircle, ShoppingBag } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -18,6 +18,13 @@ export const NegotiationChatModal: React.FC = () => {
 
   const [inputMessage, setInputMessage] = useState('');
   const [customOfferPrice, setCustomOfferPrice] = useState('');
+  const [counteringOfferId, setCounteringOfferId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCounteringOfferId(null);
+    setCustomOfferPrice('');
+    setInputMessage('');
+  }, [activeChatId]);
 
   if (!activeChatId) return null;
 
@@ -38,6 +45,12 @@ export const NegotiationChatModal: React.FC = () => {
 
   const handleSendOffer = (offeredPrice: number) => {
     if (!targetProduct) return;
+    if (counteringOfferId) {
+      respondToOffer(activeChatId, counteringOfferId, 'counter', offeredPrice);
+      setCounteringOfferId(null);
+      setCustomOfferPrice('');
+      return;
+    }
     const offer = {
       id: `off-${Date.now()}`,
       productId: targetProduct.id,
@@ -214,6 +227,15 @@ export const NegotiationChatModal: React.FC = () => {
                             <CheckCircle2 className="w-3 h-3" /> Accept Offer
                           </button>
                           <button
+                            onClick={() => {
+                              setCounteringOfferId(msg.offer!.id);
+                              setCustomOfferPrice(String(Math.round((msg.offer!.offeredPrice + basePrice) / 2)));
+                            }}
+                            className="bg-blue-100 hover:bg-blue-200 text-blue-700 py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <ArrowRight className="w-3 h-3" /> Counter
+                          </button>
+                          <button
                             onClick={() =>
                               respondToOffer(currentChat.id, msg.offer!.id, 'reject')
                             }
@@ -257,22 +279,32 @@ export const NegotiationChatModal: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-1">
+            {counteringOfferId && (
+              <button
+                type="button"
+                onClick={() => { setCounteringOfferId(null); setCustomOfferPrice(''); }}
+                className="text-[10px] font-bold text-slate-500 hover:text-slate-800"
+                title="Cancel counter offer"
+              >Cancel counter</button>
+            )}
             <input
               type="number"
-              placeholder="₹ Custom"
+              min="0.01"
+              step="0.01"
+              placeholder={counteringOfferId ? "₹ Counter" : "₹ Custom"}
               value={customOfferPrice}
               onChange={e => setCustomOfferPrice(e.target.value)}
               className="w-20 px-2 py-1 text-xs bg-white border border-slate-200 rounded-md outline-none focus:border-amber-500"
             />
             <button
               onClick={() => {
-                const val = parseInt(customOfferPrice, 10);
+                const val = Number(customOfferPrice);
                 if (val > 0) handleSendOffer(val);
               }}
               disabled={!customOfferPrice}
               className="bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white px-2 py-1 rounded-md text-xs font-bold cursor-pointer"
             >
-              Propose
+              {counteringOfferId ? 'Send Counter' : 'Propose'}
             </button>
           </div>
         </div>

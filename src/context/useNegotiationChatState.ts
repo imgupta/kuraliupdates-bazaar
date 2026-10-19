@@ -103,6 +103,7 @@ export const useNegotiationChatState = ({ role, user, showToast }: NegotiationCh
       setChats(prev => prev.map(item => item.id === remote.id ? remote : item));
       if (action === 'accept') showToast('Offer accepted. The agreed price is available for this buyer’s cart item.', 'success');
       else if (action === 'reject') showToast('Offer declined. The catalogue price remains unchanged.', 'info');
+      else showToast('Counter-offer sent. The other participant can now accept or decline it.', 'success');
     }).catch(error => showToast(error instanceof Error ? error.message : 'Could not update the offer.', 'error'));
   };
 

@@ -17,6 +17,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ResultSetExtractor;
+import org.mockito.ArgumentMatchers;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -24,6 +26,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -98,6 +101,32 @@ class OrderServiceTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
         verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void appliesServerAcceptedOfferToOrderItemWithoutChangingCataloguePrice() {
+        SellerEntity seller = seller();
+        ProductEntity product = ProductEntity.builder().productId("P-1").seller(seller)
+                .title("Synthetic Test Product").sellerPrice(new BigDecimal("20.00"))
+                .additionalDiscountPercent(BigDecimal.ZERO).stock(5).build();
+        when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
+        when(sellerRepository.findById("SELLER-1")).thenReturn(Optional.of(seller));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jdbc.query(
+                contains("SELECT m.OFFER_PRICE"),
+                ArgumentMatchers.<ResultSetExtractor<BigDecimal>>any(),
+                any(Object[].class)
+        )).thenReturn(new BigDecimal("15.00"));
+
+        var result = orderService.placeOrder(request("COD", List.of(
+                new OrderItemRequest("P-1", 1, new BigDecimal("15.00"), "msg-accepted")
+        )), buyer());
+
+        assertEquals(new BigDecimal("15.00"), result.order().subtotal());
+        assertEquals(new BigDecimal("15.00"), result.order().items().get(0).unitPrice());
+        assertEquals(new BigDecimal("20.00"), product.getSellerPrice());
+        assertEquals(4, product.getStock());
+        verify(orderRepository).save(any(OrderEntity.class));
     }
 
     @Test
