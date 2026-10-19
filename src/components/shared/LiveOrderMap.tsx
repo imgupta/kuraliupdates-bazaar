@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MapPin, Navigation, RefreshCw } from 'lucide-react';
-import { bazaarApi } from '../../services/api';
+import { trackingApi } from '../../services/domains/trackingApi';
 
 interface LiveOrderMapProps {
   orderId: string;
@@ -49,7 +49,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({ orderId, fallbackBuy
   useEffect(() => {
     let cancelled = false;
     const refresh = async () => {
-      const data = await bazaarApi.getLiveTracking(orderId);
+      const data = await trackingApi.getLiveTracking(orderId);
       if (!cancelled && data) setTracking(data);
     };
     refresh();
