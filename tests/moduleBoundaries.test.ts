@@ -27,9 +27,10 @@ test('delivery API owns delivery lifecycle HTTP operations outside the legacy AP
     assert.ok(!legacyApi.includes(`${method}(`), `legacy API should not own ${method}`);
   }
   assert.ok(!deliveryApi.includes('...bazaarApi'), 'delivery API must not spread the legacy client');
-  assert.ok(appContext.includes('deliveryApi.claimDeliveryJob'));
-  assert.ok(appContext.includes('deliveryApi.verifyDeliveryOtp'));
-  assert.ok(appContext.includes('deliveryApi.registerDeliveryAgent'));
+  const operations = read('../src/context/useMarketplaceOperations.ts');
+  assert.ok(operations.includes('deliveryApi.claimDeliveryJob'));
+  assert.ok(operations.includes('deliveryApi.verifyDeliveryOtp'));
+  assert.ok(operations.includes('deliveryApi.registerDeliveryAgent'));
 });
 
 test('API configuration and backend order mapping are shared modules', () => {
@@ -146,6 +147,18 @@ test('buyer cart and coupon state is isolated from the orchestration context', (
   assert.doesNotMatch(appContext, /const addToCart =|const applyCoupon =|const cartCalculations =/);
 });
 
+
+test('seller, admin, order and delivery operations are isolated from application orchestration', () => {
+  const operations = read('../src/context/useMarketplaceOperations.ts');
+  const appContext = read('../src/context/AppContext.tsx');
+
+  for (const operation of ['registerSeller', 'approveSeller', 'rejectSeller', 'addProduct', 'createOrder', 'updateOrderStatus', 'claimDeliveryJob', 'completeDelivery', 'registerDeliveryAgent']) {
+    assert.ok(operations.includes(`const ${operation}`), `marketplace operations should own ${operation}`);
+  }
+  assert.ok(appContext.includes('useMarketplaceOperations({'));
+  assert.ok(appContext.includes('const marketplaceOperations = useMarketplaceOperations'));
+  assert.doesNotMatch(appContext, /const registerSeller =|const createOrder =|const claimDeliveryJob =|const completeDelivery =/);
+});
 
 test('negotiation chat state and bargaining actions are isolated from application orchestration', () => {
   const negotiation = read('../src/context/useNegotiationChatState.ts');
