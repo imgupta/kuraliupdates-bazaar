@@ -687,3 +687,21 @@ Other presentational components (for example product cards, product details, sea
 ### Next gate
 
 Attach exact source/test locations to each row, inspect backend controller/service authorization and current tests, then add the smallest focused contract tests. Do not remove API methods, change runtime behavior, enable staging OTP capture, or start AppContext/state extraction until the dependency graph and test protection are verified. Any authenticated mutation test requires a confirmed isolated staging database and dedicated synthetic identities.
+
+
+## Runtime refactor checkpoint — 19 October 2026
+
+A focused implementation branch, `refactor/domain-api-boundaries`, begins the runtime work without changing endpoints or backend behavior:
+
+- Added typed API facades for Buyer booking/tracking, Seller, Delivery, Daily Help Provider, Admin, and shared tracking. Role screens/components touched in this change now import the relevant facade instead of the full `bazaarApi` surface.
+- Facades intentionally delegate to the existing `bazaarApi` object for now. This is a compatibility seam, not a claim that the 50 KB API implementation has already been split into separate transports or endpoint implementations.
+- Extracted the `AppContextType` contract into `src/context/AppContextContract.ts` so the context implementation and consumers can evolve separately.
+- Extracted guarded local-storage helpers into `src/shared/storage/safeStorage.ts`; storage keys and error-handling behavior remain unchanged.
+- No backend, database, OTP, order, booking, or staging data changes are part of this refactor.
+
+### Validation still required before merge
+
+- TypeScript check and production build must pass on the branch.
+- Review the changed import paths and confirm no role has acquired access to methods outside its declared facade.
+- Continue with actual domain implementation extraction (moving endpoint implementations out of `src/services/api.ts`) only after this compatibility layer is green.
+- AppContext runtime state and effects remain coupled; splitting them into domain hooks is a separate follow-up, gated by behavior-specific tests and a complete mutation/effect inventory.
