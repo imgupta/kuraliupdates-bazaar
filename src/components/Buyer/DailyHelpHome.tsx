@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Clock3, Home, ShieldCheck, Star, UserRound, CalendarDays, Timer, CheckCircle2, MapPin } from 'lucide-react';
-import { bazaarApi } from '../../services/api';
+import { buyerApi } from '../../services/domains/buyerApi';
 import { DailyHelpBooking, DailyHelpService, DailyHelpSlot } from '../../types';
 import { useApp } from '../../context/AppContext';
 
@@ -46,7 +46,7 @@ export const DailyHelpHome: React.FC = () => {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    bazaarApi.getDailyHelpServices()
+    buyerApi.getDailyHelpServices()
       .then(data => { setServices(data); setCatalogError(false); })
       .catch(() => { setServices([]); setCatalogError(true); })
       .finally(() => setLoading(false));
@@ -54,7 +54,7 @@ export const DailyHelpHome: React.FC = () => {
 
   useEffect(() => {
     if (!user.phone) return;
-    bazaarApi.getLatestDailyHelpBooking(user.phone).then(latest => {
+    buyerApi.getLatestDailyHelpBooking(user.phone).then(latest => {
       if (latest && !['COMPLETED', 'CANCELLED'].includes(latest.status)) setBooking(latest);
     });
   }, [user.phone]);
@@ -62,7 +62,7 @@ export const DailyHelpHome: React.FC = () => {
   useEffect(() => {
     if (!booking?.id || !['SEARCHING','CONFIRMED','PROFESSIONAL_ASSIGNED','ARRIVING','READY_TO_START','IN_PROGRESS'].includes(booking.status)) return;
     const refresh = async () => {
-      const latest = await bazaarApi.getDailyHelpBooking(booking.id);
+      const latest = await buyerApi.getDailyHelpBooking(booking.id);
       if (latest) setBooking(latest);
     };
     const interval = window.setInterval(refresh, booking.status === 'IN_PROGRESS' ? 5000 : 15000);
@@ -80,7 +80,7 @@ export const DailyHelpHome: React.FC = () => {
     let cancelled = false;
     setSlotsLoading(true);
     setSelectedSlot(null);
-    bazaarApi.getDailyHelpAvailableSlots(bookingDate, hours, user.locality)
+    buyerApi.getDailyHelpAvailableSlots(bookingDate, hours, user.locality)
       .then(data => { if (!cancelled) setSlots(data as DailyHelpSlot[]); })
       .finally(() => { if (!cancelled) setSlotsLoading(false); });
     return () => { cancelled = true; };
@@ -110,7 +110,7 @@ export const DailyHelpHome: React.FC = () => {
     setBookingBusy(true);
     try {
       const scheduledStart = `${selectedSlot.slotDate}T${selectedSlot.startTime}`;
-      const result = await bazaarApi.createDailyHelpBooking({
+      const result = await buyerApi.createDailyHelpBooking({
         serviceId: selected.id,
         buyerName: user.name,
         buyerPhone: user.phone,
@@ -127,7 +127,7 @@ export const DailyHelpHome: React.FC = () => {
       showToast('Daily Help booking confirmed.', 'success');
     } catch (err: any) {
       showToast(err?.message || 'Unable to create the Daily Help booking.', 'error');
-      const refreshed = await bazaarApi.getDailyHelpAvailableSlots(bookingDate, hours, user.locality);
+      const refreshed = await buyerApi.getDailyHelpAvailableSlots(bookingDate, hours, user.locality);
       setSlots(refreshed as DailyHelpSlot[]);
     } finally {
       setBookingBusy(false);
