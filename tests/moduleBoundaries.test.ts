@@ -81,3 +81,19 @@ test('portal shell lazy-loads authentication and buyer-only routes', () => {
   assert.ok(shell.includes('Suspense fallback={<PortalRouteLoading />}'));
   assert.ok(!shell.includes("from '../components/Buyer/BuyerAccountPage'"));
 });
+
+
+test('authentication session storage is centralized outside the application context', () => {
+  const sessionStorage = read('../src/auth/authSessionStorage.ts');
+  const appContext = read('../src/context/AppContext.tsx');
+  for (const key of ['kurali_auth_session', 'kurali_auth_token', 'kurali_role', 'kurali_user']) {
+    assert.ok(sessionStorage.includes(key), `session storage module should own ${key}`);
+  }
+  for (const operation of ['readStoredAuthSession', 'readStoredRole', 'readAuthToken', 'persistAuthSession', 'persistAuthToken', 'removeAuthSession', 'removeAuthToken', 'clearStoredAuthState', 'hasStoredAuthSession']) {
+    assert.ok(sessionStorage.includes(`export const ${operation}`), `session storage module should export ${operation}`);
+  }
+  assert.ok(appContext.includes('readStoredAuthSession()'));
+  assert.ok(appContext.includes('readStoredRole()'));
+  assert.ok(appContext.includes('clearStoredAuthState()'));
+  assert.doesNotMatch(appContext, /kurali_auth_session|kurali_auth_token/);
+});
