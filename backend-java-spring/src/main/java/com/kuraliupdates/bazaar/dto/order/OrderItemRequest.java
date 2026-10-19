@@ -10,4 +10,8 @@ public record OrderItemRequest(
         @NotNull @Positive Integer quantity,
         BigDecimal negotiatedPrice,
         String acceptedOfferId
-) {}
+) {
+    public OrderItemRequest(String productId, Integer quantity, BigDecimal negotiatedPrice) {
+        this(productId, quantity, negotiatedPrice, null);
+    }
+}
