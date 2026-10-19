@@ -49,6 +49,18 @@ public class E2eOtpCaptureService {
         return isSafelyConfigured() && !key.isBlank() && allowedIdentifiers.contains(key);
     }
 
+    /**
+     * Suppress external email delivery only for explicitly allowlisted identities when
+     * the staging OTP capture feature is safely enabled. All other OTPs use normal delivery.
+     */
+    public boolean shouldSuppressEmailDelivery(String identifier, String type) {
+        String key = normalize(identifier);
+        return "EMAIL".equalsIgnoreCase(type)
+                && isSafelyConfigured()
+                && !key.isBlank()
+                && allowedIdentifiers.contains(key);
+    }
+
     public void capture(String identifier, String otp) {
         String key = normalize(identifier);
         if (!isSafelyConfigured() || !allowedIdentifiers.contains(key)

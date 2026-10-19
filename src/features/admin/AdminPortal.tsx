@@ -61,6 +61,7 @@ export const AdminDashboard: React.FC = () => {
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
   const [editingDailyHelpId, setEditingDailyHelpId] = useState<string | null>(null);
+  const [updatingHelperId, setUpdatingHelperId] = useState<string | null>(null);
   const [dailyHelpForm, setDailyHelpForm] = useState({ category: '', name: '', description: '', pricingUnit: 'HOUR', pricePerHour: '199', minHours: '1', imageUrl: '', active: 1 });
   const isRootAdmin = isRootAdminEmail(user.email);
 
@@ -497,9 +498,25 @@ export const AdminDashboard: React.FC = () => {
                         <td className="px-4 py-4 text-xs text-slate-600">{helper.phone}</td>
                         <td className="px-4 py-4 text-xs text-slate-600">{helper.currentLocality || '—'}</td>
                         <td className="px-4 py-4">
-                          <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold ${String(helper.status).toUpperCase() === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                            {helper.status}
-                          </span>
+                          <div className="flex flex-col items-start gap-2">
+                            <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold ${String(helper.status).toUpperCase() === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{helper.status}</span>
+                            <button type="button" disabled={updatingHelperId === helper.professionalId}
+                              onClick={async () => {
+                                const nextStatus = String(helper.status).toUpperCase() === 'AVAILABLE' ? 'OFFLINE' : 'AVAILABLE';
+                                setUpdatingHelperId(helper.professionalId);
+                                try {
+                                  const updated = await bazaarApi.updateAdminDailyHelpProfessionalAvailability(helper.professionalId, nextStatus, helper.currentLocality);
+                                  if (!updated) throw new Error('The server rejected this availability change. Confirm the admin role is authorized for this action.');
+                                  showToast(nextStatus === 'AVAILABLE' ? 'Daily Help professional is now available.' : 'Daily Help professional is now offline.', 'success');
+                                  await refreshAdminData();
+                                } catch (error: any) {
+                                  showToast(error?.message || 'Unable to change Daily Help availability.', 'error');
+                                } finally { setUpdatingHelperId(null); }
+                              }}
+                              className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-[10px] font-bold text-slate-700 disabled:opacity-50">
+                              {updatingHelperId === helper.professionalId ? 'Updating…' : String(helper.status).toUpperCase() === 'AVAILABLE' ? 'Set offline' : 'Set available'}
+                            </button>
+                          </div>
                         </td>
                         <td className="px-4 py-4 text-xs font-bold">★ {helper.rating || '0.00'} <span className="text-slate-400 font-normal">({helper.reviewCount || 0})</span></td>
                         <td className="px-4 py-4">

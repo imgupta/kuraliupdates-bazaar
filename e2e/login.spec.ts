@@ -14,6 +14,7 @@ const isDesignatedStagingTarget = (value: string, expectedHost: string, expected
   }
 };
 const stagingE2EEnabled = process.env.E2E_ENVIRONMENT === "staging"
+  && process.env.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED === "true"
   && isDesignatedStagingTarget(baseURL, "bazaar.kuraliupdates.com")
   && isDesignatedStagingTarget(apiBaseURL, "kuraliupdates-bazaar.onrender.com", "/api/v1")
   && otpCaptureToken.length >= 32;

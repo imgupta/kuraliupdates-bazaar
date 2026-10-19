@@ -58,7 +58,7 @@ public class DailyHelpController {
     public ResponseEntity<DailyHelpProfessionalResponse> registerProfessional(
             @Valid @RequestBody DailyHelpProfessionalRegistrationRequest request, Authentication authentication) {
         UserEntity user = requireUser(authentication);
-        if (!"PROFESSIONAL".equalsIgnoreCase(user.getRole()) || !samePhone(user.getPhone(), request.phone())) {
+        if (!samePhone(user.getPhone(), request.phone())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Professional registration must match the authenticated account");
         }
         return ResponseEntity.ok(dailyHelpService.registerProfessional(request));
@@ -67,7 +67,7 @@ public class DailyHelpController {
     @GetMapping("/professionals/by-phone/{phone}")
     public ResponseEntity<DailyHelpProfessionalResponse> professionalByPhone(@PathVariable String phone, Authentication authentication) {
         UserEntity user = requireUser(authentication);
-        if (!"PROFESSIONAL".equalsIgnoreCase(user.getRole()) || !samePhone(user.getPhone(), phone)) {
+        if (!samePhone(user.getPhone(), phone)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You can only access your own professional profile");
         }
         return ResponseEntity.ok(dailyHelpService.getProfessionalByPhone(user.getPhone()));

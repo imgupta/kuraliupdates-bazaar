@@ -363,6 +363,17 @@ export const bazaarApi = {
     return data;
   },
 
+  async updateAdminDailyHelpProfessionalAvailability(professionalId: string, status: 'AVAILABLE' | 'OFFLINE', locality?: string): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/daily-help/helpers/${encodeURIComponent(professionalId)}/availability`, {
+      method: 'POST',
+      headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, locality }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || data?.error || `Unable to update Daily Help availability (HTTP ${res.status}).`);
+    return data;
+  },
+
   async getAdminDailyHelpHelpers(): Promise<any[]> {
     const headers = adminAuthHeaders();
     try {
@@ -1108,18 +1119,16 @@ export const bazaarApi = {
 
 
   async registerDailyHelpProfessional(payload: { name: string; phone: string; locality: string }): Promise<DailyHelpProfessional | null> {
-    try {
-      const res = await fetch(`${API_BASE_URL}/daily-help/professionals/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(localStorage.getItem('kurali_auth_token') ? { Authorization: `Bearer ${localStorage.getItem('kurali_auth_token')}` } : {}) },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch (err) {
-      console.warn('Backend registerDailyHelpProfessional failed:', err);
-      return null;
-    }
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) throw new Error('Your session has expired. Sign in again before creating a Daily Help profile.');
+    const res = await fetch(`${API_BASE_URL}/daily-help/professionals/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || data?.error || `Unable to create Daily Help profile (HTTP ${res.status}).`);
+    return data;
   },
 
   async getDailyHelpProfessionalByPhone(phone: string): Promise<DailyHelpProfessional | null> {
