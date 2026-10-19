@@ -22,10 +22,20 @@ export const readStoredAuthSession = (): UserProfile | null => parseStoredSessio
 
 /** Preserve the existing role restoration order: signed-in session, then saved role, then buyer. */
 export const readStoredRole = (): UserRole => {
-  const session = parseStoredSession();
-  if (session?.role) return session.role;
+  const raw = safeStorageGet(AUTH_SESSION_KEY);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as UserProfile;
+      if (parsed.isSignedIn && parsed.role) return parsed.role;
+    } catch {
+      // Fall back to the previously saved role when the session is unreadable.
+    }
+  }
   return (safeStorageGet('kurali_role') as UserRole) || 'buyer';
 };
+
+/** Whether any session value was stored, including legacy or incomplete values. */
+export const hasStoredAuthSession = (): boolean => Boolean(safeStorageGet(AUTH_SESSION_KEY));
 
 export const readAuthToken = (): string | null => safeStorageGet(AUTH_TOKEN_KEY);
 
