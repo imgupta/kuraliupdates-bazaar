@@ -3,6 +3,7 @@ package com.kuraliupdates.bazaar.service;
 import com.kuraliupdates.bazaar.entity.ProductEntity;
 import com.kuraliupdates.bazaar.entity.SellerEntity;
 import com.kuraliupdates.bazaar.repository.ProductRepository;
+import org.springframework.data.domain.PageRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -24,24 +25,36 @@ class ProductServiceTest {
     void emptySearchUsesApprovedPriceSortedQueryAndFiltersUnapprovedSellerProducts() {
         ProductEntity approved = product("P-1", "Approved Store", "APPROVED");
         ProductEntity pending = product("P-2", "Pending Store", "PENDING");
-        when(productRepository.findAllApprovedSortedByLowestPrice()).thenReturn(List.of(approved, pending));
+        when(productRepository.findAllApprovedSortedByLowestPrice(PageRequest.of(0, 100)))
+                .thenReturn(List.of(approved, pending));
 
         var result = productService.search("  ");
 
         assertEquals(1, result.size());
-        verify(productRepository).findAllApprovedSortedByLowestPrice();
-        verify(productRepository, never()).searchProductsAcrossSellers(anyString());
+        verify(productRepository).findAllApprovedSortedByLowestPrice(PageRequest.of(0, 100));
+        verify(productRepository, never()).searchProductsAcrossSellers(anyString(), any());
     }
 
     @Test
     void nonEmptySearchTrimsQueryAndUsesCrossSellerSearch() {
-        when(productRepository.searchProductsAcrossSellers("milk"))
+        when(productRepository.searchProductsAcrossSellers("milk", PageRequest.of(0, 100)))
                 .thenReturn(List.of(product("P-3", "Approved Store", "APPROVED")));
 
         var result = productService.search(" milk ");
 
         assertEquals(1, result.size());
-        verify(productRepository).searchProductsAcrossSellers("milk");
+        verify(productRepository).searchProductsAcrossSellers("milk", PageRequest.of(0, 100));
+    }
+
+    @Test
+    void searchClampsPageAndSizeToSafeBounds() {
+        when(productRepository.findAllApprovedSortedByLowestPrice(PageRequest.of(0, 200)))
+                .thenReturn(List.of(product("P-4", "Approved Store", "APPROVED")));
+
+        var result = productService.search(null, -4, 5000);
+
+        assertEquals(1, result.size());
+        verify(productRepository).findAllApprovedSortedByLowestPrice(PageRequest.of(0, 200));
     }
 
     private ProductEntity product(String id, String store, String status) {
