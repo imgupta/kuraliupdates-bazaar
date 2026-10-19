@@ -45,7 +45,8 @@ export const useNegotiationChatState = ({ role, user, showToast }: NegotiationCh
       return existing.id;
     }
     const tempId = `pending-${Date.now()}`;
-    const price = startingOfferPrice ?? Math.round(product.sellerPrice * 0.9);
+    const cataloguePrice = Math.round(product.sellerPrice * (1 - (product.additionalDiscountPercent || 0) / 100));
+    const price = startingOfferPrice ?? Math.round(cataloguePrice * 0.9);
     const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const tempOffer: BargainOffer = {
       id: `pending-offer-${Date.now()}`, productId: product.id, productTitle: product.title,
