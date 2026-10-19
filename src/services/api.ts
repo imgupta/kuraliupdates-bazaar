@@ -159,22 +159,6 @@ export const bazaarApi = {
     }
   },
 
-  async getDemandAnalytics(): Promise<any> {
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/analytics/demand-trends`, {
-        headers: adminAuthHeaders(),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch (err) {
-      console.warn('Backend getDemandAnalytics failed:', err);
-      return null;
-    }
-  },
-
-  /**
-   * Place an order into Oracle DB
-   */
   async placeOrder(order: Partial<Order>): Promise<any> {
     try {
       const res = await fetch(`${API_BASE_URL}/buyers/orders`, {
