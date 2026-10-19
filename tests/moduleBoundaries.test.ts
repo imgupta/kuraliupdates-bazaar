@@ -111,3 +111,16 @@ test('shared authentication state is owned by AuthSessionProvider, not AppContex
   assert.doesNotMatch(appContext, /const \[role, setRoleState\] = useState/);
   assert.doesNotMatch(appContext, /const \[authInitializing, setAuthInitializing\] = useState/);
 });
+
+test('application state persistence is centralized in a reusable hook', () => {
+  const persistenceHook = read('../src/context/usePersistedValue.ts');
+  const appContext = read('../src/context/AppContext.tsx');
+
+  assert.ok(persistenceHook.includes('export const usePersistedValue'));
+  assert.ok(persistenceHook.includes('safeStorageSet(key'));
+  assert.ok(persistenceHook.includes('safeStorageRemove(key)'));
+  for (const key of ['kurali_sellers', 'kurali_products', 'kurali_coupons', 'kurali_delivery_agents', 'kurali_orders', 'kurali_chats', 'kurali_cart', 'kurali_applied_coupon']) {
+    assert.ok(appContext.includes(`usePersistedValue('${key}'`), `AppContext should persist ${key} through the shared hook`);
+  }
+  assert.doesNotMatch(appContext, /safeStorageSet\('kurali_(sellers|products|coupons|delivery_agents|orders|chats|cart)'/);
+});
