@@ -126,7 +126,7 @@ public class NegotiationChatService {
     private Map<String, Object> requireChatParticipant(UserEntity user, String chatId, boolean write) {
         String role = normalizeRole(user);
         if (!"BUYER".equals(role) && !"SELLER".equals(role)) throw new ApiException(HttpStatus.FORBIDDEN, "Only buyers and sellers can use bargaining chat");
-        List<Map<String, Object>> rows = jdbc.query("SELECT c.CHAT_ID,c.PRODUCT_ID,c.SELLER_ID,c.BUYER_NAME,c.BUYER_EMAIL,c.CURRENT_AGREED_PRICE,p.TITLE,p.IMAGE_URL,p.SELLER_PRICE,p.EFFECTIVE_PRICE,s.STORE_NAME,s.STATUS AS SELLER_STATUS,s.LOCALITY FROM NEGOTIATION_CHATS c JOIN PRODUCTS p ON p.PRODUCT_ID=c.PRODUCT_ID JOIN SELLERS s ON s.SELLER_ID=c.SELLER_ID WHERE c.CHAT_ID=?",
+        List<Map<String, Object>> rows = jdbc.query("SELECT c.CHAT_ID,c.PRODUCT_ID,c.SELLER_ID,c.BUYER_NAME,c.BUYER_EMAIL,c.CURRENT_AGREED_PRICE,c.LAST_UPDATED,p.TITLE,p.IMAGE_URL,p.SELLER_PRICE,p.EFFECTIVE_PRICE,s.STORE_NAME,s.STATUS AS SELLER_STATUS,s.LOCALITY,(SELECT MAX(m.MESSAGE_ID) KEEP (DENSE_RANK LAST ORDER BY m.CREATED_AT) FROM CHAT_MESSAGES m WHERE m.CHAT_ID=c.CHAT_ID AND m.OFFER_STATUS='ACCEPTED') AS ACCEPTED_OFFER_ID FROM NEGOTIATION_CHATS c JOIN PRODUCTS p ON p.PRODUCT_ID=c.PRODUCT_ID JOIN SELLERS s ON s.SELLER_ID=c.SELLER_ID WHERE c.CHAT_ID=?",
                 (rs, row) -> chatMap(rs), chatId);
         if (rows.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "Conversation not found");
         Map<String, Object> chat = rows.get(0);
@@ -141,7 +141,7 @@ public class NegotiationChatService {
                 (rs, row) -> chatMap(rs), chatId);
         if (rows.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "Conversation not found");
         Map<String, Object> chat = rows.get(0);
-        List<Map<String, Object>> messages = jdbc.query("SELECT MESSAGE_ID,SENDER_ROLE,SENDER_NAME,MESSAGE_TEXT,OFFER_PRICE,OFFER_STATUS,CREATED_AT FROM CHAT_MESSAGES WHERE CHAT_ID=? ORDER BY CREATED_AT ASC, MESSAGE_ID ASC",
+        List<Map<String, Object>> messages = jdbc.query("SELECT MESSAGE_ID,CHAT_ID,SENDER_ROLE,SENDER_NAME,MESSAGE_TEXT,OFFER_PRICE,OFFER_STATUS,CREATED_AT FROM CHAT_MESSAGES WHERE CHAT_ID=? ORDER BY CREATED_AT ASC, MESSAGE_ID ASC",
                 (rs, row) -> messageMap(rs, chat), chatId);
         chat.put("messages", messages);
         return chat;
@@ -155,7 +155,7 @@ public class NegotiationChatService {
         chat.put("sellerId", rs.getString("SELLER_ID")); chat.put("sellerName", rs.getString("STORE_NAME"));
         chat.put("sellerStatus", rs.getString("SELLER_STATUS")); chat.put("sellerLocality", rs.getString("LOCALITY"));
         chat.put("buyerName", rs.getString("BUYER_NAME")); chat.put("buyerEmail", rs.getString("BUYER_EMAIL"));
-        chat.put("currentAgreedPrice", rs.getBigDecimal("CURRENT_AGREED_PRICE"));
+        chat.put("currentAgreedPrice", rs.getBigDecimal("CURRENT_AGREED_PRICE")); chat.put("currentAgreedOfferId", rs.getString("ACCEPTED_OFFER_ID"));
         chat.put("originalPrice", rs.getBigDecimal("SELLER_PRICE"));
         Timestamp updated = rs.getTimestamp("LAST_UPDATED");
         chat.put("lastUpdated", updated == null ? "" : updated.toLocalDateTime().format(DISPLAY_TIME));
