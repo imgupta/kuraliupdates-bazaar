@@ -104,7 +104,8 @@ jobs:
       E2E_API_BASE_URL: ${{ vars.E2E_API_BASE_URL || 'https://kuraliupdates-bazaar.onrender.com/api/v1' }}
       E2E_OTP_CAPTURE_TOKEN: ${{ secrets.E2E_OTP_CAPTURE_TOKEN }}
       # Authenticated OTP tests stay disabled until the deployed staging backend's no-email capture mode has been verified.
-      E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED: ${{ vars.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED }}
+      # OTP-authenticated tests run only on scheduled/manual trusted runs, never on PR or push workflows.
+      E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && vars.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED == 'true' }}
       E2E_BUYER_IDENTITY: ${{ secrets.E2E_BUYER_IDENTITY }}
       E2E_SELLER_IDENTITY: ${{ secrets.E2E_SELLER_IDENTITY }}
       E2E_DELIVERY_IDENTITY: ${{ secrets.E2E_DELIVERY_IDENTITY }}
