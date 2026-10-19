@@ -11,7 +11,6 @@ import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.Authentication;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,8 +31,11 @@ public class BuyerController {
 
     @GetMapping("/products/search")
     @Operation(summary = "Search products across approved Kurali sellers")
-    public ResponseEntity<List<ProductResponse>> searchProducts(@RequestParam(defaultValue = "") String query) {
-        return ResponseEntity.ok(productService.search(query));
+    public ResponseEntity<List<ProductResponse>> searchProducts(
+            @RequestParam(defaultValue = "") String query,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "100") int size) {
+        return ResponseEntity.ok(productService.search(query, page, size));
     }
 
     @PostMapping("/orders")
