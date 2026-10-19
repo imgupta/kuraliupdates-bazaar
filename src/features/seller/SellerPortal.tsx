@@ -202,7 +202,7 @@ export const SellerDashboard: React.FC = () => {
             <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
               <MessageSquare className="mx-auto mb-3 h-10 w-10 text-slate-300" />
               <p className="text-sm font-bold text-slate-700">No bargaining chats yet</p>
-              <p className="mt-1 text-xs text-slate-500">Buyer conversations for this store will appear here when available in this browser session.</p>
+              <p className="mt-1 text-xs text-slate-500">Buyer conversations sent to your store appear here across signed-in devices.</p>
             </div>
           ) : sellerChats.map(chat => {
             const pending = chat.messages.filter(message => message.offer?.status === 'pending' && message.offer.senderRole === 'buyer').length;
@@ -224,7 +224,7 @@ export const SellerDashboard: React.FC = () => {
               </button>
             );
           })}
-          <p className="text-[11px] text-slate-400">Note: chat state is currently browser-local; this inbox does not yet sync conversations across separate devices or browsers.</p>
+          
         </div>
       )}
 
