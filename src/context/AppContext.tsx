@@ -35,50 +35,25 @@ import {
 
 import type { AppContextType } from './AppContextContract';
 import { safeStorageGet, safeStorageJson, safeStorageRemove, safeStorageSet } from '../shared/storage/safeStorage';
+import { persistAuthSession, persistAuthToken, readAuthToken, readStoredAuthSession, readStoredRole, removeAuthSession, removeAuthToken } from '../auth/authSessionStorage';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile>(() => {
-    const session = safeStorageGet('kurali_auth_session');
-    if (session) {
-      try {
-        const parsed = JSON.parse(session);
-        if (parsed.isSignedIn && (parsed.email || parsed.phone)) {
-          return parsed;
-        }
-      } catch (e) {
-        /* ignore */
-      }
-    }
-    return {
-      email: '',
-      name: '',
-      avatarUrl: '',
-      phone: '',
-      locality: 'Main Bazaar & Clock Tower',
-      role: 'buyer',
-      isSignedIn: false,
-      phoneVerified: false,
-      emailVerified: false,
-    };
+  const [user, setUser] = useState<UserProfile>(() => readStoredAuthSession() ?? {
+    email: '',
+    name: '',
+    avatarUrl: '',
+    phone: '',
+    locality: 'Main Bazaar & Clock Tower',
+    role: 'buyer',
+    isSignedIn: false,
+    phoneVerified: false,
+    emailVerified: false,
   });
 
   // Load role directly from signed-in user's role
-  const [role, setRoleState] = useState<UserRole>(() => {
-    const session = safeStorageGet('kurali_auth_session');
-    if (session) {
-      try {
-        const parsed = JSON.parse(session);
-        if (parsed.isSignedIn && parsed.role) {
-          return parsed.role;
-        }
-      } catch (e) {
-        /* ignore */
-      }
-    }
-    return (safeStorageGet('kurali_role') as UserRole) || 'buyer';
-  });
+  const [role, setRoleState] = useState<UserRole>(() => readStoredRole());
 
   // Automatically sync UI to user's assigned role upon sign-in
   useEffect(() => {
@@ -91,7 +66,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [user.isSignedIn, user.role]);
 
   const updateUserProfile = async (updates: Partial<UserProfile>): Promise<boolean> => {
-    const token = safeStorageGet('kurali_auth_token');
+    const token = readAuthToken();
     if (!token || !user.isSignedIn) {
       showToast('Your session has expired. Please sign in again.', 'error');
       return false;
@@ -108,14 +83,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...mapServerUser(result.user, prev),
         savedAddresses: prev.savedAddresses,
       };
-      safeStorageSet('kurali_auth_session', JSON.stringify(next));
+      persistAuthSession(next);
       return next;
     });
     return true;
   };
 
   const createBuyerAddress = async (address: SavedAddress): Promise<SavedAddress | null> => {
-    const token = safeStorageGet('kurali_auth_token');
+    const token = readAuthToken();
     if (!token) return null;
     const saved = await buyerApi.createBuyerAddress(token, address);
     if (!saved) return null;
@@ -124,14 +99,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const addresses = [...(prev.savedAddresses || []).filter(a => a.id !== next.id), next]
         .map(a => ({ ...a, isDefault: next.isDefault ? a.id === next.id : a.isDefault }));
       const updated = { ...prev, savedAddresses: addresses };
-      safeStorageSet('kurali_auth_session', JSON.stringify(updated));
+      persistAuthSession(updated);
       return updated;
     });
     return next;
   };
 
   const updateBuyerAddress = async (address: SavedAddress): Promise<SavedAddress | null> => {
-    const token = safeStorageGet('kurali_auth_token');
+    const token = readAuthToken();
     if (!token) return null;
     const saved = await buyerApi.updateBuyerAddress(token, address.id, address);
     if (!saved) return null;
@@ -139,21 +114,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser(prev => {
       const addresses = (prev.savedAddresses || []).map(a => a.id === next.id ? next : a);
       const updated = { ...prev, savedAddresses: addresses };
-      safeStorageSet('kurali_auth_session', JSON.stringify(updated));
+      persistAuthSession(updated);
       return updated;
     });
     return next;
   };
 
   const setDefaultBuyerAddress = async (addressId: string): Promise<SavedAddress | null> => {
-    const token = safeStorageGet('kurali_auth_token');
+    const token = readAuthToken();
     if (!token) return null;
     const saved = await buyerApi.setDefaultBuyerAddress(token, addressId);
     if (!saved) return null;
     const next = toSavedAddress(saved);
     setUser(prev => {
       const updated = { ...prev, savedAddresses: (prev.savedAddresses || []).map(a => ({ ...a, isDefault: a.id === addressId })) };
-      safeStorageSet('kurali_auth_session', JSON.stringify(updated));
+      persistAuthSession(updated);
       return updated;
     });
     return next;
@@ -164,7 +139,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // not the only source of address state.
   const refreshBuyerAddresses = (token: string, expectedEmail?: string) => {
     void buyerApi.getBuyerAddresses(token).then(remoteAddresses => {
-      if (!remoteAddresses || safeStorageGet('kurali_auth_token') !== token) return;
+      if (!remoteAddresses || readAuthToken() !== token) return;
       const mappedAddresses = remoteAddresses.map(toSavedAddress).filter(address => Boolean(address.id));
       setUser(prev => {
         if (expectedEmail && (prev.email || '').toLowerCase() !== expectedEmail.toLowerCase()) return prev;
@@ -172,7 +147,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // important for addresses created by older versions before server-side address sync.
         const addresses = mappedAddresses.length > 0 ? mappedAddresses : (prev.savedAddresses || []);
         const next = { ...prev, savedAddresses: addresses };
-        safeStorageSet('kurali_auth_session', JSON.stringify(next));
+        persistAuthSession(next);
         return next;
       });
     });
@@ -428,7 +403,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const interval = setInterval(syncWithBackend, 45000);
 
     // Live session token check against Oracle DB / Spring Boot backend
-    const savedToken = safeStorageGet('kurali_auth_token');
+    const savedToken = readAuthToken();
     if (savedToken) {
       bazaarApi.getMe(savedToken).then(res => {
         if (res.authenticated && res.user) {
@@ -488,8 +463,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     bazaarApi.redeemPortalHandoff(code).then(result => {
       if (cancelled) return;
       if (!result?.success || !result.token || !result.user || !result.role) {
-        safeStorageRemove('kurali_auth_token');
-        safeStorageRemove('kurali_auth_session');
+        removeAuthToken();
+        removeAuthSession();
         setAuthInitializing(false);
         return;
       }
@@ -498,8 +473,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .filter((r: UserRole) => ['buyer', 'seller', 'delivery', 'professional', 'admin'].includes(r));
       const targetRole = result.role.toLowerCase() as UserRole;
       if (!roles.includes(targetRole)) {
-        safeStorageRemove('kurali_auth_token');
-        safeStorageRemove('kurali_auth_session');
+        removeAuthToken();
+        removeAuthSession();
         setAuthInitializing(false);
         return;
       }
@@ -516,8 +491,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isAdmin: roles.includes('admin'),
         registeredRoles: roles,
       };
-      safeStorageSet('kurali_auth_token', result.token);
-      safeStorageSet('kurali_auth_session', JSON.stringify(profile));
+      persistAuthToken(result.token);
+      persistAuthSession(profile);
       setUser(profile);
       setRoleState(targetRole);
       setRegisteredRoles(Array.from(new Set(['buyer', ...roles])));
@@ -533,7 +508,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     if (authInitializing) return;
-    const token = safeStorageGet('kurali_auth_token');
+    const token = readAuthToken();
     if (!user.isSignedIn || !token) {
       setRegisteredRoles(['buyer']);
       return;
@@ -645,8 +620,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setUser(updatedUser);
     setRoleState(effectiveRole);
-    safeStorageSet('kurali_auth_session', JSON.stringify(updatedUser));
-    safeStorageSet('kurali_auth_token', params.token);
+    persistAuthSession(updatedUser);
+    persistAuthToken(params.token);
     refreshBuyerAddresses(params.token, updatedUser.email);
 
     return {
@@ -717,20 +692,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setUser(updatedUser);
     setRoleState(effectiveRole);
-    safeStorageSet('kurali_auth_session', JSON.stringify(updatedUser));
-    safeStorageSet('kurali_auth_token', params.token);
+    persistAuthSession(updatedUser);
+    persistAuthToken(params.token);
     refreshBuyerAddresses(params.token, updatedUser.email);
 
     return { success: true, message: `Registration and OTP verification successful! Welcome ${updatedUser.name}.`, role: effectiveRole };
   };
 
   const logout = () => {
-    const token = safeStorageGet('kurali_auth_token');
+    const token = readAuthToken();
     if (token) {
       bazaarApi.logout(token);
     }
-    safeStorageRemove('kurali_auth_token');
-    safeStorageRemove('kurali_auth_session');
+    removeAuthToken();
+    removeAuthSession();
     safeStorageRemove('kurali_user');
     setUser({
       email: '',
@@ -765,7 +740,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setUser(buyer);
     setRoleState('buyer');
-    safeStorageSet('kurali_auth_session', JSON.stringify(buyer));
+    persistAuthSession(buyer);
     showToast('Buyer profile created. Please use OTP sign-in for verified authentication.', 'success');
   };
 
