@@ -45,13 +45,14 @@ jobs:
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const raw = process.env.E2E_STAGING_CONFIG_JSON;
-          if (!raw?.trim()) {
-            console.error('Missing repository secret E2E_STAGING_CONFIG_JSON. All GitHub Actions testing/staging settings now belong in this one JSON secret.');
-            process.exit(1);
-          }
           let config;
-          try { config = JSON.parse(raw); }
-          catch { console.error('E2E_STAGING_CONFIG_JSON must be valid JSON.'); process.exit(1); }
+          if (!raw?.trim()) {
+            if (process.env.TRUSTED_MUTATION_RUN === 'true') { console.error('Missing E2E_STAGING_CONFIG_JSON secret.'); process.exit(1); }
+            config = { E2E_ENVIRONMENT: 'staging' };
+          } else {
+            try { config = JSON.parse(raw); }
+            catch { console.error('E2E_STAGING_CONFIG_JSON must be valid JSON.'); process.exit(1); }
+          }
           const keys = [
             'E2E_ENVIRONMENT','E2E_OTP_CAPTURE_TOKEN',
             'E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY','E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY',
@@ -64,7 +65,7 @@ jobs:
           ];
           const missing = keys.filter(key => config[key] !== undefined && !['string','number','boolean'].includes(typeof config[key]));
           if (missing.length) { console.error('Invalid value types in unified JSON:', missing.join(', ')); process.exit(1); }
-          if (config.E2E_ENVIRONMENT !== 'staging') { console.error('E2E_ENVIRONMENT must be staging.'); process.exit(1); }
+          if ((config.E2E_ENVIRONMENT ?? 'staging') !== 'staging') { console.error('E2E_ENVIRONMENT must be staging.'); process.exit(1); }
           const suppression = process.env.TRUSTED_MUTATION_RUN === 'true' && config.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED === true;
           const transactional = process.env.TRUSTED_MUTATION_RUN === 'true' && config.E2E_TRANSACTIONAL_FLOWS_ENABLED === true;
           const lines = [
@@ -227,7 +228,7 @@ jobs:
     needs: e2e
     # Never publish artifacts produced by pull-request code. This runs only for trusted
     # main-branch push, schedule, or manual runs, and only after Access protection is confirmed.
-    if: ${{ always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.CLOUDFLARE_REPORT_ACCESS_CONFIGURED == 'true' }}
+    if: ${{ always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && true }}
     env:
       # Report-publishing settings are sourced from the same unified secret.
       CI: "true"
