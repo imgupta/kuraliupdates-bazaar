@@ -1,6 +1,7 @@
 package com.kuraliupdates.bazaar.repository;
 
 import com.kuraliupdates.bazaar.entity.ProductEntity;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import jakarta.persistence.LockModeType;
@@ -39,7 +40,7 @@ public interface ProductRepository extends JpaRepository<ProductEntity, String> 
                OR LOWER(p.category) LIKE LOWER(CONCAT('%', :query, '%')))
         ORDER BY COALESCE(p.effectivePrice, p.sellerPrice) ASC, p.title ASC
         """)
-    List<ProductEntity> searchProductsAcrossSellers(@Param("query") String query);
+    List<ProductEntity> searchProductsAcrossSellers(@Param("query") String query, Pageable pageable);
 
     @Query("""
         SELECT p FROM ProductEntity p
@@ -47,5 +48,5 @@ public interface ProductRepository extends JpaRepository<ProductEntity, String> 
         WHERE UPPER(s.status) = 'APPROVED'
         ORDER BY COALESCE(p.effectivePrice, p.sellerPrice) ASC, p.title ASC
         """)
-    List<ProductEntity> findAllApprovedSortedByLowestPrice();
+    List<ProductEntity> findAllApprovedSortedByLowestPrice(Pageable pageable);
 }
