@@ -113,7 +113,7 @@ export const NegotiationChatModal: React.FC = () => {
           {role !== 'seller' && currentChat.currentAgreedPrice != null && targetProduct && (
             <button
               onClick={() => {
-                addToCart(targetProduct, 1, currentChat.currentAgreedPrice);
+                addToCart(targetProduct, 1, currentChat.currentAgreedPrice, currentChat.currentAgreedOfferId);
                 setIsCartOpen(true);
                 setActiveChatId(null);
               }}
@@ -227,7 +227,7 @@ export const NegotiationChatModal: React.FC = () => {
                         <div className="mt-2 pt-2 border-t border-emerald-300/40">
                           <button
                             onClick={() => {
-                              addToCart(targetProduct, 1, msg.offer!.offeredPrice);
+                              addToCart(targetProduct, 1, msg.offer!.offeredPrice, msg.offer!.id);
                               setIsCartOpen(true);
                               setActiveChatId(null);
                             }}
