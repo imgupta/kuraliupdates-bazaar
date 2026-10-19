@@ -16,6 +16,7 @@ import com.kuraliupdates.bazaar.repository.SellerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -30,6 +31,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final SellerRepository sellerRepository;
     private final ProductRepository productRepository;
+    private final JdbcTemplate jdbc;
     private final SecureRandom random = new SecureRandom();
 
     @Transactional
@@ -43,11 +45,21 @@ public class OrderService {
         }
 
         Map<String, Integer> quantities = new TreeMap<>();
+        Map<String, String> acceptedOffers = new HashMap<>();
+        Map<String, BigDecimal> clientNegotiatedPrices = new HashMap<>();
         for (OrderItemRequest item : request.items()) {
             if (item.quantity() == null || item.quantity() <= 0 || item.productId() == null || item.productId().isBlank()) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "Each order item needs a product and positive quantity");
             }
-            quantities.merge(item.productId().trim(), item.quantity(), Math::addExact);
+            String productId = item.productId().trim();
+            quantities.merge(productId, item.quantity(), Math::addExact);
+            if (item.acceptedOfferId() != null && !item.acceptedOfferId().isBlank()) {
+                String previous = acceptedOffers.putIfAbsent(productId, item.acceptedOfferId().trim());
+                if (previous != null && !previous.equals(item.acceptedOfferId().trim())) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "A cart item cannot use multiple accepted bargain offers");
+                }
+            }
+            if (item.negotiatedPrice() != null) clientNegotiatedPrices.put(productId, item.negotiatedPrice());
         }
 
         List<ProductEntity> products = new ArrayList<>();
@@ -79,6 +91,22 @@ public class OrderService {
                         pct.divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP)))
                         .setScale(2, RoundingMode.HALF_UP);
             }
+            String acceptedOfferId = acceptedOffers.get(entry.getKey());
+            BigDecimal negotiatedPrice = null;
+            if (acceptedOfferId != null) {
+                negotiatedPrice = jdbc.query(
+                        "SELECT m.OFFER_PRICE FROM CHAT_MESSAGES m JOIN NEGOTIATION_CHATS c ON c.CHAT_ID=m.CHAT_ID WHERE m.MESSAGE_ID=? AND m.OFFER_STATUS='ACCEPTED' AND c.PRODUCT_ID=? AND c.SELLER_ID=? AND LOWER(c.BUYER_EMAIL)=? AND c.CURRENT_AGREED_PRICE=m.OFFER_PRICE",
+                        rs -> rs.next() ? rs.getBigDecimal(1) : null,
+                        acceptedOfferId, product.getProductId(), productSeller.getSellerId(),
+                        buyer.getEmail() == null ? "" : buyer.getEmail().trim().toLowerCase(Locale.ROOT));
+                if (negotiatedPrice == null || (clientNegotiatedPrices.containsKey(entry.getKey())
+                        && clientNegotiatedPrices.get(entry.getKey()).compareTo(negotiatedPrice) != 0)) {
+                    throw new ApiException(HttpStatus.CONFLICT, "The negotiated price is no longer valid. Reopen the chat and add the accepted offer to your cart again.");
+                }
+            } else if (clientNegotiatedPrices.containsKey(entry.getKey())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Negotiated cart price must reference a seller-accepted offer. Reopen bargaining chat and add the accepted offer again.");
+            }
+            if (negotiatedPrice != null) unitPrice = negotiatedPrice;
             if (unitPrice == null || unitPrice.signum() <= 0) {
                 throw new ApiException(HttpStatus.CONFLICT, "Product has an invalid selling price");
             }
@@ -89,6 +117,7 @@ public class OrderService {
                     .product(product)
                     .quantity(entry.getValue())
                     .unitPrice(unitPrice)
+                    .negotiatedPrice(negotiatedPrice)
                     .totalPrice(lineTotal)
                     .build());
             products.add(product);
