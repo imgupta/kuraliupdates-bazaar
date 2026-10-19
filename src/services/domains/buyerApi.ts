@@ -1,20 +1,19 @@
 /**
  * Buyer-domain API boundary.
  *
- * Booking and tracking methods remain delegated during the staged migration.
- * Buyer profile and saved-address HTTP implementations live here so the shared
- * application context does not depend on the monolithic API client for them.
+ * Buyer profile, saved-address, customer Daily Help, and tracking requests are
+ * composed from their domain-owned APIs. Legacy transport is not a dependency.
  */
 import { API_BASE_URL } from '../http/apiConfig';
-import { bazaarApi } from '../api';
+import { dailyHelpApi } from './dailyHelpApi';
 import { trackingApi } from './trackingApi';
 
 export const buyerApi = {
-  getDailyHelpServices: bazaarApi.getDailyHelpServices,
-  getLatestDailyHelpBooking: bazaarApi.getLatestDailyHelpBooking,
-  getDailyHelpBooking: bazaarApi.getDailyHelpBooking,
-  getDailyHelpAvailableSlots: bazaarApi.getDailyHelpAvailableSlots,
-  createDailyHelpBooking: bazaarApi.createDailyHelpBooking,
+  getDailyHelpServices: dailyHelpApi.getDailyHelpServices,
+  getLatestDailyHelpBooking: dailyHelpApi.getLatestDailyHelpBooking,
+  getDailyHelpBooking: dailyHelpApi.getDailyHelpBooking,
+  getDailyHelpAvailableSlots: dailyHelpApi.getDailyHelpAvailableSlots,
+  createDailyHelpBooking: dailyHelpApi.createDailyHelpBooking,
   getLiveTracking: trackingApi.getLiveTracking,
 
   async updateCurrentUser(token: string, updates: Record<string, any>): Promise<{ success: boolean; user?: any; addresses?: any[]; message?: string }> {

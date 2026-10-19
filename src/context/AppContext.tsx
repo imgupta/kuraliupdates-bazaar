@@ -14,6 +14,8 @@ import {
 } from '../types';
 import { bazaarApi } from '../services/api';
 import { buyerApi } from '../services/domains/buyerApi';
+import { sellerApi } from '../services/domains/sellerApi';
+import { adminApi } from '../services/domains/adminApi';
 import { deliveryApi } from '../services/domains/deliveryApi';
 import { toSavedAddress, type SavedAddress } from '../entities/address';
 import { mapServerUser, type UserProfile } from '../entities/userProfile';
@@ -345,8 +347,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Synchronize pending seller and delivery approvals from Oracle DB
       const [remotePendingSellers, remotePendingAgents] = await Promise.all([
-        bazaarApi.getPendingSellers(),
-        bazaarApi.getPendingDeliveryAgents(),
+        adminApi.getPendingSellers(),
+        adminApi.getPendingDeliveryAgents(),
       ]);
       if (remotePendingSellers?.length) {
         setSellers(prev => {
@@ -797,7 +799,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('Store registered successfully! Submitted for Admin verification.', 'success');
 
     // Async sync to Oracle DB via Render backend
-    bazaarApi.registerSeller(newSeller).then(res => {
+    sellerApi.registerSeller(newSeller).then(res => {
       if (res && res.sellerId) {
         console.log('Seller successfully recorded in Oracle DB:', res.sellerId);
       }
@@ -809,7 +811,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map(s => (s.id === sellerId ? { ...s, status: 'approved', approvedAt: new Date().toISOString() } : s))
     );
     showToast('Seller store approved! Now live for Kurali buyers.', 'success');
-    bazaarApi.approveSeller(sellerId);
+    adminApi.approveSeller(sellerId);
   };
 
   const rejectSeller = (sellerId: string) => {
@@ -817,11 +819,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map(s => (s.id === sellerId ? { ...s, status: 'rejected' } : s))
     );
     showToast('Seller store rejected.', 'info');
-    bazaarApi.rejectSeller(sellerId);
+    adminApi.rejectSeller(sellerId);
   };
 
   const approveDeliveryAgent = (agentId: string) => {
-    bazaarApi.approveDeliveryAgent(agentId).then(ok => {
+    adminApi.approveDeliveryAgent(agentId).then(ok => {
       if (!ok) {
         showToast('Unable to approve delivery partner in backend.', 'error');
         return;
@@ -832,7 +834,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const rejectDeliveryAgent = (agentId: string) => {
-    bazaarApi.rejectDeliveryAgent(agentId).then(ok => {
+    adminApi.rejectDeliveryAgent(agentId).then(ok => {
       if (!ok) {
         showToast('Unable to reject delivery partner in backend.', 'error');
         return;
@@ -864,7 +866,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(`"${productData.title}" added to your store inventory.`, 'success');
 
     // Async sync to Oracle DB via Render backend
-    bazaarApi.addProduct(productData.sellerId, newProduct).then(res => {
+    sellerApi.addProduct(productData.sellerId, newProduct).then(res => {
       if (res && res.productId) {
         console.log('Product created in Oracle DB:', res.productId);
       }
