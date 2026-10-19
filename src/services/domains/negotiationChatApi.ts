@@ -49,6 +49,7 @@ const normalizeChat = (raw: any): NegotiationChat => ({
     } } : {}),
   })),
   lastUpdated: raw.lastUpdated || '',
+  ...(raw.originalPrice != null ? { originalPrice: Number(raw.originalPrice) } : {}),
   ...(raw.currentAgreedPrice != null ? { currentAgreedPrice: Number(raw.currentAgreedPrice) } : {}),
   ...(raw.currentAgreedOfferId ? { currentAgreedOfferId: String(raw.currentAgreedOfferId) } : {}),
 });
