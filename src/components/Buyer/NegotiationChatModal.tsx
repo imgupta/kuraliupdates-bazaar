@@ -25,7 +25,7 @@ export const NegotiationChatModal: React.FC = () => {
   if (!currentChat) return null;
 
   const targetProduct = products.find(p => p.id === currentChat.productId);
-  const basePrice = targetProduct ? targetProduct.sellerPrice : 500;
+  const basePrice = targetProduct?.sellerPrice ?? currentChat.originalPrice ?? 500;
 
   const handleSendTextMessage = (e: React.FormEvent) => {
     e.preventDefault();
