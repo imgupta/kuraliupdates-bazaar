@@ -30,10 +30,9 @@ import {
 } from '../data/initialData';
 
 import type { AppContextType } from './AppContextContract';
+import { safeStorageGet, safeStorageJson, safeStorageRemove, safeStorageSet } from '../shared/storage/safeStorage';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
-
-import { safeStorageGet, safeStorageJson, safeStorageRemove, safeStorageSet } from '../shared/storage/safeStorage';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile>(() => {
