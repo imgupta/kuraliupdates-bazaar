@@ -28,8 +28,8 @@ public class NegotiationChatService {
     private static final DateTimeFormatter DISPLAY_TIME = DateTimeFormatter.ofPattern("hh:mm a");
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> list(UserEntity user) {
-        String role = normalizeRole(user);
+    public List<Map<String, Object>> list(UserEntity user, String requestedRole) {
+        String role = normalizeActiveRole(requestedRole);
         if ("SELLER".equals(role)) {
             String sellerId = requireSellerId(user.getEmail());
             return jdbc.query("SELECT c.CHAT_ID FROM NEGOTIATION_CHATS c WHERE c.SELLER_ID=? ORDER BY c.LAST_UPDATED DESC",
@@ -70,10 +70,10 @@ public class NegotiationChatService {
     }
 
     @Transactional
-    public Map<String, Object> send(UserEntity user, String chatId, SendMessageRequest request) {
+    public Map<String, Object> send(UserEntity user, String requestedRole, String chatId, SendMessageRequest request) {
         if (request == null || (blank(request.text()) && request.offerPrice() == null)) throw new ApiException(HttpStatus.BAD_REQUEST, "Enter a message or price offer");
-        Map<String, Object> chat = requireChatParticipant(user, chatId, true);
-        String role = normalizeRole(user);
+        String role = normalizeActiveRole(requestedRole);
+        Map<String, Object> chat = requireChatParticipant(user, role, chatId);
         BigDecimal offerPrice = request.offerPrice();
         if (offerPrice != null) {
             BigDecimal original = (BigDecimal) chat.get("originalPrice");
@@ -86,10 +86,10 @@ public class NegotiationChatService {
     }
 
     @Transactional
-    public Map<String, Object> respond(UserEntity user, String chatId, String offerId, RespondOfferRequest request) {
+    public Map<String, Object> respond(UserEntity user, String requestedRole, String chatId, String offerId, RespondOfferRequest request) {
         if (request == null || request.action() == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Offer response is required");
-        Map<String, Object> chat = requireChatParticipant(user, chatId, true);
-        String role = normalizeRole(user);
+        String role = normalizeActiveRole(requestedRole);
+        Map<String, Object> chat = requireChatParticipant(user, role, chatId);
         String action = request.action().trim().toUpperCase(Locale.ROOT);
         if (!List.of("ACCEPT", "REJECT", "COUNTER").contains(action)) throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported offer action");
         List<Map<String, Object>> rows = jdbc.query("SELECT MESSAGE_ID,SENDER_ROLE,OFFER_PRICE,OFFER_STATUS FROM CHAT_MESSAGES WHERE CHAT_ID=? AND MESSAGE_ID=? FOR UPDATE",
@@ -124,8 +124,7 @@ public class NegotiationChatService {
         return getChatForKnownParticipant(chatId);
     }
 
-    private Map<String, Object> requireChatParticipant(UserEntity user, String chatId, boolean write) {
-        String role = normalizeRole(user);
+    private Map<String, Object> requireChatParticipant(UserEntity user, String role, String chatId) {
         if (!"BUYER".equals(role) && !"SELLER".equals(role)) throw new ApiException(HttpStatus.FORBIDDEN, "Only buyers and sellers can use bargaining chat");
         List<Map<String, Object>> rows = jdbc.query("SELECT c.CHAT_ID,c.PRODUCT_ID,c.SELLER_ID,c.BUYER_NAME,c.BUYER_EMAIL,c.CURRENT_AGREED_PRICE,c.LAST_UPDATED,p.TITLE,p.IMAGE_URL,p.SELLER_PRICE,p.EFFECTIVE_PRICE,s.STORE_NAME,s.STATUS AS SELLER_STATUS,s.LOCALITY,(SELECT MAX(m.MESSAGE_ID) KEEP (DENSE_RANK LAST ORDER BY m.CREATED_AT) FROM CHAT_MESSAGES m WHERE m.CHAT_ID=c.CHAT_ID AND m.OFFER_STATUS='ACCEPTED') AS ACCEPTED_OFFER_ID FROM NEGOTIATION_CHATS c JOIN PRODUCTS p ON p.PRODUCT_ID=c.PRODUCT_ID JOIN SELLERS s ON s.SELLER_ID=c.SELLER_ID WHERE c.CHAT_ID=?",
                 (rs, row) -> chatMap(rs), chatId);
@@ -204,9 +203,13 @@ public class NegotiationChatService {
                 .map(s -> s.getSellerId()).orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "Approved seller store not found"));
     }
     private void requireBuyer(UserEntity user) {
-        if (!"BUYER".equals(normalizeRole(user))) throw new ApiException(HttpStatus.FORBIDDEN, "Only buyer accounts can start a conversation");
+        if (user == null || blank(user.getUserId())) throw new ApiException(HttpStatus.UNAUTHORIZED, "An authenticated account is required");
     }
-    private String normalizeRole(UserEntity user) { return user.getRole() == null ? "BUYER" : user.getRole().trim().toUpperCase(Locale.ROOT); }
+    private String normalizeActiveRole(String role) {
+        String normalized = role == null ? "BUYER" : role.trim().toUpperCase(Locale.ROOT);
+        if (!List.of("BUYER", "SELLER").contains(normalized)) throw new ApiException(HttpStatus.FORBIDDEN, "Only buyer and seller roles can use bargaining chat");
+        return normalized;
+    }
     private String normalizeEmail(String email) { return email == null ? "" : email.trim().toLowerCase(Locale.ROOT); }
     private boolean blank(String value) { return value == null || value.isBlank(); }
     private String safeName(String name, String fallback) { return blank(name) ? fallback : name.trim().substring(0, Math.min(150, name.trim().length())); }
