@@ -16,15 +16,15 @@ export const useBuyerCommerceState = (
   usePersistedValue('kurali_cart', cart);
   usePersistedValue('kurali_applied_coupon', appliedCoupon, { removeWhenNull: true });
 
-  const addToCart = (product: Product, quantity = 1, negotiatedPrice?: number) => {
+  const addToCart = (product: Product, quantity = 1, negotiatedPrice?: number, acceptedOfferId?: string) => {
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
         return prev.map(item => item.product.id === product.id
-          ? { ...item, quantity: item.quantity + quantity, negotiatedPrice: negotiatedPrice || item.negotiatedPrice }
+          ? { ...item, quantity: item.quantity + quantity, negotiatedPrice: negotiatedPrice ?? item.negotiatedPrice, acceptedOfferId: acceptedOfferId ?? item.acceptedOfferId }
           : item);
       }
-      return [...prev, { product, quantity, negotiatedPrice }];
+      return [...prev, { product, quantity, negotiatedPrice, acceptedOfferId }];
     });
     showToast(`Added "${product.title}" to cart`, 'success');
   };
