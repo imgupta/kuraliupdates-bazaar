@@ -13,6 +13,7 @@ import {
   BargainOffer,
 } from '../types';
 import { bazaarApi } from '../services/api';
+import { buyerApi } from '../services/domains/buyerApi';
 import { toSavedAddress, type SavedAddress } from '../entities/address';
 import { mapServerUser, type UserProfile } from '../entities/userProfile';
 export type { SavedAddress } from '../entities/address';
@@ -92,7 +93,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       showToast('Your session has expired. Please sign in again.', 'error');
       return false;
     }
-    const result = await bazaarApi.updateCurrentUser(token, updates);
+    const result = await buyerApi.updateCurrentUser(token, updates);
     if (!result.success || !result.user) {
       showToast(result.message || 'Unable to save your changes.', 'error');
       return false;
@@ -113,7 +114,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const createBuyerAddress = async (address: SavedAddress): Promise<SavedAddress | null> => {
     const token = safeStorageGet('kurali_auth_token');
     if (!token) return null;
-    const saved = await bazaarApi.createBuyerAddress(token, address);
+    const saved = await buyerApi.createBuyerAddress(token, address);
     if (!saved) return null;
     const next = toSavedAddress(saved);
     setUser(prev => {
@@ -129,7 +130,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateBuyerAddress = async (address: SavedAddress): Promise<SavedAddress | null> => {
     const token = safeStorageGet('kurali_auth_token');
     if (!token) return null;
-    const saved = await bazaarApi.updateBuyerAddress(token, address.id, address);
+    const saved = await buyerApi.updateBuyerAddress(token, address.id, address);
     if (!saved) return null;
     const next = toSavedAddress(saved);
     setUser(prev => {
@@ -144,7 +145,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setDefaultBuyerAddress = async (addressId: string): Promise<SavedAddress | null> => {
     const token = safeStorageGet('kurali_auth_token');
     if (!token) return null;
-    const saved = await bazaarApi.setDefaultBuyerAddress(token, addressId);
+    const saved = await buyerApi.setDefaultBuyerAddress(token, addressId);
     if (!saved) return null;
     const next = toSavedAddress(saved);
     setUser(prev => {
@@ -159,7 +160,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // The authenticated user response includes addresses too, so the follow-up request is a refresh,
   // not the only source of address state.
   const refreshBuyerAddresses = (token: string, expectedEmail?: string) => {
-    void bazaarApi.getBuyerAddresses(token).then(remoteAddresses => {
+    void buyerApi.getBuyerAddresses(token).then(remoteAddresses => {
       if (!remoteAddresses || safeStorageGet('kurali_auth_token') !== token) return;
       const mappedAddresses = remoteAddresses.map(toSavedAddress).filter(address => Boolean(address.id));
       setUser(prev => {
