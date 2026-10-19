@@ -187,6 +187,7 @@ export interface NegotiationChat {
   buyerEmail: string;
   messages: ChatMessage[];
   lastUpdated: string;
+  originalPrice?: number;
   currentAgreedPrice?: number;
   currentAgreedOfferId?: string;
 }
