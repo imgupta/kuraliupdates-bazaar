@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { AppProvider, useApp } from '../context/AppContext';
 import { Header } from '../components/Header';
-import { AuthPageV2 } from '../components/Auth/AuthPageV2';
-import { BuyerRegistrationPage } from '../components/Auth/BuyerRegistrationPage';
-import { BuyerAccountPage } from '../components/Buyer/BuyerAccountPage';
+const AuthPageV2 = lazy(() => import('../components/Auth/AuthPageV2').then(module => ({ default: module.AuthPageV2 })));
+const BuyerRegistrationPage = lazy(() => import('../components/Auth/BuyerRegistrationPage').then(module => ({ default: module.BuyerRegistrationPage })));
+const BuyerAccountPage = lazy(() => import('../components/Buyer/BuyerAccountPage').then(module => ({ default: module.BuyerAccountPage })));
 import { resolvePortalRoute } from './routing/routeConfig';
 import { buildPortalRedirectUrl } from './routing/portalRedirect';
 import { authorizeRoleRoute } from './routing/roleRouteAccess';
@@ -48,6 +48,12 @@ const MainLayout: React.FC<{ Dashboard: React.ComponentType<any> }> = ({ Dashboa
     </div>
   );
 };
+
+const PortalRouteLoading: React.FC = () => (
+  <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+    <p className="text-sm font-semibold text-slate-600">Loading secure portal…</p>
+  </main>
+);
 
 const AccessDenied: React.FC = () => (
   <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
@@ -100,19 +106,19 @@ const RootNavigation: React.FC<PortalAppShellProps> = ({ portalRole, Dashboard }
 
   switch (route.kind) {
     case 'register':
-      return <AuthPageV2 registrationRole={route.role} />;
+      return <Suspense fallback={<PortalRouteLoading />}><AuthPageV2 registrationRole={route.role} /></Suspense>;
     case 'register-buyer':
-      return <BuyerRegistrationPage />;
+      return <Suspense fallback={<PortalRouteLoading />}><BuyerRegistrationPage /></Suspense>;
     case 'account':
-      return user.isSignedIn ? <BuyerAccountPage /> : <AuthPageV2 />;
+      return <Suspense fallback={<PortalRouteLoading />}>{user.isSignedIn ? <BuyerAccountPage /> : <AuthPageV2 />}</Suspense>;
     case 'role-dashboard':
       if (redirectUrl) return <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6"><p className="text-sm font-semibold text-slate-600">Opening your authorized portal…</p></main>;
       if (dashboardAccess?.allowed) return <MainLayout Dashboard={Dashboard} />;
-      if (dashboardAccess?.reason === 'authentication-required') return <AuthPageV2 />;
+      if (dashboardAccess?.reason === 'authentication-required') return <Suspense fallback={<PortalRouteLoading />}><AuthPageV2 /></Suspense>;
       return <AccessDenied />;
     case 'home':
     default:
-      return user.isSignedIn ? <MainLayout Dashboard={Dashboard} /> : <AuthPageV2 />;
+      return user.isSignedIn ? <MainLayout Dashboard={Dashboard} /> : <Suspense fallback={<PortalRouteLoading />}><AuthPageV2 /></Suspense>;
   }
 };
 
