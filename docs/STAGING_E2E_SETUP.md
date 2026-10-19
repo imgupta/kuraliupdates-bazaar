@@ -15,11 +15,11 @@ Use a generated secret, not a password reused elsewhere. Include only dedicated 
 
 If the service restarts between OTP generation and retrieval, request a new OTP. This mechanism is not a production authentication feature; keep it disabled outside the designated staging environment.
 
-## GitHub Actions variables
+## GitHub Actions configuration
 
-In repository **Settings → Secrets and variables → Actions**, configure:
+In repository **Settings → Secrets and variables → Actions → Secrets**, configure exactly one secret named `E2E_STAGING_CONFIG_JSON`. Put the E2E environment marker, OTP capture token, suppression confirmation, five role identities, lifecycle opt-in, four lifecycle role tokens, synthetic fixture data, and optional Cloudflare report settings in this JSON. See [`E2E_VARIABLES_REFERENCE.md`](E2E_VARIABLES_REFERENCE.md) for the complete schema. Do not create separate GitHub Actions variables/secrets for these settings.
 
-### Variables
+### JSON fields
 
 - `E2E_ENVIRONMENT=staging`
 - `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED=true` **only after** the Render staging backend has the three capture settings above, the OTP token matches, the allowlist contains only dedicated synthetic test identities, and the no-email behavior has been verified. Leave unset/false until then; authenticated OTP browser tests remain skipped.
@@ -27,7 +27,7 @@ In repository **Settings → Secrets and variables → Actions**, configure:
 
 The workflow pins the browser target to `https://bazaar.kuraliupdates.com` and validates the API target against `https://kuraliupdates-bazaar.onrender.com/api/v1`; it intentionally does not accept a free-form URL override. Do not set `E2E_ENVIRONMENT=staging` or the API variable until the frontend, Render service and Oracle schema have been independently verified as the intended isolated staging target.
 
-### Secrets
+### Render secret alignment
 
 - `E2E_OTP_CAPTURE_TOKEN`: same generated value as Render's `E2E_OTP_CAPTURE_TOKEN`
 - `E2E_BUYER_IDENTITY`
