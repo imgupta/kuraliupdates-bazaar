@@ -33,6 +33,25 @@ class E2eOtpCaptureServiceTest {
     }
 
     @Test
+    void suppressesEmailOnlyForAllowlistedIdentitiesInSafelyConfiguredStaging() {
+        E2eOtpCaptureService service = new E2eOtpCaptureService(
+                true, "staging", "buyer@example.com,admin@example.com");
+
+        assertTrue(service.shouldSuppressEmailDelivery("Buyer@Example.com", "EMAIL"));
+        assertTrue(service.shouldSuppressEmailDelivery("admin@example.com", "email"));
+        assertFalse(service.shouldSuppressEmailDelivery("other@example.com", "EMAIL"));
+        assertFalse(service.shouldSuppressEmailDelivery("buyer@example.com", "SMS"));
+
+        E2eOtpCaptureService disabled = new E2eOtpCaptureService(
+                false, "staging", "buyer@example.com");
+        assertFalse(disabled.shouldSuppressEmailDelivery("buyer@example.com", "EMAIL"));
+
+        E2eOtpCaptureService production = new E2eOtpCaptureService(
+                true, "production", "buyer@example.com");
+        assertFalse(production.shouldSuppressEmailDelivery("buyer@example.com", "EMAIL"));
+    }
+
+    @Test
     void doesNotCaptureOtpWhenEnvironmentIsNotStaging() {
         E2eOtpCaptureService service = new E2eOtpCaptureService(
                 true, "production", "buyer@example.com");
