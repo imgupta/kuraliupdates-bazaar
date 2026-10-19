@@ -37,6 +37,55 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Load unified staging test configuration
+        env:
+          E2E_STAGING_CONFIG_JSON: ${{ secrets.E2E_STAGING_CONFIG_JSON }}
+          TRUSTED_MUTATION_RUN: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const raw = process.env.E2E_STAGING_CONFIG_JSON;
+          if (!raw?.trim()) {
+            console.error('Missing repository secret E2E_STAGING_CONFIG_JSON. All GitHub Actions testing/staging settings now belong in this one JSON secret.');
+            process.exit(1);
+          }
+          let config;
+          try { config = JSON.parse(raw); }
+          catch { console.error('E2E_STAGING_CONFIG_JSON must be valid JSON.'); process.exit(1); }
+          const keys = [
+            'E2E_ENVIRONMENT','E2E_OTP_CAPTURE_TOKEN',
+            'E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY','E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY',
+            'E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED','E2E_TRANSACTIONAL_FLOWS_ENABLED',
+            'E2E_FLOW_BUYER_TOKEN','E2E_FLOW_SELLER_TOKEN','E2E_FLOW_DELIVERY_TOKEN','E2E_FLOW_PROVIDER_TOKEN',
+            'E2E_FLOW_BUYER_PHONE','E2E_FLOW_BUYER_EMAIL','E2E_FLOW_PRODUCT_ID','E2E_FLOW_SELLER_ID',
+            'E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_ORDER_QUANTITY','E2E_FLOW_DAILY_HELP_SERVICE_ID',
+            'E2E_FLOW_DAILY_HELP_SLOT_ID','E2E_FLOW_PROFESSIONAL_ID','E2E_FLOW_DAILY_HELP_START','E2E_FLOW_DAILY_HELP_HOURS',
+            'CLOUDFLARE_REPORT_ACCESS_CONFIGURED','CLOUDFLARE_ACCOUNT_ID','CLOUDFLARE_PAGES_PROJECT','CLOUDFLARE_API_TOKEN'
+          ];
+          const missing = keys.filter(key => config[key] !== undefined && !['string','number','boolean'].includes(typeof config[key]));
+          if (missing.length) { console.error('Invalid value types in unified JSON:', missing.join(', ')); process.exit(1); }
+          if (config.E2E_ENVIRONMENT !== 'staging') { console.error('E2E_ENVIRONMENT must be staging.'); process.exit(1); }
+          const suppression = process.env.TRUSTED_MUTATION_RUN === 'true' && config.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED === true;
+          const transactional = process.env.TRUSTED_MUTATION_RUN === 'true' && config.E2E_TRANSACTIONAL_FLOWS_ENABLED === true;
+          const lines = [
+            'E2E_ENVIRONMENT=staging',
+            'E2E_OTP_CAPTURE_TOKEN=' + (config.E2E_OTP_CAPTURE_TOKEN ?? ''),
+            'E2E_BUYER_IDENTITY=' + (config.E2E_BUYER_IDENTITY ?? ''),
+            'E2E_SELLER_IDENTITY=' + (config.E2E_SELLER_IDENTITY ?? ''),
+            'E2E_DELIVERY_IDENTITY=' + (config.E2E_DELIVERY_IDENTITY ?? ''),
+            'E2E_PROVIDER_IDENTITY=' + (config.E2E_PROVIDER_IDENTITY ?? ''),
+            'E2E_ADMIN_IDENTITY=' + (config.E2E_ADMIN_IDENTITY ?? ''),
+            'E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED=' + String(suppression),
+            'E2E_TRANSACTIONAL_FLOWS_ENABLED=' + String(transactional),
+            ...keys.filter(k => k.startsWith('E2E_FLOW_')).map(k => k + '=' + String(config[k] ?? '')),
+            'CLOUDFLARE_REPORT_ACCESS_CONFIGURED=' + String(config.CLOUDFLARE_REPORT_ACCESS_CONFIGURED === true),
+            'CLOUDFLARE_ACCOUNT_ID=' + String(config.CLOUDFLARE_ACCOUNT_ID ?? ''),
+            'CLOUDFLARE_PAGES_PROJECT=' + String(config.CLOUDFLARE_PAGES_PROJECT ?? ''),
+            'CLOUDFLARE_API_TOKEN=' + String(config.CLOUDFLARE_API_TOKEN ?? '')
+          ].map(line => line.replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A'));
+          fs.appendFileSync(process.env.GITHUB_ENV, lines.join('\n') + '\n', {mode: 0o600});
+          console.log('Unified staging test configuration loaded. Secret values are not printed.');
+          NODE
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -97,30 +146,13 @@ jobs:
     timeout-minutes: 20
     env:
       CI: "true"
-      # This repository has one deployed environment, designated staging by the owner.
-      # Never allow a manual input to redirect authenticated tests to an arbitrary/production host.
-      E2E_ENVIRONMENT: ${{ vars.E2E_ENVIRONMENT }}
+      # Fixed staging targets; never configurable from a secret or workflow input.
       E2E_BASE_URL: "https://bazaar.kuraliupdates.com"
-      E2E_API_BASE_URL: ${{ vars.E2E_API_BASE_URL || 'https://kuraliupdates-bazaar.onrender.com/api/v1' }}
-      E2E_OTP_CAPTURE_TOKEN: ${{ secrets.E2E_OTP_CAPTURE_TOKEN }}
-      # Authenticated OTP tests stay disabled until the deployed staging backend's no-email capture mode has been verified.
-      # OTP-authenticated tests run only on scheduled/manual trusted runs, never on PR or push workflows.
-      E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && vars.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED == 'true' }}
-      E2E_BUYER_IDENTITY: ${{ secrets.E2E_BUYER_IDENTITY }}
-      E2E_SELLER_IDENTITY: ${{ secrets.E2E_SELLER_IDENTITY }}
-      E2E_DELIVERY_IDENTITY: ${{ secrets.E2E_DELIVERY_IDENTITY }}
-      E2E_PROVIDER_IDENTITY: ${{ secrets.E2E_PROVIDER_IDENTITY }}
-      E2E_ADMIN_IDENTITY: ${{ secrets.E2E_ADMIN_IDENTITY }}
-      KURALI_API_BASE_URL: ${{ vars.KURALI_API_BASE_URL || vars.KURALI_STAGING_API_BASE_URL || 'https://kuraliupdates-bazaar.onrender.com/api/v1' }}
+      E2E_API_BASE_URL: "https://kuraliupdates-bazaar.onrender.com/api/v1"
+      KURALI_API_BASE_URL: "https://kuraliupdates-bazaar.onrender.com/api/v1"
       SMOKE_READINESS_TIMEOUT_MS: "360000"
       SMOKE_RETRY_INTERVAL_MS: "10000"
       SMOKE_TIMEOUT_MS: "45000"
-      # Mutating lifecycle tests are allowed only on trusted scheduled/manual runs after
-      # the owner explicitly enables them and provisions dedicated synthetic fixtures.
-      E2E_TRANSACTIONAL_FLOWS_ENABLED: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && vars.E2E_TRANSACTIONAL_FLOWS_ENABLED == 'true' }}
-      # All transactional fixture data and role tokens are supplied as one protected JSON secret.
-      # The trusted manual/scheduled run expands it into job-local env only after staging guards pass.
-      E2E_TRANSACTIONAL_FIXTURES_JSON: ${{ secrets.E2E_TRANSACTIONAL_FIXTURES_JSON }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -148,55 +180,6 @@ jobs:
       - name: Verify authenticated E2E configuration is complete
         run: |
           node --input-type=module -e "const env=process.env; if(env.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED!=='true'){console.log('Skipping authenticated OTP E2E: staging no-email OTP capture mode has not been explicitly verified.');process.exit(0)} const required=['E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY','E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY']; const missing=required.filter(k=>!env[k]?.trim()); const api=new URL(env.E2E_API_BASE_URL); const valid=env.E2E_ENVIRONMENT==='staging' && api.protocol==='https:' && api.hostname==='kuraliupdates-bazaar.onrender.com' && api.pathname==='/api/v1' && (env.E2E_OTP_CAPTURE_TOKEN||'').length>=32; if(!valid||missing.length){console.error('Authenticated E2E is not configured. Check staging targets, no-email confirmation, OTP token length, and all five role identity secrets. Missing identities:',missing.join(', ')||'none');process.exit(1)} console.log('Authenticated E2E configuration present for all five roles; staging no-email mode was explicitly confirmed.');"
-      - name: Load consolidated transactional fixture secret
-        if: env.E2E_TRANSACTIONAL_FLOWS_ENABLED == 'true'
-        env:
-          E2E_TRANSACTIONAL_FIXTURES_JSON: ${{ secrets.E2E_TRANSACTIONAL_FIXTURES_JSON }}
-        run: |
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          const raw = process.env.E2E_TRANSACTIONAL_FIXTURES_JSON;
-          if (!raw?.trim()) {
-            console.error('Missing repository secret E2E_TRANSACTIONAL_FIXTURES_JSON. Store transactional test fixtures in this single JSON secret.');
-            process.exit(1);
-          }
-          let config;
-          try { config = JSON.parse(raw); }
-          catch { console.error('E2E_TRANSACTIONAL_FIXTURES_JSON must contain valid JSON.'); process.exit(1); }
-          const required = [
-            'E2E_FLOW_BUYER_TOKEN', 'E2E_FLOW_SELLER_TOKEN', 'E2E_FLOW_DELIVERY_TOKEN',
-            'E2E_FLOW_PROVIDER_TOKEN', 'E2E_FLOW_BUYER_PHONE', 'E2E_FLOW_BUYER_EMAIL',
-            'E2E_FLOW_PRODUCT_ID', 'E2E_FLOW_SELLER_ID', 'E2E_FLOW_DELIVERY_AGENT_ID',
-            'E2E_FLOW_ORDER_QUANTITY', 'E2E_FLOW_DAILY_HELP_SERVICE_ID',
-            'E2E_FLOW_DAILY_HELP_SLOT_ID', 'E2E_FLOW_PROFESSIONAL_ID',
-            'E2E_FLOW_DAILY_HELP_START', 'E2E_FLOW_DAILY_HELP_HOURS'
-          ];
-          const missing = required.filter(key => typeof config[key] !== 'string' && typeof config[key] !== 'number' || String(config[key] ?? '').trim() === '');
-          if (missing.length) {
-            console.error('Consolidated fixture JSON is missing required keys:', missing.join(', '));
-            process.exit(1);
-          }
-          const ids = ['E2E_FLOW_PRODUCT_ID','E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_DAILY_HELP_SERVICE_ID','E2E_FLOW_DAILY_HELP_SLOT_ID','E2E_FLOW_PROFESSIONAL_ID'];
-          for (const key of ids) {
-            if (!/^E2E-[A-Za-z0-9_-]{3,80}$/.test(String(config[key]))) {
-              console.error(key + ' must be a dedicated synthetic ID beginning E2E-; refusing to run.');
-              process.exit(1);
-            }
-          }
-          const quantity = Number(config.E2E_FLOW_ORDER_QUANTITY);
-          const hours = Number(config.E2E_FLOW_DAILY_HELP_HOURS);
-          if (!Number.isInteger(quantity) || quantity < 1 || quantity > 2 || !Number.isInteger(hours) || hours < 1 || hours > 2) {
-            console.error('Order quantity and Daily Help hours must be integers from 1 to 2.');
-            process.exit(1);
-          }
-          if (!Number.isFinite(Date.parse(config.E2E_FLOW_DAILY_HELP_START))) {
-            console.error('E2E_FLOW_DAILY_HELP_START must be a valid ISO-8601 date/time.');
-            process.exit(1);
-          }
-          const lines = required.map(key => key + '=' + String(config[key]).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A'));
-          fs.appendFileSync(process.env.GITHUB_ENV, lines.join('\n') + '\n', { mode: 0o600 });
-          console.log('Loaded consolidated transactional fixtures into this job; values are not printed.');
-          NODE
       - name: Verify transactional lifecycle fixture configuration
         shell: bash
         run: |
@@ -246,10 +229,26 @@ jobs:
     # main-branch push, schedule, or manual runs, and only after Access protection is confirmed.
     if: ${{ always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.CLOUDFLARE_REPORT_ACCESS_CONFIGURED == 'true' }}
     env:
-      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      # Report-publishing settings are sourced from the same unified secret.
+      CI: "true"
     steps:
+      - name: Load unified staging test configuration
+        env:
+          E2E_STAGING_CONFIG_JSON: ${{ secrets.E2E_STAGING_CONFIG_JSON }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          let c;
+          try { c = JSON.parse(process.env.E2E_STAGING_CONFIG_JSON || ''); }
+          catch { console.error('Missing or invalid E2E_STAGING_CONFIG_JSON.'); process.exit(1); }
+          const values = {
+            CLOUDFLARE_REPORT_ACCESS_CONFIGURED: String(c.CLOUDFLARE_REPORT_ACCESS_CONFIGURED === true),
+            CLOUDFLARE_ACCOUNT_ID: String(c.CLOUDFLARE_ACCOUNT_ID ?? ''),
+            CLOUDFLARE_PAGES_PROJECT: String(c.CLOUDFLARE_PAGES_PROJECT ?? ''),
+            CLOUDFLARE_API_TOKEN: String(c.CLOUDFLARE_API_TOKEN ?? '')
+          };
+          fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(values).map(([k,v])=>k+'='+v.replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A')).join('\n')+'\n',{mode:0o600});
+          NODE
       - name: Verify Cloudflare configuration
         shell: bash
         run: |
