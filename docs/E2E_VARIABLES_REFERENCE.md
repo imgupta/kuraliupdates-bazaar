@@ -1,10 +1,10 @@
 # KuraliUpdates E2E configuration reference
 
-This document inventories the environment variables, GitHub Actions repository variables/secrets, and Render backend environment variables used by the E2E workflow. Configure values only in the locations listed here; never commit credentials or tokens.
+This document describes the single GitHub Actions JSON secret for testing/staging and the separate Render backend runtime settings. Never commit credentials or tokens.
 
 ## Where configuration lives
 
-1. **GitHub repository variables and secrets:** Repository → **Settings → Secrets and variables → Actions**. Use **Variables** for non-sensitive settings/fixture IDs and **Secrets** for tokens, bearer credentials, and private identity values.
+1. **GitHub Actions:** Repository → **Settings → Secrets and variables → Actions → Secrets**. Use only `E2E_STAGING_CONFIG_JSON` for this workflow's testing/staging settings.
 2. **Render backend environment:** Render Dashboard → the KuraliUpdates Bazaar backend service → **Environment**. These settings control the protected staging-only OTP capture endpoint and email suppression.
 3. **Workflow-defined values:** Some values are hard-coded or derived in `.github/workflows/e2e-login.yml`; do not create duplicate repository settings for them unless this document explicitly says so.
 
@@ -68,7 +68,7 @@ Set these on the **KuraliUpdates Bazaar backend service** in Render, only after 
 |---|---|---|
 | `E2E_OTP_CAPTURE_ENABLED` | `true` | Enables the staging-only capture service. Keep disabled outside staging. |
 | `E2E_OTP_CAPTURE_ENV` | `staging` | Environment marker required by the endpoint's fail-closed checks. |
-| `E2E_OTP_CAPTURE_TOKEN` | Random secret, at least 32 characters | Authenticates requests to the protected endpoint. Must exactly match GitHub secret `E2E_OTP_CAPTURE_TOKEN`. |
+| `E2E_OTP_CAPTURE_TOKEN` | Random secret, at least 32 characters | Authenticates requests to the protected endpoint. Must exactly match the `E2E_OTP_CAPTURE_TOKEN` field inside GitHub secret `E2E_STAGING_CONFIG_JSON`. |
 | `E2E_OTP_ALLOWED_IDENTIFIERS` | Comma-separated normalized synthetic test email addresses | Only these email identities may use captured OTPs and have external email delivery suppressed. Do not add real customer identities. |
 
 For allowlisted email identities, the backend captures the OTP in memory with a short expiry and suppresses external email only when the feature is safely configured. OTP capture is one-time and protected by a matching token. A backend restart may clear an OTP before retrieval, requiring a fresh request. SMS and non-allowlisted identities continue through normal delivery.
@@ -80,13 +80,13 @@ Do **not** set `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED=true` until you have verifie
 | Name | Value/behavior |
 |---|---|
 | `E2E_BASE_URL` | Set by the workflow to `https://bazaar.kuraliupdates.com`; staging frontend is pinned. |
-| `E2E_API_BASE_URL` fallback | Fixed to `https://kuraliupdates-bazaar.onrender.com/api/v1` if repository variable is absent. |
+| `E2E_API_BASE_URL` | Fixed to `https://kuraliupdates-bazaar.onrender.com/api/v1`; it is pinned in workflow code and cannot be overridden by JSON. |
 | `CI` | Set to `true` in the browser job. |
 | `SMOKE_READINESS_TIMEOUT_MS` | `360000`; read-only smoke readiness wait. |
 | `SMOKE_RETRY_INTERVAL_MS` | `10000`; read-only smoke retry interval. |
 | `SMOKE_TIMEOUT_MS` | `45000`; read-only smoke request timeout. |
-| `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED` (effective value) | Computed by workflow: true only for `schedule` or `workflow_dispatch` when repository variable is the string `true`. It is false on PR/push. |
-| `E2E_TRANSACTIONAL_FLOWS_ENABLED` (effective value) | Computed by workflow: true only for `schedule` or `workflow_dispatch` when repository variable is the string `true`. It is false on PR/push. |
+| `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED` (effective value) | Read from JSON boolean and honored only for `schedule` or `workflow_dispatch`; false on PR/push. |
+| `E2E_TRANSACTIONAL_FLOWS_ENABLED` (effective value) | Read from JSON boolean and honored only for `schedule` or `workflow_dispatch`; false on PR/push. |
 | `E2E_BASE_URL` host guard | Rejects any host other than `bazaar.kuraliupdates.com`. |
 | API host guard | Rejects any API other than `kuraliupdates-bazaar.onrender.com/api/v1`. |
 
