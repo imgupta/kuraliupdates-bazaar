@@ -14,6 +14,7 @@ import {
 } from '../types';
 import { bazaarApi } from '../services/api';
 import { buyerApi } from '../services/domains/buyerApi';
+import { deliveryApi } from '../services/domains/deliveryApi';
 import { toSavedAddress, type SavedAddress } from '../entities/address';
 import { mapServerUser, type UserProfile } from '../entities/userProfile';
 export type { SavedAddress } from '../entities/address';
@@ -298,7 +299,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const syncDeliveryJobs = async () => {
-    const remoteJobs = await bazaarApi.getDeliveryAvailableJobs();
+    const remoteJobs = await deliveryApi.getDeliveryAvailableJobs();
     if (!remoteJobs.length) return;
     setOrders(prev => {
       const remoteIds = new Set(remoteJobs.map(o => o.id));
@@ -400,7 +401,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // Synchronize available pickup jobs from Oracle DB for the delivery dashboard.
-      const availableJobs = await bazaarApi.getDeliveryAvailableJobs();
+      const availableJobs = await deliveryApi.getDeliveryAvailableJobs();
       setOrders(prev => {
         const remoteIds = new Set(availableJobs.map(order => order.id));
         const localWithoutRemoteReadyJobs = prev.filter(
@@ -1155,7 +1156,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const agent = deliveryAgents.find(a => a.id === agentId);
     // The server owns assignment and lifecycle state. Do not optimistically claim
     // locally: a conflict/auth failure must not make an order appear assigned.
-    const claimed = await bazaarApi.claimDeliveryJob(orderId, agentId);
+    const claimed = await deliveryApi.claimDeliveryJob(orderId, agentId);
     if (!claimed) {
       showToast('Unable to claim this order. Refresh the pickup list and try again.', 'error');
       await syncWithBackend();
@@ -1192,7 +1193,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Oracle is authoritative: local cached OTP values can be stale or differ from
     // the current OTP after a resend. Never reject a code using browser state.
-    const verification = await bazaarApi.verifyDeliveryOtp(orderId, otp.trim());
+    const verification = await deliveryApi.verifyDeliveryOtp(orderId, otp.trim());
     if (!verification.success) {
       return { success: false, message: verification.message || 'Unable to verify delivery OTP.' };
     }
@@ -1249,7 +1250,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser(prev => ({ ...prev, deliveryAgentId: newId, role: 'delivery', isSignedIn: true, email: data.email, name: data.name }));
     setRoleState('delivery');
     showToast('Delivery Partner registered successfully! Welcome to Kurali Express fleet.', 'success');
-    bazaarApi.registerDeliveryAgent(newAgent);
+    deliveryApi.registerDeliveryAgent(newAgent);
   };
 
   // Negotiation & Bargaining Chat
