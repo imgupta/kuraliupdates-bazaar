@@ -11,7 +11,7 @@ Set these on the backend service only after verifying that its Oracle connection
 - `E2E_OTP_CAPTURE_TOKEN=<random secret of at least 32 characters>`
 - `E2E_OTP_ALLOWED_IDENTIFIERS=<comma-separated normalized test email addresses>`
 
-Use a generated secret, not a password reused elsewhere. Include only dedicated test identities in the allowlist. Do not add real customer identities. The OTP handoff is held in backend memory, expires after three minutes, is retrieved once, and is not written to logs or a database. It requires a matching header token and explicit staging environment marker. The normal email/SMS delivery, OTP hashing, expiry, attempt limits, and one-time verification remain in place.
+Use a generated secret, not a password reused elsewhere. Include only dedicated test identities in the allowlist. Do not add real customer identities. The OTP handoff is held in backend memory, expires after three minutes, is retrieved once, and is not written to logs or a database. It requires a matching header token and explicit staging environment marker. For allowlisted identities only, the backend suppresses external **email** delivery when this capture feature is safely enabled; the generated OTP is stored in the normal verification store and handed off through the protected capture endpoint. Non-allowlisted identities, SMS OTPs, and all identities outside this explicit staging configuration continue through normal delivery. OTP hashing, expiry, attempt limits, and one-time verification remain in place.
 
 If the service restarts between OTP generation and retrieval, request a new OTP. This mechanism is not a production authentication feature; keep it disabled outside the designated staging environment.
 
@@ -22,6 +22,7 @@ In repository **Settings → Secrets and variables → Actions**, configure:
 ### Variables
 
 - `E2E_ENVIRONMENT=staging`
+- `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED=true` **only after** the Render staging backend has the three capture settings above, the OTP token matches, the allowlist contains only dedicated synthetic test identities, and the no-email behavior has been verified. Leave unset/false until then; authenticated OTP browser tests remain skipped.
 - `E2E_API_BASE_URL=https://kuraliupdates-bazaar.onrender.com/api/v1` (the current workflow's exact allowed API target)
 
 The workflow pins the browser target to `https://bazaar.kuraliupdates.com` and validates the API target against `https://kuraliupdates-bazaar.onrender.com/api/v1`; it intentionally does not accept a free-form URL override. Do not set `E2E_ENVIRONMENT=staging` or the API variable until the frontend, Render service and Oracle schema have been independently verified as the intended isolated staging target.
