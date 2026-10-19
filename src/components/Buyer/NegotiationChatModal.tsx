@@ -222,22 +222,6 @@ export const NegotiationChatModal: React.FC = () => {
                         </div>
                       )}
 
-                      {/* If accepted and is buyer, show Add to Cart */}
-                      {role !== 'seller' && msg.offer.status === 'accepted' && targetProduct && (
-                        <div className="mt-2 pt-2 border-t border-emerald-300/40">
-                          <button
-                            onClick={() => {
-                              addToCart(targetProduct, 1, msg.offer!.offeredPrice, msg.offer!.id);
-                              setIsCartOpen(true);
-                              setActiveChatId(null);
-                            }}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 px-3 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
-                          >
-                            <ShoppingBag className="w-3.5 h-3.5" />
-                            Add to Cart at ₹{msg.offer.offeredPrice}
-                          </button>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
