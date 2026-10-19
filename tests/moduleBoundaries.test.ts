@@ -147,6 +147,18 @@ test('buyer cart and coupon state is isolated from the orchestration context', (
 });
 
 
+test('seller, admin, order and delivery operations are isolated from application orchestration', () => {
+  const operations = read('../src/context/useMarketplaceOperations.ts');
+  const appContext = read('../src/context/AppContext.tsx');
+
+  for (const operation of ['registerSeller', 'approveSeller', 'rejectSeller', 'addProduct', 'createOrder', 'updateOrderStatus', 'claimDeliveryJob', 'completeDelivery', 'registerDeliveryAgent']) {
+    assert.ok(operations.includes(`const ${operation}`), `marketplace operations should own ${operation}`);
+  }
+  assert.ok(appContext.includes('useMarketplaceOperations({'));
+  assert.ok(appContext.includes('const marketplaceOperations = useMarketplaceOperations'));
+  assert.doesNotMatch(appContext, /const registerSeller =|const createOrder =|const claimDeliveryJob =|const completeDelivery =/);
+});
+
 test('negotiation chat state and bargaining actions are isolated from application orchestration', () => {
   const negotiation = read('../src/context/useNegotiationChatState.ts');
   const appContext = read('../src/context/AppContext.tsx');
