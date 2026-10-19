@@ -228,7 +228,7 @@ jobs:
     needs: e2e
     # Never publish artifacts produced by pull-request code. This runs only for trusted
     # main-branch push, schedule, or manual runs, and only after Access protection is confirmed.
-    if: ${{ always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && true }}
+    if: ${{ always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
     env:
       # Report-publishing settings are sourced from the same unified secret.
       CI: "true"
@@ -239,9 +239,9 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
-          let c;
-          try { c = JSON.parse(process.env.E2E_STAGING_CONFIG_JSON || ''); }
-          catch { console.error('Missing or invalid E2E_STAGING_CONFIG_JSON.'); process.exit(1); }
+          let c = {};
+          try { c = JSON.parse(process.env.E2E_STAGING_CONFIG_JSON || '{}'); }
+          catch { console.error('E2E_STAGING_CONFIG_JSON is invalid JSON.'); process.exit(1); }
           const values = {
             CLOUDFLARE_REPORT_ACCESS_CONFIGURED: String(c.CLOUDFLARE_REPORT_ACCESS_CONFIGURED === true),
             CLOUDFLARE_ACCOUNT_ID: String(c.CLOUDFLARE_ACCOUNT_ID ?? ''),
@@ -251,6 +251,7 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(values).map(([k,v])=>k+'='+v.replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A')).join('\n')+'\n',{mode:0o600});
           NODE
       - name: Verify Cloudflare configuration
+        if: env.CLOUDFLARE_REPORT_ACCESS_CONFIGURED == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -259,11 +260,13 @@ jobs:
           test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing repository secret CLOUDFLARE_API_TOKEN"; exit 1; }
           echo "Cloudflare credentials are present; report access-protection confirmation is enabled."
       - name: Download report artifact from this workflow run
+        if: env.CLOUDFLARE_REPORT_ACCESS_CONFIGURED == 'true'
         uses: actions/download-artifact@v4
         with:
           name: playwright-e2e-report
           path: downloaded-artifact
       - name: Prepare report-only site
+        if: env.CLOUDFLARE_REPORT_ACCESS_CONFIGURED == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -277,6 +280,7 @@ jobs:
           test -s site/index.html
           echo "Prepared the HTML report and its supporting assets. test-results and traces are not published."
       - name: Deploy report to Cloudflare Pages
+        if: env.CLOUDFLARE_REPORT_ACCESS_CONFIGURED == 'true'
         shell: bash
         run: |
           set -euo pipefail
