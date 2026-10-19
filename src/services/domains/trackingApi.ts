@@ -1,10 +1,23 @@
 /**
  * Shared tracking API boundary.
  *
- * This typed facade limits callers to the domain methods listed here while preserving
- * the existing shared transport, endpoint paths, auth headers, response mapping, and
- * error/fallback behavior. Move implementations behind this boundary incrementally.
+ * Tracking HTTP requests are implemented here so buyer and delivery screens can
+ * depend on the tracking domain without reaching into the monolithic API client.
  */
-import { bazaarApi } from '../api';
+import { API_BASE_URL } from '../api';
 
-export const trackingApi: Pick<typeof bazaarApi, 'getLiveTracking'> = bazaarApi;
+export const trackingApi = {
+  async getLiveTracking(orderId: string): Promise<any> {
+    try {
+      const token = localStorage.getItem('kurali_auth_token');
+      const res = await fetch(`${API_BASE_URL}/tracking/orders/${encodeURIComponent(orderId)}`, {
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      console.warn('Backend getLiveTracking failed:', err);
+      return null;
+    }
+  },
+};

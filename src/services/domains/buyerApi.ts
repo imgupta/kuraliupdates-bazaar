@@ -6,6 +6,7 @@
  * application context does not depend on the monolithic API client for them.
  */
 import { API_BASE_URL, bazaarApi } from '../api';
+import { trackingApi } from './trackingApi';
 
 export const buyerApi = {
   getDailyHelpServices: bazaarApi.getDailyHelpServices,
@@ -13,7 +14,7 @@ export const buyerApi = {
   getDailyHelpBooking: bazaarApi.getDailyHelpBooking,
   getDailyHelpAvailableSlots: bazaarApi.getDailyHelpAvailableSlots,
   createDailyHelpBooking: bazaarApi.createDailyHelpBooking,
-  getLiveTracking: bazaarApi.getLiveTracking,
+  getLiveTracking: trackingApi.getLiveTracking,
 
   async updateCurrentUser(token: string, updates: Record<string, any>): Promise<{ success: boolean; user?: any; addresses?: any[]; message?: string }> {
     try {

@@ -667,20 +667,6 @@ export const bazaarApi = {
     }
   },
 
-  async getLiveTracking(orderId: string): Promise<any> {
-    try {
-      const token = localStorage.getItem('kurali_auth_token');
-      const res = await fetch(`${API_BASE_URL}/tracking/orders/${encodeURIComponent(orderId)}`, {
-        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      });
-      if (!res.ok) return null;
-      return await res.json();
-    } catch (err) {
-      console.warn('Backend getLiveTracking failed:', err);
-      return null;
-    }
-  },
-
   async resendDeliveryOtp(orderId: string): Promise<{ success: boolean; message: string }> {
     const token = localStorage.getItem('kurali_auth_token');
     if (!token) throw new Error('Your delivery session has expired. Please sign in again.');
