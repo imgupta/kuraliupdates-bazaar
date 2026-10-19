@@ -7,9 +7,6 @@ import {
   DeliveryAgent,
   Order,
   OrderStatus,
-  NegotiationChat,
-  ChatMessage,
-  BargainOffer,
 } from '../types';
 import { bazaarApi } from '../services/api';
 import { buyerApi } from '../services/domains/buyerApi';
@@ -39,6 +36,7 @@ import { AuthSessionProvider, useAuthSession } from './AuthSessionContext';
 import { usePersistedValue } from './usePersistedValue';
 import { useBuyerCommerceState } from './useBuyerCommerceState';
 import { useBackendSync } from './useBackendSync';
+import { useNegotiationChatState } from './useNegotiationChatState';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -153,14 +151,9 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
     return safeStorageJson('kurali_orders', INITIAL_ORDERS);
   });
 
-  const [chats, setChats] = useState<NegotiationChat[]>(() => {
-    return safeStorageJson('kurali_chats', INITIAL_CHATS);
-  });
-
   // UI state
   const [registeredRoles, setRegisteredRoles] = useState<UserRole[]>(['buyer']);
   const [selectedCityLocality, setSelectedCityLocality] = useState('All Localities (Kurali City)');
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [comparingProduct, setComparingProduct] = useState<Product | null>(null);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -178,7 +171,6 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
   usePersistedValue('kurali_coupons', coupons);
   usePersistedValue('kurali_delivery_agents', deliveryAgents);
   usePersistedValue('kurali_orders', orders);
-  usePersistedValue('kurali_chats', chats);
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
     setToast({ message, type });
@@ -576,6 +568,10 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
     s => s.id === user.sellerId || (user.email && s.email.toLowerCase() === user.email.toLowerCase()) || (user.phone && s.phone === user.phone)
   );
 
+  // Keep the public AppContext contract while delegating bargaining behavior to its domain hook.
+  const negotiationChat = useNegotiationChatState({ role, user, currentSeller, showToast });
+  const { chats, activeChatId, setActiveChatId, openChatForProduct, sendMessage, respondToOffer } = negotiationChat;
+
   // Current Agent
   const currentAgent = deliveryAgents.find(
     a => a.id === user.deliveryAgentId || (user.email && a.email && a.email.toLowerCase() === user.email.toLowerCase()) || (user.phone && a.phone === user.phone)
@@ -902,143 +898,6 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
     deliveryApi.registerDeliveryAgent(newAgent);
   };
 
-  // Negotiation & Bargaining Chat
-  const openChatForProduct = (product: Product, startingOfferPrice?: number): string => {
-    const existing = chats.find(
-      c => c.productId === product.id && c.sellerId === product.sellerId
-    );
-    if (existing) {
-      setActiveChatId(existing.id);
-      return existing.id;
-    }
-    const newChatId = `chat-${Date.now()}`;
-    const initialOfferPrice = startingOfferPrice || Math.round(product.sellerPrice * 0.9);
-    const newChat: NegotiationChat = {
-      id: newChatId,
-      productId: product.id,
-      productTitle: product.title,
-      productImage: product.image,
-      sellerId: product.sellerId,
-      sellerName: product.sellerName,
-      buyerName: user.name || 'Local Kurali Buyer',
-      buyerEmail: user.email || (user.phone ? `${user.phone}@kuraliupdates.com` : 'shopper@kuraliupdates.com'),
-      lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      messages: [
-        {
-          id: `m-${Date.now()}-1`,
-          chatId: newChatId,
-          senderRole: 'buyer',
-          senderName: user.name || 'Local Kurali Buyer',
-          text: `Sat Sri Akal! I am interested in purchasing "${product.title}" from your shop in ${product.sellerLocality}. Can you offer a special local price?`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          offer: {
-            id: `off-${Date.now()}`,
-            productId: product.id,
-            productTitle: product.title,
-            productImage: product.image,
-            originalPrice: product.sellerPrice,
-            offeredPrice: initialOfferPrice,
-            senderRole: 'buyer',
-            quantity: 1,
-            status: 'pending',
-          },
-        },
-      ],
-    };
-    setChats(prev => [newChat, ...prev]);
-    setActiveChatId(newChatId);
-    return newChatId;
-  };
-
-  const sendMessage = (chatId: string, text: string, offer?: BargainOffer) => {
-    const newMsg: ChatMessage = {
-      id: `m-${Date.now()}`,
-      chatId,
-      senderRole: role === 'seller' ? 'seller' : 'buyer',
-      senderName: role === 'seller' ? (currentSeller?.name || 'Seller') : (user.name || 'Buyer'),
-      text,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      offer,
-    };
-    setChats(prev =>
-      prev.map(c => {
-        if (c.id !== chatId) return c;
-        return {
-          ...c,
-          messages: [...c.messages, newMsg],
-          lastUpdated: newMsg.timestamp,
-        };
-      })
-    );
-  };
-
-  const respondToOffer = (
-    chatId: string,
-    offerId: string,
-    action: 'accept' | 'reject' | 'counter',
-    counterPrice?: number
-  ) => {
-    setChats(prev =>
-      prev.map(c => {
-        if (c.id !== chatId) return c;
-        let agreedPrice = c.currentAgreedPrice;
-        const updatedMessages = c.messages.map(m => {
-          if (m.offer && m.offer.id === offerId) {
-            const updatedOfferStatus =
-              action === 'accept' ? 'accepted' : action === 'reject' ? 'rejected' : 'countered';
-            if (action === 'accept') {
-              agreedPrice = m.offer.offeredPrice;
-            }
-            return {
-              ...m,
-              offer: {
-                ...m.offer,
-                status: updatedOfferStatus as any,
-              },
-            };
-          }
-          return m;
-        });
-
-        const responseMsg: ChatMessage = {
-          id: `m-${Date.now()}`,
-          chatId,
-          senderRole: role === 'seller' ? 'seller' : 'buyer',
-          senderName: role === 'seller' ? (currentSeller?.name || 'Seller') : (user.name || 'Buyer'),
-          text:
-            action === 'accept'
-              ? `Deal agreed! The price of ₹${agreedPrice} is confirmed. You can now add this directly to your cart at the negotiated rate.`
-              : action === 'reject'
-              ? `Offer declined. Standard store price applies.`
-              : `Counter offer sent: ₹${counterPrice}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          offer:
-            action === 'counter' && counterPrice
-              ? {
-                  id: `off-${Date.now()}`,
-                  productId: c.productId,
-                  productTitle: c.productTitle,
-                  productImage: c.productImage,
-                  originalPrice: c.messages[0]?.offer?.originalPrice || 0,
-                  offeredPrice: counterPrice,
-                  senderRole: role === 'seller' ? 'seller' : 'buyer',
-                  quantity: 1,
-                  status: 'pending',
-                }
-              : undefined,
-        };
-        return {
-          ...c,
-          currentAgreedPrice: agreedPrice,
-          messages: [...updatedMessages, responseMsg],
-          lastUpdated: responseMsg.timestamp,
-        };
-      })
-    );
-    if (action === 'accept') {
-      showToast('Price deal accepted! Special price locked in.', 'success');
-    }
-  };
 
   return (
     <AppContext.Provider
