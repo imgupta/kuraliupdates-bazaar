@@ -894,21 +894,6 @@ export const bazaarApi = {
     return { success: true, message: 'Logged out successfully' };
   },
 
-  async getCurrentDeliveryAgent(): Promise<any | null> {
-    try {
-      const token = localStorage.getItem('kurali_auth_token');
-      if (!token) return null;
-      const res = await fetch(`${API_BASE_URL}/delivery/me`, {
-        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return null;
-      return await res.json();
-    } catch (err) {
-      console.warn('Backend getCurrentDeliveryAgent failed:', err);
-      return null;
-    }
-  },
-
   async getDeliveryAvailableJobs(): Promise<any[]> {
     try {
       const token = localStorage.getItem('kurali_auth_token');
