@@ -15,7 +15,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { OrderStatus } from '../../types';
 import { LiveOrderMap } from './LiveOrderMap';
-import { bazaarApi } from '../../services/api';
+import { buyerApi } from '../../services/domains/buyerApi';
 
 interface OrderTrackingModalProps {
   orderId: string;
@@ -32,7 +32,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
     setAuthorizedDeliveryOtp(null);
     const refreshOtp = async () => {
       try {
-        const tracking = await bazaarApi.getLiveTracking(orderId);
+        const tracking = await buyerApi.getLiveTracking(orderId);
         if (active && typeof tracking?.deliveryOtp === 'string' && /^\d{4}$/.test(tracking.deliveryOtp)) {
           setAuthorizedDeliveryOtp(tracking.deliveryOtp);
         }
