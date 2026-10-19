@@ -38,6 +38,7 @@ import { safeStorageGet, safeStorageJson, safeStorageRemove, safeStorageSet } fr
 import { clearStoredAuthState, hasStoredAuthSession, persistAuthSession, persistAuthToken, readAuthToken, removeAuthSession, removeAuthToken } from '../auth/authSessionStorage';
 import { AuthSessionProvider, useAuthSession } from './AuthSessionContext';
 import { usePersistedValue } from './usePersistedValue';
+import { useBuyerCommerceState } from './useBuyerCommerceState';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -156,14 +157,6 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
     return safeStorageJson('kurali_chats', INITIAL_CHATS);
   });
 
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    return safeStorageJson('kurali_cart', []);
-  });
-
-  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(() => {
-    return safeStorageJson('kurali_applied_coupon', null);
-  });
-
   // UI state
   const [registeredRoles, setRegisteredRoles] = useState<UserRole[]>(['buyer']);
   const [selectedCityLocality, setSelectedCityLocality] = useState('All Localities (Kurali City)');
@@ -186,8 +179,6 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
   usePersistedValue('kurali_delivery_agents', deliveryAgents);
   usePersistedValue('kurali_orders', orders);
   usePersistedValue('kurali_chats', chats);
-  usePersistedValue('kurali_cart', cart);
-  usePersistedValue('kurali_applied_coupon', appliedCoupon, { removeWhenNull: true });
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
     setToast({ message, type });
@@ -195,6 +186,13 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
       setToast(null);
     }, 4000);
   };
+
+  const buyerCommerce = useBuyerCommerceState(sellers, coupons, showToast);
+  const {
+    cart, setCart, appliedCoupon, setAppliedCoupon, addToCart, removeFromCart,
+    updateCartQuantity, clearCart, applyCoupon, removeCoupon, cartCalculations,
+  } = buyerCommerce;
+
 
   // Backend Sync State
   const [backendUrl, setBackendUrlState] = useState<string>(() => {
@@ -814,161 +812,6 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
     showToast(`Coupon "${code}" deleted.`, 'info');
   };
 
-  // Cart Actions
-  const addToCart = (product: Product, quantity = 1, negotiatedPrice?: number) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
-      if (existing) {
-        return prev.map(item =>
-          item.product.id === product.id
-            ? {
-                ...item,
-                quantity: item.quantity + quantity,
-                negotiatedPrice: negotiatedPrice || item.negotiatedPrice,
-              }
-            : item
-        );
-      }
-      return [...prev, { product, quantity, negotiatedPrice }];
-    });
-    showToast(`Added "${product.title}" to cart`, 'success');
-  };
-
-  const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(item => item.product.id !== productId));
-  };
-
-  const updateCartQuantity = (productId: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(productId);
-      return;
-    }
-    setCart(prev =>
-      prev.map(item => (item.product.id === productId ? { ...item, quantity } : item))
-    );
-  };
-
-  const clearCart = () => {
-    setCart([]);
-    setAppliedCoupon(null);
-  };
-
-  const applyCoupon = (code: string): { success: boolean; message: string } => {
-    const trimmed = code.trim().toUpperCase();
-    const found = coupons.find(c => c.code.toUpperCase() === trimmed);
-    if (!found) {
-      return { success: false, message: 'Invalid coupon code for Kurali Bazaar.' };
-    }
-    const currentSubtotal = cart.reduce((sum, item) => {
-      const price = item.negotiatedPrice || item.product.sellerPrice;
-      return sum + price * item.quantity;
-    }, 0);
-
-    if (found.minOrderValue && currentSubtotal < found.minOrderValue) {
-      return {
-        success: false,
-        message: `Min order value for ${found.code} is ₹${found.minOrderValue}. Add items worth ₹${
-          found.minOrderValue - currentSubtotal
-        } more.`,
-      };
-    }
-    setAppliedCoupon(found);
-    showToast(`Coupon ${found.code} applied successfully!`, 'success');
-    return { success: true, message: `Coupon ${found.code} applied!` };
-  };
-
-  const removeCoupon = () => {
-    setAppliedCoupon(null);
-    showToast('Coupon removed.', 'info');
-  };
-
-  // Cart Calculations
-  const cartCalculations = React.useMemo(() => {
-    const itemSubtotal = cart.reduce((sum, item) => {
-      const price = item.negotiatedPrice || item.product.sellerPrice;
-      return sum + price * item.quantity;
-    }, 0);
-
-    // Group items by seller to calculate seller-specific bill discounts
-    const sellerSpend: { [sellerId: string]: { sellerName: string; amount: number; seller: Seller | undefined } } = {};
-    cart.forEach(item => {
-      const sId = item.product.sellerId;
-      const price = item.negotiatedPrice || item.product.sellerPrice;
-      if (!sellerSpend[sId]) {
-        sellerSpend[sId] = {
-          sellerName: item.product.sellerName,
-          amount: 0,
-          seller: sellers.find(s => s.id === sId),
-        };
-      }
-      sellerSpend[sId].amount += price * item.quantity;
-    });
-
-    const activeBillDiscounts: { sellerId: string; sellerName: string; amount: number; description: string }[] = [];
-    let highestDeliveryThreshold = 499;
-    let baseDeliveryFee = 30;
-
-    Object.entries(sellerSpend).forEach(([sId, data]) => {
-      if (data.seller) {
-        if (data.seller.minOrderForFreeDelivery) {
-          highestDeliveryThreshold = Math.max(highestDeliveryThreshold, data.seller.minOrderForFreeDelivery);
-        }
-        if (data.seller.baseDeliveryFee) {
-          baseDeliveryFee = Math.max(baseDeliveryFee, data.seller.baseDeliveryFee);
-        }
-        if (data.seller.billDiscounts) {
-          data.seller.billDiscounts.forEach(bd => {
-            if (data.amount >= bd.minBillAmount) {
-              const discountVal = bd.flatDiscount || Math.round((data.amount * (bd.discountPercentage || 0)) / 100);
-              activeBillDiscounts.push({
-                sellerId: sId,
-                sellerName: data.sellerName,
-                amount: discountVal,
-                description: bd.description,
-              });
-            }
-          });
-        }
-      }
-    });
-
-    const totalBillDiscount = activeBillDiscounts.reduce((sum, bd) => sum + bd.amount, 0);
-
-    let couponDiscount = 0;
-    if (appliedCoupon) {
-      if (appliedCoupon.discountType === 'flat' || appliedCoupon.flatDiscount) {
-        couponDiscount = appliedCoupon.flatDiscount || appliedCoupon.discountValue || 0;
-      } else if (appliedCoupon.discountType === 'percentage' || appliedCoupon.discountPercentage) {
-        const pct = appliedCoupon.discountPercentage || appliedCoupon.discountValue || 0;
-        couponDiscount = Math.round((itemSubtotal * pct) / 100);
-        if (appliedCoupon.maxDiscount) {
-          couponDiscount = Math.min(couponDiscount, appliedCoupon.maxDiscount);
-        }
-      }
-    }
-
-    const isFreeDelivery = itemSubtotal >= highestDeliveryThreshold;
-    const deliveryFee = cart.length === 0 || isFreeDelivery ? 0 : baseDeliveryFee;
-    const freeDeliveryThresholdRemaining = Math.max(0, highestDeliveryThreshold - itemSubtotal);
-    const finalTotal = Math.max(0, itemSubtotal - totalBillDiscount - couponDiscount + deliveryFee);
-    const activeSeller = Object.values(sellerSpend)[0]?.seller;
-
-    return {
-      itemSubtotal,
-      subtotal: itemSubtotal,
-      couponDiscount,
-      billDiscounts: activeBillDiscounts,
-      totalBillDiscount,
-      billDiscount: totalBillDiscount,
-      deliveryFee,
-      isFreeDelivery,
-      freeDeliveryThresholdRemaining,
-      amountNeededForFreeDelivery: freeDeliveryThresholdRemaining,
-      freeDeliveryThreshold: highestDeliveryThreshold,
-      activeSeller,
-      finalTotal,
-    };
-  }, [cart, sellers, appliedCoupon]);
 
   // Order Actions
   const createOrder = async (orderData: {
