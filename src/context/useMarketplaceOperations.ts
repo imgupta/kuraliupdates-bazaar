@@ -7,11 +7,8 @@ import { adminApi } from '../services/domains/adminApi';
 import { deliveryApi } from '../services/domains/deliveryApi';
 
 type MarketplaceOperationsOptions = {
-  sellers: Seller[];
   setSellers: Dispatch<SetStateAction<Seller[]>>;
-  products: Product[];
   setProducts: Dispatch<SetStateAction<Product[]>>;
-  coupons: Coupon[];
   setCoupons: Dispatch<SetStateAction<Coupon[]>>;
   deliveryAgents: DeliveryAgent[];
   setDeliveryAgents: Dispatch<SetStateAction<DeliveryAgent[]>>;
@@ -36,7 +33,7 @@ type MarketplaceOperationsOptions = {
 };
 
 export const useMarketplaceOperations = ({
-  sellers, setSellers, products, setProducts, coupons, setCoupons,
+  setSellers, setProducts, setCoupons,
   deliveryAgents, setDeliveryAgents, orders, setOrders, user, setUser,
   setRoleState, cart, cartCalculations, clearCart, setTrackingOrderId,
   syncWithBackend, showToast,
