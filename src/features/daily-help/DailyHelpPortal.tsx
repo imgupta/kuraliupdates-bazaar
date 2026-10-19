@@ -4,7 +4,7 @@ import {
   Navigation, Phone, Power, RefreshCw, ShieldCheck, Timer, Wallet, XCircle, KeyRound
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { bazaarApi } from '../../services/api';
+import { dailyHelpProviderApi } from '../../services/domains/dailyHelpProviderApi';
 import { DailyHelpBooking, DailyHelpProfessional, DailyHelpProfessionalEarnings, DailyHelpSlot } from '../../types';
 import { KURALI_LOCALITIES } from '../../data/initialData';
 
@@ -51,7 +51,7 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
   const load = async (silent = false) => {
     if (!user.phone) return;
     if (!silent) setLoading(true);
-    const profile = await bazaarApi.getDailyHelpProfessionalByPhone(user.phone);
+    const profile = await dailyHelpProviderApi.getDailyHelpProfessionalByPhone(user.phone);
     if (!profile) {
       setProfessional(null);
       setLoading(false);
@@ -59,14 +59,14 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
     }
     setProfessional(profile);
     const [nextJobs, history, money] = await Promise.all([
-      bazaarApi.getDailyHelpProfessionalAvailableJobs(profile.professionalId),
-      bazaarApi.getDailyHelpProfessionalJobs(profile.professionalId),
-      bazaarApi.getDailyHelpProfessionalEarnings(profile.professionalId),
+      dailyHelpProviderApi.getDailyHelpProfessionalAvailableJobs(profile.professionalId),
+      dailyHelpProviderApi.getDailyHelpProfessionalJobs(profile.professionalId),
+      dailyHelpProviderApi.getDailyHelpProfessionalEarnings(profile.professionalId),
     ]);
     setAvailableJobs(nextJobs);
     setJobs(history);
     setEarnings(money);
-    const slotsForDate = await bazaarApi.getDailyHelpProfessionalSlots(profile.professionalId, slotDate);
+    const slotsForDate = await dailyHelpProviderApi.getDailyHelpProfessionalSlots(profile.professionalId, slotDate);
     setMySlots(slotsForDate as DailyHelpSlot[]);
     setLoading(false);
   };
@@ -75,7 +75,7 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
 
   useEffect(() => {
     if (!professional?.professionalId) return;
-    bazaarApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate).then(data => setMySlots(data as DailyHelpSlot[]));
+    dailyHelpProviderApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate).then(data => setMySlots(data as DailyHelpSlot[]));
   }, [professional?.professionalId, slotDate]);
 
   useEffect(() => {
@@ -105,7 +105,7 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
     }
     setRegistering(true);
     try {
-      const created = await bazaarApi.registerDailyHelpProfessional({ name, phone, locality });
+      const created = await dailyHelpProviderApi.registerDailyHelpProfessional({ name, phone, locality });
       if (!created) {
         showToast('Profile was not created. Check your signed-in mobile number and try again.', 'error');
         return;
@@ -124,7 +124,7 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
     if (!professional) return;
     setRefreshing(true);
     const next = professional.status === 'AVAILABLE' ? 'OFFLINE' : 'AVAILABLE';
-    const updated = await bazaarApi.updateDailyHelpProfessionalAvailability(
+    const updated = await dailyHelpProviderApi.updateDailyHelpProfessionalAvailability(
       professional.professionalId,
       next,
       professional.currentLocality
@@ -141,7 +141,7 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
 
   const accept = async (bookingId: string) => {
     if (!professional) return;
-    const result = await bazaarApi.acceptDailyHelpJob(professional.professionalId, bookingId);
+    const result = await dailyHelpProviderApi.acceptDailyHelpJob(professional.professionalId, bookingId);
     if (!result) {
       showToast('This job is no longer available.', 'error');
       await load(true);
@@ -153,7 +153,7 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
 
   const setStatus = async (booking: DailyHelpBooking, status: 'ARRIVING' | 'READY_TO_START') => {
     if (!professional) return;
-    const result = await bazaarApi.updateDailyHelpBookingStatus(booking.id, professional.professionalId, status);
+    const result = await dailyHelpProviderApi.updateDailyHelpBookingStatus(booking.id, professional.professionalId, status);
     if (!result) {
       showToast('Unable to update job status.', 'error');
       return;
@@ -169,7 +169,7 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
       showToast('Enter the 4-digit customer OTP.', 'error');
       return;
     }
-    const result = await bazaarApi.startDailyHelpBooking(booking.id, professional.professionalId, otp);
+    const result = await dailyHelpProviderApi.startDailyHelpBooking(booking.id, professional.professionalId, otp);
     if (!result) {
       showToast('OTP verification failed or the booking is not ready.', 'error');
       return;
@@ -181,7 +181,7 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
 
   const complete = async (booking: DailyHelpBooking) => {
     if (!professional) return;
-    const result = await bazaarApi.completeDailyHelpBooking(booking.id, professional.professionalId);
+    const result = await dailyHelpProviderApi.completeDailyHelpBooking(booking.id, professional.professionalId);
     if (!result) {
       showToast('Unable to complete the service.', 'error');
       return;
@@ -269,10 +269,10 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
         <button
           onClick={async () => {
             try {
-              const created = await bazaarApi.createDailyHelpProfessionalSlot(professional.professionalId, slotDate, slotStart, slotEnd);
+              const created = await dailyHelpProviderApi.createDailyHelpProfessionalSlot(professional.professionalId, slotDate, slotStart, slotEnd);
               if (created) {
                 showToast('Availability slot added.', 'success');
-                setMySlots(await bazaarApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate) as DailyHelpSlot[]);
+                setMySlots(await dailyHelpProviderApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate) as DailyHelpSlot[]);
               }
             } catch (err: any) {
               showToast(err?.message || 'Unable to add availability slot.', 'error');
@@ -294,8 +294,8 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
                 <button
                   onClick={async () => {
                     try {
-                      await bazaarApi.cancelDailyHelpProfessionalSlot(professional.professionalId, slot.slotId);
-                      setMySlots(await bazaarApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate) as DailyHelpSlot[]);
+                      await dailyHelpProviderApi.cancelDailyHelpProfessionalSlot(professional.professionalId, slot.slotId);
+                      setMySlots(await dailyHelpProviderApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate) as DailyHelpSlot[]);
                       showToast('Availability slot removed.', 'success');
                     } catch (err: any) {
                       showToast(err?.message || 'Unable to remove slot.', 'error');
