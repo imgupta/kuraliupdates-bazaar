@@ -40,3 +40,34 @@ test('API configuration and backend order mapping are shared modules', () => {
   assert.ok(orderMapping.includes('export const mapBackendOrder'));
   assert.ok(trackingApi.includes("from '../http/apiConfig'"));
 });
+
+
+test('seller, admin and Daily Help domain APIs own their HTTP operations', () => {
+  const legacyApi = read('../src/services/api.ts');
+  const sellerApi = read('../src/services/domains/sellerApi.ts');
+  const adminApi = read('../src/services/domains/adminApi.ts');
+  const dailyHelpApi = read('../src/services/domains/dailyHelpApi.ts');
+  const providerApi = read('../src/services/domains/dailyHelpProviderApi.ts');
+  const buyerApi = read('../src/services/domains/buyerApi.ts');
+
+  for (const method of ['getCurrentSeller', 'getSellerProducts', 'createSellerProduct', 'updateSellerProduct', 'deleteSellerProduct', 'getSellerOrders', 'updateSellerOrderStatus', 'getSellerDiscounts', 'createSellerDiscount', 'deleteSellerDiscount', 'registerSeller', 'addProduct']) {
+    assert.ok(sellerApi.includes(`${method}(`), `sellerApi should own ${method}`);
+    assert.ok(!legacyApi.includes(`${method}(`), `legacy API should not own ${method}`);
+  }
+  for (const method of ['getAdminDiagnostics', 'getAdminSellers', 'getAdminDeliveryAgents', 'getAdminSearchTrends', 'getAdminAnalytics', 'getPendingSellers', 'getAdminBuyers', 'getPendingDeliveryAgents', 'approveDeliveryAgent', 'rejectDeliveryAgent', 'approveSeller', 'rejectSeller']) {
+    assert.ok(adminApi.includes(`${method}(`), `adminApi should own ${method}`);
+    assert.ok(!legacyApi.includes(`${method}(`), `legacy API should not own ${method}`);
+  }
+  for (const method of ['getDailyHelpServices', 'createDailyHelpBooking', 'getDailyHelpAvailableSlots', 'getLatestDailyHelpBooking', 'getDailyHelpBooking']) {
+    assert.ok(dailyHelpApi.includes(`${method}(`), `dailyHelpApi should own ${method}`);
+    assert.ok(!legacyApi.includes(`${method}(`), `legacy API should not own ${method}`);
+    assert.ok(buyerApi.includes(`dailyHelpApi.${method}`));
+  }
+  for (const method of ['getDailyHelpProfessionalSlots', 'createDailyHelpProfessionalSlot', 'cancelDailyHelpProfessionalSlot', 'registerDailyHelpProfessional', 'getDailyHelpProfessionalByPhone', 'updateDailyHelpProfessionalAvailability', 'getDailyHelpProfessionalAvailableJobs', 'acceptDailyHelpJob', 'getDailyHelpProfessionalJobs', 'getDailyHelpProfessionalEarnings', 'updateDailyHelpBookingStatus', 'startDailyHelpBooking', 'completeDailyHelpBooking']) {
+    assert.ok(providerApi.includes(`${method}(`), `provider API should own ${method}`);
+    assert.ok(!legacyApi.includes(`${method}(`), `legacy API should not own ${method}`);
+  }
+  assert.ok(!sellerApi.includes('bazaarApi'));
+  assert.ok(!adminApi.includes('bazaarApi'));
+  assert.ok(!providerApi.includes('bazaarApi'));
+});
