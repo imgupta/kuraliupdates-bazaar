@@ -16,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -30,6 +31,7 @@ class OrderServiceTest {
     @Mock private OrderRepository orderRepository;
     @Mock private SellerRepository sellerRepository;
     @Mock private ProductRepository productRepository;
+    @Mock private JdbcTemplate jdbc;
     @InjectMocks private OrderService orderService;
 
     @Test
@@ -79,6 +81,22 @@ class OrderServiceTest {
                 () -> orderService.placeOrder(request("UPI", List.of(new OrderItemRequest("P-1", 1, null))), buyer()));
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
         verify(productRepository, never()).findLockedByProductId(anyString());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectsClientSuppliedNegotiatedPriceWithoutAcceptedServerOffer() {
+        SellerEntity seller = seller();
+        ProductEntity product = ProductEntity.builder().productId("P-1").seller(seller)
+                .title("Synthetic Test Product").sellerPrice(BigDecimal.valueOf(20))
+                .additionalDiscountPercent(BigDecimal.ZERO).stock(5).build();
+        when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.placeOrder(request("COD", List.of(
+                        new OrderItemRequest("P-1", 1, BigDecimal.valueOf(1), null))), buyer()));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
         verify(orderRepository, never()).save(any());
     }
 

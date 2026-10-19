@@ -8,5 +8,10 @@ import java.math.BigDecimal;
 public record OrderItemRequest(
         @NotBlank String productId,
         @NotNull @Positive Integer quantity,
-        BigDecimal negotiatedPrice
-) {}
+        BigDecimal negotiatedPrice,
+        String acceptedOfferId
+) {
+    public OrderItemRequest(String productId, Integer quantity, BigDecimal negotiatedPrice) {
+        this(productId, quantity, negotiatedPrice, null);
+    }
+}

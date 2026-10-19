@@ -25,7 +25,9 @@ export const NegotiationChatModal: React.FC = () => {
   if (!currentChat) return null;
 
   const targetProduct = products.find(p => p.id === currentChat.productId);
-  const basePrice = targetProduct ? targetProduct.sellerPrice : 500;
+  const basePrice = targetProduct
+    ? Math.round(targetProduct.sellerPrice * (1 - (targetProduct.additionalDiscountPercent || 0) / 100))
+    : currentChat.originalPrice ?? 500;
 
   const handleSendTextMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,10 +112,10 @@ export const NegotiationChatModal: React.FC = () => {
             </div>
           </div>
 
-          {currentChat.currentAgreedPrice && targetProduct && (
+          {role !== 'seller' && currentChat.currentAgreedPrice != null && targetProduct && (
             <button
               onClick={() => {
-                addToCart(targetProduct, 1, currentChat.currentAgreedPrice);
+                addToCart(targetProduct, 1, currentChat.currentAgreedPrice, currentChat.currentAgreedOfferId);
                 setIsCartOpen(true);
                 setActiveChatId(null);
               }}
@@ -222,22 +224,6 @@ export const NegotiationChatModal: React.FC = () => {
                         </div>
                       )}
 
-                      {/* If accepted and is buyer, show Add to Cart */}
-                      {msg.offer.status === 'accepted' && targetProduct && (
-                        <div className="mt-2 pt-2 border-t border-emerald-300/40">
-                          <button
-                            onClick={() => {
-                              addToCart(targetProduct, 1, msg.offer!.offeredPrice);
-                              setIsCartOpen(true);
-                              setActiveChatId(null);
-                            }}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 px-3 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
-                          >
-                            <ShoppingBag className="w-3.5 h-3.5" />
-                            Add to Cart at ₹{msg.offer.offeredPrice}
-                          </button>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>

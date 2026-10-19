@@ -77,6 +77,7 @@ export interface CartItem {
   product: Product;
   quantity: number;
   negotiatedPrice?: number; // if acquired through bargaining
+  acceptedOfferId?: string; // server-verified accepted offer; never trust negotiatedPrice alone
 }
 
 export interface DeliveryAgent {
@@ -186,7 +187,9 @@ export interface NegotiationChat {
   buyerEmail: string;
   messages: ChatMessage[];
   lastUpdated: string;
+  originalPrice?: number;
   currentAgreedPrice?: number;
+  currentAgreedOfferId?: string;
 }
 
 export type DailyHelpBookingStatus =

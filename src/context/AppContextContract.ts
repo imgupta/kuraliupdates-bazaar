@@ -93,7 +93,7 @@ interface AppContextType {
 
   // Cart
   cart: CartItem[];
-  addToCart: (product: Product, quantity?: number, negotiatedPrice?: number) => void;
+  addToCart: (product: Product, quantity?: number, negotiatedPrice?: number, acceptedOfferId?: string) => void;
   removeFromCart: (productId: string) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
