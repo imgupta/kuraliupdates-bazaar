@@ -119,8 +119,27 @@ test('application state persistence is centralized in a reusable hook', () => {
   assert.ok(persistenceHook.includes('export const usePersistedValue'));
   assert.ok(persistenceHook.includes('safeStorageSet(key'));
   assert.ok(persistenceHook.includes('safeStorageRemove(key)'));
-  for (const key of ['kurali_sellers', 'kurali_products', 'kurali_coupons', 'kurali_delivery_agents', 'kurali_orders', 'kurali_chats', 'kurali_cart', 'kurali_applied_coupon']) {
+  for (const key of ['kurali_sellers', 'kurali_products', 'kurali_coupons', 'kurali_delivery_agents', 'kurali_orders', 'kurali_chats']) {
     assert.ok(appContext.includes(`usePersistedValue('${key}'`), `AppContext should persist ${key} through the shared hook`);
   }
+  const commerce = read('../src/context/useBuyerCommerceState.ts');
+  for (const key of ['kurali_cart', 'kurali_applied_coupon']) {
+    assert.ok(commerce.includes(`usePersistedValue('${key}'`), `Buyer commerce hook should persist ${key} through the shared hook`);
+  }
   assert.doesNotMatch(appContext, /safeStorageSet\('kurali_(sellers|products|coupons|delivery_agents|orders|chats|cart)'/);
+});
+
+test('buyer cart and coupon state is isolated from the orchestration context', () => {
+  const commerce = read('../src/context/useBuyerCommerceState.ts');
+  const appContext = read('../src/context/AppContext.tsx');
+
+  for (const operation of ['addToCart', 'removeFromCart', 'updateCartQuantity', 'clearCart', 'applyCoupon', 'removeCoupon']) {
+    assert.ok(commerce.includes(`const ${operation} =`) || commerce.includes(`const ${operation}:`), `buyer commerce hook should own ${operation}`);
+  }
+  assert.ok(commerce.includes('cartCalculations'));
+  assert.ok(commerce.includes("safeStorageJson('kurali_cart'"));
+  assert.ok(commerce.includes("safeStorageJson('kurali_applied_coupon'"));
+  assert.ok(appContext.includes('useBuyerCommerceState(sellers, coupons, showToast)'));
+  assert.ok(appContext.includes('createOrder'));
+  assert.doesNotMatch(appContext, /const addToCart =|const applyCoupon =|const cartCalculations =/);
 });
