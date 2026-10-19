@@ -181,7 +181,7 @@ export const bazaarApi = {
           deliveryLatitude: (order as any).deliveryLatitude,
           deliveryLongitude: (order as any).deliveryLongitude,
           deliveryPlaceId: (order as any).deliveryPlaceId,
-          items: (order.items || []).map(item => ({ productId: item.product.id, quantity: item.quantity, negotiatedPrice: item.negotiatedPrice })),
+          items: (order.items || []).map(item => ({ productId: item.product.id, quantity: item.quantity, negotiatedPrice: item.negotiatedPrice, acceptedOfferId: item.acceptedOfferId })),
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
