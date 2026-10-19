@@ -64,7 +64,7 @@ export const negotiationChatApi = {
       method: 'POST',
       body: JSON.stringify({
         productId: product.id,
-        startingOfferPrice: startingOfferPrice ?? Math.round(product.sellerPrice * 0.9),
+        startingOfferPrice: startingOfferPrice ?? Math.round(product.sellerPrice * (1 - (product.additionalDiscountPercent || 0) / 100) * 0.9),
         openingMessage: `Hi, I'm interested in ${product.title}. Can you offer a better price?`,
       }),
     });
