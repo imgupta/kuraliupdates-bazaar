@@ -22,7 +22,7 @@ export const useNegotiationChatState = ({ role, user, showToast }: NegotiationCh
       if (requestInFlight.current || !localStorage.getItem('kurali_auth_token')) return;
       requestInFlight.current = true;
       try {
-        const remote = await negotiationChatApi.list();
+        const remote = await negotiationChatApi.list(role === 'seller' ? 'seller' : 'buyer');
         if (!disposed) setChats(remote);
       } catch (error) {
         if (notify && !disposed) showToast(error instanceof Error ? error.message : 'Unable to load bargaining conversations.', 'error');
@@ -77,7 +77,7 @@ export const useNegotiationChatState = ({ role, user, showToast }: NegotiationCh
       showToast('Conversation is still opening. Please try again in a moment.', 'info');
       return;
     }
-    void negotiationChatApi.send(chatId, text, offer).then(remote => {
+    void negotiationChatApi.send(chatId, text, role === 'seller' ? 'seller' : 'buyer', offer).then(remote => {
       setChats(prev => prev.map(item => item.id === remote.id ? remote : item));
     }).catch(error => showToast(error instanceof Error ? error.message : 'Message could not be sent.', 'error'));
   };
@@ -96,7 +96,7 @@ export const useNegotiationChatState = ({ role, user, showToast }: NegotiationCh
       showToast('Enter a valid counter-offer price.', 'error');
       return;
     }
-    void negotiationChatApi.respond(chatId, offerId, action, counterPrice).then(remote => {
+    void negotiationChatApi.respond(chatId, offerId, role === 'seller' ? 'seller' : 'buyer', action, counterPrice).then(remote => {
       setChats(prev => prev.map(item => item.id === remote.id ? remote : item));
       if (action === 'accept') showToast('Offer accepted. The agreed price is available for this buyer’s cart item.', 'success');
       else if (action === 'reject') showToast('Offer declined. The catalogue price remains unchanged.', 'info');
