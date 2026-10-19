@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Order } from '../../types';
-import { bazaarApi } from '../../services/api';
+import { deliveryApi } from '../../services/domains/deliveryApi';
 import { LiveOrderMap } from '../../components/shared/LiveOrderMap';
 
 
@@ -77,8 +77,8 @@ export const DeliveryDashboard: React.FC = () => {
       setDeliveryJobsLoading(true);
       try {
         const [remoteAgent, remoteJobs] = await Promise.all([
-          bazaarApi.getCurrentDeliveryAgent(),
-          bazaarApi.getDeliveryAvailableJobs(),
+          deliveryApi.getCurrentDeliveryAgent(),
+          deliveryApi.getDeliveryAvailableJobs(),
         ]);
         setBackendAgent(remoteAgent);
         setLiveAvailableOrders(remoteJobs as Order[]);
@@ -159,7 +159,7 @@ export const DeliveryDashboard: React.FC = () => {
       lastSentAt = now;
       lastLatitude = latitude;
       lastLongitude = longitude;
-      void bazaarApi.updateDeliveryLocation(agent.id, latitude, longitude);
+      void deliveryApi.updateDeliveryLocation(agent.id, latitude, longitude);
     };
 
     const watchId = navigator.geolocation.watchPosition(
@@ -221,7 +221,7 @@ export const DeliveryDashboard: React.FC = () => {
     if (resendingOtp[orderId] || (otpCooldowns[orderId] || 0) > Date.now()) return;
     setResendingOtp(prev => ({ ...prev, [orderId]: true }));
     try {
-      const result = await bazaarApi.resendDeliveryOtp(orderId);
+      const result = await deliveryApi.resendDeliveryOtp(orderId);
       showToast(result.message || 'Delivery OTP resent to the customer.', 'success');
       setOtpCooldowns(prev => ({ ...prev, [orderId]: Date.now() + 60_000 }));
     } catch (error: any) {
