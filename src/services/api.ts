@@ -4,16 +4,9 @@
  */
 
 import { Product, Seller, Order, OrderStatus, DeliveryAgent, DailyHelpService, DailyHelpBooking, DailyHelpProfessional, DailyHelpProfessionalEarnings } from '../types';
-
-export const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string) ||
-  'https://kuraliupdates-bazaar.onrender.com/api/v1';
-
-
-const adminAuthHeaders = (): Record<string, string> => {
-  const token = localStorage.getItem('kurali_auth_token');
-  return { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
-};
+import { mapBackendOrder, type BackendOrder } from '../entities/orderMapping';
+import { API_BASE_URL, adminAuthHeaders } from './http/apiConfig';
+export { API_BASE_URL } from './http/apiConfig';
 
 export interface BackendHealthResponse {
   status: string;
@@ -52,57 +45,6 @@ export interface BackendProduct {
   isFeatured?: boolean;
   tags?: string[] | string;
 }
-
-export interface BackendOrder {
-  orderId?: string;
-  id?: string;
-  buyerEmail: string;
-  buyerName: string;
-  buyerPhone: string;
-  deliveryAddress: string;
-  deliveryLocality: string;
-  totalAmount: number;
-  discountAmount?: number;
-  deliveryFee: number;
-  finalPayable?: number;
-  paymentMethod: string;
-  paymentStatus?: string;
-  status?: string;
-  deliveryOtp?: string;
-  deliveryAgentId?: string;
-  sellerId?: string;
-  deliveryAgent?: any;
-  placedAt?: string;
-  distanceKm?: number;
-  items?: { productId: string; title: string; quantity: number; unitPrice: number; negotiatedPrice?: number; totalPrice: number }[];
-}
-
-const mapBackendOrder = (bo: BackendOrder): Order => ({
-  id: bo.orderId || bo.id || '',
-  buyerName: bo.buyerName || '',
-  buyerPhone: bo.buyerPhone || '',
-  buyerEmail: bo.buyerEmail || '',
-  deliveryAddress: bo.deliveryAddress || '',
-  deliveryLocality: bo.deliveryLocality || 'Kurali',
-  items: (bo.items || []) as any,
-  sellerId: bo.sellerId || '',
-  sellerName: bo.deliveryAgent?.sellerName || 'Kurali Store',
-  sellerLocality: bo.deliveryAgent?.sellerLocality || bo.deliveryLocality || 'Kurali',
-  subtotal: Number((bo as any).subtotal ?? bo.totalAmount ?? 0),
-  billDiscountAmount: Number(bo.discountAmount || 0),
-  couponDiscountAmount: 0,
-  deliveryFee: Number(bo.deliveryFee || 0),
-  isFreeDelivery: Number(bo.deliveryFee || 0) === 0,
-  totalAmount: Number(bo.finalPayable ?? bo.totalAmount ?? 0),
-  paymentMethod: (bo.paymentMethod || 'COD') as Order['paymentMethod'],
-  paymentStatus: (bo.paymentStatus || 'pending') as Order['paymentStatus'],
-  status: String(bo.status || 'READY_FOR_PICKUP').toLowerCase() as OrderStatus,
-  placedAt: bo.placedAt || new Date().toISOString(),
-  deliveryAgentId: bo.deliveryAgentId,
-  deliveryOtp: bo.deliveryOtp || '',
-  distanceKm: Number(bo.distanceKm || 0),
-  statusUpdates: [],
-});
 
 export const bazaarApi = {
   /**
@@ -668,96 +610,6 @@ export const bazaarApi = {
   },
 
 
-  async updateDeliveryLocation(agentId: string, latitude: number, longitude: number): Promise<boolean> {
-    try {
-      const token = localStorage.getItem('kurali_auth_token');
-      const res = await fetch(`${API_BASE_URL}/tracking/delivery/${encodeURIComponent(agentId)}/location`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ latitude, longitude }),
-      });
-      return res.ok;
-    } catch (err) {
-      console.warn('Backend updateDeliveryLocation failed:', err);
-      return false;
-    }
-  },
-
-  /**
-   * Register a new delivery rider in Oracle DB
-   */
-  async registerDeliveryAgent(agent: Partial<DeliveryAgent>): Promise<any> {
-    try {
-      const res = await fetch(`${API_BASE_URL}/delivery/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: agent.name,
-          phone: agent.phone,
-          email: agent.email,
-          vehicleType: agent.vehicleType,
-          vehicleNumber: agent.vehicleNumber,
-          licenseNumber: agent.licenseNumber,
-          currentLocality: agent.currentLocality || 'Main Bazaar',
-        }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch (err) {
-      console.warn('Backend registerDeliveryAgent failed:', err);
-      return null;
-    }
-  },
-
-  /**
-   * Get available delivery jobs from Oracle DB
-   */
-  async getAvailableDeliveryJobs(): Promise<any[]> {
-    try {
-      const res = await fetch(`${API_BASE_URL}/delivery/jobs/available`, {
-        headers: { Accept: 'application/json' },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch (err) {
-      console.warn('Backend getAvailableDeliveryJobs failed:', err);
-      return [];
-    }
-  },
-
-  /**
-   * Delivery rider claims job in Oracle DB
-   */
-  async claimDeliveryJob(orderId: string, agentId: string): Promise<boolean> {
-    try {
-      const token = localStorage.getItem('kurali_auth_token');
-      if (!token) return false;
-      const res = await fetch(
-        `${API_BASE_URL}/delivery/jobs/${encodeURIComponent(orderId)}/claim?agentId=${encodeURIComponent(agentId)}`,
-        { method: 'POST', headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } }
-      );
-      return res.ok;
-    } catch (err) {
-      console.warn('Backend claimDeliveryJob failed:', err);
-      return false;
-    }
-  },
-  async verifyDeliveryOtp(orderId: string, otp: string): Promise<{ success: boolean; message: string }> {
-    try {
-      const token = localStorage.getItem('kurali_auth_token');
-      if (!token) return { success: false, message: 'Your session has expired.' };
-      const res = await fetch(`${API_BASE_URL}/delivery/jobs/${encodeURIComponent(orderId)}/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ otp }),
-      });
-      const data = await res.json().catch(() => ({}));
-      return { success: res.ok && data.success !== false, message: data.message || (res.ok ? 'OTP verified' : 'Unable to verify OTP') };
-    } catch (err: any) {
-      console.warn('Backend verifyDeliveryOtp failed:', err);
-      return { success: false, message: err.message || 'Failed to verify OTP' };
-    }
-  },
   async checkRegistration(email: string, phone: string, role: string): Promise<{ success: boolean; message: string; available?: boolean; existingAccount?: boolean }> {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/registration-check`, {
@@ -883,21 +735,6 @@ export const bazaarApi = {
     return { success: true, message: 'Logged out successfully' };
   },
 
-  async getDeliveryAvailableJobs(): Promise<any[]> {
-    try {
-      const token = localStorage.getItem('kurali_auth_token');
-      if (!token) return [];
-      const res = await fetch(`${API_BASE_URL}/delivery/jobs/available`, {
-        headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json().catch(() => []);
-      if (!res.ok) throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
-      return (Array.isArray(data) ? data : []).map(mapBackendOrder);
-    } catch (err) {
-      console.warn('Backend getAvailableDeliveryJobs failed:', err);
-      return [];
-    }
-  },
   async getDailyHelpServices(): Promise<DailyHelpService[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/daily-help/services`, { headers: { Accept: 'application/json' } });
