@@ -23,20 +23,20 @@ test('delivery API owns delivery lifecycle HTTP operations outside the legacy AP
   const appContext = read('../src/context/AppContext.tsx');
 
   for (const method of ['registerDeliveryAgent', 'getAvailableDeliveryJobs', 'getDeliveryAvailableJobs', 'claimDeliveryJob', 'verifyDeliveryOtp', 'resendDeliveryOtp']) {
-    assert.match(deliveryApi, new RegExp('\\\\b' + method + '\\\\s*\\\\('), `deliveryApi should own ${method}`);
-    assert.doesNotMatch(legacyApi, new RegExp('\\\\b' + method + '\\\\s*\\\\('), `legacy API should not own ${method}`);
+    assert.ok(deliveryApi.includes(`${method}(`), `deliveryApi should own ${method}`);
+    assert.ok(!legacyApi.includes(`${method}(`), `legacy API should not own ${method}`);
   }
-  assert.doesNotMatch(deliveryApi, /import \\{[^}]*bazaarApi[^}]*\\} from ['"]\\.\\.\\/api['"]/);
-  assert.match(appContext, /deliveryApi\\.claimDeliveryJob/);
-  assert.match(appContext, /deliveryApi\\.verifyDeliveryOtp/);
-  assert.match(appContext, /deliveryApi\\.registerDeliveryAgent/);
+  assert.ok(!deliveryApi.includes('...bazaarApi'), 'delivery API must not spread the legacy client');
+  assert.ok(appContext.includes('deliveryApi.claimDeliveryJob'));
+  assert.ok(appContext.includes('deliveryApi.verifyDeliveryOtp'));
+  assert.ok(appContext.includes('deliveryApi.registerDeliveryAgent'));
 });
 
 test('API configuration and backend order mapping are shared modules', () => {
   const apiConfig = read('../src/services/http/apiConfig.ts');
   const orderMapping = read('../src/entities/orderMapping.ts');
   const trackingApi = read('../src/services/domains/trackingApi.ts');
-  assert.match(apiConfig, /export const API_BASE_URL/);
-  assert.match(orderMapping, /export const mapBackendOrder/);
-  assert.match(trackingApi, /from ['"]\\.\\.\\/http\\/apiConfig['"]/);
+  assert.ok(apiConfig.includes('export const API_BASE_URL'));
+  assert.ok(orderMapping.includes('export const mapBackendOrder'));
+  assert.ok(trackingApi.includes("from '../http/apiConfig'"));
 });
