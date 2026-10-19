@@ -3,7 +3,6 @@ import {
   UserRole,
   Seller,
   Product,
-  CartItem,
   Coupon,
   DeliveryAgent,
   Order,
@@ -189,7 +188,7 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
 
   const buyerCommerce = useBuyerCommerceState(sellers, coupons, showToast);
   const {
-    cart, setCart, appliedCoupon, setAppliedCoupon, addToCart, removeFromCart,
+    cart, appliedCoupon, addToCart, removeFromCart,
     updateCartQuantity, clearCart, applyCoupon, removeCoupon, cartCalculations,
   } = buyerCommerce;
 
