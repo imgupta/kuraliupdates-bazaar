@@ -18,6 +18,7 @@ export const NegotiationChatModal: React.FC = () => {
 
   const [inputMessage, setInputMessage] = useState('');
   const [customOfferPrice, setCustomOfferPrice] = useState('');
+  const [counteringOfferId, setCounteringOfferId] = useState<string | null>(null);
 
   if (!activeChatId) return null;
 
@@ -38,6 +39,12 @@ export const NegotiationChatModal: React.FC = () => {
 
   const handleSendOffer = (offeredPrice: number) => {
     if (!targetProduct) return;
+    if (counteringOfferId) {
+      respondToOffer(activeChatId, counteringOfferId, 'counter', offeredPrice);
+      setCounteringOfferId(null);
+      setCustomOfferPrice('');
+      return;
+    }
     const offer = {
       id: `off-${Date.now()}`,
       productId: targetProduct.id,
@@ -257,22 +264,32 @@ export const NegotiationChatModal: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-1">
+            {counteringOfferId && (
+              <button
+                type="button"
+                onClick={() => { setCounteringOfferId(null); setCustomOfferPrice(''); }}
+                className="text-[10px] font-bold text-slate-500 hover:text-slate-800"
+                title="Cancel counter offer"
+              >Cancel counter</button>
+            )}
             <input
               type="number"
-              placeholder="₹ Custom"
+              min="0.01"
+              step="0.01"
+              placeholder={counteringOfferId ? "₹ Counter" : "₹ Custom"}
               value={customOfferPrice}
               onChange={e => setCustomOfferPrice(e.target.value)}
               className="w-20 px-2 py-1 text-xs bg-white border border-slate-200 rounded-md outline-none focus:border-amber-500"
             />
             <button
               onClick={() => {
-                const val = parseInt(customOfferPrice, 10);
+                const val = Number(customOfferPrice);
                 if (val > 0) handleSendOffer(val);
               }}
               disabled={!customOfferPrice}
               className="bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white px-2 py-1 rounded-md text-xs font-bold cursor-pointer"
             >
-              Propose
+              {counteringOfferId ? 'Send Counter' : 'Propose'}
             </button>
           </div>
         </div>
