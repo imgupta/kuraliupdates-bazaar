@@ -124,7 +124,8 @@ test('application state persistence is centralized in a reusable hook', () => {
     assert.ok(appContext.includes(`usePersistedValue('${key}'`), `AppContext should persist ${key} through the shared hook`);
   }
   const negotiation = read('../src/context/useNegotiationChatState.ts');
-  assert.ok(negotiation.includes("usePersistedValue('kurali_chats'"), 'Negotiation hook should own persisted chat state');
+  assert.ok(negotiation.includes('negotiationChatApi.list('), 'Negotiation hook should load server-backed conversations');
+  assert.ok(negotiation.includes('window.setInterval'), 'Negotiation hook should refresh conversations across devices');
   const commerce = read('../src/context/useBuyerCommerceState.ts');
   for (const key of ['kurali_cart', 'kurali_applied_coupon']) {
     assert.ok(commerce.includes(`usePersistedValue('${key}'`), `Buyer commerce hook should persist ${key} through the shared hook`);
@@ -167,7 +168,9 @@ test('negotiation chat state and bargaining actions are isolated from applicatio
   for (const operation of ['openChatForProduct', 'sendMessage', 'respondToOffer']) {
     assert.ok(negotiation.includes(`const ${operation}`), `negotiation hook should own ${operation}`);
   }
-  assert.ok(negotiation.includes("usePersistedValue('kurali_chats'"));
+  assert.ok(negotiation.includes('negotiationChatApi.open('));
+  assert.ok(negotiation.includes('negotiationChatApi.send('));
+  assert.ok(negotiation.includes('negotiationChatApi.respond('));
   assert.ok(appContext.includes('useNegotiationChatState({'));
   assert.ok(appContext.includes('const { chats, activeChatId, setActiveChatId, openChatForProduct, sendMessage, respondToOffer } = negotiationChat'));
   assert.doesNotMatch(appContext, /const openChatForProduct =|const sendMessage =|const respondToOffer =/);
