@@ -14,6 +14,8 @@ export const useNegotiationChatState = ({ role, user, showToast }: NegotiationCh
   const [chats, setChats] = useState<NegotiationChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const requestInFlight = useRef(false);
+  const showToastRef = useRef(showToast);
+  useEffect(() => { showToastRef.current = showToast; }, [showToast]);
   const identity = `${role}:${(user.email || '').toLowerCase()}`;
 
   useEffect(() => {
@@ -25,7 +27,7 @@ export const useNegotiationChatState = ({ role, user, showToast }: NegotiationCh
         const remote = await negotiationChatApi.list(role === 'seller' ? 'seller' : 'buyer');
         if (!disposed) setChats(remote);
       } catch (error) {
-        if (notify && !disposed) showToast(error instanceof Error ? error.message : 'Unable to load bargaining conversations.', 'error');
+        if (notify && !disposed) showToastRef.current(error instanceof Error ? error.message : 'Unable to load bargaining conversations.', 'error');
       } finally {
         requestInFlight.current = false;
       }
@@ -33,7 +35,7 @@ export const useNegotiationChatState = ({ role, user, showToast }: NegotiationCh
     void refresh(true);
     const timer = window.setInterval(() => void refresh(false), 4000);
     return () => { disposed = true; window.clearInterval(timer); };
-  }, [identity, showToast]);
+  }, [identity]);
 
   const openChatForProduct = (product: Product, startingOfferPrice?: number): string => {
     const email = (user.email || '').toLowerCase();
