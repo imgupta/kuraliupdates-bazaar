@@ -103,6 +103,8 @@ jobs:
       E2E_BASE_URL: "https://bazaar.kuraliupdates.com"
       E2E_API_BASE_URL: ${{ vars.E2E_API_BASE_URL || 'https://kuraliupdates-bazaar.onrender.com/api/v1' }}
       E2E_OTP_CAPTURE_TOKEN: ${{ secrets.E2E_OTP_CAPTURE_TOKEN }}
+      # Authenticated OTP tests stay disabled until the deployed staging backend's no-email capture mode has been verified.
+      E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED: ${{ vars.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED }}
       E2E_BUYER_IDENTITY: ${{ secrets.E2E_BUYER_IDENTITY }}
       E2E_SELLER_IDENTITY: ${{ secrets.E2E_SELLER_IDENTITY }}
       E2E_DELIVERY_IDENTITY: ${{ secrets.E2E_DELIVERY_IDENTITY }}
@@ -138,7 +140,7 @@ jobs:
         run: node scripts/production-smoke.mjs
       - name: Verify authenticated E2E configuration is complete
         run: |
-          node --input-type=module -e "const env=process.env; const required=['E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY','E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY']; const missing=required.filter(k=>!env[k]?.trim()); const api=new URL(env.E2E_API_BASE_URL); const valid=env.E2E_ENVIRONMENT==='staging' && api.protocol==='https:' && api.hostname==='kuraliupdates-bazaar.onrender.com' && api.pathname==='/api/v1' && (env.E2E_OTP_CAPTURE_TOKEN||'').length>=32; if(!valid||missing.length){console.error('Authenticated E2E is not configured. Check E2E_ENVIRONMENT, designated API URL, OTP token length, and all five role identity secrets. Missing identities:',missing.join(', ')||'none');process.exit(1)} console.log('Authenticated E2E configuration present for all five roles.');"
+          node --input-type=module -e "const env=process.env; if(env.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED!=='true'){console.log('Skipping authenticated OTP E2E: staging no-email OTP capture mode has not been explicitly verified.');process.exit(0)} const required=['E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY','E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY']; const missing=required.filter(k=>!env[k]?.trim()); const api=new URL(env.E2E_API_BASE_URL); const valid=env.E2E_ENVIRONMENT==='staging' && api.protocol==='https:' && api.hostname==='kuraliupdates-bazaar.onrender.com' && api.pathname==='/api/v1' && (env.E2E_OTP_CAPTURE_TOKEN||'').length>=32; if(!valid||missing.length){console.error('Authenticated E2E is not configured. Check staging targets, no-email confirmation, OTP token length, and all five role identity secrets. Missing identities:',missing.join(', ')||'none');process.exit(1)} console.log('Authenticated E2E configuration present for all five roles; staging no-email mode was explicitly confirmed.');"
       - name: Run browser E2E tests
         run: bunx playwright test
       - name: Upload Playwright report and traces
