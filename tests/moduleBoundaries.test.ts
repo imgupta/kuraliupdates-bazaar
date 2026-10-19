@@ -97,3 +97,17 @@ test('authentication session storage is centralized outside the application cont
   assert.ok(appContext.includes('clearStoredAuthState()'));
   assert.doesNotMatch(appContext, /kurali_auth_session|kurali_auth_token/);
 });
+
+
+test('shared authentication state is owned by AuthSessionProvider, not AppContext', () => {
+  const authSession = read('../src/context/AuthSessionContext.tsx');
+  const appContext = read('../src/context/AppContext.tsx');
+  assert.ok(authSession.includes('export const AuthSessionProvider'));
+  assert.ok(authSession.includes('export const useAuthSession'));
+  assert.ok(authSession.includes('setAuthInitializing'));
+  assert.ok(appContext.includes('const { user, setUser, role, setRoleState, authInitializing, setAuthInitializing } = useAuthSession()'));
+  assert.ok(appContext.includes('<AuthSessionProvider>'));
+  assert.doesNotMatch(appContext, /const \[user, setUser\] = useState/);
+  assert.doesNotMatch(appContext, /const \[role, setRoleState\] = useState/);
+  assert.doesNotMatch(appContext, /const \[authInitializing, setAuthInitializing\] = useState/);
+});
