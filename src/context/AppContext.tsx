@@ -35,35 +35,13 @@ import {
 
 import type { AppContextType } from './AppContextContract';
 import { safeStorageGet, safeStorageJson, safeStorageRemove, safeStorageSet } from '../shared/storage/safeStorage';
-import { clearStoredAuthState, hasStoredAuthSession, persistAuthSession, persistAuthToken, readAuthToken, readStoredAuthSession, readStoredRole, removeAuthSession, removeAuthToken } from '../auth/authSessionStorage';
+import { clearStoredAuthState, hasStoredAuthSession, persistAuthSession, persistAuthToken, readAuthToken, removeAuthSession, removeAuthToken } from '../auth/authSessionStorage';
+import { AuthSessionProvider, useAuthSession } from './AuthSessionContext';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile>(() => readStoredAuthSession() ?? {
-    email: '',
-    name: '',
-    avatarUrl: '',
-    phone: '',
-    locality: 'Main Bazaar & Clock Tower',
-    role: 'buyer',
-    isSignedIn: false,
-    phoneVerified: false,
-    emailVerified: false,
-  });
-
-  // Load role directly from signed-in user's role
-  const [role, setRoleState] = useState<UserRole>(() => readStoredRole());
-
-  // Automatically sync UI to user's assigned role upon sign-in
-  useEffect(() => {
-    if (user.isSignedIn && user.role) {
-      if (user.role !== 'admin') {
-        setRoleState(user.role);
-        safeStorageSet('kurali_role', user.role);
-      }
-    }
-  }, [user.isSignedIn, user.role]);
+const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, setUser, role, setRoleState, authInitializing, setAuthInitializing } = useAuthSession();
 
   const updateUserProfile = async (updates: Partial<UserProfile>): Promise<boolean> => {
     const token = readAuthToken();
@@ -187,7 +165,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // UI state
   const [registeredRoles, setRegisteredRoles] = useState<UserRole[]>(['buyer']);
-  const [authInitializing, setAuthInitializing] = useState(() => typeof window !== 'undefined' && (new URLSearchParams(window.location.search).has('sso_code') || new URLSearchParams(window.location.hash.slice(1)).has('sso_code')));
   const [selectedCityLocality, setSelectedCityLocality] = useState('All Localities (Kurali City)');
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [comparingProduct, setComparingProduct] = useState<Product | null>(null);
@@ -1449,6 +1426,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     </AppContext.Provider>
   );
 };
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <AuthSessionProvider>
+    <AppStateProvider>{children}</AppStateProvider>
+  </AuthSessionProvider>
+);
 
 export const useApp = () => {
   const context = useContext(AppContext);
