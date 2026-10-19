@@ -20,3 +20,13 @@ If automatic deployment does not start, use the Render dashboard to deploy the l
 - Never run transactional E2E tests against an unverified database target.
 - Do not print or commit credentials, wallet contents, OTP tokens, or other secrets.
 - Keep production-like smoke checks read-only; use dedicated synthetic identities only after isolation is confirmed.
+
+
+## Negotiation chat schema
+
+- The Oracle chat schema is applied by the versioned Flyway migration `V14__NegotiationChatSchema` during backend startup.
+- The migration is non-destructive and checks whether the chat tables and indexes already exist, so schemas initialized from `schema-oracle.sql` or the older runtime setup script are preserved.
+- Confirm the Render startup logs show Flyway completing migration 14 before checking `/api/v1/negotiations`.
+- Do not run `schema-oracle.sql` against an existing database; it rebuilds the application schema. The legacy `negotiation-chat-runtime.sql` is retained only as a manual recovery script.
+- Chat history is shared through Oracle. The browser polls the authenticated API for updates; messages are not stored solely in local browser storage.
+- A bargain changes only the negotiated cart/order-item unit price. Checkout validates the accepted offer ID and price against the chat tables; the catalogue product price is not updated.
