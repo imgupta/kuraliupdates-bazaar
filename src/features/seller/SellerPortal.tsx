@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Store, PlusCircle, Package, ShoppingBag, Percent, Trash2, Pencil, RefreshCw } from 'lucide-react';
+import { Store, PlusCircle, Package, ShoppingBag, Percent, Trash2, Pencil, RefreshCw, MessageSquare } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PRODUCT_CATEGORIES } from '../../data/initialData';
 import { Product, Seller } from '../../types';
 import { sellerApi } from '../../services/domains/sellerApi';
 import { mapSellerProduct } from '../../entities/sellerProduct';
+import { NegotiationChatModal } from '../../components/Buyer/NegotiationChatModal';
 
 
 export const SellerDashboard: React.FC = () => {
-  const { user, setIsSellerRegisterOpen, showToast } = useApp();
+  const { user, setIsSellerRegisterOpen, showToast, chats, setActiveChatId } = useApp();
   const [seller, setSeller] = useState<any | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
@@ -17,7 +18,7 @@ export const SellerDashboard: React.FC = () => {
   const [discountType, setDiscountType] = useState<'percentage' | 'flat'>('percentage');
   const [discountValue, setDiscountValue] = useState('5');
   const [discountDescription, setDiscountDescription] = useState('');
-  const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'add' | 'discounts'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'add' | 'discounts' | 'chats'>('inventory');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -141,6 +142,8 @@ export const SellerDashboard: React.FC = () => {
     () => orders.filter(o => ['DELIVERED', 'COMPLETED'].includes(String(o.status || '').toUpperCase())),
     [orders]
   );
+  const sellerChats = useMemo(() => chats.filter(chat => chat.sellerId === (seller?.sellerId || seller?.id || user.sellerId)), [chats, seller?.sellerId, seller?.id, user.sellerId]);
+  const pendingOffers = useMemo(() => sellerChats.reduce((count, chat) => count + chat.messages.filter(message => message.offer?.status === 'pending' && message.offer.senderRole === 'buyer').length, 0), [sellerChats]);
   const incomingOrders = useMemo(
     () => orders.filter(o => !['DELIVERED', 'COMPLETED', 'CANCELLED'].includes(String(o.status || '').toUpperCase())),
     [orders]
@@ -181,12 +184,51 @@ export const SellerDashboard: React.FC = () => {
         {[
           ['inventory', Package, `Store Inventory (${sellerProducts.length})`],
           ['orders', ShoppingBag, `Incoming Orders (${incomingOrders.length})`],
+          ['chats', MessageSquare, `Bargaining Chats (${sellerChats.length})${pendingOffers ? ` • ${pendingOffers} pending` : ''}`],
           ['add', PlusCircle, editingId ? 'Edit Product' : 'Upload New Product'],
           ['discounts', Percent, 'Bill Discounts'],
         ].map(([tab, Icon, label]: any) => (
           <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 whitespace-nowrap border-b-2 ${activeTab === tab ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500'}`}><Icon className="w-4 h-4" />{label}</button>
         ))}
       </div>
+
+      {activeTab === 'chats' && (
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm font-extrabold text-amber-900">Buyer bargaining inbox</p>
+            <p className="mt-1 text-xs text-amber-800">Open a conversation to reply, counter, accept, or decline a buyer's offer. An accepted price is applied to the buyer's cart item only; your catalogue price is not changed.</p>
+          </div>
+          {sellerChats.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
+              <MessageSquare className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+              <p className="text-sm font-bold text-slate-700">No bargaining chats yet</p>
+              <p className="mt-1 text-xs text-slate-500">Buyer conversations for this store will appear here when available in this browser session.</p>
+            </div>
+          ) : sellerChats.map(chat => {
+            const pending = chat.messages.filter(message => message.offer?.status === 'pending' && message.offer.senderRole === 'buyer').length;
+            const latest = chat.messages[chat.messages.length - 1];
+            return (
+              <button key={chat.id} onClick={() => setActiveChatId(chat.id)} className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-blue-300 hover:shadow-sm">
+                <div className="flex items-start gap-3">
+                  <img src={chat.productImage} alt="" className="h-12 w-12 rounded-xl border border-slate-100 object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="truncate text-sm font-extrabold text-slate-900">{chat.productTitle}</p>
+                      {pending > 0 && <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-extrabold text-amber-800">{pending} offer{pending > 1 ? 's' : ''} to review</span>}
+                    </div>
+                    <p className="mt-1 text-xs text-slate-600">Buyer: {chat.buyerName}</p>
+                    <p className="mt-1 truncate text-xs text-slate-500">{latest?.text || 'Conversation started'}</p>
+                    {chat.currentAgreedPrice != null && <p className="mt-1 text-xs font-bold text-emerald-700">Agreed price: ₹{chat.currentAgreedPrice}</p>}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+          <p className="text-[11px] text-slate-400">Note: chat state is currently browser-local; this inbox does not yet sync conversations across separate devices or browsers.</p>
+        </div>
+      )}
+
+      <NegotiationChatModal />
 
       {activeTab === 'inventory' && (
         <div className="space-y-4">
