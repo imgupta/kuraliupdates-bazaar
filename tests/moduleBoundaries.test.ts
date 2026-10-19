@@ -119,8 +119,12 @@ test('application state persistence is centralized in a reusable hook', () => {
   assert.ok(persistenceHook.includes('export const usePersistedValue'));
   assert.ok(persistenceHook.includes('safeStorageSet(key'));
   assert.ok(persistenceHook.includes('safeStorageRemove(key)'));
-  for (const key of ['kurali_sellers', 'kurali_products', 'kurali_coupons', 'kurali_delivery_agents', 'kurali_orders', 'kurali_chats', 'kurali_cart', 'kurali_applied_coupon']) {
+  for (const key of ['kurali_sellers', 'kurali_products', 'kurali_coupons', 'kurali_delivery_agents', 'kurali_orders', 'kurali_chats']) {
     assert.ok(appContext.includes(`usePersistedValue('${key}'`), `AppContext should persist ${key} through the shared hook`);
+  }
+  const commerce = read('../src/context/useBuyerCommerceState.ts');
+  for (const key of ['kurali_cart', 'kurali_applied_coupon']) {
+    assert.ok(commerce.includes(`usePersistedValue('${key}'`), `Buyer commerce hook should persist ${key} through the shared hook`);
   }
   assert.doesNotMatch(appContext, /safeStorageSet\('kurali_(sellers|products|coupons|delivery_agents|orders|chats|cart)'/);
 });
