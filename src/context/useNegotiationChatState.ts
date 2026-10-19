@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { BargainOffer, ChatMessage, NegotiationChat, Product, Seller, UserRole } from '../types';
 import { INITIAL_CHATS } from '../data/initialData';
 import { usePersistedValue } from './usePersistedValue';
@@ -21,10 +21,28 @@ export const useNegotiationChatState = ({ role, user, currentSeller, showToast }
   const [chats, setChats] = useState<NegotiationChat[]>(() => safeStorageJson('kurali_chats', INITIAL_CHATS));
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
 
+  // Keep separate tabs in the same browser in sync. This does not replace a
+  // server-backed chat API; it prevents a buyer and seller tab from displaying
+  // stale localStorage snapshots when they share a browser profile.
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== 'kurali_chats' || !event.newValue) return;
+      try {
+        const parsed = JSON.parse(event.newValue);
+        if (Array.isArray(parsed)) setChats(parsed as NegotiationChat[]);
+      } catch {
+        // Ignore malformed storage data and retain the last valid state.
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   usePersistedValue('kurali_chats', chats);
 
   const openChatForProduct = (product: Product, startingOfferPrice?: number): string => {
-    const existing = chats.find(c => c.productId === product.id && c.sellerId === product.sellerId);
+    const buyerEmail = user.email || (user.phone ? `${user.phone}@kuraliupdates.com` : 'shopper@kuraliupdates.com');
+    const existing = chats.find(c => c.productId === product.id && c.sellerId === product.sellerId && c.buyerEmail.toLowerCase() === buyerEmail.toLowerCase());
     if (existing) {
       setActiveChatId(existing.id);
       return existing.id;
@@ -39,7 +57,7 @@ export const useNegotiationChatState = ({ role, user, currentSeller, showToast }
       sellerId: product.sellerId,
       sellerName: product.sellerName,
       buyerName: user.name || 'Local Kurali Buyer',
-      buyerEmail: user.email || (user.phone ? `${user.phone}@kuraliupdates.com` : 'shopper@kuraliupdates.com'),
+      buyerEmail,
       lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       messages: [{
         id: `m-${Date.now()}-1`,
