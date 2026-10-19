@@ -10,41 +10,31 @@ This document inventories the environment variables, GitHub Actions repository v
 
 The workflow is pinned to the designated staging frontend `https://bazaar.kuraliupdates.com` and API `https://kuraliupdates-bazaar.onrender.com/api/v1`. Do not point E2E at real customer/production data.
 
-## A. GitHub Actions repository variables
+## A. Single GitHub Actions staging/test setting
 
-| Name | Example/value | Purpose and where used |
-|---|---|---|
-| `E2E_ENVIRONMENT` | `staging` | Explicit environment marker required by authenticated and transactional tests. Set in repository **Variables**. |
-| `E2E_API_BASE_URL` | `https://kuraliupdates-bazaar.onrender.com/api/v1` | API target used by authenticated tests; workflow validates the designated staging host/path. Set in repository **Variables**. |
-| `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED` | `true` only after verification | Operator confirmation that Render OTP capture is deployed, tokens match, and allowlisted test identities do not receive real OTP emails. Set in **Variables** only after end-to-end verification; otherwise leave unset/false. The workflow only honors it for manual/scheduled runs. |
-| `E2E_TRANSACTIONAL_FLOWS_ENABLED` | `true` to opt in | Enables mutating order and Daily Help lifecycle tests only on trusted manual/scheduled runs. You have said this is set. This does not bypass other fixture/target guards. |
-Transactional fixture IDs, booking parameters, synthetic buyer contact details, and the four lifecycle role tokens are now bundled in the single repository **secret** `E2E_TRANSACTIONAL_FIXTURES_JSON`; do not create individual `E2E_FLOW_*` repository variables or secrets. The workflow validates the JSON and exposes its fields only to the current E2E job.
-| `KURALI_API_BASE_URL` | `https://kuraliupdates-bazaar.onrender.com/api/v1` | Optional read-only smoke-test API URL. Workflow falls back to `KURALI_STAGING_API_BASE_URL`, then the fixed staging API URL. If set, it must match the approved host/path. |
-| `KURALI_STAGING_API_BASE_URL` | same approved API URL | Legacy/fallback variable for read-only smoke checks; prefer `KURALI_API_BASE_URL`. |
-| `CLOUDFLARE_REPORT_ACCESS_CONFIGURED` | `true` only after Access verification | Operator gate for publishing the Playwright HTML report to Cloudflare Pages. This flag does not configure Cloudflare Access by itself. |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID | Account used by the trusted-main report publishing job. |
-| `CLOUDFLARE_PAGES_PROJECT` | Pages project name | Cloudflare Pages project used for the private HTML report. |
+In repository **Settings → Secrets and variables → Actions → Secrets**, configure exactly one secret for the GitHub Actions testing/staging configuration:
 
-## B. GitHub Actions repository secrets
+- `E2E_STAGING_CONFIG_JSON`
 
-| Name | Purpose and where used |
-|---|---|
-| `E2E_OTP_CAPTURE_TOKEN` | Shared secret for the protected OTP-capture endpoint. Must match Render's `E2E_OTP_CAPTURE_TOKEN` and be at least 32 characters. Store in **Secrets**, never Variables or source control. |
-| `E2E_BUYER_IDENTITY` | Dedicated buyer identity for authenticated browser/login tests. |
-| `E2E_SELLER_IDENTITY` | Dedicated seller identity for authenticated browser/login tests. |
-| `E2E_DELIVERY_IDENTITY` | Dedicated active/approved delivery-agent identity for authenticated browser tests. |
-| `E2E_PROVIDER_IDENTITY` | Dedicated Daily Help provider identity for authenticated browser tests. |
-| `E2E_ADMIN_IDENTITY` | Existing authorized admin identity for authenticated browser tests. Do not grant admin rights just for a test without explicit approval. |
-| `E2E_TRANSACTIONAL_FIXTURES_JSON` | One JSON secret containing the four lifecycle role tokens and synthetic fixture data. See the schema below; never put it in a repository variable or commit it to source control. |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API token used only by the gated trusted-main report publishing job. Grant minimum required permissions. |
+It contains all GitHub Actions E2E/staging settings, identity values, OTP capture token, lifecycle role tokens, synthetic fixture IDs, booking parameters, and optional Cloudflare report-publishing settings. Do not create separate `E2E_*`, `KURALI_*`, or `CLOUDFLARE_*` repository variables/secrets for this workflow.
 
-The JSON secret must contain these keys (replace every example placeholder with actual dedicated staging values; these examples are not valid fixture IDs or credentials):
+Use this JSON shape and replace placeholders with actual dedicated staging values. Boolean flags must be JSON booleans, not strings. Leave optional Cloudflare fields out or set them to empty values if report publishing is not used.
+
 ```json
 {
+  "E2E_ENVIRONMENT": "staging",
+  "E2E_OTP_CAPTURE_TOKEN": "<same random secret configured in Render>",
+  "E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED": true,
+  "E2E_TRANSACTIONAL_FLOWS_ENABLED": true,
+  "E2E_BUYER_IDENTITY": "<dedicated buyer identity>",
+  "E2E_SELLER_IDENTITY": "<dedicated seller identity>",
+  "E2E_DELIVERY_IDENTITY": "<dedicated approved delivery-agent identity>",
+  "E2E_PROVIDER_IDENTITY": "<dedicated Daily Help provider identity>",
+  "E2E_ADMIN_IDENTITY": "<existing authorized admin identity>",
   "E2E_FLOW_BUYER_TOKEN": "<staging buyer bearer token>",
   "E2E_FLOW_SELLER_TOKEN": "<staging seller bearer token>",
-  "E2E_FLOW_DELIVERY_TOKEN": "<staging delivery bearer token>",
-  "E2E_FLOW_PROVIDER_TOKEN": "<staging Daily Help provider bearer token>",
+  "E2E_FLOW_DELIVERY_TOKEN": "<staging delivery-agent bearer token>",
+  "E2E_FLOW_PROVIDER_TOKEN": "<staging provider bearer token>",
   "E2E_FLOW_BUYER_PHONE": "<synthetic buyer phone>",
   "E2E_FLOW_BUYER_EMAIL": "<synthetic buyer email>",
   "E2E_FLOW_PRODUCT_ID": "E2E-<synthetic-product-id>",
@@ -55,12 +45,20 @@ The JSON secret must contain these keys (replace every example placeholder with 
   "E2E_FLOW_DAILY_HELP_SLOT_ID": "E2E-<synthetic-slot-id>",
   "E2E_FLOW_PROFESSIONAL_ID": "E2E-<synthetic-professional-id>",
   "E2E_FLOW_DAILY_HELP_START": "<valid ISO-8601 available slot time>",
-  "E2E_FLOW_DAILY_HELP_HOURS": "1"
+  "E2E_FLOW_DAILY_HELP_HOURS": "1",
+  "CLOUDFLARE_REPORT_ACCESS_CONFIGURED": false,
+  "CLOUDFLARE_ACCOUNT_ID": "",
+  "CLOUDFLARE_PAGES_PROJECT": "",
+  "CLOUDFLARE_API_TOKEN": ""
 }
 ```
-Keep all six IDs prefixed with `E2E-`; quantity and hours must be 1 or 2. The slot time must match a real available synthetic staging slot. Do not use real customer or production credentials.
 
-Tokens should be short-lived where feasible, scoped to staging, and rotated if exposed. Never paste secret values into documentation, issues, logs, or chat.
+Safety behavior:
+- The workflow pins the frontend to `https://bazaar.kuraliupdates.com` and the API to `https://kuraliupdates-bazaar.onrender.com/api/v1`; the JSON cannot override these hosts.
+- OTP suppression confirmation and mutating lifecycle tests are effective only on trusted manual/scheduled runs. PR/push runs cannot enable them through JSON.
+- Set `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED` to `true` only after verifying the Render OTP capture token matches, the allowlist contains only synthetic test identities, and those identities receive no real OTP emails.
+- Keep all six fixture IDs prefixed with `E2E-`. Quantity and duration must be integers from 1 to 2. Slot time must match a valid available synthetic staging slot.
+- Tokens and identities are secret values. Never commit this JSON, print it in logs, or paste it into issues or chat.
 
 ## C. Render backend environment variables for OTP capture
 
