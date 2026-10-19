@@ -457,3 +457,15 @@ This matrix separates existing evidence from missing proof. “CI passed” mean
 4. Keep read-only smoke checks separate from authenticated transactional E2E reporting.
 5. Preserve shared AppContext, auth/session storage, polling/timer cleanup and current API error semantics during extraction.
 
+
+
+## Runtime refactor implementation checkpoint — 19 October 2026
+
+The first runtime refactor is being prepared on `refactor/domain-api-boundaries` (not yet merged):
+
+1. Typed, domain-scoped API facades are introduced for Buyer booking/tracking, Seller, Delivery, Daily Help Provider, Admin, and shared tracking. Existing API implementations remain in `src/services/api.ts` for compatibility in this first step.
+2. Role screens and relevant components use their scoped facade, limiting the methods visible to each consumer at compile time.
+3. `AppContextType` is extracted to `src/context/AppContextContract.ts`.
+4. Guarded local-storage helpers are extracted to `src/shared/storage/safeStorage.ts` without changing storage keys or fallback behavior.
+
+This is an initial compatibility seam, not the completion of modularization. The remaining major runtime work is to move API implementations into domain files, then split AppContext state/actions/effects into tested domain hooks and shell state. These steps must preserve the existing backend API, authentication/session keys, polling/timer/geolocation cleanup, and UI behavior. No E2E or transactional staging tests are included in this workstream.
