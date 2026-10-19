@@ -111,7 +111,8 @@ public class NegotiationChatService {
                     "Counter offer: ₹" + request.counterPrice(), request.counterPrice(), "PENDING");
         } else if ("ACCEPT".equals(action)) {
             jdbc.update("UPDATE CHAT_MESSAGES SET OFFER_STATUS='ACCEPTED' WHERE MESSAGE_ID=? AND CHAT_ID=?", offerId, chatId);
-            jdbc.update("UPDATE NEGOTIATION_CHATS SET CURRENT_AGREED_PRICE=?, LAST_UPDATED=? WHERE CHAT_ID=?",
+            jdbc.update("UPDATE CHAT_MESSAGES SET OFFER_STATUS='REJECTED' WHERE CHAT_ID=? AND OFFER_PRICE IS NOT NULL AND OFFER_STATUS='PENDING' AND MESSAGE_ID<>?", chatId, offerId);
+            jdbc.update("UPDATE NEGOTIATION_CHATS SET CURRENT_AGREED_PRICE=?, LAST_UPDATED=? WHERE CHAT_ID=?,
                     acceptedPrice, Timestamp.valueOf(LocalDateTime.now()), chatId);
             insertMessage(chatId, role, safeName(user.getName(), role.equals("SELLER") ? "Seller" : "Buyer"),
                     "Offer accepted. Agreed item price: ₹" + acceptedPrice, null, null);
