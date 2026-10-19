@@ -134,15 +134,28 @@ export const bazaarApi = {
    */
   async searchProducts(query: string = ''): Promise<Product[]> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-      const res = await fetch(
-        `${API_BASE_URL}/buyers/products/search?query=${encodeURIComponent(query)}`,
-        { signal: controller.signal, headers: { Accept: 'application/json' } }
-      );
-      clearTimeout(timeoutId);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: BackendProduct[] = await res.json();
+      // The backend caps each response to keep catalogue queries bounded. Fetch
+      // successive pages here so existing screens continue to receive the full
+      // matching catalogue without requiring every caller to implement paging.
+      const pageSize = 100;
+      const data: BackendProduct[] = [];
+      for (let page = 0; ; page += 1) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        let res: Response;
+        try {
+          res = await fetch(
+            `${API_BASE_URL}/buyers/products/search?query=${encodeURIComponent(query)}&page=${page}&size=${pageSize}`,
+            { signal: controller.signal, headers: { Accept: 'application/json' } }
+          );
+        } finally {
+          clearTimeout(timeoutId);
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const pageData: BackendProduct[] = await res.json();
+        data.push(...pageData);
+        if (pageData.length < pageSize) break;
+      }
 
       if (query.trim()) {
         void fetch(`${API_BASE_URL}/analytics/search`, {
