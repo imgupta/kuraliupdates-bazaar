@@ -46,13 +46,17 @@ public class OtpService {
                 .createdAt(now)
                 .build();
 
+        // For allowlisted identities only, safely enabled staging E2E captures email OTPs
+        // in memory and must never send those codes to an external email provider.
         try {
-            deliveryService.sendOtp(identifier, type, otp, 10);
+            if (!e2eOtpCaptureService.shouldSuppressEmailDelivery(identifier, type)) {
+                deliveryService.sendOtp(identifier, type, otp, 10);
+            }
         } catch (Exception ex) {
             throw new ApiException(HttpStatus.BAD_GATEWAY, "Unable to deliver the verification code right now. Please try again later.");
         }
         repository.save(entity);
-        // This is a no-op unless explicitly enabled for allowlisted staging test identities.
+        // Capture is a no-op unless the staging feature is safely configured and identity allowlisted.
         e2eOtpCaptureService.capture(identifier, otp);
     }
 
