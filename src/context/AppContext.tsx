@@ -35,7 +35,7 @@ import {
 
 import type { AppContextType } from './AppContextContract';
 import { safeStorageGet, safeStorageJson, safeStorageRemove, safeStorageSet } from '../shared/storage/safeStorage';
-import { persistAuthSession, persistAuthToken, readAuthToken, readStoredAuthSession, readStoredRole, removeAuthSession, removeAuthToken } from '../auth/authSessionStorage';
+import { clearStoredAuthState, hasStoredAuthSession, persistAuthSession, persistAuthToken, readAuthToken, readStoredAuthSession, readStoredRole, removeAuthSession, removeAuthToken } from '../auth/authSessionStorage';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -409,7 +409,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (res.authenticated && res.user) {
           const u = res.user;
           const effectiveRole: UserRole = (u.role?.toLowerCase() as UserRole) || 'buyer';
-          const hadStoredSession = Boolean(safeStorageGet('kurali_auth_session'));
+          const hadStoredSession = hasStoredAuthSession();
           setUser(prev => ({
             ...prev,
             email: u.email,
@@ -704,9 +704,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (token) {
       bazaarApi.logout(token);
     }
-    removeAuthToken();
-    removeAuthSession();
-    safeStorageRemove('kurali_user');
+    clearStoredAuthState();
     setUser({
       email: '',
       name: '',
