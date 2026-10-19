@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Send, Tag, CheckCircle2, XCircle, ArrowRight, MessageSquare, AlertCircle, ShoppingBag } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -19,6 +19,12 @@ export const NegotiationChatModal: React.FC = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [customOfferPrice, setCustomOfferPrice] = useState('');
   const [counteringOfferId, setCounteringOfferId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCounteringOfferId(null);
+    setCustomOfferPrice('');
+    setInputMessage('');
+  }, [activeChatId]);
 
   if (!activeChatId) return null;
 
