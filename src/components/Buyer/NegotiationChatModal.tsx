@@ -227,6 +227,15 @@ export const NegotiationChatModal: React.FC = () => {
                             <CheckCircle2 className="w-3 h-3" /> Accept Offer
                           </button>
                           <button
+                            onClick={() => {
+                              setCounteringOfferId(msg.offer!.id);
+                              setCustomOfferPrice(String(Math.round((msg.offer!.offeredPrice + basePrice) / 2)));
+                            }}
+                            className="bg-blue-100 hover:bg-blue-200 text-blue-700 py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <ArrowRight className="w-3 h-3" /> Counter
+                          </button>
+                          <button
                             onClick={() =>
                               respondToOffer(currentChat.id, msg.offer!.id, 'reject')
                             }
