@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { BargainOffer, ChatMessage, NegotiationChat, Product, Seller, UserRole } from '../types';
 import { INITIAL_CHATS } from '../data/initialData';
 import { usePersistedValue } from './usePersistedValue';
+import { safeStorageJson } from '../shared/storage/safeStorage';
 
 type NegotiationUser = {
   name?: string;
@@ -17,7 +18,7 @@ type NegotiationChatOptions = {
 };
 
 export const useNegotiationChatState = ({ role, user, currentSeller, showToast }: NegotiationChatOptions) => {
-  const [chats, setChats] = useState<NegotiationChat[]>(() => INITIAL_CHATS);
+  const [chats, setChats] = useState<NegotiationChat[]>(() => safeStorageJson('kurali_chats', INITIAL_CHATS));
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
 
   usePersistedValue('kurali_chats', chats);
