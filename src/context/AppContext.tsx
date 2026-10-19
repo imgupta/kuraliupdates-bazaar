@@ -37,6 +37,7 @@ import type { AppContextType } from './AppContextContract';
 import { safeStorageGet, safeStorageJson, safeStorageRemove, safeStorageSet } from '../shared/storage/safeStorage';
 import { clearStoredAuthState, hasStoredAuthSession, persistAuthSession, persistAuthToken, readAuthToken, removeAuthSession, removeAuthToken } from '../auth/authSessionStorage';
 import { AuthSessionProvider, useAuthSession } from './AuthSessionContext';
+import { usePersistedValue } from './usePersistedValue';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -176,50 +177,17 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
   const [isGmailAuthOpen, setIsGmailAuthOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
 
-  // Sync with localStorage
-  useEffect(() => {
-    safeStorageSet('kurali_role', role);
-  }, [role]);
-
-  useEffect(() => {
-    safeStorageSet('kurali_user', JSON.stringify(user));
-  }, [user]);
-
-  useEffect(() => {
-    safeStorageSet('kurali_sellers', JSON.stringify(sellers));
-  }, [sellers]);
-
-  useEffect(() => {
-    safeStorageSet('kurali_products', JSON.stringify(products));
-  }, [products]);
-
-  useEffect(() => {
-    safeStorageSet('kurali_coupons', JSON.stringify(coupons));
-  }, [coupons]);
-
-  useEffect(() => {
-    safeStorageSet('kurali_delivery_agents', JSON.stringify(deliveryAgents));
-  }, [deliveryAgents]);
-
-  useEffect(() => {
-    safeStorageSet('kurali_orders', JSON.stringify(orders));
-  }, [orders]);
-
-  useEffect(() => {
-    safeStorageSet('kurali_chats', JSON.stringify(chats));
-  }, [chats]);
-
-  useEffect(() => {
-    safeStorageSet('kurali_cart', JSON.stringify(cart));
-  }, [cart]);
-
-  useEffect(() => {
-    if (appliedCoupon) {
-      safeStorageSet('kurali_applied_coupon', JSON.stringify(appliedCoupon));
-    } else {
-      safeStorageRemove('kurali_applied_coupon');
-    }
-  }, [appliedCoupon]);
+  // Persist domain state through a focused hook; initialization stays local to this provider.
+  usePersistedValue('kurali_role', role, { serialize: false });
+  usePersistedValue('kurali_user', user);
+  usePersistedValue('kurali_sellers', sellers);
+  usePersistedValue('kurali_products', products);
+  usePersistedValue('kurali_coupons', coupons);
+  usePersistedValue('kurali_delivery_agents', deliveryAgents);
+  usePersistedValue('kurali_orders', orders);
+  usePersistedValue('kurali_chats', chats);
+  usePersistedValue('kurali_cart', cart);
+  usePersistedValue('kurali_applied_coupon', appliedCoupon, { removeWhenNull: true });
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
     setToast({ message, type });
