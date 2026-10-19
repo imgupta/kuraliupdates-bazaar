@@ -93,6 +93,9 @@ public class NegotiationChatService {
         Map<String, Object> chat = requireChatParticipant(user, role, chatId);
         String action = request.action().trim().toUpperCase(Locale.ROOT);
         if (!List.of("ACCEPT", "REJECT", "COUNTER").contains(action)) throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported offer action");
+        // Serialize offer decisions per conversation. Locking only the selected offer
+        // allows two different pending offers in the same chat to be accepted concurrently.
+        jdbc.queryForObject("SELECT CHAT_ID FROM NEGOTIATION_CHATS WHERE CHAT_ID=? FOR UPDATE", String.class, chatId);
         List<Map<String, Object>> rows = jdbc.query("SELECT MESSAGE_ID,SENDER_ROLE,OFFER_PRICE,OFFER_STATUS FROM CHAT_MESSAGES WHERE CHAT_ID=? AND MESSAGE_ID=? FOR UPDATE",
                 (rs, row) -> {
                     Map<String, Object> item = new HashMap<>();
