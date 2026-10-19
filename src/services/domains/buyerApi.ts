@@ -5,7 +5,8 @@
  * Buyer profile and saved-address HTTP implementations live here so the shared
  * application context does not depend on the monolithic API client for them.
  */
-import { API_BASE_URL, bazaarApi } from '../api';
+import { API_BASE_URL } from '../http/apiConfig';
+import { bazaarApi } from '../api';
 import { trackingApi } from './trackingApi';
 
 export const buyerApi = {
