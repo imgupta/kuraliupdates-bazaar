@@ -143,3 +143,17 @@ test('buyer cart and coupon state is isolated from the orchestration context', (
   assert.ok(appContext.includes('createOrder'));
   assert.doesNotMatch(appContext, /const addToCart =|const applyCoupon =|const cartCalculations =/);
 });
+
+
+test('backend synchronization is isolated from the application orchestration context', () => {
+  const sync = read('../src/context/useBackendSync.ts');
+  const appContext = read('../src/context/AppContext.tsx');
+
+  for (const operation of ['checkHealth', 'getMyOrders', 'searchProducts', 'getPendingSellers', 'getPendingDeliveryAgents', 'getDeliveryAvailableJobs']) {
+    assert.ok(sync.includes(operation), `backend sync module should own ${operation}`);
+  }
+  assert.ok(sync.includes('export const useBackendSync'));
+  assert.ok(appContext.includes('useBackendSync({'));
+  assert.ok(appContext.includes('const { syncWithBackend } = useBackendSync'));
+  assert.doesNotMatch(appContext, /const syncDeliveryJobs = async|const syncWithBackend = async/);
+});

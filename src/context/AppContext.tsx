@@ -38,6 +38,7 @@ import { clearStoredAuthState, hasStoredAuthSession, persistAuthSession, persist
 import { AuthSessionProvider, useAuthSession } from './AuthSessionContext';
 import { usePersistedValue } from './usePersistedValue';
 import { useBuyerCommerceState } from './useBuyerCommerceState';
+import { useBackendSync } from './useBackendSync';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -217,128 +218,14 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
     isLoading: true,
   });
 
-  const syncDeliveryJobs = async () => {
-    const remoteJobs = await deliveryApi.getDeliveryAvailableJobs();
-    if (!remoteJobs.length) return;
-    setOrders(prev => {
-      const remoteIds = new Set(remoteJobs.map(o => o.id));
-      const localRemaining = prev.filter(o => !remoteIds.has(o.id) || o.status !== 'ready_for_pickup');
-      return [...remoteJobs, ...localRemaining];
-    });
-  };
-
-  const syncWithBackend = async () => {
-    setBackendStatus(prev => ({ ...prev, isLoading: true, error: undefined }));
-    try {
-      const health = await bazaarApi.checkHealth();
-      const isOnline = health.status === 'UP';
-      setBackendStatus({
-        isOnline,
-        status: health.status || (isOnline ? 'UP' : 'STANDALONE'),
-        database: health.database || 'Oracle Autonomous Database Connected',
-        lastSynced: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        isLoading: false,
-      });
-
-      await syncDeliveryJobs();
-
-      if (user.isSignedIn && user.role === 'buyer') {
-        const remoteBuyerOrders = await bazaarApi.getMyOrders();
-        if (remoteBuyerOrders.length > 0) {
-          setOrders(prev => {
-            const remoteIds = new Set(remoteBuyerOrders.map(order => order.id));
-            return [...remoteBuyerOrders, ...prev.filter(order => !remoteIds.has(order.id))];
-          });
-        }
-      }
-
-      // Synchronize Products from Oracle DB
-      const remoteProducts = await bazaarApi.searchProducts();
-      if (remoteProducts && remoteProducts.length > 0) {
-        setProducts(prev => {
-          const remoteIds = new Set(remoteProducts.map(p => p.id));
-          const localRemaining = prev.filter(p => !remoteIds.has(p.id));
-          return [...remoteProducts, ...localRemaining];
-        });
-      }
-
-      // Synchronize pending seller and delivery approvals from Oracle DB
-      const [remotePendingSellers, remotePendingAgents] = await Promise.all([
-        adminApi.getPendingSellers(),
-        adminApi.getPendingDeliveryAgents(),
-      ]);
-      if (remotePendingSellers?.length) {
-        setSellers(prev => {
-          const mapped = remotePendingSellers.map((s: any) => ({
-            id: s.sellerId,
-            name: s.storeName,
-            ownerName: s.ownerName,
-            email: s.email,
-            phone: s.phone,
-            avatarUrl: s.avatarUrl || '',
-            bannerUrl: s.bannerUrl || '',
-            category: s.category || 'General',
-            address: s.address,
-            locality: s.locality,
-            distanceKm: Number(s.distanceKm || 1),
-            rating: Number(s.rating || 0),
-            reviewCount: Number(s.reviewCount || 0),
-            status: String(s.status || 'PENDING').toLowerCase(),
-            registeredAt: s.registeredAt,
-            approvedAt: s.approvedAt,
-            description: s.description || '',
-            minOrderForFreeDelivery: Number(s.minOrderForFreeDelivery || 499),
-            baseDeliveryFee: Number(s.baseDeliveryFee || 35),
-            billDiscounts: [],
-          })) as Seller[];
-          const remoteIds = new Set(mapped.map(s => s.id));
-          return [...mapped, ...prev.filter(s => !remoteIds.has(s.id))];
-        });
-      }
-      if (remotePendingAgents?.length) {
-        setDeliveryAgents(prev => {
-          const mapped = remotePendingAgents.map((a: any) => ({
-            id: a.agentId,
-            name: a.fullName,
-            email: a.email,
-            phone: a.phone,
-            avatarUrl: a.avatarUrl || '',
-            vehicleType: a.vehicleType,
-            vehicleNumber: a.vehicleNumber,
-            licenseNumber: a.licenseNumber,
-            status: String(a.status || 'PENDING').toLowerCase(),
-            rating: Number(a.rating || 0),
-            totalTrips: Number(a.totalTrips || 0),
-            todayEarnings: Number(a.todayEarnings || 0),
-            totalEarnings: Number(a.totalEarnings || 0),
-            currentLocality: a.currentLocality,
-            registeredAt: a.registeredAt,
-          })) as DeliveryAgent[];
-          const remoteIds = new Set(mapped.map(a => a.id));
-          return [...mapped, ...prev.filter(a => !remoteIds.has(a.id))];
-        });
-      }
-
-      // Synchronize available pickup jobs from Oracle DB for the delivery dashboard.
-      const availableJobs = await deliveryApi.getDeliveryAvailableJobs();
-      setOrders(prev => {
-        const remoteIds = new Set(availableJobs.map(order => order.id));
-        const localWithoutRemoteReadyJobs = prev.filter(
-          order => !(order.status === 'ready_for_pickup' && remoteIds.has(order.id))
-        );
-        return [...availableJobs, ...localWithoutRemoteReadyJobs];
-      });
-    } catch (err: any) {
-      console.warn('Backend sync failed:', err);
-      setBackendStatus(prev => ({
-        ...prev,
-        isOnline: false,
-        status: 'STANDALONE',
-        isLoading: false,
-        error: err.message,
-      }));
-    }
-  };
+  const { syncWithBackend } = useBackendSync({
+    user,
+    setBackendStatus,
+    setOrders,
+    setProducts,
+    setSellers,
+    setDeliveryAgents,
+  });
 
   useEffect(() => {
     syncWithBackend();
