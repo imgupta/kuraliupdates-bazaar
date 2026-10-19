@@ -58,7 +58,8 @@ public class NegotiationChatService {
         if (!existing.isEmpty()) return getChatForKnownParticipant(existing.get(0));
 
         String chatId = "chat-" + UUID.randomUUID();
-        BigDecimal listPrice = (BigDecimal) product.get("sellerPrice");
+        BigDecimal listPrice = (BigDecimal) product.get("effectivePrice");
+        if (listPrice == null) listPrice = (BigDecimal) product.get("sellerPrice");
         BigDecimal offerPrice = request.startingOfferPrice() == null ? listPrice.multiply(new BigDecimal("0.90")).setScale(2, java.math.RoundingMode.HALF_UP) : request.startingOfferPrice();
         validatePrice(offerPrice, listPrice);
         jdbc.update("INSERT INTO NEGOTIATION_CHATS (CHAT_ID,PRODUCT_ID,SELLER_ID,BUYER_NAME,BUYER_EMAIL,LAST_UPDATED) VALUES (?,?,?,?,?,?)",
@@ -156,7 +157,8 @@ public class NegotiationChatService {
         chat.put("sellerStatus", rs.getString("SELLER_STATUS")); chat.put("sellerLocality", rs.getString("LOCALITY"));
         chat.put("buyerName", rs.getString("BUYER_NAME")); chat.put("buyerEmail", rs.getString("BUYER_EMAIL"));
         chat.put("currentAgreedPrice", rs.getBigDecimal("CURRENT_AGREED_PRICE")); chat.put("currentAgreedOfferId", rs.getString("ACCEPTED_OFFER_ID"));
-        chat.put("originalPrice", rs.getBigDecimal("SELLER_PRICE"));
+        BigDecimal effectivePrice = rs.getBigDecimal("EFFECTIVE_PRICE");
+        chat.put("originalPrice", effectivePrice == null ? rs.getBigDecimal("SELLER_PRICE") : effectivePrice);
         Timestamp updated = rs.getTimestamp("LAST_UPDATED");
         chat.put("lastUpdated", updated == null ? "" : updated.toLocalDateTime().format(DISPLAY_TIME));
         return chat;
