@@ -45,7 +45,7 @@ const normalizeChat = (raw: any): NegotiationChat => ({
       offeredPrice: Number(message.offer.offeredPrice),
       senderRole: String(message.offer.senderRole).toLowerCase() === 'seller' ? 'seller' : 'buyer',
       quantity: Number(message.offer.quantity || 1),
-      status: String(message.offer.status || 'pending').toLowerCase(),
+      status: String(message.offer.status || 'pending').toLowerCase() as BargainOffer['status'],
     } } : {}),
   })),
   lastUpdated: raw.lastUpdated || '',
