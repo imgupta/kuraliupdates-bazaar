@@ -18,15 +18,7 @@ The workflow is pinned to the designated staging frontend `https://bazaar.kurali
 | `E2E_API_BASE_URL` | `https://kuraliupdates-bazaar.onrender.com/api/v1` | API target used by authenticated tests; workflow validates the designated staging host/path. Set in repository **Variables**. |
 | `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED` | `true` only after verification | Operator confirmation that Render OTP capture is deployed, tokens match, and allowlisted test identities do not receive real OTP emails. Set in **Variables** only after end-to-end verification; otherwise leave unset/false. The workflow only honors it for manual/scheduled runs. |
 | `E2E_TRANSACTIONAL_FLOWS_ENABLED` | `true` to opt in | Enables mutating order and Daily Help lifecycle tests only on trusted manual/scheduled runs. You have said this is set. This does not bypass other fixture/target guards. |
-| `E2E_FLOW_PRODUCT_ID` | `E2E-...` | Dedicated synthetic product for the order checkout test. Must start with `E2E-`; stock must cover the configured quantity. |
-| `E2E_FLOW_SELLER_ID` | `E2E-...` | Dedicated synthetic seller ID associated with that product. |
-| `E2E_FLOW_DELIVERY_AGENT_ID` | `E2E-...` | Dedicated synthetic delivery-agent ID used to claim the test order. |
-| `E2E_FLOW_ORDER_QUANTITY` | `1` or `2` | Number of synthetic product units to order. Must be an integer from 1 to 2. |
-| `E2E_FLOW_DAILY_HELP_SERVICE_ID` | `E2E-...` | Dedicated synthetic Daily Help service ID. |
-| `E2E_FLOW_DAILY_HELP_SLOT_ID` | `E2E-...` | Dedicated synthetic booking slot ID with available capacity. |
-| `E2E_FLOW_PROFESSIONAL_ID` | `E2E-...` | Dedicated synthetic Daily Help professional ID assigned to the booking. |
-| `E2E_FLOW_DAILY_HELP_START` | ISO-8601 date/time | Scheduled start time for the synthetic Daily Help booking; use a valid future/available slot time compatible with the application. |
-| `E2E_FLOW_DAILY_HELP_HOURS` | `1` or `2` | Requested service duration, between 1 and 2 hours. |
+Transactional fixture IDs, booking parameters, synthetic buyer contact details, and the four lifecycle role tokens are now bundled in the single repository **secret** `E2E_TRANSACTIONAL_FIXTURES_JSON`; do not create individual `E2E_FLOW_*` repository variables or secrets. The workflow validates the JSON and exposes its fields only to the current E2E job.
 | `KURALI_API_BASE_URL` | `https://kuraliupdates-bazaar.onrender.com/api/v1` | Optional read-only smoke-test API URL. Workflow falls back to `KURALI_STAGING_API_BASE_URL`, then the fixed staging API URL. If set, it must match the approved host/path. |
 | `KURALI_STAGING_API_BASE_URL` | same approved API URL | Legacy/fallback variable for read-only smoke checks; prefer `KURALI_API_BASE_URL`. |
 | `CLOUDFLARE_REPORT_ACCESS_CONFIGURED` | `true` only after Access verification | Operator gate for publishing the Playwright HTML report to Cloudflare Pages. This flag does not configure Cloudflare Access by itself. |
@@ -43,13 +35,30 @@ The workflow is pinned to the designated staging frontend `https://bazaar.kurali
 | `E2E_DELIVERY_IDENTITY` | Dedicated active/approved delivery-agent identity for authenticated browser tests. |
 | `E2E_PROVIDER_IDENTITY` | Dedicated Daily Help provider identity for authenticated browser tests. |
 | `E2E_ADMIN_IDENTITY` | Existing authorized admin identity for authenticated browser tests. Do not grant admin rights just for a test without explicit approval. |
-| `E2E_FLOW_BUYER_TOKEN` | Staging-only bearer token for the synthetic buyer used by mutating lifecycle tests. |
-| `E2E_FLOW_SELLER_TOKEN` | Staging-only bearer token for the synthetic seller. |
-| `E2E_FLOW_DELIVERY_TOKEN` | Staging-only bearer token for the synthetic delivery agent. |
-| `E2E_FLOW_PROVIDER_TOKEN` | Staging-only bearer token for the synthetic Daily Help professional. |
-| `E2E_FLOW_BUYER_PHONE` | Synthetic buyer phone value used in order/booking payloads; use a test-only identity. |
-| `E2E_FLOW_BUYER_EMAIL` | Synthetic buyer email value used in the order payload; use a test-only identity. |
+| `E2E_TRANSACTIONAL_FIXTURES_JSON` | One JSON secret containing the four lifecycle role tokens and synthetic fixture data. See the schema below; never put it in a repository variable or commit it to source control. |
 | `CLOUDFLARE_API_TOKEN` | Cloudflare API token used only by the gated trusted-main report publishing job. Grant minimum required permissions. |
+
+The JSON secret must contain these keys (replace every example placeholder with actual dedicated staging values; these examples are not valid fixture IDs or credentials):
+```json
+{
+  "E2E_FLOW_BUYER_TOKEN": "<staging buyer bearer token>",
+  "E2E_FLOW_SELLER_TOKEN": "<staging seller bearer token>",
+  "E2E_FLOW_DELIVERY_TOKEN": "<staging delivery bearer token>",
+  "E2E_FLOW_PROVIDER_TOKEN": "<staging Daily Help provider bearer token>",
+  "E2E_FLOW_BUYER_PHONE": "<synthetic buyer phone>",
+  "E2E_FLOW_BUYER_EMAIL": "<synthetic buyer email>",
+  "E2E_FLOW_PRODUCT_ID": "E2E-<synthetic-product-id>",
+  "E2E_FLOW_SELLER_ID": "E2E-<synthetic-seller-id>",
+  "E2E_FLOW_DELIVERY_AGENT_ID": "E2E-<synthetic-delivery-agent-id>",
+  "E2E_FLOW_ORDER_QUANTITY": "1",
+  "E2E_FLOW_DAILY_HELP_SERVICE_ID": "E2E-<synthetic-service-id>",
+  "E2E_FLOW_DAILY_HELP_SLOT_ID": "E2E-<synthetic-slot-id>",
+  "E2E_FLOW_PROFESSIONAL_ID": "E2E-<synthetic-professional-id>",
+  "E2E_FLOW_DAILY_HELP_START": "<valid ISO-8601 available slot time>",
+  "E2E_FLOW_DAILY_HELP_HOURS": "1"
+}
+```
+Keep all six IDs prefixed with `E2E-`; quantity and hours must be 1 or 2. The slot time must match a real available synthetic staging slot. Do not use real customer or production credentials.
 
 Tokens should be short-lived where feasible, scoped to staging, and rotated if exposed. Never paste secret values into documentation, issues, logs, or chat.
 
