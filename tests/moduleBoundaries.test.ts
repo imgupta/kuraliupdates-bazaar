@@ -71,3 +71,13 @@ test('seller, admin and Daily Help domain APIs own their HTTP operations', () =>
   assert.ok(!adminApi.includes('bazaarApi'));
   assert.ok(!providerApi.includes('bazaarApi'));
 });
+
+
+test('portal shell lazy-loads authentication and buyer-only routes', () => {
+  const shell = read('../src/app/PortalAppShell.tsx');
+  assert.ok(shell.includes("lazy(() => import('../components/Auth/AuthPageV2')"));
+  assert.ok(shell.includes("lazy(() => import('../components/Auth/BuyerRegistrationPage')"));
+  assert.ok(shell.includes("lazy(() => import('../components/Buyer/BuyerAccountPage')"));
+  assert.ok(shell.includes('Suspense fallback={<PortalRouteLoading />}'));
+  assert.ok(!shell.includes("from '../components/Buyer/BuyerAccountPage'"));
+});
