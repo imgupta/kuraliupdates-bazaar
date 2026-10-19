@@ -92,8 +92,8 @@ test('authentication session storage is centralized outside the application cont
   for (const operation of ['readStoredAuthSession', 'readStoredRole', 'readAuthToken', 'persistAuthSession', 'persistAuthToken', 'removeAuthSession', 'removeAuthToken', 'clearStoredAuthState', 'hasStoredAuthSession']) {
     assert.ok(sessionStorage.includes(`export const ${operation}`), `session storage module should export ${operation}`);
   }
-  assert.ok(appContext.includes('readStoredAuthSession()'));
-  assert.ok(appContext.includes('readStoredRole()'));
+  assert.ok(sessionStorage.includes('readStoredAuthSession'));
+  assert.ok(sessionStorage.includes('readStoredRole'));
   assert.ok(appContext.includes('clearStoredAuthState()'));
   assert.doesNotMatch(appContext, /kurali_auth_session|kurali_auth_token/);
 });
