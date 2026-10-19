@@ -44,7 +44,7 @@ The suite has dedicated test cases for Buyer, Seller, Delivery Agent, Service Pr
 - `E2E_PROVIDER_IDENTITY`
 - `E2E_ADMIN_IDENTITY`
 
-Authenticated runs also require `E2E_ENVIRONMENT=staging`, the exact designated staging frontend/API targets, and `E2E_OTP_CAPTURE_TOKEN` of at least 32 characters. The token is used only to retrieve an OTP through the staging-only capture endpoint; OTPs are never stored in source control.
+Authenticated runs also require `E2E_ENVIRONMENT=staging`, the exact designated staging frontend/API targets, `E2E_OTP_CAPTURE_TOKEN` of at least 32 characters, and the repository variable `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED=true`. That confirmation must only be enabled after the staging backend's allowlisted no-email OTP capture mode is deployed and verified. The backend suppresses external email only for allowlisted staging E2E identities; the generated OTP is retrieved through the protected staging-only capture endpoint. OTPs are never stored in source control. Until the confirmation variable is enabled, authenticated OTP tests skip instead of requesting codes.
 
 Each role test sends one OTP request. If the endpoint returns HTTP 200, Playwright polls the protected capture endpoint for up to 90 seconds. If it returns HTTP 429, the test checks once for an already captured OTP and fails promptly with guidance if none is available. The test no longer sleeps 61 seconds or retries OTP sending. Use dedicated, allowlisted test identities; the backend's normal cooldown remains in force for ordinary identities and production.
 
@@ -58,3 +58,4 @@ Tests skip when required configuration or identity is absent. A green workflow j
 - Business-flow mutation coverage requires dedicated synthetic records and an explicitly verified isolated database/test-data strategy.
 - Playwright screenshots and videos are configured for every test; traces are retained on failure. Reports, screenshots, videos, traces, and test-results can contain sensitive data.
 - Cloudflare report publishing is restricted to trusted main-branch runs and gated by `CLOUDFLARE_REPORT_ACCESS_CONFIGURED=true`. That variable is only an operator confirmation; Cloudflare Access itself must be configured and verified. PR runs must not publish reports.
+- Vercel preview deployments are disabled for the Bazaar and all five role-portal projects. Pull requests run checks only; deployments must not be triggered from PRs. Production/main deployment settings are separate.
