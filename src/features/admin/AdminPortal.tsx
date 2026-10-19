@@ -26,7 +26,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { bazaarApi } from '../../services/api';
+import { adminApi } from '../../services/domains/adminApi';
 import { MarketTrendsVisualization } from '../../components/Admin/MarketTrendsVisualization';
 import { ROOT_ADMIN_EMAIL, isRootAdminEmail } from '../../data/initialData';
 
@@ -70,14 +70,14 @@ export const AdminDashboard: React.FC = () => {
     setAdminDataLoading(true);
     try {
       const [remoteSellers, remotePendingSellers, remoteAgents, analytics, remoteBuyers, searchTrends, remoteDailyHelpServices, remoteDailyHelpHelpers] = await Promise.all([
-        bazaarApi.getAdminSellers(),
-        bazaarApi.getPendingSellers(),
-        bazaarApi.getAdminDeliveryAgents(),
-        bazaarApi.getAdminAnalytics(),
-        bazaarApi.getAdminBuyers(),
-        bazaarApi.getAdminSearchTrends(),
-        bazaarApi.getAdminDailyHelpServices(),
-        bazaarApi.getAdminDailyHelpHelpers(),
+        adminApi.getAdminSellers(),
+        adminApi.getPendingSellers(),
+        adminApi.getAdminDeliveryAgents(),
+        adminApi.getAdminAnalytics(),
+        adminApi.getAdminBuyers(),
+        adminApi.getAdminSearchTrends(),
+        adminApi.getAdminDailyHelpServices(),
+        adminApi.getAdminDailyHelpHelpers(),
       ]);
       setAdminSellers(remoteSellers);
       setPendingSellerApplications(remotePendingSellers);
@@ -106,7 +106,7 @@ export const AdminDashboard: React.FC = () => {
     setDiagnosticsLoading(true);
     setDiagnosticsError(null);
     try {
-      const result = await bazaarApi.getAdminDiagnostics();
+      const result = await adminApi.getAdminDiagnostics();
       setDiagnostics(result);
     } catch (error: any) {
       setDiagnosticsError(error?.message || 'Could not load database diagnostics.');
@@ -121,7 +121,7 @@ export const AdminDashboard: React.FC = () => {
   }, [activeAdminTab, isRootAdmin]);
 
   const handleSellerDecision = async (sellerId: string, approve: boolean) => {
-    const ok = approve ? await bazaarApi.approveSeller(sellerId) : await bazaarApi.rejectSeller(sellerId);
+    const ok = approve ? await adminApi.approveSeller(sellerId) : await adminApi.rejectSeller(sellerId);
     if (!ok) {
       showToast('Unable to update seller status in the database.', 'error');
       return;
@@ -131,7 +131,7 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleDeliveryDecision = async (agentId: string, approve: boolean) => {
-    const ok = approve ? await bazaarApi.approveDeliveryAgent(agentId) : await bazaarApi.rejectDeliveryAgent(agentId);
+    const ok = approve ? await adminApi.approveDeliveryAgent(agentId) : await adminApi.rejectDeliveryAgent(agentId);
     if (!ok) {
       showToast('Unable to update delivery partner status in the database.', 'error');
       return;
@@ -158,8 +158,8 @@ export const AdminDashboard: React.FC = () => {
     };
     try {
       const saved = editingDailyHelpId
-        ? await bazaarApi.updateAdminDailyHelpService(editingDailyHelpId, payload)
-        : await bazaarApi.createAdminDailyHelpService(payload);
+        ? await adminApi.updateAdminDailyHelpService(editingDailyHelpId, payload)
+        : await adminApi.createAdminDailyHelpService(payload);
       if (!saved) { showToast('Unable to save Daily Help service.', 'error'); return; }
       showToast(editingDailyHelpId ? 'Daily Help service updated.' : 'Daily Help service added.', 'success');
       setEditingDailyHelpId(null);
@@ -505,7 +505,7 @@ export const AdminDashboard: React.FC = () => {
                                 const nextStatus = String(helper.status).toUpperCase() === 'AVAILABLE' ? 'OFFLINE' : 'AVAILABLE';
                                 setUpdatingHelperId(helper.professionalId);
                                 try {
-                                  const updated = await bazaarApi.updateAdminDailyHelpProfessionalAvailability(helper.professionalId, nextStatus, helper.currentLocality);
+                                  const updated = await adminApi.updateAdminDailyHelpProfessionalAvailability(helper.professionalId, nextStatus, helper.currentLocality);
                                   if (!updated) throw new Error('The server rejected this availability change. Confirm the admin role is authorized for this action.');
                                   showToast(nextStatus === 'AVAILABLE' ? 'Daily Help professional is now available.' : 'Daily Help professional is now offline.', 'success');
                                   await refreshAdminData();
