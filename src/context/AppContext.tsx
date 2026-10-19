@@ -6,13 +6,9 @@ import {
   Coupon,
   DeliveryAgent,
   Order,
-  OrderStatus,
 } from '../types';
 import { bazaarApi } from '../services/api';
 import { buyerApi } from '../services/domains/buyerApi';
-import { sellerApi } from '../services/domains/sellerApi';
-import { adminApi } from '../services/domains/adminApi';
-import { deliveryApi } from '../services/domains/deliveryApi';
 import { toSavedAddress, type SavedAddress } from '../entities/address';
 import { mapServerUser, type UserProfile } from '../entities/userProfile';
 export type { SavedAddress } from '../entities/address';
@@ -35,8 +31,8 @@ import { AuthSessionProvider, useAuthSession } from './AuthSessionContext';
 import { usePersistedValue } from './usePersistedValue';
 import { useBuyerCommerceState } from './useBuyerCommerceState';
 import { useBackendSync } from './useBackendSync';
-import { useNegotiationChatState } from './useNegotiationChatState';
 import { useMarketplaceOperations } from './useMarketplaceOperations';
+import { useNegotiationChatState } from './useNegotiationChatState';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -568,12 +564,8 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
     s => s.id === user.sellerId || (user.email && s.email.toLowerCase() === user.email.toLowerCase()) || (user.phone && s.phone === user.phone)
   );
 
-  // Keep the public AppContext contract while delegating bargaining behavior to its domain hook.
-  const negotiationChat = useNegotiationChatState({ role, user, currentSeller, showToast });
-  const { chats, activeChatId, setActiveChatId, openChatForProduct, sendMessage, respondToOffer } = negotiationChat;
-
   const marketplaceOperations = useMarketplaceOperations({
-    sellers, setSellers, products, setProducts, coupons, setCoupons,
+    setSellers, setProducts, setCoupons,
     deliveryAgents, setDeliveryAgents, orders, setOrders, user, setUser,
     setRoleState, cart, cartCalculations, clearCart, setTrackingOrderId,
     syncWithBackend, showToast,
@@ -584,11 +576,16 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
     createOrder, updateOrderStatus, claimDeliveryJob, completeDelivery, registerDeliveryAgent,
   } = marketplaceOperations;
 
+  // Keep the public AppContext contract while delegating bargaining behavior to its domain hook.
+  const negotiationChat = useNegotiationChatState({ role, user, currentSeller, showToast });
+  const { chats, activeChatId, setActiveChatId, openChatForProduct, sendMessage, respondToOffer } = negotiationChat;
+
   // Current Agent
   const currentAgent = deliveryAgents.find(
-    a => a.id === user.deliveryAgentId || (user.email && a.email && a.email.toLowerCase() === user.email.toLowerCase(t.', 'success');
-    deliveryApi.registerDeliveryAgent(newAgent);
-  };
+    a => a.id === user.deliveryAgentId || (user.email && a.email && a.email.toLowerCase() === user.email.toLowerCase()) || (user.phone && a.phone === user.phone)
+  );
+
+  // Seller Actions
 
 
   return (
