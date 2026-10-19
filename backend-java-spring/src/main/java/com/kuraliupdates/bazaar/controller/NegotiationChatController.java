@@ -20,8 +20,8 @@ public class NegotiationChatController {
     private final NegotiationChatService negotiationChatService;
 
     @GetMapping
-    public ResponseEntity<List<Map<String, Object>>> list(Authentication authentication) {
-        return ResponseEntity.ok(negotiationChatService.list(requireUser(authentication)));
+    public ResponseEntity<List<Map<String, Object>>> list(@RequestParam(defaultValue = "BUYER") String role, Authentication authentication) {
+        return ResponseEntity.ok(negotiationChatService.list(requireUser(authentication), role));
     }
 
     @PostMapping
@@ -30,13 +30,13 @@ public class NegotiationChatController {
     }
 
     @PostMapping("/{chatId}/messages")
-    public ResponseEntity<Map<String, Object>> send(@PathVariable String chatId, @RequestBody SendMessageRequest request, Authentication authentication) {
-        return ResponseEntity.ok(negotiationChatService.send(requireUser(authentication), chatId, request));
+    public ResponseEntity<Map<String, Object>> send(@PathVariable String chatId, @RequestHeader(value = "X-Active-Role", defaultValue = "BUYER") String role, @RequestBody SendMessageRequest request, Authentication authentication) {
+        return ResponseEntity.ok(negotiationChatService.send(requireUser(authentication), role, chatId, request));
     }
 
     @PostMapping("/{chatId}/offers/{offerId}/respond")
-    public ResponseEntity<Map<String, Object>> respond(@PathVariable String chatId, @PathVariable String offerId, @RequestBody RespondOfferRequest request, Authentication authentication) {
-        return ResponseEntity.ok(negotiationChatService.respond(requireUser(authentication), chatId, offerId, request));
+    public ResponseEntity<Map<String, Object>> respond(@PathVariable String chatId, @PathVariable String offerId, @RequestHeader(value = "X-Active-Role", defaultValue = "BUYER") String role, @RequestBody RespondOfferRequest request, Authentication authentication) {
+        return ResponseEntity.ok(negotiationChatService.respond(requireUser(authentication), role, chatId, offerId, request));
     }
 
     private UserEntity requireUser(Authentication authentication) {
