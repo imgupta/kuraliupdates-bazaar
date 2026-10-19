@@ -255,9 +255,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing repository variable CLOUDFLARE_ACCOUNT_ID"; exit 1; }
-          test -n "$CLOUDFLARE_PAGES_PROJECT" || { echo "Missing repository variable CLOUDFLARE_PAGES_PROJECT"; exit 1; }
-          test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing repository secret CLOUDFLARE_API_TOKEN"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing CLOUDFLARE_ACCOUNT_ID in E2E_STAGING_CONFIG_JSON"; exit 1; }
+          test -n "$CLOUDFLARE_PAGES_PROJECT" || { echo "Missing CLOUDFLARE_PAGES_PROJECT in E2E_STAGING_CONFIG_JSON"; exit 1; }
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing CLOUDFLARE_API_TOKEN in E2E_STAGING_CONFIG_JSON"; exit 1; }
           echo "Cloudflare credentials are present; report access-protection confirmation is enabled."
       - name: Download report artifact from this workflow run
         if: env.CLOUDFLARE_REPORT_ACCESS_CONFIGURED == 'true'
@@ -294,7 +294,7 @@ jobs:
             echo "## Playwright HTML report"
             echo
             echo "The report-only site was deployed after a trusted main-branch run."
-            echo "Access is expected to be restricted by the Cloudflare Access configuration confirmed in repository variable `CLOUDFLARE_REPORT_ACCESS_CONFIGURED=true`."
+            echo "Access is expected to be restricted by the Cloudflare Access configuration confirmed in `E2E_STAGING_CONFIG_JSON`."
             if [ -n "$REPORT_URL" ]; then
               echo
               echo "Deployment URL: $REPORT_URL"
