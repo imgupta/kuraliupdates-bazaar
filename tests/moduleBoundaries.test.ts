@@ -119,9 +119,11 @@ test('application state persistence is centralized in a reusable hook', () => {
   assert.ok(persistenceHook.includes('export const usePersistedValue'));
   assert.ok(persistenceHook.includes('safeStorageSet(key'));
   assert.ok(persistenceHook.includes('safeStorageRemove(key)'));
-  for (const key of ['kurali_sellers', 'kurali_products', 'kurali_coupons', 'kurali_delivery_agents', 'kurali_orders', 'kurali_chats']) {
+  for (const key of ['kurali_sellers', 'kurali_products', 'kurali_coupons', 'kurali_delivery_agents', 'kurali_orders']) {
     assert.ok(appContext.includes(`usePersistedValue('${key}'`), `AppContext should persist ${key} through the shared hook`);
   }
+  const negotiation = read('../src/context/useNegotiationChatState.ts');
+  assert.ok(negotiation.includes("usePersistedValue('kurali_chats'"), 'Negotiation hook should own persisted chat state');
   const commerce = read('../src/context/useBuyerCommerceState.ts');
   for (const key of ['kurali_cart', 'kurali_applied_coupon']) {
     assert.ok(commerce.includes(`usePersistedValue('${key}'`), `Buyer commerce hook should persist ${key} through the shared hook`);
@@ -144,6 +146,19 @@ test('buyer cart and coupon state is isolated from the orchestration context', (
   assert.doesNotMatch(appContext, /const addToCart =|const applyCoupon =|const cartCalculations =/);
 });
 
+
+test('negotiation chat state and bargaining actions are isolated from application orchestration', () => {
+  const negotiation = read('../src/context/useNegotiationChatState.ts');
+  const appContext = read('../src/context/AppContext.tsx');
+
+  for (const operation of ['openChatForProduct', 'sendMessage', 'respondToOffer']) {
+    assert.ok(negotiation.includes(`const ${operation}`), `negotiation hook should own ${operation}`);
+  }
+  assert.ok(negotiation.includes("usePersistedValue('kurali_chats'"));
+  assert.ok(appContext.includes('useNegotiationChatState({'));
+  assert.ok(appContext.includes('const { chats, activeChatId, setActiveChatId, openChatForProduct, sendMessage, respondToOffer } = negotiationChat'));
+  assert.doesNotMatch(appContext, /const openChatForProduct =|const sendMessage =|const respondToOffer =/);
+});
 
 test('backend synchronization is isolated from the application orchestration context', () => {
   const sync = read('../src/context/useBackendSync.ts');
