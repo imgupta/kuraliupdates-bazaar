@@ -54,8 +54,8 @@ const normalizeChat = (raw: any): NegotiationChat => ({
 });
 
 export const negotiationChatApi = {
-  async list(): Promise<NegotiationChat[]> {
-    const rows = await request<any[]>('/negotiations');
+  async list(role: 'buyer' | 'seller'): Promise<NegotiationChat[]> {
+    const rows = await request<any[]>(`/negotiations?role=${encodeURIComponent(role.toUpperCase())}`);
     return rows.map(normalizeChat);
   },
   async open(product: Product, startingOfferPrice?: number): Promise<NegotiationChat> {
@@ -69,16 +69,18 @@ export const negotiationChatApi = {
     });
     return normalizeChat(raw);
   },
-  async send(chatId: string, text: string, offer?: BargainOffer): Promise<NegotiationChat> {
+  async send(chatId: string, text: string, role: 'buyer' | 'seller', offer?: BargainOffer): Promise<NegotiationChat> {
     const raw = await request<any>(`/negotiations/${encodeURIComponent(chatId)}/messages`, {
       method: 'POST',
+      headers: { 'X-Active-Role': role.toUpperCase() },
       body: JSON.stringify({ text, ...(offer ? { offerPrice: offer.offeredPrice } : {}) }),
     });
     return normalizeChat(raw);
   },
-  async respond(chatId: string, offerId: string, action: 'accept' | 'reject' | 'counter', counterPrice?: number): Promise<NegotiationChat> {
+  async respond(chatId: string, offerId: string, role: 'buyer' | 'seller', action: 'accept' | 'reject' | 'counter', counterPrice?: number): Promise<NegotiationChat> {
     const raw = await request<any>(`/negotiations/${encodeURIComponent(chatId)}/offers/${encodeURIComponent(offerId)}/respond`, {
       method: 'POST',
+      headers: { 'X-Active-Role': role.toUpperCase() },
       body: JSON.stringify({ action, ...(counterPrice != null ? { counterPrice } : {}) }),
     });
     return normalizeChat(raw);
