@@ -112,7 +112,7 @@ public class NegotiationChatService {
         } else if ("ACCEPT".equals(action)) {
             jdbc.update("UPDATE CHAT_MESSAGES SET OFFER_STATUS='ACCEPTED' WHERE MESSAGE_ID=? AND CHAT_ID=?", offerId, chatId);
             jdbc.update("UPDATE CHAT_MESSAGES SET OFFER_STATUS='REJECTED' WHERE CHAT_ID=? AND OFFER_PRICE IS NOT NULL AND OFFER_STATUS='PENDING' AND MESSAGE_ID<>?", chatId, offerId);
-            jdbc.update("UPDATE NEGOTIATION_CHATS SET CURRENT_AGREED_PRICE=?, LAST_UPDATED=? WHERE CHAT_ID=?,
+            jdbc.update("UPDATE NEGOTIATION_CHATS SET CURRENT_AGREED_PRICE=?, LAST_UPDATED=? WHERE CHAT_ID=?",
                     acceptedPrice, Timestamp.valueOf(LocalDateTime.now()), chatId);
             insertMessage(chatId, role, safeName(user.getName(), role.equals("SELLER") ? "Seller" : "Buyer"),
                     "Offer accepted. Agreed item price: ₹" + acceptedPrice, null, null);
@@ -138,7 +138,7 @@ public class NegotiationChatService {
     }
 
     private Map<String, Object> getChatForKnownParticipant(String chatId) {
-        List<Map<String, Object>> rows = jdbc.query("SELECT c.CHAT_ID,c.PRODUCT_ID,c.SELLER_ID,c.BUYER_NAME,c.BUYER_EMAIL,c.CURRENT_AGREED_PRICE,p.TITLE,p.IMAGE_URL,p.SELLER_PRICE,p.EFFECTIVE_PRICE,s.STORE_NAME,s.STATUS AS SELLER_STATUS,s.LOCALITY FROM NEGOTIATION_CHATS c JOIN PRODUCTS p ON p.PRODUCT_ID=c.PRODUCT_ID JOIN SELLERS s ON s.SELLER_ID=c.SELLER_ID WHERE c.CHAT_ID=?",
+        List<Map<String, Object>> rows = jdbc.query("SELECT c.CHAT_ID,c.PRODUCT_ID,c.SELLER_ID,c.BUYER_NAME,c.BUYER_EMAIL,c.CURRENT_AGREED_PRICE,c.LAST_UPDATED,p.TITLE,p.IMAGE_URL,p.SELLER_PRICE,p.EFFECTIVE_PRICE,s.STORE_NAME,s.STATUS AS SELLER_STATUS,s.LOCALITY,(SELECT MAX(m.MESSAGE_ID) KEEP (DENSE_RANK LAST ORDER BY m.CREATED_AT) FROM CHAT_MESSAGES m WHERE m.CHAT_ID=c.CHAT_ID AND m.OFFER_STATUS='ACCEPTED') AS ACCEPTED_OFFER_ID FROM NEGOTIATION_CHATS c JOIN PRODUCTS p ON p.PRODUCT_ID=c.PRODUCT_ID JOIN SELLERS s ON s.SELLER_ID=c.SELLER_ID WHERE c.CHAT_ID=?",
                 (rs, row) -> chatMap(rs), chatId);
         if (rows.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "Conversation not found");
         Map<String, Object> chat = rows.get(0);
