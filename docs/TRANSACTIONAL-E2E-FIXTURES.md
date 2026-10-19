@@ -9,7 +9,7 @@ The browser suite in `e2e/order-daily-help-lifecycle.spec.ts` contains two opt-i
 
 These tests are **skipped by default**. They only run when `E2E_ENVIRONMENT=staging`, `E2E_TRANSACTIONAL_FLOWS_ENABLED=true`, the API URL is exactly `https://kuraliupdates-bazaar.onrender.com/api/v1`, and all required fixture variables are provided. This is the single owner-designated staging environment, so enable mutation tests only after verifying that the product, slot, users, seller, and delivery agent are dedicated synthetic records. Product, seller, slot, service, professional and agent fixture IDs must start with `E2E-`; the order quantity is capped at 2.
 
-Required secrets/variables:
+Required JSON keys inside the single GitHub Actions secret `E2E_STAGING_CONFIG_JSON`:
 - `E2E_FLOW_BUYER_TOKEN`, `E2E_FLOW_SELLER_TOKEN`, `E2E_FLOW_DELIVERY_TOKEN`, `E2E_FLOW_PROVIDER_TOKEN`
 - `E2E_FLOW_BUYER_PHONE`, `E2E_FLOW_BUYER_EMAIL`
 - `E2E_FLOW_PRODUCT_ID`, `E2E_FLOW_SELLER_ID`, `E2E_FLOW_DELIVERY_AGENT_ID`, `E2E_FLOW_ORDER_QUANTITY`
