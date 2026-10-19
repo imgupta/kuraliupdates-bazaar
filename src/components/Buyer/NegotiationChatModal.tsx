@@ -110,7 +110,7 @@ export const NegotiationChatModal: React.FC = () => {
             </div>
           </div>
 
-          {currentChat.currentAgreedPrice && targetProduct && (
+          {role !== 'seller' && currentChat.currentAgreedPrice != null && targetProduct && (
             <button
               onClick={() => {
                 addToCart(targetProduct, 1, currentChat.currentAgreedPrice);
@@ -223,7 +223,7 @@ export const NegotiationChatModal: React.FC = () => {
                       )}
 
                       {/* If accepted and is buyer, show Add to Cart */}
-                      {msg.offer.status === 'accepted' && targetProduct && (
+                      {role !== 'seller' && msg.offer.status === 'accepted' && targetProduct && (
                         <div className="mt-2 pt-2 border-t border-emerald-300/40">
                           <button
                             onClick={() => {
