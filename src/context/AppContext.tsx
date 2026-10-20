@@ -1,28 +1,10 @@
 import React, { createContext, useContext, useState } from 'react';
-import {
-  UserRole,
-  Seller,
-  Product,
-  Coupon,
-  DeliveryAgent,
-  Order,
-} from '../types';
+import { UserRole } from '../types';
 import type { UserProfile } from '../entities/userProfile';
 export type { SavedAddress } from '../entities/address';
 export type { UserProfile } from '../entities/userProfile';
-import {
-  INITIAL_SELLERS,
-  INITIAL_PRODUCTS,
-  INITIAL_COUPONS,
-  INITIAL_DELIVERY_AGENTS,
-  INITIAL_ORDERS,
-  ROOT_ADMIN_EMAIL,
-  ADMIN_EMAILS,
-  isRootAdminEmail,
-} from '../data/initialData';
-
 import type { AppContextType } from './AppContextContract';
-import { safeStorageGet, safeStorageJson, safeStorageSet } from '../shared/storage/safeStorage';
+import { safeStorageGet, safeStorageSet } from '../shared/storage/safeStorage';
 import { AuthSessionProvider, useAuthSession } from './AuthSessionContext';
 import { usePersistedValue } from './usePersistedValue';
 import { useBuyerCommerceState } from './useBuyerCommerceState';
@@ -32,59 +14,38 @@ import { useNegotiationChatState } from './useNegotiationChatState';
 import { useBuyerProfileOperations } from './useBuyerProfileOperations';
 import { useAuthBootstrap } from './useAuthBootstrap';
 import { useAuthOperations } from './useAuthOperations';
+import { useMarketplaceCollections } from './useMarketplaceCollections';
+import { usePortalUiState } from './usePortalUiState';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, setUser, role, setRoleState, authInitializing, setAuthInitializing } = useAuthSession();
 
-  const [sellers, setSellers] = useState<Seller[]>(() => {
-    return safeStorageJson('kurali_sellers', INITIAL_SELLERS);
-  });
+  const {
+    sellers, setSellers,
+    products, setProducts,
+    coupons, setCoupons,
+    deliveryAgents, setDeliveryAgents,
+    orders, setOrders,
+  } = useMarketplaceCollections();
 
-  const [products, setProducts] = useState<Product[]>(() => {
-    return safeStorageJson('kurali_products', INITIAL_PRODUCTS);
-  });
+  const {
+    registeredRoles, setRegisteredRoles,
+    selectedCityLocality, setSelectedCityLocality,
+    comparingProduct, setComparingProduct,
+    trackingOrderId, setTrackingOrderId,
+    isCartOpen, setIsCartOpen,
+    isSellerRegisterOpen, setIsSellerRegisterOpen,
+    isBuyerRegisterOpen, setIsBuyerRegisterOpen,
+    isDeliveryRegisterOpen, setIsDeliveryRegisterOpen,
+    isGmailAuthOpen, setIsGmailAuthOpen,
+    toast, showToast,
+  } = usePortalUiState();
 
-  const [coupons, setCoupons] = useState<Coupon[]>(() => {
-    return safeStorageJson('kurali_coupons', INITIAL_COUPONS);
-  });
-
-  const [deliveryAgents, setDeliveryAgents] = useState<DeliveryAgent[]>(() => {
-    return safeStorageJson('kurali_delivery_agents', INITIAL_DELIVERY_AGENTS);
-  });
-
-  const [orders, setOrders] = useState<Order[]>(() => {
-    return safeStorageJson('kurali_orders', INITIAL_ORDERS);
-  });
-
-  // UI state
-  const [registeredRoles, setRegisteredRoles] = useState<UserRole[]>(['buyer']);
-  const [selectedCityLocality, setSelectedCityLocality] = useState('All Localities (Kurali City)');
-  const [comparingProduct, setComparingProduct] = useState<Product | null>(null);
-  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isSellerRegisterOpen, setIsSellerRegisterOpen] = useState(false);
-  const [isBuyerRegisterOpen, setIsBuyerRegisterOpen] = useState(false);
-  const [isDeliveryRegisterOpen, setIsDeliveryRegisterOpen] = useState(false);
-  const [isGmailAuthOpen, setIsGmailAuthOpen] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
-
-  // Persist domain state through a focused hook; initialization stays local to this provider.
+  // Keep authentication persistence and session semantics centralized here.
   usePersistedValue('kurali_role', role, { serialize: false });
   usePersistedValue('kurali_user', user);
-  usePersistedValue('kurali_sellers', sellers);
-  usePersistedValue('kurali_products', products);
-  usePersistedValue('kurali_coupons', coupons);
-  usePersistedValue('kurali_delivery_agents', deliveryAgents);
-  usePersistedValue('kurali_orders', orders);
-
-  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
-    setToast({ message, type });
-    setTimeout(() => {
-      setToast(null);
-    }, 4000);
-  };
 
   const buyerProfile = useBuyerProfileOperations({ user, setUser, showToast });
   const {
