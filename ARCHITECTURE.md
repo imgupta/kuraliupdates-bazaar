@@ -119,3 +119,14 @@ There is a single deployed environment, and the owner designates it as staging. 
 5. Continue frontend modularisation by moving endpoint implementations from `src/services/api.ts` into domain API modules, then split remaining AppContext state/actions/effects into tested domain hooks. Preserve API contracts, session/storage keys, timers/polling/geolocation cleanup, error semantics, routes, and UI behavior.
 6. Refresh the deployment commit/status independently when a runtime change is merged; docs-only workflow PRs #154–#157 did not create a new Render backend build.
 
+
+
+## Quota-aware micro-frontend build boundary — 21 October 2026
+
+- Five role-specific HTML entry points and Vite build outputs exist: Buyer, Seller, Delivery, Daily Help Provider, and Admin.
+- The build pipeline now uses changed-path classification: portal-only feature/entry changes select only the affected portal builds; shared runtime, dependency, Vite config, CSS, or unknown runtime changes fan out to all role portals.
+- The combined Bazaar site remains a separate build target because it composes the role features. It is not being silently replaced by five new projects.
+- Vercel per-project Ignore Build Step commands are documented in `docs/MICROFRONTEND-BUILD-STRATEGY.md`. These commands must be configured and verified in each existing Vercel project; repository changes do not modify Vercel dashboard settings.
+- CI change detection fails safe: if commit comparison is unavailable, all five role portals are built. Documentation/test/workflow-only changes do not build role portals.
+- This is a quota-aware deployment seam, not yet five independent source repositories or Module Federation. Shared React context, API client and auth/session contracts remain in the monorepo.
+- No backend, database, secret, domain alias, Vercel project or staging business-data changes are included.

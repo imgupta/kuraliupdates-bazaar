@@ -504,3 +504,24 @@ This is an initial compatibility seam, not the completion of modularization. The
 5. Continue frontend modularisation by moving endpoint implementations from `src/services/api.ts` into domain API modules, then split remaining AppContext state/actions/effects into tested domain hooks. Preserve API contracts, session/storage keys, timers/polling/geolocation cleanup, error semantics, routes, and UI behavior.
 6. Refresh the deployment commit/status independently when a runtime change is merged; docs-only workflow PRs #154–#157 did not create a new Render backend build.
 
+
+
+## Quota-aware micro-frontend execution checkpoint — 21 October 2026
+
+### Implemented in branch `feat/quota-aware-microfrontends`
+
+- Added a shared build-impact classifier mapping role-specific feature folders, entry points and HTML files to Buyer, Seller, Delivery, Daily Help and Admin.
+- Added a Vercel Ignore Build Step script. Each portal project can skip a build when the changed files do not affect that portal; missing Git metadata/comparison errors deliberately proceed with the build.
+- Added an affected-portal build runner for GitHub Actions. It builds only changed role portals and verifies each selected output; if changed-file detection is unavailable, it builds all portals.
+- Added regression tests for portal-only changes, multi-portal changes, shared runtime changes, unknown paths, documentation/test/workflow-only changes, dependency changes and root HTML behavior.
+- CI retains the combined Bazaar production build and frontend/backend regression checks; it no longer always runs all five role builds on every code change.
+- Added per-project Vercel setup guidance in `docs/MICROFRONTEND-BUILD-STRATEGY.md`.
+
+### Deployment quota implications and remaining work
+
+- The scripts do not change Vercel project settings by themselves. Apply the corresponding Ignore Build Step command in each existing Vercel project's Settings → Git → Ignored Build Step.
+- Confirm actual project root, build command, output directory and domain aliases before enabling the ignore command. Do not create projects or reassign aliases automatically.
+- Verify with a docs-only commit, a Buyer-only change and a shared-runtime change that Vercel skips/builds the expected projects.
+- The combined Bazaar site still needs its own build for runtime changes while it includes the role feature code.
+- This phase optimizes build/deploy selection. It does not yet extract each portal into a separate package/repository or introduce Module Federation. Shared runtime/API/auth boundaries remain compatible with the existing app.
+- Transactional staging E2E remains disabled until the role/fixture preflight passes and synthetic-data isolation is confirmed.
