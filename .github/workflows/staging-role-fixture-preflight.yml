@@ -96,6 +96,7 @@ jobs:
 
           try {
             const tokens = {};
+            const mismatches = [];
             for (const [role, identityKey, expectedRole] of expected) {
               const identity = required(identityKey);
               const session = await postJson('/e2e/auth/token', { 'X-E2E-Flow-Token': sharedToken }, { role, identifier: identity });
@@ -108,19 +109,19 @@ jobs:
               if (role === 'BUYER') {
                 if (String(session.user?.phone ?? '') !== required('E2E_FLOW_BUYER_PHONE') ||
                     String(session.user?.email ?? '').toLowerCase() !== required('E2E_FLOW_BUYER_EMAIL').toLowerCase()) {
-                  throw new Error('Configured synthetic order/Daily Help buyer contact does not match the authenticated Buyer identity.');
+                  mismatches.push('BUYER contact identity');
                 }
               }
               if (role === 'SELLER') {
                 const seller = await getJson('/sellers/me', session.token);
                 if (String(seller.sellerId) !== syntheticId('E2E_FLOW_SELLER_ID')) {
-                  throw new Error('Configured seller fixture ID does not match the authenticated Seller profile.');
+                  mismatches.push('SELLER profile ID');
                 }
               }
               if (role === 'DELIVERY') {
                 const agent = await getJson('/delivery/me', session.token);
                 if (String(agent.agentId) !== syntheticId('E2E_FLOW_DELIVERY_AGENT_ID')) {
-                  throw new Error('Configured delivery fixture ID does not match the authenticated Delivery profile.');
+                  mismatches.push('DELIVERY profile ID');
                 }
               }
               if (role === 'PROVIDER') {
@@ -128,7 +129,7 @@ jobs:
                 if (!providerPhone) throw new Error('Provider session did not return a phone for profile verification.');
                 const profile = await getJson('/daily-help/professionals/by-phone/' + encodeURIComponent(providerPhone), session.token);
                 if (String(profile.professionalId) !== syntheticId('E2E_FLOW_PROFESSIONAL_ID')) {
-                  throw new Error('Configured professional fixture ID does not match the authenticated Provider profile.');
+                  mismatches.push('PROVIDER profile ID');
                 }
               }
               console.log('PASS: ' + role + ' session and corresponding profile identity verified.');
@@ -148,16 +149,16 @@ jobs:
             const actualSellerId = product.sellerId ?? product.seller?.sellerId;
             const stock = Number(product.stock ?? product.stockQty);
             const price = Number(product.effectivePrice ?? product.price ?? product.sellerPrice);
-            if (String(actualSellerId) !== sellerId) throw new Error('Synthetic product seller does not match E2E_FLOW_SELLER_ID.');
-            if (!Number.isFinite(stock) || stock < quantity) throw new Error('Synthetic product stock is insufficient for configured quantity.');
-            if (!Number.isFinite(price) || price <= 0) throw new Error('Synthetic product has no valid positive catalogue price.');
+            if (String(actualSellerId) !== sellerId) mismatches.push('PRODUCT seller ownership');
+            if (!Number.isFinite(stock) || stock < quantity) mismatches.push('PRODUCT stock quantity');
+            if (!Number.isFinite(price) || price <= 0) mismatches.push('PRODUCT catalogue price');
             console.log('PASS: synthetic product exists, seller matches, stock is sufficient, and catalogue price is valid.');
 
             const services = await getJson('/daily-help/services', tokens.BUYER);
             if (!Array.isArray(services)) throw new Error('Daily Help services endpoint did not return a list.');
             const serviceId = syntheticId('E2E_FLOW_DAILY_HELP_SERVICE_ID');
             const service = services.find(item => item.id === serviceId);
-            if (!service || service.active !== true) throw new Error('Configured synthetic Daily Help service is missing or inactive.');
+            if (!service || service.active !== true) mismatches.push('DAILY HELP service missing/inactive');
 
             const slotId = syntheticId('E2E_FLOW_DAILY_HELP_SLOT_ID');
             const professionalId = syntheticId('E2E_FLOW_PROFESSIONAL_ID');
@@ -172,21 +173,27 @@ jobs:
               '&requestedHours=' + encodeURIComponent(String(hours)) + '&locality=Kurali', tokens.BUYER);
             if (!Array.isArray(slots)) throw new Error('Daily Help availability endpoint did not return a list.');
             const slot = slots.find(item => item.slotId === slotId);
-            if (!slot) throw new Error('Configured synthetic Daily Help slot is not available for the configured date, duration and locality.');
-            if (String(slot.professionalId) !== professionalId) throw new Error('Daily Help slot does not belong to configured synthetic professional.');
-            if (String(slot.status ?? '').toUpperCase() !== 'AVAILABLE') throw new Error('Synthetic Daily Help slot is not AVAILABLE.');
-            const expectedTime = scheduledStart.slice(11, 16);
-            if (!/^\\d{2}:\\d{2}$/.test(expectedTime) || String(slot.startTime ?? '').slice(0, 5) !== expectedTime) {
-              throw new Error('Configured Daily Help start timestamp does not match the synthetic slot start time.');
-            }
-            const slotMinutes = (time) => {
-              const match = /^(\\d{2}):(\\d{2})/.exec(String(time ?? ''));
-              return match ? Number(match[1]) * 60 + Number(match[2]) : NaN;
-            };
-            if (slotMinutes(slot.endTime) - slotMinutes(slot.startTime) !== hours * 60) {
-              throw new Error('Configured Daily Help duration does not match the synthetic slot duration.');
+            if (!slot) {
+              mismatches.push('DAILY HELP slot availability');
+            } else {
+              if (String(slot.professionalId) !== professionalId) mismatches.push('DAILY HELP slot professional');
+              if (String(slot.status ?? '').toUpperCase() !== 'AVAILABLE') mismatches.push('DAILY HELP slot status');
+              const expectedTime = scheduledStart.slice(11, 16);
+              if (!/^\\d{2}:\\d{2}$/.test(expectedTime) || String(slot.startTime ?? '').slice(0, 5) !== expectedTime) {
+                mismatches.push('DAILY HELP slot start time');
+              }
+              const slotMinutes = (time) => {
+                const match = /^(\\d{2}):(\\d{2})/.exec(String(time ?? ''));
+                return match ? Number(match[1]) * 60 + Number(match[2]) : NaN;
+              };
+              if (slotMinutes(slot.endTime) - slotMinutes(slot.startTime) !== hours * 60) {
+                mismatches.push('DAILY HELP slot duration');
+              }
             }
             console.log('PASS: synthetic Daily Help service is active and the configured slot matches the expected professional, start time and duration.');
+            if (mismatches.length) {
+              throw new Error('Fixture/profile checks need configuration fixes: ' + [...new Set(mismatches)].join(', ') + '. No business transactions were attempted.');
+            }
             console.log('PASS: all five role sessions and both synthetic fixture families verified. No orders, bookings, inventory changes, OTPs, or customer records were created. Session tokens were not printed.');
           } catch (error) {
             console.error('PREFLIGHT FAILED: ' + (error?.message ?? 'unexpected failure') + '. No business transactions were attempted.');
