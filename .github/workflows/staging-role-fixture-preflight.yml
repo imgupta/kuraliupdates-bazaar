@@ -204,7 +204,7 @@ jobs:
                 }
               }
             }
-            console.log('PASS: synthetic Daily Help service is active and the configured slot matches the expected professional, start time and duration.');
+            console.log('Completed Daily Help service and slot preflight checks.');
             if (mismatches.length) {
               throw new Error('Fixture/profile checks need configuration fixes: ' + [...new Set(mismatches)].join(', ') + '. No business transactions were attempted.');
             }
