@@ -50,6 +50,19 @@ Once the explicit no-email confirmation is enabled, each role test sends one OTP
 
 Tests skip when required configuration or identity is absent. A green workflow job alone does not prove all five role tests executed; check the HTML report for each role's actual passed/skipped/failed result.
 
+## Static-secret flow authentication (transactional API E2E)
+
+Transactional lifecycle tests can obtain fresh server-side session tokens without sending OTPs. This is separate from the browser OTP-login tests above.
+
+1. Generate a high-entropy secret locally, for example with `openssl rand -hex 32`. Never commit it or paste it into a chat.
+2. Configure the backend environment with `E2E_FLOW_AUTH_ENV=staging` and `E2E_FLOW_AUTH_TOKEN=<the generated secret>`. Do not configure these on a production environment.
+3. Add the same secret as the GitHub Actions repository secret `E2E_FLOW_AUTH_TOKEN`.
+4. Keep the existing `E2E_BUYER_IDENTITY`, `E2E_SELLER_IDENTITY`, `E2E_DELIVERY_IDENTITY`, and `E2E_PROVIDER_IDENTITY` secrets configured with existing test accounts that actually have those roles.
+5. Once the endpoint is deployed, a transactional test exchanges the shared secret and one role identity at `POST /api/v1/e2e/auth/token`, receiving a normal application session token. The shared secret itself is never accepted as an API bearer token.
+6. The endpoint returns 404 unless the backend environment is exactly `staging`, the secret is at least 32 characters, and the secret matches. Role checks still apply; admin token issuance is limited to the configured root-admin account.
+
+The exchange endpoint skips OTP only for the test-token issuance operation; it does not change `/auth/send-otp` or `/auth/verify-otp`. It does not by itself authenticate a browser UI session. Browser UI login tests continue to require the separately verified OTP-capture setup. Do not enable mutating lifecycle tests until the database is confirmed isolated from real customer/order data.
+
 ## Safety
 
 - The repository's single deployed environment is designated staging by the owner. Keep authenticated E2E pinned to the approved staging host and API.
