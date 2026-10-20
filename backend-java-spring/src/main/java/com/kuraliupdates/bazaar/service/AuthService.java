@@ -373,9 +373,18 @@ public class AuthService {
         }
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
-        return new AuthResult(createSession(user),
+        return new AuthResult(createStagingE2eSessionToken(user),
                 UserResponse.from(user, addressService.findByUserId(user.getUserId())),
                 "Staging E2E session issued");
+    }
+
+    private String createStagingE2eSessionToken(UserEntity user) {
+        String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
+        LocalDateTime now = LocalDateTime.now();
+        sessionRepository.save(UserSessionEntity.builder()
+                .sessionToken(token).userId(user.getUserId())
+                .createdAt(now).expiresAt(now.plusHours(2)).build());
+        return token;
     }
 
     private String createSession(UserEntity user) {
