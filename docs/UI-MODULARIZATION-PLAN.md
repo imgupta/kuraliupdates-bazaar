@@ -525,3 +525,11 @@ This is an initial compatibility seam, not the completion of modularization. The
 - The combined Bazaar site still needs its own build for runtime changes while it includes the role feature code.
 - This phase optimizes build/deploy selection. It does not yet extract each portal into a separate package/repository or introduce Module Federation. Shared runtime/API/auth boundaries remain compatible with the existing app.
 - Transactional staging E2E remains disabled until the role/fixture preflight passes and synthetic-data isolation is confirmed.
+
+
+## Vercel quota configuration applied — 21 October 2026
+
+- PR [#159](https://github.com/imgupta/kuraliupdates-bazaar/pull/159) is merged at `c8e4932e13c4189cdfbb5206b9bc57c213a55495`.
+- Existing Vercel Ignore Build Step settings are configured for the five role projects and the combined Bazaar project. No project, alias, build command, or output directory was changed.
+- Main CI passed: [run 39487658093](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/39487658093). The changed-portal runner correctly skipped all five portal builds for this docs/build-support-only merge; combined production build, frontend regressions, backend tests, browser E2E/read-only smoke passed.
+- The ignore-build script is fail-open when commit comparison cannot be trusted. Portal-only/shared-runtime Vercel behavior remains to be confirmed on a naturally occurring runtime change.
