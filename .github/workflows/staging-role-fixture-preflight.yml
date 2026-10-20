@@ -175,7 +175,18 @@ jobs:
             if (!slot) throw new Error('Configured synthetic Daily Help slot is not available for the configured date, duration and locality.');
             if (String(slot.professionalId) !== professionalId) throw new Error('Daily Help slot does not belong to configured synthetic professional.');
             if (String(slot.status ?? '').toUpperCase() !== 'AVAILABLE') throw new Error('Synthetic Daily Help slot is not AVAILABLE.');
-            console.log('PASS: synthetic Daily Help service is active and the configured slot is available for the expected professional.');
+            const expectedTime = scheduledStart.slice(11, 16);
+            if (!/^\\d{2}:\\d{2}$/.test(expectedTime) || String(slot.startTime ?? '').slice(0, 5) !== expectedTime) {
+              throw new Error('Configured Daily Help start timestamp does not match the synthetic slot start time.');
+            }
+            const slotMinutes = (time) => {
+              const match = /^(\\d{2}):(\\d{2})/.exec(String(time ?? ''));
+              return match ? Number(match[1]) * 60 + Number(match[2]) : NaN;
+            };
+            if (slotMinutes(slot.endTime) - slotMinutes(slot.startTime) !== hours * 60) {
+              throw new Error('Configured Daily Help duration does not match the synthetic slot duration.');
+            }
+            console.log('PASS: synthetic Daily Help service is active and the configured slot matches the expected professional, start time and duration.');
             console.log('PASS: all five role sessions and both synthetic fixture families verified. No orders, bookings, inventory changes, OTPs, or customer records were created. Session tokens were not printed.');
           } catch (error) {
             console.error('PREFLIGHT FAILED: ' + (error?.message ?? 'unexpected failure') + '. No business transactions were attempted.');
