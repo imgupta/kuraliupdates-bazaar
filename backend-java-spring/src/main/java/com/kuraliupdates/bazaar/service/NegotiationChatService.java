@@ -54,7 +54,7 @@ public class NegotiationChatService {
         // Serialize concurrent conversation creation for the same product. The
         // product row is the shared lock, so rapid double-clicks cannot create
         // duplicate buyer/product conversations even without a schema constraint.
-        Map<String, Object> product = jdbc.query("SELECT p.PRODUCT_ID,p.TITLE,p.IMAGE_URL,p.SELLER_ID,p.SELLER_PRICE,p.EFFECTIVE_PRICE,s.STORE_NAME,s.STATUS,s.LOCALITY FROM PRODUCTS p JOIN SELLERS s ON s.SELLER_ID=p.SELLER_ID WHERE p.PRODUCT_ID=? FOR UPDATE",
+        Map<String, Object> product = jdbc.query("SELECT p.PRODUCT_ID,p.TITLE,p.IMAGE_URL,p.SELLER_ID,p.SELLER_PRICE,p.EFFECTIVE_PRICE,s.STORE_NAME,s.STATUS,s.LOCALITY FROM PRODUCTS p JOIN SELLERS s ON s.SELLER_ID=p.SELLER_ID WHERE p.PRODUCT_ID=? FOR UPDATE OF p.PRODUCT_ID",
                 rs -> rs.next() ? productMap(rs) : null, request.productId().trim());
         if (product == null) throw new ApiException(HttpStatus.NOT_FOUND, "Product not found");
         if (!"APPROVED".equalsIgnoreCase(Objects.toString(product.get("sellerStatus"), ""))) throw new ApiException(HttpStatus.CONFLICT, "This seller is not currently approved");
