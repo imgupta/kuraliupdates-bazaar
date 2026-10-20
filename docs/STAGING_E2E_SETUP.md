@@ -15,28 +15,22 @@ Use a generated secret, not a password reused elsewhere. Include only dedicated 
 
 If the service restarts between OTP generation and retrieval, request a new OTP. This mechanism is not a production authentication feature; keep it disabled outside the designated staging environment.
 
-## GitHub Actions variables
+## GitHub Actions configuration
 
-In repository **Settings → Secrets and variables → Actions**, configure:
+In repository **Settings → Secrets and variables → Actions → Secrets**, configure exactly one secret named `E2E_STAGING_CONFIG_JSON`. Put the E2E environment marker, OTP capture token, suppression confirmation, five role identities, lifecycle opt-in, four lifecycle role tokens, synthetic fixture data, and optional Cloudflare report settings in this JSON. See [`E2E_VARIABLES_REFERENCE.md`](E2E_VARIABLES_REFERENCE.md) for the complete schema. Do not create separate GitHub Actions variables/secrets for these settings.
 
-### Variables
+### JSON configuration and Render alignment
 
-- `E2E_ENVIRONMENT=staging`
-- `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED=true` **only after** the Render staging backend has the three capture settings above, the OTP token matches, the allowlist contains only dedicated synthetic test identities, and the no-email behavior has been verified. Leave unset/false until then; authenticated OTP browser tests remain skipped.
-- `E2E_API_BASE_URL=https://kuraliupdates-bazaar.onrender.com/api/v1` (the current workflow's exact allowed API target)
+The JSON secret includes `E2E_ENVIRONMENT`, `E2E_OTP_CAPTURE_TOKEN`, the five role identities, `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED`, and all transactional lifecycle settings. The complete key list and sample JSON are in [E2E_VARIABLES_REFERENCE.md](E2E_VARIABLES_REFERENCE.md).
 
-The workflow pins the browser target to `https://bazaar.kuraliupdates.com` and validates the API target against `https://kuraliupdates-bazaar.onrender.com/api/v1`; it intentionally does not accept a free-form URL override. Do not set `E2E_ENVIRONMENT=staging` or the API variable until the frontend, Render service and Oracle schema have been independently verified as the intended isolated staging target.
+Keep these four backend runtime settings on Render because the deployed Spring Boot service needs them independently of GitHub Actions:
 
-### Secrets
+- `E2E_OTP_CAPTURE_ENABLED=true`
+- `E2E_OTP_CAPTURE_ENV=staging`
+- `E2E_OTP_CAPTURE_TOKEN` — exactly the same random secret stored in the GitHub JSON
+- `E2E_OTP_ALLOWED_IDENTIFIERS` — only normalized synthetic test email addresses
 
-- `E2E_OTP_CAPTURE_TOKEN`: same generated value as Render's `E2E_OTP_CAPTURE_TOKEN`
-- `E2E_BUYER_IDENTITY`
-- `E2E_SELLER_IDENTITY`
-- `E2E_DELIVERY_IDENTITY`
-- `E2E_PROVIDER_IDENTITY`
-- `E2E_ADMIN_IDENTITY`
-
-Use existing dedicated test accounts. The delivery-agent account must be approved/active and assigned appropriate test data; seller/provider accounts must be in the state required by the workflow tests. Admin identity must already be authorized by the application's admin policy. This change does not create or promote accounts.
+These Render settings cannot be replaced by a GitHub Actions JSON secret alone: GitHub Actions secrets are not automatically available to the running Render service. Keep the browser/API targets pinned in workflow code; the JSON cannot redirect tests to another host. The OTP-suppression and mutating-lifecycle flags are honored only for trusted scheduled/manual runs, never PR or push runs.
 
 ## Safety guarantees and current scope
 
