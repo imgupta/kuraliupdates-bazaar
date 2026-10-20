@@ -171,33 +171,40 @@ jobs:
             const professionalId = syntheticId('E2E_FLOW_PROFESSIONAL_ID');
             const scheduledStart = required('E2E_FLOW_DAILY_HELP_START');
             const date = scheduledStart.slice(0, 10);
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date + 'T00:00:00Z'))) {
-              throw new Error('E2E_FLOW_DAILY_HELP_START must begin with a valid YYYY-MM-DD date.');
-            }
+            const validDate = /^\\d{4}-\\d{2}-\\d{2}$/.test(date) && !Number.isNaN(Date.parse(date + 'T00:00:00Z'));
+            if (!validDate) mismatches.push('DAILY HELP scheduled start must be ISO local datetime YYYY-MM-DDTHH:mm:ss');
+
             const hours = Number(required('E2E_FLOW_DAILY_HELP_HOURS'));
-            if (!Number.isFinite(hours) || hours < 1 || hours > 2) throw new Error('Daily Help E2E hours must be between 1 and 2.');
-            const slots = await getJson('/daily-help/availability?date=' + encodeURIComponent(date) +
-              '&requestedHours=' + encodeURIComponent(String(hours)) + '&locality=Kurali', tokens.BUYER);
-            if (!Array.isArray(slots)) throw new Error('Daily Help availability endpoint did not return a list.');
-            const slot = slots.find(item => item.slotId === slotId);
-            if (!slot) {
-              mismatches.push('DAILY HELP slot availability');
-            } else {
-              if (String(slot.professionalId) !== professionalId) mismatches.push('DAILY HELP slot professional');
-              if (String(slot.status ?? '').toUpperCase() !== 'AVAILABLE') mismatches.push('DAILY HELP slot status');
-              const expectedTime = scheduledStart.slice(11, 16);
-              if (!/^\\d{2}:\\d{2}$/.test(expectedTime) || String(slot.startTime ?? '').slice(0, 5) !== expectedTime) {
-                mismatches.push('DAILY HELP slot start time');
-              }
-              const slotMinutes = (time) => {
-                const match = /^(\\d{2}):(\\d{2})/.exec(String(time ?? ''));
-                return match ? Number(match[1]) * 60 + Number(match[2]) : NaN;
-              };
-              if (slotMinutes(slot.endTime) - slotMinutes(slot.startTime) !== hours * 60) {
-                mismatches.push('DAILY HELP slot duration');
+            const validHours = Number.isFinite(hours) && hours >= 1 && hours <= 2;
+            if (!validHours) mismatches.push('DAILY HELP requested hours must be between 1 and 2');
+
+            if (validDate && validHours) {
+              const slots = await getJson('/daily-help/availability?date=' + encodeURIComponent(date) +
+                '&requestedHours=' + encodeURIComponent(String(hours)) + '&locality=Kurali', tokens.BUYER);
+              if (!Array.isArray(slots)) {
+                mismatches.push('DAILY HELP availability response contract');
+              } else {
+                const slot = slots.find(item => item.slotId === slotId);
+                if (!slot) {
+                  mismatches.push('DAILY HELP slot availability');
+                } else {
+                  if (String(slot.professionalId) !== professionalId) mismatches.push('DAILY HELP slot professional');
+                  if (String(slot.status ?? '').toUpperCase() !== 'AVAILABLE') mismatches.push('DAILY HELP slot status');
+                  const expectedTime = scheduledStart.slice(11, 16);
+                  if (!/^\\d{2}:\\d{2}$/.test(expectedTime) || String(slot.startTime ?? '').slice(0, 5) !== expectedTime) {
+                    mismatches.push('DAILY HELP slot start time');
+                  }
+                  const slotMinutes = (time) => {
+                    const match = /^(\\d{2}):(\\d{2})/.exec(String(time ?? ''));
+                    return match ? Number(match[1]) * 60 + Number(match[2]) : NaN;
+                  };
+                  if (slotMinutes(slot.endTime) - slotMinutes(slot.startTime) !== hours * 60) {
+                    mismatches.push('DAILY HELP slot duration');
+                  }
+                }
               }
             }
-            console.log('PASS: synthetic Daily Help service is active and the configured slot matches the expected professional, start time and duration.');
+            console.log('Completed Daily Help service and slot preflight checks.');
             if (mismatches.length) {
               throw new Error('Fixture/profile checks need configuration fixes: ' + [...new Set(mismatches)].join(', ') + '. No business transactions were attempted.');
             }
