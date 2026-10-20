@@ -46,9 +46,15 @@ public class NegotiationChatService {
     public Map<String, Object> open(UserEntity user, OpenChatRequest request) {
         requireBuyer(user);
         if (request == null || blank(request.productId())) throw new ApiException(HttpStatus.BAD_REQUEST, "Product is required");
+        if (!blank(request.openingMessage()) && request.openingMessage().length() > 1000) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Opening message must be 1000 characters or fewer");
+        }
         String email = normalizeEmail(user.getEmail());
         if (email.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "A verified email is required for bargaining chat");
-        Map<String, Object> product = jdbc.query("SELECT p.PRODUCT_ID,p.TITLE,p.IMAGE_URL,p.SELLER_ID,p.SELLER_PRICE,p.EFFECTIVE_PRICE,s.STORE_NAME,s.STATUS,s.LOCALITY FROM PRODUCTS p JOIN SELLERS s ON s.SELLER_ID=p.SELLER_ID WHERE p.PRODUCT_ID=?",
+        // Serialize concurrent conversation creation for the same product. The
+        // product row is the shared lock, so rapid double-clicks cannot create
+        // duplicate buyer/product conversations even without a schema constraint.
+        Map<String, Object> product = jdbc.query("SELECT p.PRODUCT_ID,p.TITLE,p.IMAGE_URL,p.SELLER_ID,p.SELLER_PRICE,p.EFFECTIVE_PRICE,s.STORE_NAME,s.STATUS,s.LOCALITY FROM PRODUCTS p JOIN SELLERS s ON s.SELLER_ID=p.SELLER_ID WHERE p.PRODUCT_ID=? FOR UPDATE",
                 rs -> rs.next() ? productMap(rs) : null, request.productId().trim());
         if (product == null) throw new ApiException(HttpStatus.NOT_FOUND, "Product not found");
         if (!"APPROVED".equalsIgnoreCase(Objects.toString(product.get("sellerStatus"), ""))) throw new ApiException(HttpStatus.CONFLICT, "This seller is not currently approved");
@@ -73,6 +79,9 @@ public class NegotiationChatService {
     @Transactional
     public Map<String, Object> send(UserEntity user, String requestedRole, String chatId, SendMessageRequest request) {
         if (request == null || (blank(request.text()) && request.offerPrice() == null)) throw new ApiException(HttpStatus.BAD_REQUEST, "Enter a message or price offer");
+        if (!blank(request.text()) && request.text().length() > 2000) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Message must be 2000 characters or fewer");
+        }
         String role = normalizeActiveRole(requestedRole);
         Map<String, Object> chat = requireChatParticipant(user, role, chatId);
         BigDecimal offerPrice = request.offerPrice();
@@ -90,9 +99,9 @@ public class NegotiationChatService {
     public Map<String, Object> respond(UserEntity user, String requestedRole, String chatId, String offerId, RespondOfferRequest request) {
         if (request == null || request.action() == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Offer response is required");
         String role = normalizeActiveRole(requestedRole);
-        Map<String, Object> chat = requireChatParticipant(user, role, chatId);
         String action = request.action().trim().toUpperCase(Locale.ROOT);
         if (!List.of("ACCEPT", "REJECT", "COUNTER").contains(action)) throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported offer action");
+        Map<String, Object> chat = requireChatParticipant(user, role, chatId);
         // Serialize offer decisions per conversation. Locking only the selected offer
         // allows two different pending offers in the same chat to be accepted concurrently.
         jdbc.queryForObject("SELECT CHAT_ID FROM NEGOTIATION_CHATS WHERE CHAT_ID=? FOR UPDATE", String.class, chatId);
