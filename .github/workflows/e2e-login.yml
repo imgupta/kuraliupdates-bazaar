@@ -248,6 +248,11 @@ jobs:
             CLOUDFLARE_PAGES_PROJECT: String(c.CLOUDFLARE_PAGES_PROJECT ?? ''),
             CLOUDFLARE_API_TOKEN: String(c.CLOUDFLARE_API_TOKEN ?? '')
           };
+          // Token fields nested in the consolidated JSON are not automatically masked individually.
+          for (const key of ['E2E_OTP_CAPTURE_TOKEN', 'E2E_FLOW_AUTH_TOKEN']) {
+            const value = values[key];
+            if (value) console.log('::add-mask::' + value.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A'));
+          }
           fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(values).map(([k,v])=>k+'='+v.replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A')).join('\n')+'\n',{mode:0o600});
           NODE
       - name: Verify Cloudflare configuration
