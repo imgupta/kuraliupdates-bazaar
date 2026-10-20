@@ -360,7 +360,7 @@ public class AuthService {
         String role = requestedRole == null ? "" : requestedRole.trim().toUpperCase();
         if ("PROVIDER".equals(role)) role = "PROFESSIONAL";
         if (!Set.of("BUYER", "SELLER", "DELIVERY", "PROFESSIONAL", "ADMIN").contains(role)
-                || !hasRole(user, role)) {
+                || !("ADMIN".equals(role) ? isRootAdminEmail(user.getEmail()) : hasRole(user, role))) {
             throw new ApiException(HttpStatus.FORBIDDEN, "The E2E identity is not registered for the requested role");
         }
         if ("ADMIN".equals(role)) {
