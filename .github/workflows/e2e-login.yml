@@ -159,7 +159,7 @@ jobs:
               process.exit(1);
             }
             value = String(value);
-            if (value.includes('\\n') || value.includes('\\r')) {
+            if (value.includes('\n') || value.includes('\r')) {
               console.error('Newlines are not permitted in configuration key ' + key);
               process.exit(1);
             }
@@ -179,7 +179,7 @@ jobs:
           const values = Object.fromEntries(lines.map(line => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
           values.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED = trusted && values.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED === 'true' ? 'true' : 'false';
           values.E2E_TRANSACTIONAL_FLOWS_ENABLED = trusted && values.E2E_TRANSACTIONAL_FLOWS_ENABLED === 'true' ? 'true' : 'false';
-          fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(values).map(([k,v]) => k + '=' + v).join('\\n') + '\\n');
+          fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(values).map(([k,v]) => k + '=' + v).join('\n') + '\n');
           console.log('Loaded consolidated E2E configuration; secret values were not printed.');
           NODE
       - name: Guard E2E target is the designated staging site
