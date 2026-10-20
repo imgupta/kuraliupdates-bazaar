@@ -118,10 +118,8 @@ jobs:
       # Mutating lifecycle tests are allowed only on trusted scheduled/manual runs after
       # the owner explicitly enables them and provisions dedicated synthetic fixtures.
       E2E_TRANSACTIONAL_FLOWS_ENABLED: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && vars.E2E_TRANSACTIONAL_FLOWS_ENABLED == 'true' }}
-      E2E_FLOW_BUYER_TOKEN: ${{ secrets.E2E_FLOW_BUYER_TOKEN }}
-      E2E_FLOW_SELLER_TOKEN: ${{ secrets.E2E_FLOW_SELLER_TOKEN }}
-      E2E_FLOW_DELIVERY_TOKEN: ${{ secrets.E2E_FLOW_DELIVERY_TOKEN }}
-      E2E_FLOW_PROVIDER_TOKEN: ${{ secrets.E2E_FLOW_PROVIDER_TOKEN }}
+      # One static shared secret exchanges for short-lived-by-session role tokens; it is not itself an API bearer token.
+      E2E_FLOW_AUTH_TOKEN: ${{ secrets.E2E_FLOW_AUTH_TOKEN }}
       E2E_FLOW_BUYER_PHONE: ${{ secrets.E2E_FLOW_BUYER_PHONE }}
       E2E_FLOW_BUYER_EMAIL: ${{ secrets.E2E_FLOW_BUYER_EMAIL }}
       E2E_FLOW_PRODUCT_ID: ${{ vars.E2E_FLOW_PRODUCT_ID }}
@@ -160,6 +158,20 @@ jobs:
       - name: Verify authenticated E2E configuration is complete
         run: |
           node --input-type=module -e "const env=process.env; if(env.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED!=='true'){console.log('Skipping authenticated OTP E2E: staging no-email OTP capture mode has not been explicitly verified.');process.exit(0)} const required=['E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY','E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY']; const missing=required.filter(k=>!env[k]?.trim()); const api=new URL(env.E2E_API_BASE_URL); const valid=env.E2E_ENVIRONMENT==='staging' && api.protocol==='https:' && api.hostname==='kuraliupdates-bazaar.onrender.com' && api.pathname==='/api/v1' && (env.E2E_OTP_CAPTURE_TOKEN||'').length>=32; if(!valid||missing.length){console.error('Authenticated E2E is not configured. Check staging targets, no-email confirmation, OTP token length, and all five role identity secrets. Missing identities:',missing.join(', ')||'none');process.exit(1)} console.log('Authenticated E2E configuration present for all five roles; staging no-email mode was explicitly confirmed.');"
+      - name: Verify static flow-token configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$E2E_TRANSACTIONAL_FLOWS_ENABLED" != "true" ]; then
+            echo "Static flow-token exchange is not required while transactional E2E is disabled."
+            exit 0
+          fi
+          test "$E2E_ENVIRONMENT" = "staging" || { echo "Refusing static flow-token exchange unless E2E_ENVIRONMENT=staging"; exit 1; }
+          test "${#E2E_FLOW_AUTH_TOKEN}" -ge 32 || { echo "Set the E2E_FLOW_AUTH_TOKEN GitHub secret to a random value of at least 32 characters."; exit 1; }
+          for key in E2E_BUYER_IDENTITY E2E_SELLER_IDENTITY E2E_DELIVERY_IDENTITY E2E_PROVIDER_IDENTITY; do
+            test -n "${!key:-}" || { echo "Missing required role identity secret: $key"; exit 1; }
+          done
+          echo "Static E2E flow-auth secret and role identities are configured."
       - name: Verify transactional lifecycle fixture configuration
         shell: bash
         run: |
