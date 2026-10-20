@@ -114,6 +114,124 @@ export const useOrderDeliveryOperations = ({
     setOrders(prev =>
       prev.map(ord => {
         if (ord.id !== orderId) return ord;
+        return {
+          ...ord,
+          status,
+          statusUpdates: [
+            ...ord.statusUpdates,
+            {
+              status,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              note: note || `Order updated to ${status}.`,
+            },
+          ],
+        };
+      })
+    );
+    showToast(`Order status updated to ${status.toUpperCase()}`, 'info');
+  };
+
+  // Delivery Actions
+  const claimDeliveryJob = async (orderId: string, agentId: string): Promise<boolean> => {
+    const agent = deliveryAgents.find(a => a.id === agentId);
+    // The server owns assignment and lifecycle state. Do not optimistically claim
+    // locally: a conflict/auth failure must not make an order appear assigned.
+    const claimed = await deliveryApi.claimDeliveryJob(orderId, agentId);
+    if (!claimed) {
+      showToast('Unable to claim this order. Refresh the pickup list and try again.', 'error');
+      await syncWithBackend();
+      return false;
+    }
+
+    setOrders(prev =>
+      prev.map(ord => {
+        if (ord.id !== orderId) return ord;
+        return {
+          ...ord,
+          deliveryAgentId: agentId,
+          deliveryAgentName: agent?.name || 'Kurali Express Partner',
+          deliveryAgentPhone: agent?.phone || '',
+          status: 'assigned_to_delivery',
+          statusUpdates: [
+            ...ord.statusUpdates,
+            {
+              status: 'assigned_to_delivery',
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              note: `Claimed by delivery rider ${agent?.name || ''}. En route to buyer.`,
+            },
+          ],
+        };
+      })
+    );
+    showToast('Delivery order claimed successfully.', 'success');
+    await syncWithBackend();
+    return true;
+  };
+
+  const completeDelivery = async (orderId: string, otp: string): Promise<{ success: boolean; message: string }> => {
+    const order = orders.find(o => o.id === orderId);
+
+    // Oracle is authoritative: local cached OTP values can be stale or differ from
+    // the current OTP after a resend. Never reject a code using browser state.
+    const verification = await deliveryApi.verifyDeliveryOtp(orderId, otp.trim());
+    if (!verification.success) {
+      return { success: false, message: verification.message || 'Unable to verify delivery OTP.' };
+    }
+
+    const deliveryFeePayout = Math.max(45, Math.round((order?.distanceKm || 1.4) * 22) + 20);
+    setOrders(prev =>
+      prev.map(ord => ord.id !== orderId ? ord : {
+        ...ord,
+        status: 'delivered',
+        paymentStatus: 'paid',
+        statusUpdates: [
+          ...ord.statusUpdates,
+          {
+            status: 'delivered',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            note: `Delivered safely to ${ord.deliveryAddress}. OTP verified by server.`,
+          },
+        ],
+      })
+    );
+
+    if (order?.deliveryAgentId) {
+      setDeliveryAgents(prev =>
+        prev.map(ag => ag.id !== order.deliveryAgentId ? ag : {
+          ...ag,
+          totalTrips: ag.totalTrips + 1,
+          todayEarnings: ag.todayEarnings + deliveryFeePayout,
+          totalEarnings: ag.totalEarnings + deliveryFeePayout,
+        })
+      );
+    }
+
+    return {
+      success: true,
+      message: verification.message || `Order successfully delivered! Payout of ₹${deliveryFeePayout} credited to delivery wallet.`,
+    };
+  };
+
+  const registerDeliveryAgent = (
+    data: Omit<DeliveryAgent, 'id' | 'status' | 'rating' | 'totalTrips' | 'todayEarnings' | 'totalEarnings' | 'registeredAt'>
+  ) => {
+    const newId = `agent-${Date.now()}`;
+    const newAgent: DeliveryAgent = {
+      ...data,
+      id: newId,
+      status: 'active',
+      rating: 5.0,
+      totalTrips: 0,
+      todayEarnings: 0,
+      totalEarnings: 0,
+      registeredAt: new Date().toISOString(),
+    };
+    setDeliveryAgents(prev => [newAgent, ...prev]);
+    setUser(prev => ({ ...prev, deliveryAgentId: newId, role: 'delivery', isSignedIn: true, email: data.email, name: data.name }));
+    setRoleState('delivery');
+    showToast('Delivery Partner registered successfully! Welcome to Kurali Express fleet.', 'success');
+    deliveryApi.registerDeliveryAgent(newAgent);
+  };
 
   return { createOrder, updateOrderStatus, claimDeliveryJob, completeDelivery, registerDeliveryAgent };
 };
