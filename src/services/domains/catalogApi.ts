@@ -1,7 +1,7 @@
 /** Catalogue and service-health API boundary. Keeps legacy response mapping and paging behavior. */
 import type { Product } from '../../types';
 import { API_BASE_URL } from '../http/apiConfig';
-import type { BackendHealthResponse, BackendProduct } from './apiTypes';
+import type { BackendHealthResponse, BackendProduct } from '../apiTypes';
 
 export const catalogApi = {
   async checkHealth(): Promise<BackendHealthResponse> {
