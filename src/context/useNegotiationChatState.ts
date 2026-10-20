@@ -13,23 +13,33 @@ type NegotiationChatOptions = {
 export const useNegotiationChatState = ({ role, user, showToast }: NegotiationChatOptions) => {
   const [chats, setChats] = useState<NegotiationChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const requestInFlight = useRef(false);
   const showToastRef = useRef(showToast);
   useEffect(() => { showToastRef.current = showToast; }, [showToast]);
   const identity = `${role}:${(user.email || '').toLowerCase()}`;
 
   useEffect(() => {
     let disposed = false;
+    let requestInFlight = false;
+    setChats([]);
+    setActiveChatId(null);
     const refresh = async (notify: boolean) => {
-      if (requestInFlight.current || !localStorage.getItem('kurali_auth_token')) return;
-      requestInFlight.current = true;
+      if (!['buyer', 'seller'].includes(role) || requestInFlight || !localStorage.getItem('kurali_auth_token')) return;
+      requestInFlight = true;
       try {
         const remote = await negotiationChatApi.list(role === 'seller' ? 'seller' : 'buyer');
-        if (!disposed) setChats(remote);
+        if (!disposed) {
+          // Keep a newly opened local placeholder until the create response
+          // replaces it; an older list response must not close the chat modal.
+          setChats(previous => {
+            const opening = previous.filter(chat => chat.id.startsWith('pending-'));
+            const remoteIds = new Set(remote.map(chat => chat.id));
+            return [...opening.filter(chat => !remoteIds.has(chat.id)), ...remote];
+          });
+        }
       } catch (error) {
         if (notify && !disposed) showToastRef.current(error instanceof Error ? error.message : 'Unable to load bargaining conversations.', 'error');
       } finally {
-        requestInFlight.current = false;
+        requestInFlight = false;
       }
     };
     void refresh(true);
@@ -38,6 +48,10 @@ export const useNegotiationChatState = ({ role, user, showToast }: NegotiationCh
   }, [identity]);
 
   const openChatForProduct = (product: Product, startingOfferPrice?: number): string => {
+    if (role !== 'buyer') {
+      showToast('Only a signed-in buyer can start a bargaining conversation.', 'error');
+      return '';
+    }
     const email = (user.email || '').toLowerCase();
     const existing = chats.find(chat => chat.productId === product.id && chat.sellerId === product.sellerId && chat.buyerEmail.toLowerCase() === email);
     if (existing) {
