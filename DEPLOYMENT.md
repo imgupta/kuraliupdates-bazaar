@@ -2,10 +2,10 @@
 
 ## Environments
 
-- **Staging** is the environment for routine end-to-end workflow testing, synthetic users/orders, and validation of database migrations.
-- **Production** is the live customer environment. Do not create test users/orders, run staging cleanup, or execute mutating E2E scenarios against it.
-- Verify the active Vercel deployment, Render service/deployment, and Oracle target before any mutating test. A branch or deployment label alone does not prove which database is configured.
-- The public custom domain `kuraliupdates.com` is production traffic unless an explicit, independently verified staging domain says otherwise.
+- There is one deployed environment, designated **staging** by the owner. Do not assume a separate production deployment exists.
+- The public custom domains and Render API are part of this same owner-designated environment unless the owner independently verifies a separate environment.
+- Keep routine smoke checks read-only. Do not run transactional E2E or destructive cleanup until the Oracle target and synthetic fixture isolation are verified.
+- Verify the active Vercel deployment, Render service/deployment, and Oracle target independently. A hosting label alone does not prove which database is configured.
 
 ## Web
 Vercel builds the repository root with the Vite frontend. Verify the domain alias and commit SHA, not only deployment state. A READY preview is not proof that the custom domain uses that build.
@@ -32,3 +32,14 @@ Render builds `backend-java-spring/` using its Dockerfile. Verify service ID, en
 Rollback the application deployment to the last known-good commit. Do not repair or rewrite Flyway history solely to make a deployment pass. Database rollback requires its own assessed migration plan.
 
 Keep secrets in hosting secret/environment configuration, never in Git.
+
+
+## Quota-aware role portals
+
+The Buyer, Seller, Delivery, Daily Help and Admin portals have role-specific Vite entry points and build outputs. Build commands and output directories are documented in [docs/MICROFRONTEND-BUILD-STRATEGY.md](docs/MICROFRONTEND-BUILD-STRATEGY.md).
+
+- Use the per-project Vercel Ignore Build Step command from that document to skip deployments for unaffected portals.
+- Shared runtime, dependency, Vite configuration and global CSS changes intentionally trigger all role portals.
+- Documentation, test-only and workflow-only changes should not trigger Vercel site builds.
+- CI builds the combined app plus only affected role-portal artifacts; if change detection is unavailable, it fails safe by building all portals.
+- Vercel project settings must be updated and verified separately. A committed ignore script alone does not change settings in the Vercel dashboard.
