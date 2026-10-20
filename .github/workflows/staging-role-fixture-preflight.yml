@@ -105,12 +105,38 @@ jobs:
                 throw new Error('Role session contract failed for ' + role + '.');
               }
               tokens[role] = session.token;
-              console.log('PASS: ' + role + ' session issued with expected role.');
+              if (role === 'BUYER') {
+                if (String(session.user?.phone ?? '') !== required('E2E_FLOW_BUYER_PHONE') ||
+                    String(session.user?.email ?? '').toLowerCase() !== required('E2E_FLOW_BUYER_EMAIL').toLowerCase()) {
+                  throw new Error('Configured synthetic order/Daily Help buyer contact does not match the authenticated Buyer identity.');
+                }
+              }
+              if (role === 'SELLER') {
+                const seller = await getJson('/sellers/me', session.token);
+                if (String(seller.sellerId) !== syntheticId('E2E_FLOW_SELLER_ID')) {
+                  throw new Error('Configured seller fixture ID does not match the authenticated Seller profile.');
+                }
+              }
+              if (role === 'DELIVERY') {
+                const agent = await getJson('/delivery/me', session.token);
+                if (String(agent.agentId) !== syntheticId('E2E_FLOW_DELIVERY_AGENT_ID')) {
+                  throw new Error('Configured delivery fixture ID does not match the authenticated Delivery profile.');
+                }
+              }
+              if (role === 'PROVIDER') {
+                const providerPhone = String(session.user?.phone ?? '');
+                if (!providerPhone) throw new Error('Provider session did not return a phone for profile verification.');
+                const profile = await getJson('/daily-help/professionals/by-phone/' + encodeURIComponent(providerPhone), session.token);
+                if (String(profile.professionalId) !== syntheticId('E2E_FLOW_PROFESSIONAL_ID')) {
+                  throw new Error('Configured professional fixture ID does not match the authenticated Provider profile.');
+                }
+              }
+              console.log('PASS: ' + role + ' session and corresponding profile identity verified.');
             }
 
             const productId = syntheticId('E2E_FLOW_PRODUCT_ID');
             const sellerId = syntheticId('E2E_FLOW_SELLER_ID');
-            const deliveryAgentId = syntheticId('E2E_FLOW_DELIVERY_AGENT_ID');
+            syntheticId('E2E_FLOW_DELIVERY_AGENT_ID');
             const quantity = Number(required('E2E_FLOW_ORDER_QUANTITY'));
             if (!Number.isInteger(quantity) || quantity < 1 || quantity > 2) {
               throw new Error('E2E_FLOW_ORDER_QUANTITY must be an integer between 1 and 2.');
