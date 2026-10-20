@@ -74,7 +74,7 @@ export const NegotiationChatModal: React.FC = () => {
     };
     sendMessage(
       activeChatId,
-      `I would like to propose a negotiated price of ₹${offeredPrice} for ${targetProduct.title}.`,
+      `I would like to propose a negotiated price of ₹${offeredPrice} for ${offer.productTitle}.`,
       offer
     );
     setCustomOfferPrice('');
