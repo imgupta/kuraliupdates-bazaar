@@ -299,6 +299,23 @@ public class AuthService {
         return false;
     }
 
+    /**
+     * Staging E2E role eligibility follows the same multi-profile model exposed
+     * by registeredRoles(): every existing account can act as a buyer, while
+     * privileged/provider roles require their corresponding registered profile.
+     * Keep this separate from hasRole(), which validates duplicate registrations.
+     */
+    private boolean hasStagingE2eRole(UserEntity user, String role) {
+        return switch (role) {
+            case "BUYER" -> true;
+            case "SELLER" -> sellerProfileExists(user);
+            case "DELIVERY" -> deliveryAgentRepository.findByEmail(user.getEmail()).isPresent();
+            case "PROFESSIONAL" -> dailyHelpProfessionalRepository.findByPhone(user.getPhone()).isPresent();
+            case "ADMIN" -> isRootAdminEmail(user.getEmail());
+            default -> false;
+        };
+    }
+
     private String roleLabel(String role) {
         return switch (role) {
             case "SELLER" -> "Seller";
@@ -360,7 +377,7 @@ public class AuthService {
         String role = requestedRole == null ? "" : requestedRole.trim().toUpperCase();
         if ("PROVIDER".equals(role)) role = "PROFESSIONAL";
         if (!Set.of("BUYER", "SELLER", "DELIVERY", "PROFESSIONAL", "ADMIN").contains(role)
-                || !("ADMIN".equals(role) ? isRootAdminEmail(user.getEmail()) : hasRole(user, role))) {
+                || !hasStagingE2eRole(user, role)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "The E2E identity is not registered for the requested role");
         }
         if ("ADMIN".equals(role)) {
