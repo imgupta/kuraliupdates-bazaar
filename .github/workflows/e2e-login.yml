@@ -168,6 +168,19 @@ jobs:
         run: bun add --dev @playwright/test
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
+      - name: Disable authenticated and mutating E2E on untrusted events
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" != "schedule" && "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]]; then
+            {
+              echo 'E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED=false'
+              echo 'E2E_TRANSACTIONAL_FLOWS_ENABLED=false'
+            } >> "$GITHUB_ENV"
+            echo "Untrusted event ($GITHUB_EVENT_NAME): authenticated OTP and transactional E2E are disabled."
+          else
+            echo "Trusted event ($GITHUB_EVENT_NAME): configured E2E flags remain subject to staging guards."
+          fi
       - name: Guard E2E target is the designated staging site
         run: |
           node --input-type=module -e "const u=new URL(process.env.E2E_BASE_URL); if (u.protocol !== 'https:' || u.hostname !== 'bazaar.kuraliupdates.com') { console.error('Refusing E2E against a non-staging host'); process.exit(1); }"
