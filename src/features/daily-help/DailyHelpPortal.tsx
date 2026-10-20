@@ -27,7 +27,7 @@ const statusLabel: Record<string, string> = {
 
 export const DailyHelpProfessionalDashboard: React.FC = () => {
   const {
-    professional, earnings, availableJobs, jobs, loading, refreshing, otpInputs, setOtpInputs, now,
+    professional, earnings, availableJobs, jobs, loading, refreshing, setRefreshing, load, otpInputs, setOtpInputs, now,
     slotDate, setSlotDate, slotStart, setSlotStart, slotEnd, setSlotEnd, mySlots,
     registrationName, setRegistrationName, registrationPhone, setRegistrationPhone,
     registrationLocality, setRegistrationLocality, registering, activeJobs,
