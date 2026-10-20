@@ -179,6 +179,12 @@ jobs:
           const values = Object.fromEntries(lines.map(line => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
           values.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED = trusted && values.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED === 'true' ? 'true' : 'false';
           values.E2E_TRANSACTIONAL_FLOWS_ENABLED = trusted && values.E2E_TRANSACTIONAL_FLOWS_ENABLED === 'true' ? 'true' : 'false';
+          // These token values are nested inside a JSON secret, so GitHub does not mask them individually.
+          // Register masks before exporting them for later steps, without changing the configured secrets.
+          for (const key of ['E2E_OTP_CAPTURE_TOKEN', 'E2E_FLOW_AUTH_TOKEN']) {
+            const value = values[key];
+            if (value) console.log('::add-mask::' + value.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A'));
+          }
           fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(values).map(([k,v]) => k + '=' + v).join('\n') + '\n');
           console.log('Loaded consolidated E2E configuration; secret values were not printed.');
           NODE
