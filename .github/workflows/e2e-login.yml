@@ -37,6 +37,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -67,11 +69,10 @@ jobs:
           node --input-type=module -e "import fs from 'node:fs'; const src=fs.readFileSync('src/features/delivery/DeliveryPortal.tsx','utf8'); if (!src.includes('/^\\\\d{4}$/.test(enteredOtp.trim())')) { console.error('Delivery OTP validator must accept exactly four digits.'); process.exit(1); } if (src.includes('/^\\\\\\\\d{4}$/.test(enteredOtp.trim())')) { console.error('Delivery OTP validator is over-escaped.'); process.exit(1); }"
       - name: Shared application production build
         run: bun run build
-      - name: Independently targeted portal builds
-        run: bun run build:portals
-      - name: Verify all role-specific build outputs
-        run: |
-          node --input-type=module -e "import fs from 'node:fs'; const paths=['dist/buyer/index.html','dist/seller/index.html','dist/delivery/index.html','dist/daily-help/index.html','dist/admin/index.html']; const missing=paths.filter(path=>!fs.existsSync(path)); if(missing.length){console.error('Missing portal outputs:',missing.join(', '));process.exit(1)}"
+      - name: Portal build-impact policy regression tests
+        run: node --test tests/portalBuildImpact.test.mjs
+      - name: Build only affected role portals
+        run: bun run build:affected-portals
 
   backend:
     name: Backend tests
