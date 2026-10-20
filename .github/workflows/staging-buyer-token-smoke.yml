@@ -1,0 +1,119 @@
+name: Staging Buyer Token Smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/staging-buyer-token-smoke.yml'
+      - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/E2eAuthController.java'
+      - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/AuthService.java'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/staging-buyer-token-smoke.yml'
+      - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/E2eAuthController.java'
+      - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/AuthService.java'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kuraliupdates-staging-buyer-token-smoke
+  cancel-in-progress: false
+
+jobs:
+  buyer-token-smoke:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Read-only staging Buyer token exchange
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      E2E_STAGING_CONFIG_JSON: ${{ secrets.E2E_STAGING_CONFIG_JSON }}
+      E2E_API_BASE_URL: https://kuraliupdates-bazaar.onrender.com/api/v1
+    steps:
+      - name: Exchange Buyer token without creating transactions
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const raw = process.env.E2E_STAGING_CONFIG_JSON;
+          if (!raw?.trim()) {
+            console.error('Missing E2E_STAGING_CONFIG_JSON; no request was made.');
+            process.exit(1);
+          }
+
+          let config;
+          try { config = JSON.parse(raw); } catch {
+            console.error('E2E_STAGING_CONFIG_JSON is invalid JSON; no request was made.');
+            process.exit(1);
+          }
+
+          const environment = String(config.E2E_ENVIRONMENT ?? '');
+          const sharedToken = String(config.E2E_FLOW_AUTH_TOKEN ?? '');
+          const identity = String(config.E2E_BUYER_IDENTITY ?? '').trim();
+          const api = new URL(process.env.E2E_API_BASE_URL);
+          if (environment !== 'staging' ||
+              api.protocol !== 'https:' ||
+              api.hostname !== 'kuraliupdates-bazaar.onrender.com' ||
+              api.pathname !== '/api/v1' ||
+              sharedToken.length < 32 ||
+              !identity) {
+            console.error('Staging target or Buyer token-smoke configuration is invalid; no request was made.');
+            process.exit(1);
+          }
+
+          // Mask the nested secret before any further workflow output.
+          console.log('::add-mask::' + sharedToken.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A'));
+
+          const endpoint = process.env.E2E_API_BASE_URL.replace(/\/$/, '') + '/e2e/auth/token';
+          const deadline = Date.now() + 6 * 60 * 1000;
+          let lastStatus = 0;
+          let lastProblem = 'No response';
+
+          while (Date.now() < deadline) {
+            try {
+              const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                  'X-E2E-Flow-Token': sharedToken,
+                  'Content-Type': 'application/json',
+                  'Cache-Control': 'no-store',
+                  'Accept': 'application/json'
+                },
+                body: JSON.stringify({ role: 'BUYER', identifier: identity }),
+                signal: AbortSignal.timeout(15000)
+              });
+              lastStatus = response.status;
+
+              if (response.status === 200) {
+                let body;
+                try { body = await response.json(); } catch {
+                  console.error('Buyer token exchange returned HTTP 200 with invalid JSON.');
+                  process.exit(1);
+                }
+                if (body?.authenticated !== true ||
+                    String(body?.role ?? '').toUpperCase() !== 'BUYER' ||
+                    typeof body?.token !== 'string' ||
+                    body.token.length < 21) {
+                  console.error('Buyer token exchange returned HTTP 200 but the response did not meet the expected contract.');
+                  process.exit(1);
+                }
+                console.log('PASS: live staging Buyer token exchange returned an authenticated Buyer session. No orders, bookings, OTPs, or customer records were created.');
+                process.exit(0);
+              }
+
+              // A rollout may still be serving the previous backend. Retry
+              // non-success statuses without printing response bodies or secrets.
+              lastProblem = 'HTTP ' + response.status;
+            } catch (error) {
+              lastProblem = error?.name === 'TimeoutError' || error?.name === 'AbortError'
+                ? 'request timeout'
+                : 'network request failed';
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 10000));
+          }
+
+          console.error('FAIL: Buyer token exchange did not pass within the 6-minute rollout window. Last result: ' + lastProblem + (lastStatus ? ' (status ' + lastStatus + ')' : '') + '. No transactional tests were run.');
+          process.exit(1);
+          NODE
