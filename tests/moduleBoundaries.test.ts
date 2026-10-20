@@ -139,12 +139,14 @@ test('shared authentication state is owned by AuthSessionProvider, not AppContex
 test('application state persistence is centralized in a reusable hook', () => {
   const persistenceHook = read('../src/context/usePersistedValue.ts');
   const appContext = read('../src/context/AppContext.tsx');
+  const marketplaceCollections = read('../src/context/useMarketplaceCollections.ts');
 
   assert.ok(persistenceHook.includes('export const usePersistedValue'));
   assert.ok(persistenceHook.includes('safeStorageSet(key'));
   assert.ok(persistenceHook.includes('safeStorageRemove(key)'));
+  assert.ok(appContext.includes('useMarketplaceCollections()'), 'AppContext should compose marketplace state through its domain hook');
   for (const key of ['kurali_sellers', 'kurali_products', 'kurali_coupons', 'kurali_delivery_agents', 'kurali_orders']) {
-    assert.ok(appContext.includes(`usePersistedValue('${key}'`), `AppContext should persist ${key} through the shared hook`);
+    assert.ok(marketplaceCollections.includes(`usePersistedValue('${key}'`), `marketplace collection hook should persist ${key} through the shared hook`);
   }
   const negotiation = read('../src/context/useNegotiationChatState.ts');
   assert.ok(negotiation.includes('negotiationChatApi.list('), 'Negotiation hook should load server-backed conversations');
