@@ -341,6 +341,52 @@ public class AuthService {
         }
     }
 
+    /**
+     * Issues a normal server-side session for explicitly authorized staging E2E
+     * authentication. The controller protects this method with a staging-only
+     * high-entropy shared secret; OTP verification is deliberately not changed.
+     */
+    @Transactional
+    public AuthResult createStagingE2eSession(String rawIdentifier, String requestedRole) {
+        String raw = rawIdentifier == null ? "" : rawIdentifier.trim();
+        if (raw.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A configured E2E test identity is required");
+        }
+        String type = normalizeType(raw, null);
+        String identifier = normalizeIdentifier(raw, type);
+        UserEntity user = findUser(identifier, type)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "The configured E2E test account does not exist"));
+
+        String role = requestedRole == null ? "" : requestedRole.trim().toUpperCase();
+        if ("PROVIDER".equals(role)) role = "PROFESSIONAL";
+        if (!Set.of("BUYER", "SELLER", "DELIVERY", "PROFESSIONAL", "ADMIN").contains(role)
+                || !("ADMIN".equals(role) ? isRootAdminEmail(user.getEmail()) : hasRole(user, role))) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "The E2E identity is not registered for the requested role");
+        }
+        if ("ADMIN".equals(role)) {
+            if (!isRootAdminEmail(user.getEmail())) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "The E2E identity is not an authorized administrator");
+            }
+            user.setRole("ADMIN");
+            user.setIsAdmin(1);
+            userRepository.save(user);
+        }
+        user.setLastLogin(LocalDateTime.now());
+        userRepository.save(user);
+        return new AuthResult(createStagingE2eSessionToken(user),
+                UserResponse.from(user, addressService.findByUserId(user.getUserId())),
+                "Staging E2E session issued");
+    }
+
+    private String createStagingE2eSessionToken(UserEntity user) {
+        String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
+        LocalDateTime now = LocalDateTime.now();
+        sessionRepository.save(UserSessionEntity.builder()
+                .sessionToken(token).userId(user.getUserId())
+                .createdAt(now).expiresAt(now.plusHours(2)).build());
+        return token;
+    }
+
     private String createSession(UserEntity user) {
         String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
         LocalDateTime now = LocalDateTime.now();

@@ -20,6 +20,22 @@ function syntheticId(name: string): string {
 function auth(token: string) {
   return { Authorization: "Bearer " + token, "Content-Type": "application/json", "Cache-Control": "no-store" };
 }
+async function flowToken(request: APIRequestContext, role: string, identityVariable: string): Promise<string> {
+  const sharedSecret = required("E2E_FLOW_AUTH_TOKEN");
+  const identifier = required(identityVariable);
+  const response = await request.post(apiBase + "/e2e/auth/token", {
+    headers: { "X-E2E-Flow-Token": sharedSecret, "Content-Type": "application/json", "Cache-Control": "no-store" },
+    data: { role, identifier },
+    timeout: 15_000,
+  });
+  expect(response.status(), "staging E2E token exchange for role " + role + " should succeed").toBe(200);
+  const body = await response.json() as { token?: string; authenticated?: boolean; role?: string };
+  expect(body.authenticated).toBe(true);
+  expect(body.role).toBe(role === "PROVIDER" ? "PROFESSIONAL" : role);
+  expect(typeof body.token).toBe("string");
+  expect(body.token!.length).toBeGreaterThan(20);
+  return body.token!;
+}
 async function getJson(request: APIRequestContext, path: string, token: string) {
   const response = await request.get(apiBase + path, { headers: auth(token), timeout: 20_000 });
   expect(response.status(), path + " should be readable").toBe(200);
@@ -31,9 +47,9 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
 
   test("order: buyer checkout → seller fulfilment → delivery claim and OTP → cross-role reconciliation", async ({ request }) => {
     test.setTimeout(120_000);
-    const buyerToken = required("E2E_FLOW_BUYER_TOKEN");
-    const sellerToken = required("E2E_FLOW_SELLER_TOKEN");
-    const deliveryToken = required("E2E_FLOW_DELIVERY_TOKEN");
+    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY");
+    const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY");
+    const deliveryToken = await flowToken(request, "DELIVERY", "E2E_DELIVERY_IDENTITY");
     const productId = syntheticId("E2E_FLOW_PRODUCT_ID");
     const sellerId = syntheticId("E2E_FLOW_SELLER_ID");
     const agentId = syntheticId("E2E_FLOW_DELIVERY_AGENT_ID");
@@ -188,8 +204,8 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
 
   test("Daily Help: buyer books synthetic slot → professional starts with OTP → completes → history reconciles", async ({ request }) => {
     test.setTimeout(120_000);
-    const buyerToken = required("E2E_FLOW_BUYER_TOKEN");
-    const professionalToken = required("E2E_FLOW_PROVIDER_TOKEN");
+    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY");
+    const professionalToken = await flowToken(request, "PROVIDER", "E2E_PROVIDER_IDENTITY");
     const serviceId = syntheticId("E2E_FLOW_DAILY_HELP_SERVICE_ID");
     const slotId = syntheticId("E2E_FLOW_DAILY_HELP_SLOT_ID");
     const professionalId = syntheticId("E2E_FLOW_PROFESSIONAL_ID");
