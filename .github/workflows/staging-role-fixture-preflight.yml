@@ -98,6 +98,7 @@ jobs:
             const tokens = {};
             const mismatches = [];
             for (const [role, identityKey, expectedRole] of expected) {
+              const mismatchCountBeforeRole = mismatches.length;
               const identity = required(identityKey);
               const session = await postJson('/e2e/auth/token', { 'X-E2E-Flow-Token': sharedToken }, { role, identifier: identity });
               if (session?.authenticated !== true ||
@@ -132,7 +133,10 @@ jobs:
                   mismatches.push('PROVIDER profile ID');
                 }
               }
-              console.log('PASS: ' + role + ' session and corresponding profile identity verified.');
+              console.log((mismatches.length === mismatchCountBeforeRole ? 'PASS: ' : 'CHECK: ') +
+                role + (mismatches.length === mismatchCountBeforeRole
+                  ? ' session and corresponding profile identity verified.'
+                  : ' session issued; a profile/configuration mismatch was recorded.'));
             }
 
             const productId = syntheticId('E2E_FLOW_PRODUCT_ID');
@@ -145,14 +149,17 @@ jobs:
             const productResults = await getJson('/buyers/products/search?query=' + encodeURIComponent(productId), tokens.BUYER);
             if (!Array.isArray(productResults)) throw new Error('Product search did not return a list.');
             const product = productResults.find(item => item.productId === productId);
-            if (!product) throw new Error('Synthetic product fixture is not visible to Buyer.');
-            const actualSellerId = product.sellerId ?? product.seller?.sellerId;
-            const stock = Number(product.stock ?? product.stockQty);
-            const price = Number(product.effectivePrice ?? product.price ?? product.sellerPrice);
-            if (String(actualSellerId) !== sellerId) mismatches.push('PRODUCT seller ownership');
-            if (!Number.isFinite(stock) || stock < quantity) mismatches.push('PRODUCT stock quantity');
-            if (!Number.isFinite(price) || price <= 0) mismatches.push('PRODUCT catalogue price');
-            console.log('PASS: synthetic product exists, seller matches, stock is sufficient, and catalogue price is valid.');
+            if (!product) {
+              mismatches.push('PRODUCT fixture missing/not visible to Buyer');
+            } else {
+              const actualSellerId = product.sellerId ?? product.seller?.sellerId;
+              const stock = Number(product.stock ?? product.stockQty);
+              const price = Number(product.effectivePrice ?? product.price ?? product.sellerPrice);
+              if (String(actualSellerId) !== sellerId) mismatches.push('PRODUCT seller ownership');
+              if (!Number.isFinite(stock) || stock < quantity) mismatches.push('PRODUCT stock quantity');
+              if (!Number.isFinite(price) || price <= 0) mismatches.push('PRODUCT catalogue price');
+              console.log('PASS: synthetic product is visible; ownership, stock and price checks completed.');
+            }
 
             const services = await getJson('/daily-help/services', tokens.BUYER);
             if (!Array.isArray(services)) throw new Error('Daily Help services endpoint did not return a list.');
