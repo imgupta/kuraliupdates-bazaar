@@ -130,3 +130,11 @@ There is a single deployed environment, and the owner designates it as staging. 
 - CI change detection fails safe: if commit comparison is unavailable, all five role portals are built. Documentation/test/workflow-only changes do not build role portals.
 - This is a quota-aware deployment seam, not yet five independent source repositories or Module Federation. Shared React context, API client and auth/session contracts remain in the monorepo.
 - No backend, database, secret, domain alias, Vercel project or staging business-data changes are included.
+
+
+## Vercel ignore-build settings applied — 21 October 2026
+
+- Configured `commandForIgnoringBuildStep` on the existing Vercel projects `kuraliupdates-buyer`, `kuraliupdates-seller`, `kuraliupdates-delivery`, `kuraliupdates-daily-help`, `kuraliupdates-admin`, and `kuraliupdates-bazaar`.
+- No projects or domain aliases were created, removed, or reassigned. Build commands/output directories were not changed.
+- Main commit `c8e4932e13c4189cdfbb5206b9bc57c213a55495` changed only build-support/tests/docs/workflow. Vercel inspection found no new READY deployments for this SHA; one Admin deployment was CANCELED, consistent with the ignore-build command.
+- The full portal-only/shared-runtime Vercel decision matrix remains to be observed during a naturally occurring code change; do not spend build quota on synthetic deploys just to test it.
