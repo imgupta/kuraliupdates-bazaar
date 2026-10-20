@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import {
   UserRole,
   Seller,
@@ -9,7 +9,7 @@ import {
 } from '../types';
 import { bazaarApi } from '../services/api';
 import { toSavedAddress, type SavedAddress } from '../entities/address';
-import { mapServerUser, type UserProfile } from '../entities/userProfile';
+import type { UserProfile } from '../entities/userProfile';
 export type { SavedAddress } from '../entities/address';
 export type { UserProfile } from '../entities/userProfile';
 import {
