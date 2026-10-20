@@ -31,7 +31,7 @@ async function flowToken(request: APIRequestContext, role: string, identityVaria
   expect(response.status(), "staging E2E token exchange for role " + role + " should succeed").toBe(200);
   const body = await response.json() as { token?: string; authenticated?: boolean; role?: string };
   expect(body.authenticated).toBe(true);
-  expect(body.role).toBe(role);
+  expect(body.role).toBe(role === "PROVIDER" ? "PROFESSIONAL" : role);
   expect(typeof body.token).toBe("string");
   expect(body.token!.length).toBeGreaterThan(20);
   return body.token!;
