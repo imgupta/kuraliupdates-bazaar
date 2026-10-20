@@ -71,6 +71,14 @@ test('seller, admin and Daily Help domain APIs own their HTTP operations', () =>
   assert.ok(!sellerApi.includes('bazaarApi'));
   assert.ok(!adminApi.includes('bazaarApi'));
   assert.ok(!providerApi.includes('bazaarApi'));
+
+  const providerWorkflow = read('../src/features/daily-help/useDailyHelpProviderOperations.ts');
+  const providerPortal = read('../src/features/daily-help/DailyHelpPortal.tsx');
+  for (const operation of ['registerDailyHelpProfessional', 'updateDailyHelpProfessionalAvailability', 'acceptDailyHelpJob', 'updateDailyHelpBookingStatus', 'startDailyHelpBooking', 'completeDailyHelpBooking', 'createDailyHelpProfessionalSlot', 'cancelDailyHelpProfessionalSlot']) {
+    assert.ok(providerWorkflow.includes(`dailyHelpProviderApi.${operation}`), `provider workflow hook should own ${operation}`);
+  }
+  assert.ok(providerPortal.includes('useDailyHelpProviderOperations()'));
+  assert.doesNotMatch(providerPortal, /dailyHelpProviderApi\./, 'Daily Help provider UI should not call its API client directly');
 });
 
 
