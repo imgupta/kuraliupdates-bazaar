@@ -1,0 +1,158 @@
+name: Staging Role and Fixture Preflight
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/staging-role-fixture-preflight.yml'
+      - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/E2eAuthController.java'
+      - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/AuthService.java'
+      - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/BuyerController.java'
+      - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/DailyHelpController.java'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kuraliupdates-staging-role-fixture-preflight
+  cancel-in-progress: false
+
+jobs:
+  role-and-fixture-preflight:
+    name: Verify role sessions and synthetic fixtures without business mutations
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      E2E_STAGING_CONFIG_JSON: ${{ secrets.E2E_STAGING_CONFIG_JSON }}
+      E2E_API_BASE_URL: https://kuraliupdates-bazaar.onrender.com/api/v1
+    steps:
+      - name: Check all configured role sessions and read synthetic fixtures
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const raw = process.env.E2E_STAGING_CONFIG_JSON;
+          if (!raw?.trim()) {
+            console.error('Missing E2E_STAGING_CONFIG_JSON; no request was made.');
+            process.exit(1);
+          }
+          let config;
+          try { config = JSON.parse(raw); } catch {
+            console.error('E2E_STAGING_CONFIG_JSON is invalid JSON; no request was made.');
+            process.exit(1);
+          }
+
+          const apiBase = process.env.E2E_API_BASE_URL;
+          const api = new URL(apiBase);
+          const sharedToken = String(config.E2E_FLOW_AUTH_TOKEN ?? '');
+          if (config.E2E_ENVIRONMENT !== 'staging' ||
+              api.protocol !== 'https:' ||
+              api.hostname !== 'kuraliupdates-bazaar.onrender.com' ||
+              api.pathname !== '/api/v1' ||
+              sharedToken.length < 32) {
+            console.error('Staging target or shared flow-token configuration is invalid; no request was made.');
+            process.exit(1);
+          }
+          console.log('::add-mask::' + sharedToken.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A'));
+
+          const required = (key) => {
+            const value = String(config[key] ?? '').trim();
+            if (!value) throw new Error('Required E2E config key is blank: ' + key);
+            return value;
+          };
+          const syntheticId = (key) => {
+            const value = required(key);
+            if (!/^E2E-[A-Za-z0-9_-]{3,80}$/.test(value)) {
+              throw new Error(key + ' must be a synthetic ID beginning E2E-; no business mutation is permitted.');
+            }
+            return value;
+          };
+          const expected = [
+            ['BUYER', 'E2E_BUYER_IDENTITY', 'BUYER'],
+            ['SELLER', 'E2E_SELLER_IDENTITY', 'SELLER'],
+            ['DELIVERY', 'E2E_DELIVERY_IDENTITY', 'DELIVERY'],
+            ['PROVIDER', 'E2E_PROVIDER_IDENTITY', 'PROFESSIONAL'],
+            ['ADMIN', 'E2E_ADMIN_IDENTITY', 'ADMIN']
+          ];
+
+          async function postJson(path, headers, body) {
+            const response = await fetch(apiBase + path, {
+              method: 'POST',
+              headers: { ...headers, 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Accept': 'application/json' },
+              body: JSON.stringify(body),
+              signal: AbortSignal.timeout(20000)
+            });
+            if (!response.ok) throw new Error(path + ' returned HTTP ' + response.status);
+            return response.json();
+          }
+          async function getJson(path, token) {
+            const response = await fetch(apiBase + path, {
+              headers: { 'Authorization': 'Bearer ' + token, 'Cache-Control': 'no-store', 'Accept': 'application/json' },
+              signal: AbortSignal.timeout(20000)
+            });
+            if (!response.ok) throw new Error(path + ' returned HTTP ' + response.status);
+            return response.json();
+          }
+
+          try {
+            const tokens = {};
+            for (const [role, identityKey, expectedRole] of expected) {
+              const identity = required(identityKey);
+              const session = await postJson('/e2e/auth/token', { 'X-E2E-Flow-Token': sharedToken }, { role, identifier: identity });
+              if (session?.authenticated !== true ||
+                  String(session?.role ?? '').toUpperCase() !== expectedRole ||
+                  typeof session?.token !== 'string' || session.token.length < 21) {
+                throw new Error('Role session contract failed for ' + role + '.');
+              }
+              tokens[role] = session.token;
+              console.log('PASS: ' + role + ' session issued with expected role.');
+            }
+
+            const productId = syntheticId('E2E_FLOW_PRODUCT_ID');
+            const sellerId = syntheticId('E2E_FLOW_SELLER_ID');
+            const deliveryAgentId = syntheticId('E2E_FLOW_DELIVERY_AGENT_ID');
+            const quantity = Number(required('E2E_FLOW_ORDER_QUANTITY'));
+            if (!Number.isInteger(quantity) || quantity < 1 || quantity > 2) {
+              throw new Error('E2E_FLOW_ORDER_QUANTITY must be an integer between 1 and 2.');
+            }
+            const productResults = await getJson('/buyers/products/search?query=' + encodeURIComponent(productId), tokens.BUYER);
+            if (!Array.isArray(productResults)) throw new Error('Product search did not return a list.');
+            const product = productResults.find(item => item.productId === productId);
+            if (!product) throw new Error('Synthetic product fixture is not visible to Buyer.');
+            const actualSellerId = product.sellerId ?? product.seller?.sellerId;
+            const stock = Number(product.stock ?? product.stockQty);
+            const price = Number(product.effectivePrice ?? product.price ?? product.sellerPrice);
+            if (String(actualSellerId) !== sellerId) throw new Error('Synthetic product seller does not match E2E_FLOW_SELLER_ID.');
+            if (!Number.isFinite(stock) || stock < quantity) throw new Error('Synthetic product stock is insufficient for configured quantity.');
+            if (!Number.isFinite(price) || price <= 0) throw new Error('Synthetic product has no valid positive catalogue price.');
+            console.log('PASS: synthetic product exists, seller matches, stock is sufficient, and catalogue price is valid.');
+
+            const services = await getJson('/daily-help/services', tokens.BUYER);
+            if (!Array.isArray(services)) throw new Error('Daily Help services endpoint did not return a list.');
+            const serviceId = syntheticId('E2E_FLOW_DAILY_HELP_SERVICE_ID');
+            const service = services.find(item => item.id === serviceId);
+            if (!service || service.active !== true) throw new Error('Configured synthetic Daily Help service is missing or inactive.');
+
+            const slotId = syntheticId('E2E_FLOW_DAILY_HELP_SLOT_ID');
+            const professionalId = syntheticId('E2E_FLOW_PROFESSIONAL_ID');
+            const scheduledStart = required('E2E_FLOW_DAILY_HELP_START');
+            const date = scheduledStart.slice(0, 10);
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date + 'T00:00:00Z'))) {
+              throw new Error('E2E_FLOW_DAILY_HELP_START must begin with a valid YYYY-MM-DD date.');
+            }
+            const hours = Number(required('E2E_FLOW_DAILY_HELP_HOURS'));
+            if (!Number.isFinite(hours) || hours < 1 || hours > 2) throw new Error('Daily Help E2E hours must be between 1 and 2.');
+            const slots = await getJson('/daily-help/availability?date=' + encodeURIComponent(date) +
+              '&requestedHours=' + encodeURIComponent(String(hours)) + '&locality=Kurali', tokens.BUYER);
+            if (!Array.isArray(slots)) throw new Error('Daily Help availability endpoint did not return a list.');
+            const slot = slots.find(item => item.slotId === slotId);
+            if (!slot) throw new Error('Configured synthetic Daily Help slot is not available for the configured date, duration and locality.');
+            if (String(slot.professionalId) !== professionalId) throw new Error('Daily Help slot does not belong to configured synthetic professional.');
+            if (String(slot.status ?? '').toUpperCase() !== 'AVAILABLE') throw new Error('Synthetic Daily Help slot is not AVAILABLE.');
+            console.log('PASS: synthetic Daily Help service is active and the configured slot is available for the expected professional.');
+            console.log('PASS: all five role sessions and both synthetic fixture families verified. No orders, bookings, inventory changes, OTPs, or customer records were created. Session tokens were not printed.');
+          } catch (error) {
+            console.error('PREFLIGHT FAILED: ' + (error?.message ?? 'unexpected failure') + '. No business transactions were attempted.');
+            process.exit(1);
+          }
+          NODE
