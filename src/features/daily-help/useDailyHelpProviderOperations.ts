@@ -198,10 +198,10 @@ export const useDailyHelpProviderOperations = () => {
   };
 
   return {
-    professional, earnings, availableJobs, jobs, loading, refreshing, otpInputs, setOtpInputs, now,
+    professional, earnings, availableJobs, jobs, loading, refreshing, setRefreshing, otpInputs, setOtpInputs, now,
     slotDate, setSlotDate, slotStart, setSlotStart, slotEnd, setSlotEnd, mySlots,
     registrationName, setRegistrationName, registrationPhone, setRegistrationPhone,
     registrationLocality, setRegistrationLocality, registering, activeJobs,
-    register, toggleAvailability, accept, setStatus, start, complete, openNavigation, createSlot, cancelSlot,
+    register, toggleAvailability, accept, setStatus, start, complete, openNavigation, createSlot, cancelSlot, load,
   };
 };
