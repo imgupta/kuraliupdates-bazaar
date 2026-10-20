@@ -14,6 +14,7 @@ export const NegotiationChatModal: React.FC = () => {
     setIsCartOpen,
     role,
     user,
+    showToast,
   } = useApp();
 
   const [inputMessage, setInputMessage] = useState('');
@@ -36,15 +37,24 @@ export const NegotiationChatModal: React.FC = () => {
     ? Math.round(targetProduct.sellerPrice * (1 - (targetProduct.additionalDiscountPercent || 0) / 100))
     : currentChat.originalPrice ?? 500;
 
+  const isOpening = currentChat.id.startsWith('pending-');
+
   const handleSendTextMessage = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isOpening) {
+      showToast('Connecting to the seller. Please wait a moment before sending.', 'info');
+      return;
+    }
     if (!inputMessage.trim()) return;
     sendMessage(activeChatId, inputMessage.trim());
     setInputMessage('');
   };
 
   const handleSendOffer = (offeredPrice: number) => {
-    if (!targetProduct) return;
+    if (isOpening) {
+      showToast('Connecting to the seller. Please wait before making an offer.', 'info');
+      return;
+    }
     if (counteringOfferId) {
       respondToOffer(activeChatId, counteringOfferId, 'counter', offeredPrice);
       setCounteringOfferId(null);
@@ -53,10 +63,10 @@ export const NegotiationChatModal: React.FC = () => {
     }
     const offer = {
       id: `off-${Date.now()}`,
-      productId: targetProduct.id,
-      productTitle: targetProduct.title,
-      productImage: targetProduct.image,
-      originalPrice: targetProduct.sellerPrice,
+      productId: currentChat.productId,
+      productTitle: targetProduct?.title || currentChat.productTitle,
+      productImage: targetProduct?.image || currentChat.productImage,
+      originalPrice: currentChat.originalPrice ?? (targetProduct?.sellerPrice || basePrice),
       offeredPrice,
       senderRole: (role === 'seller' ? 'seller' : 'buyer') as 'buyer' | 'seller',
       quantity: 1,
@@ -85,7 +95,7 @@ export const NegotiationChatModal: React.FC = () => {
                   Price Bargaining &amp; Chat
                 </h3>
                 <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  LIVE DEALS
+                  {isOpening ? 'CONNECTING…' : 'LIVE DEALS'}
                 </span>
               </div>
               <p className="text-xs text-amber-100 flex items-center gap-1">
@@ -259,20 +269,23 @@ export const NegotiationChatModal: React.FC = () => {
           <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium">
             <span className="text-[11px] font-bold text-slate-500">Quick Offers:</span>
             <button
+              disabled={isOpening}
               onClick={() => handleSendOffer(Math.round(basePrice * 0.95))}
-              className="bg-white hover:bg-amber-50 hover:text-amber-700 border border-slate-200 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer"
+              className="bg-white hover:bg-amber-50 hover:text-amber-700 border border-slate-200 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-40"
             >
               5% Off (₹{Math.round(basePrice * 0.95)})
             </button>
             <button
+              disabled={isOpening}
               onClick={() => handleSendOffer(Math.round(basePrice * 0.9))}
-              className="bg-white hover:bg-amber-50 hover:text-amber-700 border border-slate-200 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer"
+              className="bg-white hover:bg-amber-50 hover:text-amber-700 border border-slate-200 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-40"
             >
               10% Off (₹{Math.round(basePrice * 0.9)})
             </button>
             <button
+              disabled={isOpening}
               onClick={() => handleSendOffer(Math.round(basePrice * 0.85))}
-              className="bg-white hover:bg-amber-50 hover:text-amber-700 border border-slate-200 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer"
+              className="bg-white hover:bg-amber-50 hover:text-amber-700 border border-slate-200 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-40"
             >
               15% Off (₹{Math.round(basePrice * 0.85)})
             </button>
@@ -293,6 +306,7 @@ export const NegotiationChatModal: React.FC = () => {
               step="0.01"
               placeholder={counteringOfferId ? "₹ Counter" : "₹ Custom"}
               value={customOfferPrice}
+              disabled={isOpening}
               onChange={e => setCustomOfferPrice(e.target.value)}
               className="w-20 px-2 py-1 text-xs bg-white border border-slate-200 rounded-md outline-none focus:border-amber-500"
             />
@@ -301,7 +315,7 @@ export const NegotiationChatModal: React.FC = () => {
                 const val = Number(customOfferPrice);
                 if (val > 0) handleSendOffer(val);
               }}
-              disabled={!customOfferPrice}
+              disabled={!customOfferPrice || isOpening}
               className="bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white px-2 py-1 rounded-md text-xs font-bold cursor-pointer"
             >
               {counteringOfferId ? 'Send Counter' : 'Propose'}
@@ -322,12 +336,13 @@ export const NegotiationChatModal: React.FC = () => {
                 : "Type message to seller (e.g. Can I get 2 pieces for ₹X?)..."
             }
             value={inputMessage}
+            disabled={isOpening}
             onChange={e => setInputMessage(e.target.value)}
             className="flex-1 px-4 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"
           />
           <button
             type="submit"
-            disabled={!inputMessage.trim()}
+            disabled={!inputMessage.trim() || isOpening}
             className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:opacity-40 text-white p-2.5 rounded-xl shadow-xs transition-all cursor-pointer"
           >
             <Send className="w-4 h-4" />
