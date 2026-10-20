@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
+import { PORTALS } from '../scripts/portal-build-impact.mjs';
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const packageJson = JSON.parse(read('package.json'));
@@ -33,9 +34,8 @@ test('each portal build command writes a standalone index.html in its configured
 });
 
 test('all six Vercel ignore-build targets are supported by the repository script', () => {
-  for (const target of [...portals.map((portal) => portal.id), 'site']) {
-    assert.ok(ignoreScript.includes(`'${target}'`) || ignoreScript.includes(`"${target}"`), `ignore-build target missing: ${target}`);
-  }
+  assert.deepEqual(PORTALS, portals.map((portal) => portal.id));
+  assert.ok(ignoreScript.includes("[...PORTALS, 'site']"), 'ignore-build script must accept all portal targets plus site');
 });
 
 test('the combined Bazaar build remains the root Vite build', () => {
