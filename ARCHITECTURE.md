@@ -73,3 +73,12 @@ cd backend-java-spring && mvn clean verify
 
 ## Owner environment clarification — 11 October 2026
 There is a single deployed environment, and the owner designates it as staging. Any older docs requiring a separate production/staging split or two isolated environments are superseded by this clarification. Do not infer there is another environment.
+
+
+## Frontend domain refactoring — 20 October 2026
+
+- Buyer profile and saved-address operations are isolated in `useBuyerProfileOperations` (PR #148).
+- Authentication bootstrap side effects are isolated in `useAuthBootstrap`: backend sync scheduling, stored-session validation, one-time SSO handoff redemption, and registered-role refresh.
+- `AppContext` remains the compatibility facade for existing UI consumers; this batch intentionally preserves its public contract.
+- Authentication actions (OTP login/registration and logout), marketplace order/delivery operations, and the five independently deployable portal outputs remain separate follow-up boundaries. Do not claim full micro-frontend separation based on portal build outputs alone.
+- Validation for the authentication bootstrap extraction must pass frontend type checks, role/session regression tests, and the shared plus role-targeted production builds before merge. Do not run transactional OTP E2E or create staging orders solely for this refactor.
