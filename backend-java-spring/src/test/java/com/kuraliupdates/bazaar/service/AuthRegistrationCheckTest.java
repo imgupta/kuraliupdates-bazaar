@@ -30,6 +30,34 @@ class AuthRegistrationCheckTest {
     @InjectMocks private AuthService authService;
 
     @Test
+    void stagingE2eBuyerSessionAcceptsAnExistingNonBuyerPrimaryRole() {
+        UserEntity existing = UserEntity.builder().userId("user-seller")
+                .email("seller@example.com").phone("9876543210").role("SELLER").build();
+        when(userRepository.findByEmail("seller@example.com")).thenReturn(Optional.of(existing));
+
+        AuthService.AuthResult result = authService.createStagingE2eSession("Seller@Example.com", "BUYER");
+
+        assertTrue(result.token().startsWith("kurali_sess_"));
+        assertEquals("user-seller", result.user().userId());
+        verify(sessionRepository).save(any());
+    }
+
+    @Test
+    void stagingE2eDoesNotGrantSellerRoleWithoutSellerProfile() {
+        UserEntity existing = UserEntity.builder().userId("user-buyer")
+                .email("buyer@example.com").phone("9876543210").role("BUYER").build();
+        when(userRepository.findByEmail("buyer@example.com")).thenReturn(Optional.of(existing));
+        when(sellerRepository.findByEmailIgnoreCase("buyer@example.com")).thenReturn(Optional.empty());
+        when(sellerRepository.findByPhone("9876543210")).thenReturn(Optional.empty());
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> authService.createStagingE2eSession("buyer@example.com", "SELLER"));
+
+        assertTrue(error.getMessage().contains("not registered for the requested role"));
+        verify(sessionRepository, never()).save(any());
+    }
+
+    @Test
     void acceptsNewBuyerWhenEmailAndPhoneAreBothAvailable() {
         when(userRepository.findByEmail("buyer@example.com")).thenReturn(Optional.empty());
         when(userRepository.findByPhone("9876543210")).thenReturn(Optional.empty());
