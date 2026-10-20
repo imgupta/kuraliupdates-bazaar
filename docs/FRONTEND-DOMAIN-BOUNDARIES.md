@@ -1,7 +1,7 @@
 # Frontend Domain Boundaries and Extraction Inventory
 
-**Last updated:** 2026-10-13  
-**Latest main commit:** `895864adcd0df99b06f93e41b33b0daa0fba1a1b` (docs-only PR #68; CI passed). **Latest verified READY deployment:** `7edd96455a57da73d76e03fdea817d30e629b577`, deployment `dpl_13kh7LcMfTADMQNUfdKte1V9JEHm`. No AppContext state/API-domain refactor has been merged.
+**Last updated:** 2026-10-21
+**Latest status:** PRs #154–#157 add staging role/fixture preflight; current frontend/backend CI passes, but authenticated transactional lifecycle testing remains blocked by fixture configuration. Earlier runtime refactor notes below remain historical checkpoints.
 
 ## Purpose
 
@@ -705,3 +705,38 @@ A focused implementation branch, `refactor/domain-api-boundaries`, begins the ru
 - Review the changed import paths and confirm no role has acquired access to methods outside its declared facade.
 - Continue with actual domain implementation extraction (moving endpoint implementations out of `src/services/api.ts`) only after this compatibility layer is green.
 - AppContext runtime state and effects remain coupled; splitting them into domain hooks is a separate follow-up, gated by behavior-specific tests and a complete mutation/effect inventory.
+
+
+## Verified checkpoint — 21 October 2026
+
+### Current state and safety boundary
+- The owner-designated environment is the single shared staging deployment; there is no separate production environment. Do not run transactional tests against real customer data.
+- PRs [#154](https://github.com/imgupta/kuraliupdates-bazaar/pull/154), [#155](https://github.com/imgupta/kuraliupdates-bazaar/pull/155), [#156](https://github.com/imgupta/kuraliupdates-bazaar/pull/156), and [#157](https://github.com/imgupta/kuraliupdates-bazaar/pull/157) are merged. They add/refine `.github/workflows/staging-role-fixture-preflight.yml`.
+- Latest main CI run: [39484008873](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/39484008873) completed successfully for browser E2E/read-only API smoke, backend tests, frontend checks, and private Playwright report publication. This verifies the configured CI suite; it does **not** prove transactional order/Daily Help lifecycles ran.
+- Latest staging role/fixture preflight: [39484008866](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/39484008866) failed on fixture/profile configuration checks. Buyer and Admin session/profile checks passed. Seller, Delivery, and Provider sessions were issued but their configured profile IDs did not match. The configured product was missing/not Buyer-visible; the Daily Help service was missing/inactive; and the scheduled start value was not in the required local ISO format.
+- The preflight performs role token exchanges and read-only profile/catalogue/service/slot checks. It did not create orders/bookings, change inventory, send OTPs, or mutate business records.
+- Keep `E2E_TRANSACTIONAL_FLOWS_ENABLED=false` until the existing `E2E_STAGING_CONFIG_JSON` fixture values pass preflight and synthetic-data isolation/cleanup are confirmed. Do not add separate per-field secrets or log secret values.
+
+### Refactoring achieved
+- Frontend runtime remains a React/Vite application with `AppContext` retained as a compatibility facade; no independent micro-frontend deployments have been introduced.
+- Domain operation hooks have been extracted for Buyer profile/saved addresses, authentication bootstrap and login/registration/logout, Seller/Admin operations, order/delivery lifecycle, marketplace composition, and Daily Help provider operations. Daily Help provider HTTP calls are owned by `dailyHelpProviderApi`.
+- `AppContextType` is extracted to `src/context/AppContextContract.ts`; guarded local-storage access is extracted to `src/shared/storage/safeStorage.ts`.
+- Typed role/domain API facades exist for Buyer booking/tracking, Seller, Delivery, Daily Help Provider, Admin, and shared tracking. Where documented as a compatibility seam, they still delegate to `bazaarApi`; this does not mean all endpoint implementations have been moved out of `src/services/api.ts`.
+- Authentication E2E configuration has been consolidated in the `E2E_STAGING_CONFIG_JSON` repository secret. The E2E auth endpoint and staging role checks have been guarded; PR #152 addressed Buyer role eligibility for staging E2E sessions.
+- The guarded transactional suite is intended to cover buyer-to-seller bargaining (counter/accept/reject), accepted-offer checkout validation, catalogue-price immutability, stock deduction, order fulfilment/delivery, and Daily Help booking/start/completion. These scenarios remain **blocked from safe execution** until fixture preflight passes.
+
+### Test coverage confirmed in the latest main CI
+- Backend focused regressions and full backend verification suite: passed.
+- Frontend TypeScript checks, route registry/access policy/cross-portal redirect tests, saved-address and user-profile mapping, Seller product mapping, module-boundary/public portal entry-point regressions, and Delivery OTP input validator regression: passed.
+- Shared frontend production build and independently targeted role-portal builds: passed.
+- Browser E2E and read-only API smoke: passed. Report artifact publication to the private report site: passed.
+- Authenticated five-role fixture preflight: failed as described above; no transactional lifecycle result should be reported as passed.
+
+### Pending work, in order
+1. Correct existing `E2E_STAGING_CONFIG_JSON`: align Seller/Delivery/Provider identity-to-profile IDs; configure a Buyer-visible synthetic product owned by that Seller with sufficient stock; configure an active Daily Help service and available slot belonging to the configured professional; set `E2E_FLOW_DAILY_HELP_START` to the exact slot start in `YYYY-MM-DDTHH:mm:ss` local format and match duration.
+2. Re-run the preflight workflow and require all five role/profile checks plus product/service/slot checks to pass.
+3. Confirm database target and synthetic fixture ownership/isolation and define run-scoped cleanup before enabling any mutating order or booking test.
+4. Only then execute and record bargaining/checkout/stock/order-delivery and Daily Help booking/start/completion lifecycles, including failure/replay/ownership cases where supported. Keep the run report explicit about skipped tests versus executed tests.
+5. Continue frontend modularisation by moving endpoint implementations from `src/services/api.ts` into domain API modules, then split remaining AppContext state/actions/effects into tested domain hooks. Preserve API contracts, session/storage keys, timers/polling/geolocation cleanup, error semantics, routes, and UI behavior.
+6. Refresh the deployment commit/status independently when a runtime change is merged; docs-only workflow PRs #154–#157 did not create a new Render backend build.
+

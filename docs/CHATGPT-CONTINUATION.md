@@ -1,9 +1,9 @@
 # KuraliUpdates Bazaar — ChatGPT Continuation Handoff
 
-**Last updated:** 2026-10-13 (Asia/Kolkata)  
+**Last updated:** 2026-10-21 (Asia/Kolkata)
 **Repository:** https://github.com/imgupta/kuraliupdates-bazaar  
-**Latest merged main SHA:** `84944cea8961084bf5bf488e324cb7b287d15674` (PR #73, Delivery API trace docs-only).
-**Current verified state:** PR #73 head workflow #38366106002 passed frontend checks, backend tests, and browser E2E/read-only API smoke. Post-merge main workflow #38366636788 is running on exact main SHA `84944cea8961084bf5bf488e324cb7b287d15674`. Vercel's latest queried main deployment is READY for prior SHA `5235946abef42d15ec120a3509d835ae85b781de`; deployment for current main SHA is not yet verified. Authenticated five-role E2E execution remains unproven unless reports show tests actually ran and were not skipped.
+**Latest verified documentation checkpoint:** PRs #154–#157 merged; main workflow #39484008873 passed CI and preflight #39484008866 identified fixture mismatches.
+**Current verified state:** Frontend/backend CI and read-only browser/API smoke passed; authenticated role/fixture preflight failed on Seller/Delivery/Provider profile IDs, product visibility, Daily Help service activation, and timestamp format. Transactional order/Daily Help lifecycle tests remain blocked.
 
 > Read this file first when continuing work in a new chat. Then read `docs/UI-MODULARIZATION-PLAN.md` and `docs/FRONTEND-DOMAIN-BOUNDARIES.md`. Always re-check GitHub and Vercel state before acting; this file is a checkpoint, not a live status feed.
 
@@ -326,3 +326,38 @@ Use absolute commit SHAs and direct PR/run/deployment URLs. Distinguish verified
 - Before enabling capture, verify in the selected Render workspace that the backend service's Oracle JDBC target and schema are isolated staging, then configure the staging marker, generated token, allowlist, and dedicated identities. Never expose environment variable values in logs or handoff docs.
 - Main workflow pins frontend target to `https://bazaar.kuraliupdates.com` and validates API smoke target as `https://kuraliupdates-bazaar.onrender.com/api/v1`. Authenticated test logic requires the exact designated frontend/API hosts, `E2E_ENVIRONMENT=staging`, a token of at least 32 characters, and a dedicated role identity. Keep those guards.
 - Next: inspect Render service/database target metadata after the owner confirms which Render workspace to inspect; then decide whether it is safe to enable the OTP test interface. Keep shared staging business flows read-only until isolated synthetic fixtures and cleanup are explicitly established.
+
+
+## Verified checkpoint — 21 October 2026
+
+### Current state and safety boundary
+- The owner-designated environment is the single shared staging deployment; there is no separate production environment. Do not run transactional tests against real customer data.
+- PRs [#154](https://github.com/imgupta/kuraliupdates-bazaar/pull/154), [#155](https://github.com/imgupta/kuraliupdates-bazaar/pull/155), [#156](https://github.com/imgupta/kuraliupdates-bazaar/pull/156), and [#157](https://github.com/imgupta/kuraliupdates-bazaar/pull/157) are merged. They add/refine `.github/workflows/staging-role-fixture-preflight.yml`.
+- Latest main CI run: [39484008873](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/39484008873) completed successfully for browser E2E/read-only API smoke, backend tests, frontend checks, and private Playwright report publication. This verifies the configured CI suite; it does **not** prove transactional order/Daily Help lifecycles ran.
+- Latest staging role/fixture preflight: [39484008866](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/39484008866) failed on fixture/profile configuration checks. Buyer and Admin session/profile checks passed. Seller, Delivery, and Provider sessions were issued but their configured profile IDs did not match. The configured product was missing/not Buyer-visible; the Daily Help service was missing/inactive; and the scheduled start value was not in the required local ISO format.
+- The preflight performs role token exchanges and read-only profile/catalogue/service/slot checks. It did not create orders/bookings, change inventory, send OTPs, or mutate business records.
+- Keep `E2E_TRANSACTIONAL_FLOWS_ENABLED=false` until the existing `E2E_STAGING_CONFIG_JSON` fixture values pass preflight and synthetic-data isolation/cleanup are confirmed. Do not add separate per-field secrets or log secret values.
+
+### Refactoring achieved
+- Frontend runtime remains a React/Vite application with `AppContext` retained as a compatibility facade; no independent micro-frontend deployments have been introduced.
+- Domain operation hooks have been extracted for Buyer profile/saved addresses, authentication bootstrap and login/registration/logout, Seller/Admin operations, order/delivery lifecycle, marketplace composition, and Daily Help provider operations. Daily Help provider HTTP calls are owned by `dailyHelpProviderApi`.
+- `AppContextType` is extracted to `src/context/AppContextContract.ts`; guarded local-storage access is extracted to `src/shared/storage/safeStorage.ts`.
+- Typed role/domain API facades exist for Buyer booking/tracking, Seller, Delivery, Daily Help Provider, Admin, and shared tracking. Where documented as a compatibility seam, they still delegate to `bazaarApi`; this does not mean all endpoint implementations have been moved out of `src/services/api.ts`.
+- Authentication E2E configuration has been consolidated in the `E2E_STAGING_CONFIG_JSON` repository secret. The E2E auth endpoint and staging role checks have been guarded; PR #152 addressed Buyer role eligibility for staging E2E sessions.
+- The guarded transactional suite is intended to cover buyer-to-seller bargaining (counter/accept/reject), accepted-offer checkout validation, catalogue-price immutability, stock deduction, order fulfilment/delivery, and Daily Help booking/start/completion. These scenarios remain **blocked from safe execution** until fixture preflight passes.
+
+### Test coverage confirmed in the latest main CI
+- Backend focused regressions and full backend verification suite: passed.
+- Frontend TypeScript checks, route registry/access policy/cross-portal redirect tests, saved-address and user-profile mapping, Seller product mapping, module-boundary/public portal entry-point regressions, and Delivery OTP input validator regression: passed.
+- Shared frontend production build and independently targeted role-portal builds: passed.
+- Browser E2E and read-only API smoke: passed. Report artifact publication to the private report site: passed.
+- Authenticated five-role fixture preflight: failed as described above; no transactional lifecycle result should be reported as passed.
+
+### Pending work, in order
+1. Correct existing `E2E_STAGING_CONFIG_JSON`: align Seller/Delivery/Provider identity-to-profile IDs; configure a Buyer-visible synthetic product owned by that Seller with sufficient stock; configure an active Daily Help service and available slot belonging to the configured professional; set `E2E_FLOW_DAILY_HELP_START` to the exact slot start in `YYYY-MM-DDTHH:mm:ss` local format and match duration.
+2. Re-run the preflight workflow and require all five role/profile checks plus product/service/slot checks to pass.
+3. Confirm database target and synthetic fixture ownership/isolation and define run-scoped cleanup before enabling any mutating order or booking test.
+4. Only then execute and record bargaining/checkout/stock/order-delivery and Daily Help booking/start/completion lifecycles, including failure/replay/ownership cases where supported. Keep the run report explicit about skipped tests versus executed tests.
+5. Continue frontend modularisation by moving endpoint implementations from `src/services/api.ts` into domain API modules, then split remaining AppContext state/actions/effects into tested domain hooks. Preserve API contracts, session/storage keys, timers/polling/geolocation cleanup, error semantics, routes, and UI behavior.
+6. Refresh the deployment commit/status independently when a runtime change is merged; docs-only workflow PRs #154–#157 did not create a new Render backend build.
+
