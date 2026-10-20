@@ -17,15 +17,25 @@ if (!previous || !current || /^0+$/.test(previous) || /^0+$/.test(current)) {
   process.exit(1);
 }
 
+const readChangedFiles = () => execFileSync('git', ['diff', '--name-only', `${previous}...${current}`], {
+  encoding: 'utf8',
+  stdio: ['ignore', 'pipe', 'pipe'],
+}).split(/\r?\n/).filter(Boolean);
+
 let changedFiles;
 try {
-  changedFiles = execFileSync('git', ['diff', '--name-only', `${previous}...${current}`], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  }).split(/\r?\n/).filter(Boolean);
+  changedFiles = readChangedFiles();
 } catch {
-  console.log('Could not compare Vercel commits; proceeding with build (fail open).');
-  process.exit(1);
+  try {
+    // Vercel clones can omit the previous commit object; fetch just that commit if possible.
+    execFileSync('git', ['fetch', '--no-tags', '--depth=1', 'origin', previous], {
+      stdio: ['ignore', 'ignore', 'ignore'],
+    });
+    changedFiles = readChangedFiles();
+  } catch {
+    console.log('Could not compare Vercel commits; proceeding with build (fail open).');
+    process.exit(1);
+  }
 }
 
 if (target === 'site') {
