@@ -43,6 +43,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({ orderId, fallbackBuy
   useEffect(() => {
     let mounted = true;
     let timeoutId: number | undefined;
+    let mapReadyTimeoutId: number | undefined;
     let script: HTMLScriptElement | null = null;
     const key = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined)?.trim();
 
@@ -93,8 +94,17 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({ orderId, fallbackBuy
       });
       // Mark the map ready only after Google has rendered its first idle frame.
       window.google.maps.event.addListenerOnce(map.current, 'idle', () => {
+        if (mapReadyTimeoutId !== undefined) window.clearTimeout(mapReadyTimeoutId);
         if (mounted && !googleMapsFailed) setMapReady(true);
       });
+      // Also fall back when the script exists but the map never renders an idle frame.
+      mapReadyTimeoutId = window.setTimeout(() => {
+        if (mounted) {
+          setGoogleMapsFailed(true);
+          setMapReady(false);
+          map.current = null;
+        }
+      }, 10000);
     };
 
     loadMaps().catch(() => {
@@ -108,6 +118,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({ orderId, fallbackBuy
     return () => {
       mounted = false;
       if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      if (mapReadyTimeoutId !== undefined) window.clearTimeout(mapReadyTimeoutId);
       if (window.gm_authFailure !== previousAuthFailure) window.gm_authFailure = previousAuthFailure;
       // Do not remove a script that another component may be using.
       if (script && script.parentNode && script.id === 'kurali-google-maps-script' && !window.google?.maps) {
