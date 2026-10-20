@@ -72,7 +72,7 @@ jobs:
       - name: Portal build-impact policy regression tests
         run: node --test tests/portalBuildImpact.test.mjs
       - name: Build only affected role portals
-        run: bun run build:affected-portals
+        run: node scripts/build-affected-portals.mjs
         env:
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
 
