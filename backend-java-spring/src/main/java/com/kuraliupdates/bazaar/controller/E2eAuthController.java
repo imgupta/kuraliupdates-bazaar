@@ -23,14 +23,17 @@ public class E2eAuthController {
     private final AuthService authService;
     private final String environment;
     private final String configuredToken;
+    private final String configuredIdentities;
 
     public E2eAuthController(
             AuthService authService,
             @Value("${E2E_FLOW_AUTH_ENV:}") String environment,
-            @Value("${E2E_FLOW_AUTH_TOKEN:}") String configuredToken) {
+            @Value("${E2E_FLOW_AUTH_TOKEN:}") String configuredToken,
+            @Value("${E2E_FLOW_AUTH_IDENTITIES:}") String configuredIdentities) {
         this.authService = authService;
         this.environment = environment == null ? "" : environment.trim().toLowerCase();
         this.configuredToken = configuredToken == null ? "" : configuredToken;
+        this.configuredIdentities = configuredIdentities == null ? "" : configuredIdentities;
     }
 
     @PostMapping("/token")
@@ -53,6 +56,14 @@ public class E2eAuthController {
             return ResponseEntity.badRequest().cacheControl(CacheControl.noStore())
                     .body(Map.of("message", "A test identity and role are required"));
         }
+        boolean allowlisted = java.util.Arrays.stream(configuredIdentities.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .anyMatch(value -> normalizeIdentity(value).equals(normalizeIdentity(identifier)));
+        if (!allowlisted) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).cacheControl(CacheControl.noStore())
+                    .body(Map.of("message", "Not found"));
+        }
 
         AuthService.AuthResult result = authService.createStagingE2eSession(identifier, role);
         List<String> roles = authService.registeredRoles(result.token());
@@ -65,6 +76,11 @@ public class E2eAuthController {
                 "role", "PROVIDER".equalsIgnoreCase(role) ? "PROFESSIONAL" : role.trim().toUpperCase(),
                 "message", result.message()
         ));
+    }
+
+    private String normalizeIdentity(String value) {
+        String trimmed = value == null ? "" : value.trim();
+        return trimmed.contains("@") ? trimmed.toLowerCase() : trimmed.replaceAll("\\D", "");
     }
 
     private boolean constantTimeEquals(String expected, String actual) {
