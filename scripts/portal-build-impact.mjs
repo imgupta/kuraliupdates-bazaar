@@ -9,7 +9,7 @@ const PORTAL_PATHS = {
 };
 
 export function isNonRuntimePath(file) {
-  const path = file.replaceAll('\\\\', '/');
+  const path = file.replaceAll(String.fromCharCode(92), '/');
   return (
     path.endsWith('.md') ||
     path.startsWith('docs/') ||
@@ -29,7 +29,7 @@ export function isNonRuntimePath(file) {
 }
 
 export function isPortalIrrelevantPath(file) {
-  const path = file.replaceAll('\\\\', '/');
+  const path = file.replaceAll(String.fromCharCode(92), '/');
   return isNonRuntimePath(path) || path === 'index.html';
 }
 
@@ -48,7 +48,7 @@ function owningPortal(file) {
  */
 export function affectedPortals(changedFiles) {
   const runtimeFiles = changedFiles
-    .map((file) => file.replaceAll('\\\\', '/'))
+    .map((file) => file.replaceAll(String.fromCharCode(92), '/'))
     .filter((file) => !isPortalIrrelevantPath(file));
 
   if (runtimeFiles.length === 0) return [];
