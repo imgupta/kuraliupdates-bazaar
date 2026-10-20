@@ -6,8 +6,6 @@ import {
 import { KURALI_LOCALITIES } from '../../data/initialData';
 import { useDailyHelpProviderOperations } from './useDailyHelpProviderOperations';
 
-const ACTIVE_STATUSES = ['PROFESSIONAL_ASSIGNED', 'ARRIVING', 'READY_TO_START', 'IN_PROGRESS'];
-
 const formatDuration = (seconds: number) => {
   const safe = Math.max(0, seconds);
   const h = Math.floor(safe / 3600);
