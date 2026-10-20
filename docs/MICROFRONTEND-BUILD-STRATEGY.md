@@ -17,9 +17,11 @@ Configure each existing Vercel portal project with repository root `.`, framewor
 | Admin | `bun run build:admin` | `dist/admin` | `node scripts/vercel-ignore-build.mjs admin` |
 | Combined Bazaar site, if retained | `bun run build` | `dist` | `node scripts/vercel-ignore-build.mjs site` |
 
-Set the Ignore Build Step command in each Vercel project's **Settings → Git → Ignored Build Step**. A command exit status of 0 tells Vercel to skip the build; status 1 tells Vercel to continue. The script fails open (continues the build) if Vercel commit metadata is absent or Git comparison fails.
+On 21 October 2026, the Ignore Build Step command was configured for all six existing Vercel projects (**Settings → Git → Ignored Build Step**): five role portals plus the combined Bazaar site. A command exit status of 0 tells Vercel to skip the build; status 1 tells Vercel to continue. The script fails open (continues the build) if Vercel commit metadata is absent or Git comparison fails.
 
-Repository changes do not automatically configure Vercel dashboard settings. Apply the relevant command separately to each existing project and confirm each project's root/build/output settings before expecting quota savings.
+The settings update did not create a deployment. The post-merge Vercel check showed no new READY deployment for commit `c8e4932e13c4189cdfbb5206b9bc57c213a55495`; the Admin project recorded a CANCELED deployment for that commit, consistent with the ignore-build gate. Other projects retained their prior READY deployments. This is evidence of skipping for this docs/scripts/workflow-only change, not yet proof of the portal-only routing matrix.
+
+The ignore command was updated without changing project domains, aliases, or existing build commands/output directories. Verify those existing settings match the table before the next portal runtime release.
 
 ## Build impact rules
 
@@ -33,7 +35,7 @@ Repository changes do not automatically configure Vercel dashboard settings. App
 ## Vercel setup and validation
 
 1. Verify actual project names, root directories, build commands, output directories and assigned domains in Vercel. Do not create projects or reassign aliases automatically.
-2. Add the matching Ignore Build Step command to each existing portal project; use the `site` target for the combined site if it is still deployed.
+2. Verify the matching Ignore Build Step command remains configured in each existing portal project; use the `site` target for the combined site.
 3. Confirm a docs-only commit is skipped by all projects.
 4. Confirm a Buyer-only change builds Buyer but skips Seller, Delivery, Daily Help and Admin.
 5. Confirm a shared API/context/style or dependency change triggers all relevant portal builds.
@@ -44,3 +46,11 @@ Repository changes do not automatically configure Vercel dashboard settings. App
 - No API contract, backend, database, authentication, session key, route or business workflow change is part of this build optimization.
 - Keep transactional staging E2E disabled until the existing role/fixture preflight passes and synthetic-data isolation is confirmed.
 - Do not create extra Vercel projects or change billing/security settings without reviewing current account/project configuration.
+
+
+## Applied configuration checkpoint — 21 October 2026
+
+- Configured the Ignore Build Step on `kuraliupdates-buyer`, `kuraliupdates-seller`, `kuraliupdates-delivery`, `kuraliupdates-daily-help`, `kuraliupdates-admin`, and `kuraliupdates-bazaar`.
+- The merge commit changes only workflow/build-support/test/documentation files, so it should not cause a runtime deployment. Latest Vercel inspection found no new READY deployments on that commit; the Admin project records a CANCELED deployment, consistent with an ignored build.
+- The actual portal-only and shared-runtime decision matrix still needs validation on a future relevant code change; do not create dummy runtime commits solely to test it while build quota is constrained.
+- Existing Vercel build commands, output directories, domain aliases, and backend targets were not modified by this configuration change.
