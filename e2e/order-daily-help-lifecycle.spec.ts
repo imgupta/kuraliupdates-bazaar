@@ -47,6 +47,79 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(product.sellerId ?? product.seller?.sellerId).toBe(sellerId);
     expect(Number(product.stock)).toBeGreaterThanOrEqual(quantity);
 
+    // Exercise the real buyer → seller negotiation path before checkout. The
+    // accepted offer ID, not a client-supplied price alone, authorizes the cart price.
+    const catalogPrice = Number(product.effectivePrice ?? product.price ?? product.sellerPrice);
+    expect(Number.isFinite(catalogPrice) && catalogPrice > 0, "synthetic product must have a valid catalogue price").toBeTruthy();
+    const buyerOfferPrice = Math.round(catalogPrice * 0.90 * 100) / 100;
+    const counterPrice = Math.round(catalogPrice * 0.95 * 100) / 100;
+    expect(counterPrice).toBeGreaterThan(buyerOfferPrice);
+    expect(counterPrice).toBeLessThan(catalogPrice);
+
+    const openChatResponse = await request.post(apiBase + "/negotiations", {
+      headers: auth(buyerToken),
+      data: { productId, startingOfferPrice: buyerOfferPrice, openingMessage: "E2E synthetic bargaining conversation" },
+      timeout: 20_000,
+    });
+    expect(openChatResponse.status(), "buyer opens a conversation for the synthetic product").toBe(200);
+    const openedChat = await openChatResponse.json();
+    const chatId = String(openedChat.id ?? "");
+    expect(chatId).toMatch(/^chat-/);
+    expect(openedChat.sellerId).toBe(sellerId);
+    const openingOffer = (openedChat.messages ?? []).find((message: any) =>
+      message.senderRole === "buyer" && message.offer?.status === "pending"
+    );
+    expect(openingOffer, "opening buyer offer should be persisted").toBeTruthy();
+
+    const sellerInbox = await getJson(request, "/negotiations?role=SELLER", sellerToken);
+    expect(sellerInbox.filter((chat: any) => chat.id === chatId), "the correct seller receives the conversation exactly once").toHaveLength(1);
+
+    const counterResponse = await request.post(
+      apiBase + "/negotiations/" + encodeURIComponent(chatId) + "/offers/" + encodeURIComponent(openingOffer.offer.id) + "/respond",
+      { headers: { ...auth(sellerToken), "X-Active-Role": "SELLER" }, data: { action: "COUNTER", counterPrice }, timeout: 20_000 },
+    );
+    expect(counterResponse.status(), "seller can counter the buyer's offer").toBe(200);
+    const counteredChat = await counterResponse.json();
+    const sellerCounter = (counteredChat.messages ?? []).find((message: any) =>
+      message.senderRole === "seller" && message.offer?.status === "pending" && Number(message.offer.offeredPrice) === counterPrice
+    );
+    expect(sellerCounter, "seller counter-offer should reach the buyer").toBeTruthy();
+
+    const acceptResponse = await request.post(
+      apiBase + "/negotiations/" + encodeURIComponent(chatId) + "/offers/" + encodeURIComponent(sellerCounter.offer.id) + "/respond",
+      { headers: { ...auth(buyerToken), "X-Active-Role": "BUYER" }, data: { action: "ACCEPT" }, timeout: 20_000 },
+    );
+    expect(acceptResponse.status(), "buyer can accept the seller counter-offer").toBe(200);
+    const agreedChat = await acceptResponse.json();
+    expect(Number(agreedChat.currentAgreedPrice)).toBe(counterPrice);
+    expect(String(agreedChat.currentAgreedOfferId)).toBe(String(sellerCounter.offer.id));
+
+    // A later rejected offer must not replace the accepted price.
+    const lowerOfferPrice = buyerOfferPrice;
+    const lowerOfferResponse = await request.post(apiBase + "/negotiations/" + encodeURIComponent(chatId) + "/messages", {
+      headers: { ...auth(buyerToken), "X-Active-Role": "BUYER" },
+      data: { text: "Can you do a lower price?", offerPrice: lowerOfferPrice },
+      timeout: 20_000,
+    });
+    expect(lowerOfferResponse.status()).toBe(200);
+    const lowerOfferChat = await lowerOfferResponse.json();
+    const lowerOffer = (lowerOfferChat.messages ?? []).find((message: any) =>
+      message.senderRole === "buyer" && message.offer?.status === "pending" && Number(message.offer.offeredPrice) === lowerOfferPrice
+    );
+    expect(lowerOffer).toBeTruthy();
+    const rejectResponse = await request.post(
+      apiBase + "/negotiations/" + encodeURIComponent(chatId) + "/offers/" + encodeURIComponent(lowerOffer.offer.id) + "/respond",
+      { headers: { ...auth(sellerToken), "X-Active-Role": "SELLER" }, data: { action: "REJECT" }, timeout: 20_000 },
+    );
+    expect(rejectResponse.status(), "seller can reject a subsequent offer").toBe(200);
+    const rejectedChat = await rejectResponse.json();
+    expect(Number(rejectedChat.currentAgreedPrice)).toBe(counterPrice);
+    expect(String(rejectedChat.currentAgreedOfferId)).toBe(String(sellerCounter.offer.id));
+
+    const catalogBeforeCheckout = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(productId), buyerToken);
+    const productBeforeCheckout = catalogBeforeCheckout.find((p: any) => p.productId === productId);
+    expect(Number(productBeforeCheckout?.effectivePrice ?? productBeforeCheckout?.price ?? productBeforeCheckout?.sellerPrice)).toBe(catalogPrice);
+
     const placedResponse = await request.post(apiBase + "/buyers/orders", {
       headers: auth(buyerToken),
       data: {
@@ -54,7 +127,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
         buyerEmail: required("E2E_FLOW_BUYER_EMAIL"), deliveryAddress: "E2E Test Address - do not deliver",
         deliveryLocality: "Kurali", sellerId, subtotal: 0, discountAmount: 0, deliveryFee: 0,
         finalPayable: 0, paymentMethod: "COD", distanceKm: 1,
-        items: [{ productId, quantity }]
+        items: [{ productId, quantity, negotiatedPrice: counterPrice, acceptedOfferId: sellerCounter.offer.id }]
       },
       timeout: 20_000,
     });
@@ -64,6 +137,16 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const orderId = String(order.orderId ?? "");
     expect(orderId).toMatch(/^ORD-KUR-[A-F0-9-]+$/i);
     expect(order.status).toBe("PLACED");
+    expect(order.items, "checkout response should contain the authoritative negotiated line item").toHaveLength(1);
+    expect(Number(order.items[0].unitPrice)).toBe(counterPrice);
+    expect(Number(order.items[0].negotiatedPrice)).toBe(counterPrice);
+    expect(Number(order.items[0].totalPrice)).toBe(counterPrice * quantity);
+
+    const catalogAfterCheckout = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(productId), buyerToken);
+    const productAfterCheckout = catalogAfterCheckout.find((p: any) => p.productId === productId);
+    expect(Number(productAfterCheckout?.effectivePrice ?? productAfterCheckout?.price ?? productAfterCheckout?.sellerPrice),
+      "accepted bargaining price must affect this order only, never catalogue price").toBe(catalogPrice);
+    expect(Number(productAfterCheckout?.stock ?? productAfterCheckout?.stockQty)).toBe(Number(product.stock ?? product.stockQty) - quantity);
     expect(order.paymentStatus).toBe("PENDING_COD");
     expect(String(placement.deliveryOtp ?? "")).toMatch(/^\d{4}$/);
 
