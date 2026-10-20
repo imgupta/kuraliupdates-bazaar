@@ -50,16 +50,28 @@ Once the explicit no-email confirmation is enabled, each role test sends one OTP
 
 Tests skip when required configuration or identity is absent. A green workflow job alone does not prove all five role tests executed; check the HTML report for each role's actual passed/skipped/failed result.
 
+## Consolidated staging JSON configuration
+
+The workflow reads E2E test settings, role identities, synthetic fixture IDs, and E2E-only secrets from one GitHub Actions repository secret: `E2E_STAGING_CONFIG_JSON`. The example structure is in [`.github/e2e-staging-config.example.json`](.github/e2e-staging-config.example.json). That committed file is a template only; never put real tokens, passwords, or personal test-user details in it.
+
+1. Copy the example JSON and replace the blank/placeholders with your dedicated test values.
+2. In GitHub, open **Settings → Secrets and variables → Actions → New repository secret**.
+3. Set the name to `E2E_STAGING_CONFIG_JSON` and paste the complete JSON object as its secret value.
+4. Keep the fixed staging frontend/API URLs in workflow code; the workflow rejects other hosts. The JSON cannot redirect tests to an arbitrary API.
+5. Until the isolated staging database and synthetic fixtures are verified, leave `E2E_TRANSACTIONAL_FLOWS_ENABLED` and `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED` as `false`.
+
+The workflow loads these JSON keys into its runtime environment without printing their values. OTP-login and mutating lifecycle tests are additionally gated to scheduled/manual trusted runs.
+
 ## Static-secret flow authentication (transactional API E2E)
 
 Transactional lifecycle tests can obtain fresh server-side session tokens without sending OTPs. This is separate from the browser OTP-login tests above.
 
 1. Generate a high-entropy secret locally, for example with `openssl rand -hex 32`. Never commit it or paste it into a chat.
-2. Configure the backend environment with `E2E_FLOW_AUTH_ENV=staging`, `E2E_FLOW_AUTH_TOKEN=<the generated secret>`, and `E2E_FLOW_AUTH_IDENTITIES=<comma-separated allowlisted E2E emails/phone numbers>`. The allowlist should contain only the dedicated synthetic test accounts used by the workflow. Do not configure these on a production environment.
-3. Add the same secret as the GitHub Actions repository secret `E2E_FLOW_AUTH_TOKEN`.
-4. Keep the existing `E2E_BUYER_IDENTITY`, `E2E_SELLER_IDENTITY`, `E2E_DELIVERY_IDENTITY`, and `E2E_PROVIDER_IDENTITY` secrets configured with existing test accounts that actually have those roles.
+2. Configure the backend environment with `E2E_FLOW_AUTH_ENV=staging`, `E2E_FLOW_AUTH_TOKEN=<the generated secret>`, and `E2E_FLOW_AUTH_IDENTITIES=<comma-separated allowlisted E2E emails/phone numbers>`. The allowlist should contain only dedicated synthetic test accounts. Do not configure these on a production environment.
+3. Put the same generated secret in the `E2E_FLOW_AUTH_TOKEN` field of the private `E2E_STAGING_CONFIG_JSON` GitHub Actions secret described above.
+4. The role identities used in the JSON must exist and have the corresponding backend roles.
 5. Once the endpoint is deployed, a transactional test exchanges the shared secret and one role identity at `POST /api/v1/e2e/auth/token`, receiving a normal application session token that expires after two hours. The shared secret itself is never accepted as an API bearer token.
-6. The endpoint returns 404 unless the backend environment is exactly `staging`, the secret is at least 32 characters, and the secret matches. The requested identity must also be in `E2E_FLOW_AUTH_IDENTITIES`. Role checks still apply; admin token issuance is limited to the configured root-admin account.
+6. The endpoint returns 404 unless the backend environment is exactly `staging`, the secret is at least 32 characters, the secret matches, and the requested identity is in `E2E_FLOW_AUTH_IDENTITIES`. Role checks still apply; admin token issuance is limited to the configured root-admin account.
 
 The exchange endpoint skips OTP only for the test-token issuance operation; it does not change `/auth/send-otp` or `/auth/verify-otp`. It does not by itself authenticate a browser UI session. Browser UI login tests continue to require the separately verified OTP-capture setup. Do not enable mutating lifecycle tests until the database is confirmed isolated from real customer/order data.
 
