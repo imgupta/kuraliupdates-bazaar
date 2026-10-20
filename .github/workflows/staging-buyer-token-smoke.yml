@@ -1,6 +1,12 @@
 name: Staging Buyer Token Smoke
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/staging-buyer-token-smoke.yml'
+      - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/E2eAuthController.java'
+      - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/AuthService.java'
   push:
     branches: [main]
     paths:
@@ -18,6 +24,7 @@ concurrency:
 
 jobs:
   buyer-token-smoke:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: Read-only staging Buyer token exchange
     runs-on: ubuntu-latest
     timeout-minutes: 8
