@@ -73,6 +73,8 @@ jobs:
         run: node --test tests/portalBuildImpact.test.mjs
       - name: Build only affected role portals
         run: bun run build:affected-portals
+        env:
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
 
   backend:
     name: Backend tests
