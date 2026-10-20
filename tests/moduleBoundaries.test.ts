@@ -27,7 +27,7 @@ test('delivery API owns delivery lifecycle HTTP operations outside the legacy AP
     assert.ok(!legacyApi.includes(`${method}(`), `legacy API should not own ${method}`);
   }
   assert.ok(!deliveryApi.includes('...bazaarApi'), 'delivery API must not spread the legacy client');
-  const operations = read('../src/context/useMarketplaceOperations.ts');
+  const operations = read('../src/context/useOrderDeliveryOperations.ts');
   assert.ok(operations.includes('deliveryApi.claimDeliveryJob'));
   assert.ok(operations.includes('deliveryApi.verifyDeliveryOtp'));
   assert.ok(operations.includes('deliveryApi.registerDeliveryAgent'));
@@ -95,10 +95,25 @@ test('authentication session storage is centralized outside the application cont
   }
   assert.ok(sessionStorage.includes('readStoredAuthSession'));
   assert.ok(sessionStorage.includes('readStoredRole'));
-  assert.ok(appContext.includes('clearStoredAuthState()'));
+  const authOperations = read('../src/context/useAuthOperations.ts');
+  assert.ok(authOperations.includes('clearStoredAuthState()'));
   assert.doesNotMatch(appContext, /kurali_auth_session|kurali_auth_token/);
 });
 
+
+test('authentication actions and logout are isolated from AppContext orchestration', () => {
+  const authOperations = read('../src/context/useAuthOperations.ts');
+  const appContext = read('../src/context/AppContext.tsx');
+
+  for (const operation of ['loginWithGoogle', 'loginWithOtp', 'registerUserWithOtp', 'logout', 'registerBuyer']) {
+    assert.ok(authOperations.includes(`const ${operation}`), `auth operations should own ${operation}`);
+  }
+  assert.ok(authOperations.includes('persistAuthToken(params.token)'));
+  assert.ok(authOperations.includes('clearStoredAuthState()'));
+  assert.ok(authOperations.includes('refreshBuyerAddresses(params.token, updatedUser.email)'));
+  assert.ok(appContext.includes('useAuthOperations({'));
+  assert.doesNotMatch(appContext, /const loginWithOtp =|const registerUserWithOtp =|const logout =|const registerBuyer =/);
+});
 
 test('shared authentication state is owned by AuthSessionProvider, not AppContext', () => {
   const authSession = read('../src/context/AuthSessionContext.tsx');
@@ -149,13 +164,21 @@ test('buyer cart and coupon state is isolated from the orchestration context', (
 });
 
 
-test('seller, admin, order and delivery operations are isolated from application orchestration', () => {
+test('seller/admin and order/delivery operations are split into focused domain hooks', () => {
   const operations = read('../src/context/useMarketplaceOperations.ts');
+  const sellerAdmin = read('../src/context/useSellerAdminOperations.ts');
+  const orderDelivery = read('../src/context/useOrderDeliveryOperations.ts');
   const appContext = read('../src/context/AppContext.tsx');
 
-  for (const operation of ['registerSeller', 'approveSeller', 'rejectSeller', 'addProduct', 'createOrder', 'updateOrderStatus', 'claimDeliveryJob', 'completeDelivery', 'registerDeliveryAgent']) {
-    assert.ok(operations.includes(`const ${operation}`), `marketplace operations should own ${operation}`);
+  for (const operation of ['registerSeller', 'approveSeller', 'rejectSeller', 'addProduct', 'updateProduct', 'deleteProduct', 'approveDeliveryAgent']) {
+    assert.ok(sellerAdmin.includes(`const ${operation}`), `seller/admin operations should own ${operation}`);
   }
+  for (const operation of ['createOrder', 'updateOrderStatus', 'claimDeliveryJob', 'completeDelivery', 'registerDeliveryAgent']) {
+    assert.ok(orderDelivery.includes(`const ${operation}`), `order/delivery operations should own ${operation}`);
+  }
+  assert.ok(operations.includes('useSellerAdminOperations'));
+  assert.ok(operations.includes('useOrderDeliveryOperations'));
+  assert.ok(operations.includes('return { ...sellerAdmin, ...orderDelivery }'));
   assert.ok(appContext.includes('useMarketplaceOperations({'));
   assert.ok(appContext.includes('const marketplaceOperations = useMarketplaceOperations'));
   assert.doesNotMatch(appContext, /const registerSeller =|const createOrder =|const claimDeliveryJob =|const completeDelivery =/);
@@ -174,6 +197,24 @@ test('negotiation chat state and bargaining actions are isolated from applicatio
   assert.ok(appContext.includes('useNegotiationChatState({'));
   assert.ok(appContext.includes('const { chats, activeChatId, setActiveChatId, openChatForProduct, sendMessage, respondToOffer } = negotiationChat'));
   assert.doesNotMatch(appContext, /const openChatForProduct =|const sendMessage =|const respondToOffer =/);
+});
+
+test('guarded transactional E2E covers bargaining through checkout without changing catalogue price', () => {
+  const lifecycle = read('../e2e/order-daily-help-lifecycle.spec.ts');
+
+  for (const behavior of [
+    'apiBase + "/negotiations"',
+    'action: "COUNTER"',
+    'action: "ACCEPT"',
+    'action: "REJECT"',
+    'acceptedOfferId: sellerCounter.offer.id',
+    'accepted bargaining price must affect this order only, never catalogue price',
+    'E2E_TRANSACTIONAL_FLOWS_ENABLED',
+  ]) {
+    assert.ok(lifecycle.includes(behavior), `transactional E2E should cover ${behavior}`);
+  }
+  assert.ok(lifecycle.includes('currentAgreedOfferId'));
+  assert.ok(lifecycle.includes('order.items[0].negotiatedPrice'));
 });
 
 test('backend synchronization is isolated from the application orchestration context', () => {
