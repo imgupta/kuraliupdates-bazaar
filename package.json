@@ -14,8 +14,7 @@
     "build:delivery": "VITE_PORTAL=delivery vite build --outDir dist/delivery && cp dist/delivery/portal-delivery.html dist/delivery/index.html",
     "build:daily-help": "VITE_PORTAL=professional vite build --outDir dist/daily-help && cp dist/daily-help/portal-daily-help.html dist/daily-help/index.html",
     "build:admin": "VITE_PORTAL=admin vite build --outDir dist/admin && cp dist/admin/portal-admin.html dist/admin/index.html",
-    "build:portals": "bun run build:buyer && bun run build:seller && bun run build:delivery && bun run build:daily-help && bun run build:admin",
-    "build:affected-portals": "bun scripts/build-affected-portals.mjs"
+    "build:portals": "bun run build:buyer && bun run build:seller && bun run build:delivery && bun run build:daily-help && bun run build:admin"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
