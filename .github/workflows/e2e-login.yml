@@ -97,40 +97,14 @@ jobs:
     timeout-minutes: 20
     env:
       CI: "true"
-      # This repository has one deployed environment, designated staging by the owner.
-      # Never allow a manual input to redirect authenticated tests to an arbitrary/production host.
-      E2E_ENVIRONMENT: ${{ vars.E2E_ENVIRONMENT }}
+      # Fixed allowlisted staging targets stay in workflow code; all E2E settings/identities/fixtures/secrets live in one Actions secret JSON.
       E2E_BASE_URL: "https://bazaar.kuraliupdates.com"
-      E2E_API_BASE_URL: ${{ vars.E2E_API_BASE_URL || 'https://kuraliupdates-bazaar.onrender.com/api/v1' }}
-      E2E_OTP_CAPTURE_TOKEN: ${{ secrets.E2E_OTP_CAPTURE_TOKEN }}
-      # Authenticated OTP tests stay disabled until the deployed staging backend's no-email capture mode has been verified.
-      # OTP-authenticated tests run only on scheduled/manual trusted runs, never on PR or push workflows.
-      E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && vars.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED == 'true' }}
-      E2E_BUYER_IDENTITY: ${{ secrets.E2E_BUYER_IDENTITY }}
-      E2E_SELLER_IDENTITY: ${{ secrets.E2E_SELLER_IDENTITY }}
-      E2E_DELIVERY_IDENTITY: ${{ secrets.E2E_DELIVERY_IDENTITY }}
-      E2E_PROVIDER_IDENTITY: ${{ secrets.E2E_PROVIDER_IDENTITY }}
-      E2E_ADMIN_IDENTITY: ${{ secrets.E2E_ADMIN_IDENTITY }}
-      KURALI_API_BASE_URL: ${{ vars.KURALI_API_BASE_URL || vars.KURALI_STAGING_API_BASE_URL || 'https://kuraliupdates-bazaar.onrender.com/api/v1' }}
+      E2E_API_BASE_URL: "https://kuraliupdates-bazaar.onrender.com/api/v1"
+      KURALI_API_BASE_URL: "https://kuraliupdates-bazaar.onrender.com/api/v1"
+      E2E_STAGING_CONFIG_JSON: ${{ secrets.E2E_STAGING_CONFIG_JSON }}
       SMOKE_READINESS_TIMEOUT_MS: "360000"
       SMOKE_RETRY_INTERVAL_MS: "10000"
       SMOKE_TIMEOUT_MS: "45000"
-      # Mutating lifecycle tests are allowed only on trusted scheduled/manual runs after
-      # the owner explicitly enables them and provisions dedicated synthetic fixtures.
-      E2E_TRANSACTIONAL_FLOWS_ENABLED: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && vars.E2E_TRANSACTIONAL_FLOWS_ENABLED == 'true' }}
-      # One static shared secret exchanges for short-lived-by-session role tokens; it is not itself an API bearer token.
-      E2E_FLOW_AUTH_TOKEN: ${{ secrets.E2E_FLOW_AUTH_TOKEN }}
-      E2E_FLOW_BUYER_PHONE: ${{ secrets.E2E_FLOW_BUYER_PHONE }}
-      E2E_FLOW_BUYER_EMAIL: ${{ secrets.E2E_FLOW_BUYER_EMAIL }}
-      E2E_FLOW_PRODUCT_ID: ${{ vars.E2E_FLOW_PRODUCT_ID }}
-      E2E_FLOW_SELLER_ID: ${{ vars.E2E_FLOW_SELLER_ID }}
-      E2E_FLOW_DELIVERY_AGENT_ID: ${{ vars.E2E_FLOW_DELIVERY_AGENT_ID }}
-      E2E_FLOW_ORDER_QUANTITY: ${{ vars.E2E_FLOW_ORDER_QUANTITY }}
-      E2E_FLOW_DAILY_HELP_SERVICE_ID: ${{ vars.E2E_FLOW_DAILY_HELP_SERVICE_ID }}
-      E2E_FLOW_DAILY_HELP_SLOT_ID: ${{ vars.E2E_FLOW_DAILY_HELP_SLOT_ID }}
-      E2E_FLOW_PROFESSIONAL_ID: ${{ vars.E2E_FLOW_PROFESSIONAL_ID }}
-      E2E_FLOW_DAILY_HELP_START: ${{ vars.E2E_FLOW_DAILY_HELP_START }}
-      E2E_FLOW_DAILY_HELP_HOURS: ${{ vars.E2E_FLOW_DAILY_HELP_HOURS }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -145,6 +119,69 @@ jobs:
         run: bun add --dev @playwright/test
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
+      - name: Load consolidated E2E JSON configuration
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const raw = process.env.E2E_STAGING_CONFIG_JSON;
+          if (!raw?.trim()) {
+            console.error('Missing GitHub Actions secret E2E_STAGING_CONFIG_JSON.');
+            process.exit(1);
+          }
+          let config;
+          try { config = JSON.parse(raw); } catch {
+            console.error('E2E_STAGING_CONFIG_JSON is not valid JSON.');
+            process.exit(1);
+          }
+          if (!config || typeof config !== 'object' || Array.isArray(config)) {
+            console.error('E2E_STAGING_CONFIG_JSON must be a JSON object.');
+            process.exit(1);
+          }
+          const allowed = [
+            'E2E_ENVIRONMENT', 'E2E_OTP_CAPTURE_TOKEN', 'E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED',
+            'E2E_TRANSACTIONAL_FLOWS_ENABLED', 'E2E_FLOW_AUTH_TOKEN',
+            'E2E_BUYER_IDENTITY', 'E2E_SELLER_IDENTITY', 'E2E_DELIVERY_IDENTITY',
+            'E2E_PROVIDER_IDENTITY', 'E2E_ADMIN_IDENTITY',
+            'E2E_FLOW_BUYER_PHONE', 'E2E_FLOW_BUYER_EMAIL',
+            'E2E_FLOW_PRODUCT_ID', 'E2E_FLOW_SELLER_ID', 'E2E_FLOW_DELIVERY_AGENT_ID',
+            'E2E_FLOW_ORDER_QUANTITY', 'E2E_FLOW_DAILY_HELP_SERVICE_ID',
+            'E2E_FLOW_DAILY_HELP_SLOT_ID', 'E2E_FLOW_PROFESSIONAL_ID',
+            'E2E_FLOW_DAILY_HELP_START', 'E2E_FLOW_DAILY_HELP_HOURS'
+          ];
+          const bools = new Set(['E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED', 'E2E_TRANSACTIONAL_FLOWS_ENABLED']);
+          const lines = [];
+          for (const key of allowed) {
+            let value = config[key];
+            if (value === undefined || value === null) value = '';
+            if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
+              console.error('Invalid value type for configuration key ' + key);
+              process.exit(1);
+            }
+            value = String(value);
+            if (value.includes('\\n') || value.includes('\\r')) {
+              console.error('Newlines are not permitted in configuration key ' + key);
+              process.exit(1);
+            }
+            if (bools.has(key) && !['', 'true', 'false'].includes(value)) {
+              console.error('Boolean configuration key ' + key + ' must be true or false');
+              process.exit(1);
+            }
+            if (key === 'E2E_ENVIRONMENT' && value && value !== 'staging') {
+              console.error('E2E_ENVIRONMENT must be staging');
+              process.exit(1);
+            }
+            lines.push(key + '=' + value);
+          }
+          // Trusted-event gate: config cannot enable mutating or OTP-login tests on PR/push.
+          const event = process.env.GITHUB_EVENT_NAME;
+          const trusted = event === 'schedule' || event === 'workflow_dispatch';
+          const values = Object.fromEntries(lines.map(line => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
+          values.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED = trusted && values.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED === 'true' ? 'true' : 'false';
+          values.E2E_TRANSACTIONAL_FLOWS_ENABLED = trusted && values.E2E_TRANSACTIONAL_FLOWS_ENABLED === 'true' ? 'true' : 'false';
+          fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(values).map(([k,v]) => k + '=' + v).join('\\n') + '\\n');
+          console.log('Loaded consolidated E2E configuration; secret values were not printed.');
+          NODE
       - name: Guard E2E target is the designated staging site
         run: |
           node --input-type=module -e "const u=new URL(process.env.E2E_BASE_URL); if (u.protocol !== 'https:' || u.hostname !== 'bazaar.kuraliupdates.com') { console.error('Refusing E2E against a non-staging host'); process.exit(1); }"
@@ -182,7 +219,7 @@ jobs:
           fi
           test "$E2E_ENVIRONMENT" = "staging" || { echo "Refusing transactional E2E unless E2E_ENVIRONMENT=staging"; exit 1; }
           test "$E2E_API_BASE_URL" = "https://kuraliupdates-bazaar.onrender.com/api/v1" || { echo "Refusing transactional E2E against an unapproved API"; exit 1; }
-          required=(E2E_FLOW_BUYER_TOKEN E2E_FLOW_SELLER_TOKEN E2E_FLOW_DELIVERY_TOKEN E2E_FLOW_PROVIDER_TOKEN E2E_FLOW_BUYER_PHONE E2E_FLOW_BUYER_EMAIL E2E_FLOW_PRODUCT_ID E2E_FLOW_SELLER_ID E2E_FLOW_DELIVERY_AGENT_ID E2E_FLOW_ORDER_QUANTITY E2E_FLOW_DAILY_HELP_SERVICE_ID E2E_FLOW_DAILY_HELP_SLOT_ID E2E_FLOW_PROFESSIONAL_ID E2E_FLOW_DAILY_HELP_START E2E_FLOW_DAILY_HELP_HOURS)
+          required=(E2E_FLOW_AUTH_TOKEN E2E_BUYER_IDENTITY E2E_SELLER_IDENTITY E2E_DELIVERY_IDENTITY E2E_PROVIDER_IDENTITY E2E_FLOW_BUYER_PHONE E2E_FLOW_BUYER_EMAIL E2E_FLOW_PRODUCT_ID E2E_FLOW_SELLER_ID E2E_FLOW_DELIVERY_AGENT_ID E2E_FLOW_ORDER_QUANTITY E2E_FLOW_DAILY_HELP_SERVICE_ID E2E_FLOW_DAILY_HELP_SLOT_ID E2E_FLOW_PROFESSIONAL_ID E2E_FLOW_DAILY_HELP_START E2E_FLOW_DAILY_HELP_HOURS)
           missing=()
           for name in "${required[@]}"; do
             if [ -z "${!name:-}" ]; then missing+=("$name"); fi
