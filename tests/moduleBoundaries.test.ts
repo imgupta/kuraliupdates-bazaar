@@ -240,6 +240,7 @@ test('backend connection settings and bootstrap are isolated from AppContext orc
   assert.ok(connection.includes('export const useBackendConnection'));
   assert.ok(connection.includes('useBackendSync({'));
   assert.ok(connection.includes('useAuthBootstrap({'));
+  assert.ok(bootstrap.includes('export const useAuthBootstrap'));
   assert.ok(connection.includes("safeStorageGet('kurali_backend_url')"));
   assert.ok(connection.includes("safeStorageSet('kurali_backend_url', url)"));
   assert.ok(appContext.includes('useBackendConnection({'));
