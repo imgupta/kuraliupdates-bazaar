@@ -227,15 +227,22 @@ test('guarded transactional E2E covers bargaining through checkout without chang
   assert.ok(lifecycle.includes('order.items[0].negotiatedPrice'));
 });
 
-test('backend synchronization is isolated from the application orchestration context', () => {
+test('backend connection settings and bootstrap are isolated from AppContext orchestration', () => {
   const sync = read('../src/context/useBackendSync.ts');
+  const connection = read('../src/context/useBackendConnection.ts');
+  const bootstrap = read('../src/context/useAuthBootstrap.ts');
   const appContext = read('../src/context/AppContext.tsx');
 
   for (const operation of ['checkHealth', 'getMyOrders', 'searchProducts', 'getPendingSellers', 'getPendingDeliveryAgents', 'getDeliveryAvailableJobs']) {
     assert.ok(sync.includes(operation), `backend sync module should own ${operation}`);
   }
   assert.ok(sync.includes('export const useBackendSync'));
-  assert.ok(appContext.includes('useBackendSync({'));
-  assert.ok(appContext.includes('const { syncWithBackend } = useBackendSync'));
-  assert.doesNotMatch(appContext, /const syncDeliveryJobs = async|const syncWithBackend = async/);
+  assert.ok(connection.includes('export const useBackendConnection'));
+  assert.ok(connection.includes('useBackendSync({'));
+  assert.ok(connection.includes('useAuthBootstrap({'));
+  assert.ok(connection.includes("safeStorageGet('kurali_backend_url')"));
+  assert.ok(connection.includes("safeStorageSet('kurali_backend_url', url)"));
+  assert.ok(appContext.includes('useBackendConnection({'));
+  assert.ok(appContext.includes('const { backendUrl, setBackendUrl, backendStatus, syncWithBackend } = useBackendConnection'));
+  assert.doesNotMatch(appContext, /useBackendSync|useAuthBootstrap|setBackendStatus/);
 });
