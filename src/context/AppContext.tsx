@@ -1,19 +1,17 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext } from 'react';
 import { UserRole } from '../types';
 import type { UserProfile } from '../entities/userProfile';
 export type { SavedAddress } from '../entities/address';
 export type { UserProfile } from '../entities/userProfile';
 import type { AppContextType } from './AppContextContract';
-import { safeStorageGet, safeStorageSet } from '../shared/storage/safeStorage';
 import { AuthSessionProvider, useAuthSession } from './AuthSessionContext';
 import { usePersistedValue } from './usePersistedValue';
 import { useBuyerCommerceState } from './useBuyerCommerceState';
-import { useBackendSync } from './useBackendSync';
 import { useMarketplaceOperations } from './useMarketplaceOperations';
 import { useNegotiationChatState } from './useNegotiationChatState';
 import { useBuyerProfileOperations } from './useBuyerProfileOperations';
-import { useAuthBootstrap } from './useAuthBootstrap';
 import { useAuthOperations } from './useAuthOperations';
+import { useBackendConnection } from './useBackendConnection';
 import { useMarketplaceCollections } from './useMarketplaceCollections';
 import { usePortalUiState } from './usePortalUiState';
 
@@ -63,42 +61,7 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
   } = buyerCommerce;
 
 
-  // Backend Sync State
-  const [backendUrl, setBackendUrlState] = useState<string>(() => {
-    return safeStorageGet('kurali_backend_url') || 'https://kuraliupdates-bazaar.onrender.com/api/v1';
-  });
-
-  const setBackendUrl = (url: string) => {
-    setBackendUrlState(url);
-    safeStorageSet('kurali_backend_url', url);
-  };
-
-  const [backendStatus, setBackendStatus] = useState<{
-    isOnline: boolean;
-    status: string;
-    database: string;
-    lastSynced?: string;
-    isLoading: boolean;
-    error?: string;
-  }>({
-    isOnline: false,
-    status: 'INITIALIZING',
-    database: 'Oracle Cloud Autonomous Database (ap-mumbai-1)',
-    isLoading: true,
-  });
-
-  const { syncWithBackend } = useBackendSync({
-    user,
-    setBackendStatus,
-    setOrders,
-    setProducts,
-    setSellers,
-    setDeliveryAgents,
-  });
-
-  useAuthBootstrap({
-    backendUrl,
-    syncWithBackend,
+  const { backendUrl, setBackendUrl, backendStatus, syncWithBackend } = useBackendConnection({
     user,
     setUser,
     role,
@@ -106,6 +69,10 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
     authInitializing,
     setAuthInitializing,
     setRegisteredRoles,
+    setOrders,
+    setProducts,
+    setSellers,
+    setDeliveryAgents,
   });
 
   // Secure Role Switcher: Admin is strictly restricted to authorized Root Admins
