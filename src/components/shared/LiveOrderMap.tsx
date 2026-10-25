@@ -261,7 +261,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
         <div className="min-w-0 space-y-1">
           <p className="flex items-center gap-1.5 text-xs font-extrabold text-slate-800"><Route className="h-4 w-4 text-emerald-700" /> {enRouteToCustomer ? 'Route to customer' : 'Route to seller pickup'}</p>
           <p className="text-[11px] text-slate-600">{routeDistance ? `Rider route: ${routeDistance}${routeDuration ? ` · ETA ${routeDuration}` : ''}` : riderPoint && buyerPoint ? `Approx. ${distanceKm(riderPoint, buyerPoint).toFixed(1)} km straight-line to customer` : 'Waiting for GPS and route details…'}</p>
-          {sellerCustomerDistance && <p className="text-[11px] text-slate-600">Seller → customer: {sellerCustomerDistance} by road</p>
+          {sellerCustomerDistance && <p className="text-[11px] text-slate-600">Seller → customer: {sellerCustomerDistance} by road</p>}
           {routeError && <p className="text-[10px] text-amber-700">Road route unavailable here; open navigation for turn-by-turn directions.</p>}
           {!riderPoint && <p className="text-[10px] text-slate-500">Rider GPS is not available yet. Allow location access on the delivery device.</p>}
         </div>
