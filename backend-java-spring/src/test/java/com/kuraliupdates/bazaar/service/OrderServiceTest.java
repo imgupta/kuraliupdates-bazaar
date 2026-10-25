@@ -140,6 +140,47 @@ class OrderServiceTest {
         verify(orderRepository, never()).save(any());
     }
 
+    @Test
+    void allowsBuyerToTrackOnlyTheirOwnOrder() {
+        OrderEntity order = OrderEntity.builder()
+                .orderId("ORDER-1")
+                .buyerEmail("authenticated@example.test")
+                .build();
+        when(orderRepository.findById("ORDER-1")).thenReturn(Optional.of(order));
+
+        var result = orderService.trackForBuyer("ORDER-1", buyer());
+
+        assertEquals("ORDER-1", result.orderId());
+    }
+
+    @Test
+    void hidesAnotherBuyersOrderFromTheRequester() {
+        OrderEntity order = OrderEntity.builder()
+                .orderId("ORDER-1")
+                .buyerEmail("owner@example.test")
+                .build();
+        when(orderRepository.findById("ORDER-1")).thenReturn(Optional.of(order));
+        UserEntity otherBuyer = UserEntity.builder()
+                .userId("USER-2").email("other@example.test").role("BUYER").build();
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.trackForBuyer("ORDER-1", otherBuyer));
+
+        assertEquals(HttpStatus.NOT_FOUND, error.getStatus());
+    }
+
+    @Test
+    void rejectsNonBuyerRoleFromOrderTracking() {
+        UserEntity seller = UserEntity.builder()
+                .userId("SELLER-USER").email("authenticated@example.test").role("SELLER").build();
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.trackForBuyer("ORDER-1", seller));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verify(orderRepository, never()).findById(anyString());
+    }
+
     private UserEntity buyer() {
         return UserEntity.builder().userId("USER-1").name("Authenticated Buyer")
                 .email("authenticated@example.test").phone("9876543210").role("BUYER").build();

@@ -57,8 +57,11 @@ public class BuyerController {
     }
 
     @GetMapping("/orders/{orderId}/track")
-    @Operation(summary = "Get current order tracking state")
-    public ResponseEntity<OrderResponse> trackOrder(@PathVariable String orderId) {
-        return ResponseEntity.ok(orderService.track(orderId));
+    @Operation(summary = "Get current order tracking state for the authenticated owning buyer")
+    public ResponseEntity<OrderResponse> trackOrder(@PathVariable String orderId, Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
+        }
+        return ResponseEntity.ok(orderService.trackForBuyer(orderId, user));
     }
 }
