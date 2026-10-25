@@ -204,14 +204,44 @@ jobs:
         if: env.KURALI_API_BASE_URL != ''
         run: node scripts/production-smoke.mjs
       - name: Verify authenticated E2E configuration is complete
+        shell: bash
         run: |
-          node --input-type=module -e "const env=process.env; if(env.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED!=='true'){console.log('Skipping authenticated OTP E2E: staging no-email OTP capture mode has not been explicitly verified.');process.exit(0)} const required=['E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY','E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY']; const missing=required.filter(k=>!env[k]?.trim()); const api=new URL(env.E2E_API_BASE_URL); const valid=env.E2E_ENVIRONMENT==='staging' && api.protocol==='https:' && api.hostname==='kuraliupdates-bazaar.onrender.com' && api.pathname==='/api/v1' && (env.E2E_OTP_CAPTURE_TOKEN||'').length>=32; if(!valid||missing.length){console.error('Authenticated E2E is not configured. Check staging targets, no-email confirmation, OTP token length, and all five role identity secrets. Missing identities:',missing.join(', ')||'none');process.exit(1)} console.log('Authenticated E2E configuration present for all five roles; staging no-email mode was explicitly confirmed.');"
+          set -euo pipefail
+          trusted=false
+          if [ "${GITHUB_EVENT_NAME}" = "schedule" ] || [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then trusted=true; fi
+          if [ "$E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED" != "true" ]; then
+            if [ "$trusted" = "true" ]; then
+              echo "Trusted full-E2E run requested, but staging OTP email suppression/capture has not been explicitly confirmed."
+              exit 1
+            fi
+            echo "Skipping authenticated OTP E2E on push/PR: staging OTP capture mode is not explicitly confirmed."
+            exit 0
+          fi
+          node --input-type=module <<'NODE'
+          const env = process.env;
+          const required = ['E2E_BUYER_IDENTITY', 'E2E_SELLER_IDENTITY', 'E2E_DELIVERY_IDENTITY', 'E2E_PROVIDER_IDENTITY', 'E2E_ADMIN_IDENTITY'];
+          const missing = required.filter(k => !env[k]?.trim());
+          let api;
+          try { api = new URL(env.E2E_API_BASE_URL); } catch { api = null; }
+          const valid = env.E2E_ENVIRONMENT === 'staging' && api?.protocol === 'https:'
+            && api.hostname === 'kuraliupdates-bazaar.onrender.com' && api.pathname === '/api/v1'
+            && (env.E2E_OTP_CAPTURE_TOKEN || '').length >= 32;
+          if (!valid || missing.length) {
+            console.error('Authenticated E2E is not configured. Verify staging targets, OTP token length, and all five role identities. Missing identities:', missing.join(', ') || 'none');
+            process.exit(1);
+          }
+          console.log('Authenticated E2E configuration is present for all five roles.');
+          NODE
       - name: Verify static flow-token configuration
         shell: bash
         run: |
           set -euo pipefail
           if [ "$E2E_TRANSACTIONAL_FLOWS_ENABLED" != "true" ]; then
-            echo "Static flow-token exchange is not required while transactional E2E is disabled."
+            if [ "${GITHUB_EVENT_NAME}" = "schedule" ] || [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+              echo "Trusted full-E2E run requested, but E2E_TRANSACTIONAL_FLOWS_ENABLED is not true in E2E_STAGING_CONFIG_JSON."
+              exit 1
+            fi
+            echo "Static flow-token exchange is not required on push/PR while transactional E2E is disabled."
             exit 0
           fi
           test "$E2E_ENVIRONMENT" = "staging" || { echo "Refusing static flow-token exchange unless E2E_ENVIRONMENT=staging"; exit 1; }
@@ -225,7 +255,11 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$E2E_TRANSACTIONAL_FLOWS_ENABLED" != "true" ]; then
-            echo "Transactional order and Daily Help E2E is disabled; no test transactions will be created."
+            if [ "${GITHUB_EVENT_NAME}" = "schedule" ] || [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+              echo "Trusted full-E2E run requested, but E2E_TRANSACTIONAL_FLOWS_ENABLED is not true in E2E_STAGING_CONFIG_JSON."
+              exit 1
+            fi
+            echo "Transactional lifecycle E2E is disabled on push/PR; no test transactions will be created."
             exit 0
           fi
           test "$E2E_ENVIRONMENT" = "staging" || { echo "Refusing transactional E2E unless E2E_ENVIRONMENT=staging"; exit 1; }
@@ -239,7 +273,14 @@ jobs:
             printf 'Transactional E2E enabled but missing required secrets/variables: %s\n' "${missing[*]}"
             exit 1
           fi
-          echo "Transactional E2E configuration is complete for the designated staging environment. Tests may use the configured staging fixtures; no cleanup or deletion is performed."
+          for key in E2E_FLOW_PRODUCT_ID E2E_FLOW_SELLER_ID E2E_FLOW_DELIVERY_AGENT_ID E2E_FLOW_DAILY_HELP_SERVICE_ID E2E_FLOW_DAILY_HELP_SLOT_ID E2E_FLOW_PROFESSIONAL_ID; do
+            value="${!key}"
+            if [[ ! "$value" =~ ^E2E-[A-Za-z0-9_-]{3,80}$ ]]; then
+              echo "$key must reference an allowlisted synthetic E2E fixture ID beginning E2E-; refusing to run mutating tests against real staging data."
+              exit 1
+            fi
+          done
+          echo "Transactional E2E configuration is complete for the designated staging environment. Tests use synthetic fixtures and run-scoped cleanup."
       - name: Run browser E2E tests
         run: bunx playwright test
       - name: Upload Playwright report and traces
