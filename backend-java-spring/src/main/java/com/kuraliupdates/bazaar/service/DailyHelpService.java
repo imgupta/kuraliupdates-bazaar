@@ -84,6 +84,11 @@ public class DailyHelpService {
 
     @Transactional
     public DailyHelpBookingResponse createBooking(DailyHelpBookingRequest request) {
+        return createBooking(request, null);
+    }
+
+    @Transactional
+    public DailyHelpBookingResponse createBooking(DailyHelpBookingRequest request, String e2eRunId) {
         DailyHelpServiceEntity service = serviceRepository.findById(request.serviceId())
                 .filter(s -> Integer.valueOf(1).equals(s.getActive()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help service not found"));
@@ -145,6 +150,7 @@ public class DailyHelpService {
                 .startOtp(generateOtp())
                 .otpExpiresAt(now.plusMinutes(15))
                 .otpAttempts(0)
+                .e2eRunId(e2eRunId)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
