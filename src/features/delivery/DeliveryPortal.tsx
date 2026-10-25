@@ -366,7 +366,7 @@ export const DeliveryDashboard: React.FC = () => {
                         <Navigation className="h-3.5 w-3.5" /> Navigate
                       </a>
                     </div>
-                    <LiveOrderMap orderId={ord.id} />
+                    <LiveOrderMap orderId={ord.id} sellerAddress={ord.sellerLocality} destinationAddress={ord.deliveryAddress} orderStatus={ord.status} />
                   </div>
 
                   {/* Customer Handover OTP input */}
