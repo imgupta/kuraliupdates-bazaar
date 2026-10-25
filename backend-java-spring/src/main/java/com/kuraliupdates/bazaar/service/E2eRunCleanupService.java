@@ -23,7 +23,7 @@ public class E2eRunCleanupService {
                 SELECT COUNT(*) FROM ORDERS o
                 WHERE o.E2E_RUN_ID = ?
                   AND (o.SELLER_ID NOT LIKE 'E2E-%'
-                       OR UPPER(NVL(o.STATUS, 'UNKNOWN')) IN ('CANCELLED','CANCELED','REFUNDED')
+                       OR (UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%CANCEL%' OR UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%REFUND%')
                        OR EXISTS (SELECT 1 FROM ORDER_ITEMS oi
                                   WHERE oi.ORDER_ID = o.ORDER_ID
                                     AND (oi.PRODUCT_ID NOT LIKE 'E2E-%' OR oi.QUANTITY <= 0)))
@@ -37,6 +37,7 @@ public class E2eRunCleanupService {
                        OR NOT EXISTS (SELECT 1 FROM DAILY_HELP_PROFESSIONAL_SLOTS s
                                       WHERE s.BOOKING_ID = b.BOOKING_ID
                                         AND s.SLOT_ID LIKE 'E2E-%'
+                                        AND s.STATUS = 'BOOKED'
                                         AND s.PROFESSIONAL_ID = b.PROFESSIONAL_ID))
                 """, runId);
         long unsafeChats = count("""
@@ -58,7 +59,7 @@ public class E2eRunCleanupService {
         jdbc.update("""
                 UPDATE DAILY_HELP_PROFESSIONAL_SLOTS
                 SET STATUS = 'AVAILABLE', BOOKING_ID = NULL, UPDATED_AT = CURRENT_TIMESTAMP
-                WHERE SLOT_ID LIKE 'E2E-%'
+                WHERE SLOT_ID LIKE 'E2E-%' AND STATUS = 'BOOKED'
                   AND BOOKING_ID IN (SELECT BOOKING_ID FROM DAILY_HELP_BOOKINGS WHERE E2E_RUN_ID = ?)
                 """, runId);
         int bookings = jdbc.update("DELETE FROM DAILY_HELP_BOOKINGS WHERE E2E_RUN_ID = ?", runId);
