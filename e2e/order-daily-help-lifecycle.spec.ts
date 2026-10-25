@@ -136,13 +136,21 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const productBeforeCheckout = catalogBeforeCheckout.find((p: any) => p.productId === productId);
     expect(Number(productBeforeCheckout?.effectivePrice ?? productBeforeCheckout?.price ?? productBeforeCheckout?.sellerPrice)).toBe(catalogPrice);
 
+    // Send internally consistent totals. Zero-valued totals previously made the
+    // lifecycle fixture disagree with its negotiated line item and could mask
+    // checkout validation/amount-reconciliation regressions.
+    const expectedSubtotal = Math.round(counterPrice * quantity * 100) / 100;
+    const expectedDeliveryFee = 0;
+    const expectedDiscount = 0;
+    const expectedFinalPayable = Math.round((expectedSubtotal - expectedDiscount + expectedDeliveryFee) * 100) / 100;
     const placedResponse = await request.post(apiBase + "/buyers/orders", {
       headers: auth(buyerToken),
       data: {
         buyerName: "E2E Synthetic Buyer", buyerPhone: required("E2E_FLOW_BUYER_PHONE"),
         buyerEmail: required("E2E_FLOW_BUYER_EMAIL"), deliveryAddress: "E2E Test Address - do not deliver",
-        deliveryLocality: "Kurali", sellerId, subtotal: 0, discountAmount: 0, deliveryFee: 0,
-        finalPayable: 0, paymentMethod: "COD", distanceKm: 1,
+        deliveryLocality: "Kurali", sellerId, subtotal: expectedSubtotal,
+        discountAmount: expectedDiscount, deliveryFee: expectedDeliveryFee,
+        finalPayable: expectedFinalPayable, paymentMethod: "COD", distanceKm: 1,
         items: [{ productId, quantity, negotiatedPrice: counterPrice, acceptedOfferId: sellerCounter.offer.id }]
       },
       timeout: 20_000,
@@ -157,6 +165,10 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(Number(order.items[0].unitPrice)).toBe(counterPrice);
     expect(Number(order.items[0].negotiatedPrice)).toBe(counterPrice);
     expect(Number(order.items[0].totalPrice)).toBe(counterPrice * quantity);
+    expect(Number(order.subtotal)).toBe(expectedSubtotal);
+    expect(Number(order.discountAmount)).toBe(expectedDiscount);
+    expect(Number(order.deliveryFee)).toBe(expectedDeliveryFee);
+    expect(Number(order.finalPayable)).toBe(expectedFinalPayable);
 
     const catalogAfterCheckout = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(productId), buyerToken);
     const productAfterCheckout = catalogAfterCheckout.find((p: any) => p.productId === productId);
@@ -268,6 +280,11 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
       headers: auth(buyerToken), timeout: 20_000,
     });
     expect(buyerReadBack.status()).toBe(200);
-    expect((await buyerReadBack.json()).status).toBe("COMPLETED");
+    const reconciledBooking = await buyerReadBack.json();
+    expect(reconciledBooking.id).toBe(bookingId);
+    expect(reconciledBooking.professionalId).toBe(professionalId);
+    expect(reconciledBooking.status).toBe("COMPLETED");
+    expect(reconciledBooking.serviceStartedAt).toBe(started.serviceStartedAt);
+    expect(reconciledBooking.serviceCompletedAt).toBe(completed.serviceCompletedAt);
   });
 });
