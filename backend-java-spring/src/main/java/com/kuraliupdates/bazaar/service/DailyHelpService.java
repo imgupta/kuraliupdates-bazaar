@@ -365,7 +365,7 @@ public class DailyHelpService {
                 .reviewCount(0)
                 .currentLocality(request.locality().trim())
                 .status("OFFLINE")
-                .verified(1)
+                .verified(0)
                 .registeredAt(now)
                 .updatedAt(now)
                 .build();
@@ -380,12 +380,27 @@ public class DailyHelpService {
     }
 
     @Transactional
+    public DailyHelpProfessionalResponse updateProfessionalVerification(String professionalId, boolean verified) {
+        DailyHelpProfessionalEntity professional = getProfessionalEntity(professionalId);
+        professional.setVerified(verified ? 1 : 0);
+        // Unverified professionals must never remain bookable after an admin revokes approval.
+        if (!verified) {
+            professional.setStatus("OFFLINE");
+        }
+        professional.setUpdatedAt(LocalDateTime.now());
+        return DailyHelpProfessionalResponse.from(professionalRepository.save(professional));
+    }
+
+    @Transactional
     public DailyHelpProfessionalResponse updateProfessionalAvailability(
             String professionalId, DailyHelpProfessionalAvailabilityRequest request) {
         DailyHelpProfessionalEntity professional = getProfessionalEntity(professionalId);
         String status = request.status().trim().toUpperCase();
         if (!List.of("AVAILABLE", "OFFLINE").contains(status)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Availability must be AVAILABLE or OFFLINE");
+        }
+        if ("AVAILABLE".equals(status) && !Integer.valueOf(1).equals(professional.getVerified())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Daily Help professional must be verified before becoming available");
         }
         if (request.locality() != null && !request.locality().isBlank()) {
             professional.setCurrentLocality(request.locality().trim());
