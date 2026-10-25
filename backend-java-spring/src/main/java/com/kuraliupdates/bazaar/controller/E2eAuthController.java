@@ -30,11 +30,13 @@ public class E2eAuthController {
             AuthService authService,
             @Value("${E2E_FLOW_AUTH_ENV:}") String environment,
             @Value("${E2E_FLOW_AUTH_TOKEN:}") String configuredToken,
-            @Value("${E2E_FLOW_AUTH_IDENTITIES:}") String configuredIdentities) {
+            @Value("${E2E_FLOW_AUTH_IDENTITIES:}") String configuredIdentities,
+            com.kuraliupdates.bazaar.service.E2eRunTagging e2eRunTagging) {
         this.authService = authService;
         this.environment = environment == null ? "" : environment.trim().toLowerCase();
         this.configuredToken = configuredToken == null ? "" : configuredToken;
         this.configuredIdentities = configuredIdentities == null ? "" : configuredIdentities;
+        this.e2eRunTagging = e2eRunTagging;
     }
 
     @PostMapping("/token")
