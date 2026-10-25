@@ -62,6 +62,19 @@ public class UserEntity {
     @Builder.Default
     private Integer isAdmin = 0;
 
+    @Column(name = "ACCOUNT_STATUS", length = 20)
+    @Builder.Default
+    private String accountStatus = "ACTIVE";
+
+    @Column(name = "ACCOUNT_STATUS_REASON", length = 1000)
+    private String accountStatusReason;
+
+    @Column(name = "ACCOUNT_STATUS_UPDATED_AT")
+    private LocalDateTime accountStatusUpdatedAt;
+
+    @Column(name = "ACCOUNT_SUSPENDED_UNTIL")
+    private LocalDateTime accountSuspendedUntil;
+
     @Column(name = "AVATAR_URL", length = 500)
     private String avatarUrl;
 
