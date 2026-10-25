@@ -23,7 +23,8 @@ public class E2eRunCleanupService {
                 SELECT COUNT(*) FROM ORDERS o
                 WHERE o.E2E_RUN_ID = ?
                   AND (o.SELLER_ID NOT LIKE 'E2E-%'
-                       OR (UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%CANCEL%' OR UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%REFUND%')
+                       OR (UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%CANCEL%' OR UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%REFUND%'
+                           OR UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%RETURN%')
                        OR EXISTS (SELECT 1 FROM ORDER_ITEMS oi
                                   WHERE oi.ORDER_ID = o.ORDER_ID
                                     AND (oi.PRODUCT_ID NOT LIKE 'E2E-%' OR oi.QUANTITY <= 0)))
