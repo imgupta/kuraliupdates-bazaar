@@ -18,6 +18,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class NegotiationChatController {
     private final NegotiationChatService negotiationChatService;
+    private final com.kuraliupdates.bazaar.service.E2eRunTagging e2eRunTagging;
 
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> list(@RequestParam(defaultValue = "BUYER") String role, Authentication authentication) {
@@ -25,8 +26,13 @@ public class NegotiationChatController {
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> open(@RequestBody OpenChatRequest request, Authentication authentication) {
-        return ResponseEntity.ok(negotiationChatService.open(requireUser(authentication), request));
+    public ResponseEntity<Map<String, Object>> open(
+            @RequestBody OpenChatRequest request,
+            @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
+            @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
+            Authentication authentication) {
+        String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
+        return ResponseEntity.ok(negotiationChatService.open(requireUser(authentication), request, e2eRunId));
     }
 
     @PostMapping("/{chatId}/messages")
