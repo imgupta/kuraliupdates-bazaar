@@ -40,6 +40,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
   orderId, fallbackBuyer, sellerAddress, destinationAddress, orderStatus,
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
+  const mapReadyRef = useRef(false);
   const map = useRef<any>(null);
   const buyerMarker = useRef<any>(null);
   const riderMarker = useRef<any>(null);
@@ -52,9 +53,9 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
   const [routeDuration, setRouteDuration] = useState<string | null>(null);
   const [routeError, setRouteError] = useState(false);
 
-  const fallbackBuyerPoint = toPoint(fallbackBuyer?.latitude, fallbackBuyer?.longitude);
-  const buyerPoint = toPoint(tracking?.buyerLatitude, tracking?.buyerLongitude) || fallbackBuyerPoint;
-  const riderPoint = toPoint(tracking?.agentLatitude, tracking?.agentLongitude);
+  const fallbackBuyerPoint = useMemo(() => toPoint(fallbackBuyer?.latitude, fallbackBuyer?.longitude), [fallbackBuyer?.latitude, fallbackBuyer?.longitude]);
+  const buyerPoint = useMemo(() => toPoint(tracking?.buyerLatitude, tracking?.buyerLongitude) || fallbackBuyerPoint, [tracking?.buyerLatitude, tracking?.buyerLongitude, fallbackBuyerPoint]);
+  const riderPoint = useMemo(() => toPoint(tracking?.agentLatitude, tracking?.agentLongitude), [tracking?.agentLatitude, tracking?.agentLongitude]);
   const pickupAddress = [tracking?.sellerAddress || sellerAddress, tracking?.sellerLocality, 'Punjab, India'].filter(Boolean).join(', ');
   const buyerAddress = [tracking?.buyerAddress || destinationAddress, tracking?.buyerLocality, 'Punjab, India'].filter(Boolean).join(', ');
   const status = String(tracking?.status || orderStatus || '').toLowerCase();
@@ -64,7 +65,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
     : (pickupAddress || buyerPoint || buyerAddress);
   const routeOrigin = riderPoint || (enRouteToCustomer ? pickupAddress : null) || DEFAULT_KURALI;
 
-  const fallbackPoint = riderPoint || buyerPoint || DEFAULT_KURALI;
+  const fallbackPoint = useMemo(() => riderPoint || buyerPoint || DEFAULT_KURALI, [riderPoint, buyerPoint]);
   const bbox = useMemo(() => [
     Math.max(-180, fallbackPoint.lng - 0.02),
     Math.max(-90, fallbackPoint.lat - 0.015),
@@ -81,6 +82,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
     let script: HTMLScriptElement | null = null;
     map.current = null;
     setMapReady(false);
+    mapReadyRef.current = false;
     setGoogleMapsFailed(false);
     setRouteDistance(null);
     setRouteDuration(null);
@@ -135,10 +137,10 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
       });
       window.google.maps.event.addListenerOnce(map.current, 'idle', () => {
         if (mapReadyTimeoutId !== undefined) window.clearTimeout(mapReadyTimeoutId);
-        if (mounted) setMapReady(true);
+        if (mounted) { mapReadyRef.current = true; setMapReady(true); }
       });
       mapReadyTimeoutId = window.setTimeout(() => {
-        if (mounted && !mapReady) setGoogleMapsFailed(true);
+        if (mounted && !mapReadyRef.current) setGoogleMapsFailed(true);
       }, 12000);
     };
 
