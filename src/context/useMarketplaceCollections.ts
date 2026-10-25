@@ -14,7 +14,11 @@ import { usePersistedValue } from './usePersistedValue';
 export const useMarketplaceCollections = () => {
   const [sellers, setSellers] = useState<Seller[]>(() => safeStorageJson('kurali_sellers', INITIAL_SELLERS));
   const [products, setProducts] = useState<Product[]>(() => safeStorageJson('kurali_products', INITIAL_PRODUCTS));
-  const [coupons, setCoupons] = useState<Coupon[]>(() => safeStorageJson('kurali_coupons', INITIAL_COUPONS));
+  const STATIC_SEEDED_COUPON_CODES = new Set(['WELCOMEKURALI', 'FREESHIP', 'KURALI50']);
+  const [coupons, setCoupons] = useState<Coupon[]>(() =>
+    safeStorageJson<Coupon[]>('kurali_coupons', INITIAL_COUPONS)
+      .filter(coupon => !STATIC_SEEDED_COUPON_CODES.has(String(coupon.code || '').trim().toUpperCase()))
+  );
   const [deliveryAgents, setDeliveryAgents] = useState<DeliveryAgent[]>(() => safeStorageJson('kurali_delivery_agents', INITIAL_DELIVERY_AGENTS));
   const [orders, setOrders] = useState<Order[]>(() => safeStorageJson('kurali_orders', INITIAL_ORDERS));
 
