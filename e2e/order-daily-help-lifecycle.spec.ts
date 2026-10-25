@@ -1,4 +1,5 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext, type TestInfo } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 
 const apiBase = (process.env.E2E_API_BASE_URL ?? "https://kuraliupdates-bazaar.onrender.com/api/v1").replace(/\/$/, "");
 const enabled = process.env.E2E_ENVIRONMENT === "staging"
@@ -42,11 +43,46 @@ async function getJson(request: APIRequestContext, path: string, token: string) 
   return response.json();
 }
 
+const runIds = new Map<string, string>();
+function testKey(info: TestInfo): string { return info.titlePath.join("::"); }
+function runScopedId(info: TestInfo): string {
+  const run = (process.env.GITHUB_RUN_ID ?? randomUUID().replace(/-/g, "").slice(0, 12)).replace(/[^A-Za-z0-9_-]/g, "");
+  const attempt = (process.env.GITHUB_RUN_ATTEMPT ?? "1").replace(/[^A-Za-z0-9_-]/g, "");
+  const title = info.title.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 28);
+  return "E2E-" + run + "-" + attempt + "-" + title;
+}
+function taggedAuth(token: string, runId: string) {
+  return {
+    ...auth(token),
+    "X-E2E-Run-Id": runId,
+    "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"),
+  };
+}
+
 test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => {
   test.skip(!enabled, "Mutating lifecycle tests require explicit staging-only opt-in and run-scoped synthetic fixtures.");
 
-  test("order: buyer checkout → seller fulfilment → delivery claim and OTP → cross-role reconciliation", async ({ request }) => {
+  test.afterEach(async ({ request }, testInfo) => {
+    const key = testKey(testInfo);
+    const runId = runIds.get(key);
+    runIds.delete(key);
+    if (!enabled || !runId) return;
+    const cleanup = await request.post(apiBase + "/e2e/cleanup/" + encodeURIComponent(runId), {
+      headers: { "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"), "Cache-Control": "no-store" },
+      timeout: 30_000,
+    });
+    expect(cleanup.status(), "run-scoped cleanup must succeed without touching untagged records").toBe(200);
+    const summary = await cleanup.json();
+    expect(summary.runId).toBe(runId);
+    for (const count of [summary.orders, summary.orderItems, summary.dailyHelpBookings, summary.negotiationChats, summary.chatMessages]) {
+      expect(Number.isInteger(count) && count >= 0).toBeTruthy();
+    }
+  });
+
+  test("order: buyer checkout → seller fulfilment → delivery claim and OTP → cross-role reconciliation", async ({ request }, testInfo) => {
     test.setTimeout(120_000);
+    const runId = runScopedId(testInfo);
+    runIds.set(testKey(testInfo), runId);
     const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY");
     const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY");
     const deliveryToken = await flowToken(request, "DELIVERY", "E2E_DELIVERY_IDENTITY");
@@ -73,7 +109,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(counterPrice).toBeLessThan(catalogPrice);
 
     const openChatResponse = await request.post(apiBase + "/negotiations", {
-      headers: auth(buyerToken),
+      headers: taggedAuth(buyerToken, runId),
       data: { productId, startingOfferPrice: buyerOfferPrice, openingMessage: "E2E synthetic bargaining conversation" },
       timeout: 20_000,
     });
@@ -144,7 +180,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const expectedDiscount = 0;
     const expectedFinalPayable = Math.round((expectedSubtotal - expectedDiscount + expectedDeliveryFee) * 100) / 100;
     const placedResponse = await request.post(apiBase + "/buyers/orders", {
-      headers: auth(buyerToken),
+      headers: taggedAuth(buyerToken, runId),
       data: {
         buyerName: "E2E Synthetic Buyer", buyerPhone: required("E2E_FLOW_BUYER_PHONE"),
         buyerEmail: required("E2E_FLOW_BUYER_EMAIL"), deliveryAddress: "E2E Test Address - do not deliver",
@@ -230,7 +266,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(requestedHours >= 1 && requestedHours <= 2).toBeTruthy();
 
     const bookingResponse = await request.post(apiBase + "/daily-help/bookings", {
-      headers: auth(buyerToken),
+      headers: taggedAuth(buyerToken, runId),
       data: { serviceId, buyerName, buyerPhone, address, locality: "Kurali", scheduledStart, requestedHours, slotId },
       timeout: 20_000,
     });
