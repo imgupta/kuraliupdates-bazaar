@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class DailyHelpProfessionalEntity {
     @Id @Column(name = "PROFESSIONAL_ID", length = 64) private String professionalId;
+    @Column(name = "USER_ID", length = 64) private String userId;
     @Column(name = "FULL_NAME", nullable = false, length = 150) private String fullName;
     @Column(name = "PHONE", nullable = false, length = 30) private String phone;
     @Column(name = "RATING", nullable = false, precision = 3, scale = 2) private BigDecimal rating;
