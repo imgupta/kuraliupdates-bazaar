@@ -26,10 +26,18 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Set;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/admin")
@@ -45,6 +53,7 @@ public class AdminController {
     private final SearchTrendRepository searchTrendRepository;
     private final DailyHelpService dailyHelpService;
     private final DailyHelpProfessionalRepository dailyHelpProfessionalRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     @GetMapping("/buyers")
     @Operation(summary = "Get registered buyer accounts for the root admin")
@@ -235,5 +244,138 @@ public class AdminController {
         return ResponseEntity.ok(dailyHelpService.updateService(serviceId, request));
     }
 
+
+
+    /**
+     * Unified account directory for root-admin support. Role profiles remain
+     * separate records, but account status applies to the linked identity and
+     * invalidates its existing sessions immediately.
+     */
+    @GetMapping("/accounts")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<Map<String, Object>>> getAccountDirectory(
+            @RequestParam(required = false) String search) {
+        String term = search == null ? "" : search.trim().toLowerCase(Locale.ROOT);
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (var user : userRepository.findAllByOrderByCreatedAtDesc()) {
+            List<String> roles = new ArrayList<>();
+            roles.add("BUYER");
+            if (sellerRepository.findByEmailIgnoreCase(user.getEmail()).isPresent()) roles.add("SELLER");
+            if (deliveryAgentRepository.findByEmail(user.getEmail()).isPresent()) roles.add("DELIVERY");
+            if (dailyHelpProfessionalRepository.findByPhone(user.getPhone()).isPresent()) roles.add("DAILY_HELP");
+            if ("ADMIN".equalsIgnoreCase(user.getRole()) || Integer.valueOf(1).equals(user.getIsAdmin())) roles.add("ADMIN");
+            String haystack = String.join(" ", String.valueOf(user.getUserId()), String.valueOf(user.getName()),
+                    String.valueOf(user.getEmail()), String.valueOf(user.getPhone()), String.join(" ", roles)).toLowerCase(Locale.ROOT);
+            if (!term.isEmpty() && !haystack.contains(term)) continue;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("userId", user.getUserId());
+            row.put("name", user.getName());
+            row.put("email", user.getEmail());
+            row.put("phone", user.getPhone());
+            row.put("locality", user.getLocality());
+            row.put("roles", roles);
+            row.put("accountStatus", user.getAccountStatus() == null ? "ACTIVE" : user.getAccountStatus());
+            row.put("statusReason", user.getAccountStatusReason());
+            row.put("statusUpdatedAt", user.getAccountStatusUpdatedAt());
+            row.put("createdAt", user.getCreatedAt());
+            row.put("lastLogin", user.getLastLogin());
+            result.add(row);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/accounts/{userId}/status")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> updateAccountStatus(
+            @PathVariable String userId, @RequestBody Map<String, String> request) {
+        var target = userRepository.findById(userId).orElse(null);
+        if (target == null) return ResponseEntity.notFound().build();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication == null ? null : authentication.getPrincipal();
+        com.kuraliupdates.bazaar.entity.UserEntity actor =
+                principal instanceof com.kuraliupdates.bazaar.entity.UserEntity u ? u : null;
+        if (actor == null) return ResponseEntity.status(403).body(Map.of("message", "Authenticated admin identity is required."));
+        if (actor.getUserId().equals(target.getUserId())) {
+            return ResponseEntity.badRequest().body(Map.of("message", "You cannot suspend, revoke, or modify your own admin account."));
+        }
+        Set<String> rootAdmins = Set.of("shubham.gupta180296@gmail.com", "sg7508359237@gmail.com", "admin@kuraliupdates.com");
+        if (target.getEmail() != null && rootAdmins.contains(target.getEmail().trim().toLowerCase(Locale.ROOT))) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Root administrator accounts are protected from account-status changes."));
+        }
+        String newStatus = request.getOrDefault("status", "").trim().toUpperCase(Locale.ROOT);
+        String reason = request.getOrDefault("reason", "").trim();
+        if (!Set.of("ACTIVE", "SUSPENDED", "REVOKED").contains(newStatus)) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Status must be ACTIVE, SUSPENDED, or REVOKED."));
+        }
+        if (!"ACTIVE".equals(newStatus) && reason.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "A reason is required for suspension or revocation."));
+        }
+        String previous = target.getAccountStatus() == null ? "ACTIVE" : target.getAccountStatus().toUpperCase(Locale.ROOT);
+        target.setAccountStatus(newStatus);
+        target.setAccountStatusReason(reason.isBlank() ? null : reason);
+        target.setAccountStatusUpdatedAt(LocalDateTime.now());
+        target.setAccountSuspendedUntil(null);
+        userRepository.save(target);
+        if (!"ACTIVE".equals(newStatus)) {
+            // Immediate invalidation: all existing bearer tokens stop working.
+            var sessions = jdbcTemplate.update("DELETE FROM USER_SESSIONS WHERE USER_ID = ?", target.getUserId());
+        }
+        jdbcTemplate.update("""
+                INSERT INTO ADMIN_ACCOUNT_AUDIT
+                  (AUDIT_ID, ACTOR_USER_ID, ACTOR_EMAIL, TARGET_USER_ID, TARGET_EMAIL,
+                   ACTION, PREVIOUS_STATUS, NEW_STATUS, REASON, OCCURRED_AT)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, UUID.randomUUID().toString(), actor.getUserId(), actor.getEmail(),
+                target.getUserId(), target.getEmail(), "ACCOUNT_STATUS", previous, newStatus,
+                reason.isBlank() ? null : reason, LocalDateTime.now());
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("userId", target.getUserId());
+        response.put("accountStatus", newStatus);
+        response.put("statusReason", target.getAccountStatusReason());
+        response.put("statusUpdatedAt", target.getAccountStatusUpdatedAt());
+        response.put("sessionsRevoked", !"ACTIVE".equals(newStatus));
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/accounts/{userId}/revoke-sessions")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> revokeAccountSessions(@PathVariable String userId) {
+        var target = userRepository.findById(userId).orElse(null);
+        if (target == null) return ResponseEntity.notFound().build();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication == null ? null : authentication.getPrincipal();
+        com.kuraliupdates.bazaar.entity.UserEntity actor =
+                principal instanceof com.kuraliupdates.bazaar.entity.UserEntity u ? u : null;
+        if (actor == null) return ResponseEntity.status(403).body(Map.of("message", "Authenticated admin identity is required."));
+        if (actor.getUserId().equals(target.getUserId())) {
+            return ResponseEntity.badRequest().body(Map.of("message", "You cannot revoke your own admin session."));
+        }
+        int deleted = jdbcTemplate.update("DELETE FROM USER_SESSIONS WHERE USER_ID = ?", target.getUserId());
+        jdbcTemplate.update("""
+                INSERT INTO ADMIN_ACCOUNT_AUDIT
+                  (AUDIT_ID, ACTOR_USER_ID, ACTOR_EMAIL, TARGET_USER_ID, TARGET_EMAIL,
+                   ACTION, PREVIOUS_STATUS, NEW_STATUS, REASON, OCCURRED_AT)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, UUID.randomUUID().toString(), actor.getUserId(), actor.getEmail(),
+                target.getUserId(), target.getEmail(), "REVOKE_SESSIONS",
+                target.getAccountStatus(), target.getAccountStatus(), "Admin revoked active sessions", LocalDateTime.now());
+        return ResponseEntity.ok(Map.of("userId", userId, "sessionsRevoked", deleted));
+    }
+
+    @GetMapping("/accounts/{userId}/audit")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<Map<String, Object>>> getAccountAudit(@PathVariable String userId) {
+        if (!userRepository.existsById(userId)) return ResponseEntity.notFound().build();
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
+                SELECT AUDIT_ID AS "auditId", ACTOR_USER_ID AS "actorUserId",
+                       ACTOR_EMAIL AS "actorEmail", TARGET_USER_ID AS "targetUserId",
+                       TARGET_EMAIL AS "targetEmail", ACTION AS "action",
+                       PREVIOUS_STATUS AS "previousStatus", NEW_STATUS AS "newStatus",
+                       REASON AS "reason", OCCURRED_AT AS "occurredAt"
+                  FROM ADMIN_ACCOUNT_AUDIT WHERE TARGET_USER_ID = ?
+                 ORDER BY OCCURRED_AT DESC
+                """, userId);
+        return ResponseEntity.ok(rows);
+    }
 
 }
