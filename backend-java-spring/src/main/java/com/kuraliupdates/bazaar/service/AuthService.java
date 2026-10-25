@@ -330,6 +330,7 @@ public class AuthService {
         if ("SELLER".equals(requestedRole)) {
             sellerRepository.save(SellerEntity.builder()
                     .sellerId("seller-" + UUID.randomUUID().toString().substring(0, 8))
+                    .userId(user.getUserId())
                     .storeName(defaultString(req.storeName()).isBlank() ? user.getName() + "'s Shop" : req.storeName().trim())
                     .ownerName(user.getName()).email(user.getEmail()).phone(user.getPhone())
                     .category(defaultString(req.category()).isBlank() ? "General" : req.category().trim())
@@ -341,6 +342,7 @@ public class AuthService {
         } else if ("DELIVERY".equals(requestedRole)) {
             deliveryAgentRepository.save(DeliveryAgentEntity.builder()
                     .agentId("agent-" + UUID.randomUUID().toString().substring(0, 8))
+                    .userId(user.getUserId())
                     .fullName(user.getName()).phone(user.getPhone()).email(user.getEmail())
                     .vehicleType(defaultString(req.vehicleType()).isBlank() ? "Bike" : req.vehicleType().trim())
                     .vehicleNumber(defaultString(req.vehicleNumber()).isBlank() ? "PENDING" : req.vehicleNumber().trim())
@@ -351,6 +353,7 @@ public class AuthService {
         } else if ("PROFESSIONAL".equals(requestedRole)) {
             dailyHelpProfessionalRepository.save(DailyHelpProfessionalEntity.builder()
                     .professionalId("DHP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                    .userId(user.getUserId())
                     .fullName(user.getName()).phone(user.getPhone())
                     .rating(BigDecimal.ZERO).reviewCount(0)
                     .currentLocality(locality).status("OFFLINE").verified(1)
