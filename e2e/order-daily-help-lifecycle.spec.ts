@@ -2,9 +2,10 @@ import { test, expect, type APIRequestContext, type TestInfo } from "@playwright
 import { randomUUID } from "node:crypto";
 
 const apiBase = (process.env.E2E_API_BASE_URL ?? "https://kuraliupdates-bazaar.onrender.com/api/v1").replace(/\/$/, "");
-const enabled = process.env.E2E_ENVIRONMENT === "staging"
-  && process.env.E2E_TRANSACTIONAL_FLOWS_ENABLED === "true"
-  && apiBase === "https://kuraliupdates-bazaar.onrender.com/api/v1";
+const taggingEnabled = process.env.E2E_ENVIRONMENT === "staging"
+  && apiBase === "https://kuraliupdates-bazaar.onrender.com/api/v1"
+  && (process.env.E2E_FLOW_AUTH_TOKEN ?? "").trim().length >= 32;
+const enabled = taggingEnabled && process.env.E2E_TRANSACTIONAL_FLOWS_ENABLED === "true";
 
 function required(name: string): string {
   const value = (process.env[name] ?? "").trim();
@@ -21,11 +22,11 @@ function syntheticId(name: string): string {
 function auth(token: string) {
   return { Authorization: "Bearer " + token, "Content-Type": "application/json", "Cache-Control": "no-store" };
 }
-async function flowToken(request: APIRequestContext, role: string, identityVariable: string): Promise<string> {
+async function flowToken(request: APIRequestContext, role: string, identityVariable: string, runId?: string): Promise<string> {
   const sharedSecret = required("E2E_FLOW_AUTH_TOKEN");
   const identifier = required(identityVariable);
   const response = await request.post(apiBase + "/e2e/auth/token", {
-    headers: { "X-E2E-Flow-Token": sharedSecret, "Content-Type": "application/json", "Cache-Control": "no-store" },
+    headers: { "X-E2E-Flow-Token": sharedSecret, ...(runId ? { "X-E2E-Run-Id": runId } : {}), "Content-Type": "application/json", "Cache-Control": "no-store" },
     data: { role, identifier },
     timeout: 15_000,
   });
@@ -59,33 +60,34 @@ function taggedAuth(token: string, runId: string) {
   };
 }
 
+test.afterEach(async ({ request }, testInfo) => {
+  const key = testKey(testInfo);
+  const runId = runIds.get(key);
+  runIds.delete(key);
+  if (!taggingEnabled || !runId) return;
+  const cleanup = await request.post(apiBase + "/e2e/cleanup/" + encodeURIComponent(runId), {
+    headers: { "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"), "Cache-Control": "no-store" },
+    timeout: 30_000,
+  });
+  expect(cleanup.status(), "run-scoped cleanup must succeed without touching untagged records").toBe(200);
+  const summary = await cleanup.json();
+  expect(summary.runId).toBe(runId);
+  for (const count of [summary.orders, summary.orderItems, summary.dailyHelpBookings, summary.negotiationChats, summary.chatMessages, summary.sessions]) {
+    expect(Number.isInteger(count) && count >= 0).toBeTruthy();
+  }
+});
+
 test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => {
   test.skip(!enabled, "Mutating lifecycle tests require explicit staging-only opt-in and run-scoped synthetic fixtures.");
 
-  test.afterEach(async ({ request }, testInfo) => {
-    const key = testKey(testInfo);
-    const runId = runIds.get(key);
-    runIds.delete(key);
-    if (!enabled || !runId) return;
-    const cleanup = await request.post(apiBase + "/e2e/cleanup/" + encodeURIComponent(runId), {
-      headers: { "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"), "Cache-Control": "no-store" },
-      timeout: 30_000,
-    });
-    expect(cleanup.status(), "run-scoped cleanup must succeed without touching untagged records").toBe(200);
-    const summary = await cleanup.json();
-    expect(summary.runId).toBe(runId);
-    for (const count of [summary.orders, summary.orderItems, summary.dailyHelpBookings, summary.negotiationChats, summary.chatMessages]) {
-      expect(Number.isInteger(count) && count >= 0).toBeTruthy();
-    }
-  });
 
   test("order: buyer checkout → seller fulfilment → delivery claim and OTP → cross-role reconciliation", async ({ request }, testInfo) => {
     test.setTimeout(120_000);
     const runId = runScopedId(testInfo);
     runIds.set(testKey(testInfo), runId);
-    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY");
-    const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY");
-    const deliveryToken = await flowToken(request, "DELIVERY", "E2E_DELIVERY_IDENTITY");
+    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
+    const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY", runId);
+    const deliveryToken = await flowToken(request, "DELIVERY", "E2E_DELIVERY_IDENTITY", runId);
     const productId = syntheticId("E2E_FLOW_PRODUCT_ID");
     const sellerId = syntheticId("E2E_FLOW_SELLER_ID");
     const agentId = syntheticId("E2E_FLOW_DELIVERY_AGENT_ID");
@@ -254,8 +256,8 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     test.setTimeout(120_000);
     const runId = runScopedId(testInfo);
     runIds.set(testKey(testInfo), runId);
-    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY");
-    const professionalToken = await flowToken(request, "PROVIDER", "E2E_PROVIDER_IDENTITY");
+    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
+    const professionalToken = await flowToken(request, "PROVIDER", "E2E_PROVIDER_IDENTITY", runId);
     const serviceId = syntheticId("E2E_FLOW_DAILY_HELP_SERVICE_ID");
     const slotId = syntheticId("E2E_FLOW_DAILY_HELP_SLOT_ID");
     const professionalId = syntheticId("E2E_FLOW_PROFESSIONAL_ID");
@@ -341,8 +343,8 @@ test.describe("Admin login, approval queues, and role restrictions", () => {
     test.skip(!configured, "Read-only admin authorization test requires configured staging role identities.");
 
     const adminToken = await flowToken(request, "ADMIN", "E2E_ADMIN_IDENTITY");
-    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY");
-    const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY");
+    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
+    const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY", runId);
     const queues = ["/admin/sellers/pending", "/admin/delivery/pending", "/admin/daily-help/helpers"];
 
     for (const path of queues) {
