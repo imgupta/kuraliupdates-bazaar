@@ -24,7 +24,7 @@ interface OrderTrackingModalProps {
 
 export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId, onClose }) => {
   const { orders } = useApp();
-  const order = orders.find(o => o.id === orderId) || orders[0];
+  const order = orders.find(o => o.id === orderId);
   const [authorizedDeliveryOtp, setAuthorizedDeliveryOtp] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,7 +45,15 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
     return () => { active = false; window.clearInterval(timer); };
   }, [orderId]);
 
-  if (!order) return null;
+  if (!order) return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+      <div role="alert" className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl">
+        <h3 className="text-base font-extrabold text-slate-900">Order details are still loading</h3>
+        <p className="mt-2 text-sm text-slate-600">We couldn't find order #{orderId} in the current order list. Refresh your orders and try again.</p>
+        <button type="button" onClick={onClose} className="mt-4 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Close</button>
+      </div>
+    </div>
+  );
 
   const statusSteps: { key: OrderStatus; label: string; desc: string }[] = [
     { key: 'placed', label: 'Order Placed', desc: 'Received & sent to shopkeeper' },
@@ -102,7 +110,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
         </div>
 
         {/* Live Google Maps tracking */}
-        <LiveOrderMap orderId={order.id} fallbackBuyer={{ latitude: order.deliveryLatitude, longitude: order.deliveryLongitude }} />
+        <LiveOrderMap orderId={order.id} fallbackBuyer={{ latitude: order.deliveryLatitude, longitude: order.deliveryLongitude }} sellerAddress={order.sellerLocality} destinationAddress={order.deliveryAddress} orderStatus={order.status} />
 
         {/* Scrollable Content Body */}
         <div className="p-6 overflow-y-auto space-y-6">
