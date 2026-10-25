@@ -234,6 +234,13 @@ export const AdminDashboard: React.FC = () => {
     }
     group.entries.push(item);
     if (item.status && !group.statuses.includes(String(item.status).toUpperCase())) group.statuses.push(String(item.status).toUpperCase());
+    // Provider profiles should have a persisted USERS link. Surface missing links
+    // instead of implying that matching names or emails prove account ownership.
+    if (['SELLER', 'DELIVERY_AGENT', 'DAILY_HELP_PROVIDER'].includes(item.role)
+      && (!item.userId || item.userId === '—')
+      && !group.statuses.includes('ACCOUNT_LINK_MISSING')) {
+      group.statuses.push('ACCOUNT_LINK_MISSING');
+    }
     if ((!group.name || group.name === '—') && item.name) group.name = item.name;
     if ((!group.contact || group.contact === '—') && item.contact) group.contact = item.contact;
     return groups;
@@ -434,7 +441,7 @@ export const AdminDashboard: React.FC = () => {
                       <td className="px-4 py-3">
                         <div className="flex flex-col items-start gap-2">
                           {group.userId !== '—' && <button type="button" onClick={() => void copyDirectoryValue(String(group.userId))} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 font-bold text-slate-700 hover:bg-slate-100"><Copy className="w-3.5 h-3.5" /> Copy User ID</button>}
-                          <button type="button" onClick={() => void copyDirectoryValue(['Email / Contact: ' + (group.contact || '—'), 'User ID: ' + (group.userId || '—'), ...group.entries.map((item: any) => item.role + ' ID: ' + item.profileId + (item.contact && item.contact !== group.contact ? ' | ' + item.contact : ''))].join('\n'))} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 font-bold text-slate-700 hover:bg-slate-100"><Copy className="w-3.5 h-3.5" /> Copy all IDs</button>
+                          <button type="button" onClick={() => void copyDirectoryValue(['Email / Contact: ' + (group.contact || '—'), 'User ID: ' + (group.userId || '—'), ...(group.statuses.includes('ACCOUNT_LINK_MISSING') ? ['WARNING: One or more provider profiles have no linked user account; review before merging.'] : []), ...group.entries.map((item: any) => item.role + ' ID: ' + item.profileId + (item.contact && item.contact !== group.contact ? ' | ' + item.contact : ''))].join('\n'))} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 font-bold text-slate-700 hover:bg-slate-100"><Copy className="w-3.5 h-3.5" /> Copy all IDs</button>
                         </div>
                       </td>
                     </tr>
@@ -444,7 +451,7 @@ export const AdminDashboard: React.FC = () => {
               </table>
             </div>
             <div className="border-t border-slate-100 bg-slate-50 px-4 py-3 text-[11px] text-slate-500">
-              Showing {filteredDirectoryGroups.length} of {directoryGroups.length} user groups / unowned records. Product IDs are attached to a seller's user group when the seller-user relationship is present in the API data. Missing IDs are shown as — and are never guessed.
+              Showing {filteredDirectoryGroups.length} of {directoryGroups.length} user groups / unowned records. Product IDs are attached to a seller's user group when the seller-user relationship is present in the API data. Missing IDs are shown as — and are never guessed. ACCOUNT_LINK_MISSING flags provider profiles that need ownership review.
             </div>
           </div>
         </div>

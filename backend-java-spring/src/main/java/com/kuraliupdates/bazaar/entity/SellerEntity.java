@@ -13,6 +13,7 @@ import java.util.List;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class SellerEntity {
     @Id @Column(name = "SELLER_ID", length = 64) private String sellerId;
+    @Column(name = "USER_ID", length = 64) private String userId;
     @Column(name = "STORE_NAME", nullable = false, length = 255) private String storeName;
     @Column(name = "OWNER_NAME", nullable = false, length = 150) private String ownerName;
     @Column(name = "EMAIL", nullable = false, unique = true, length = 255) private String email;
