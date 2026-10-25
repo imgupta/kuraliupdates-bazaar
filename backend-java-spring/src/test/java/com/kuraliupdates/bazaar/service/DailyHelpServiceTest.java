@@ -3,6 +3,7 @@ package com.kuraliupdates.bazaar.service;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpBookingRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpStartRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpSlotRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalRegistrationRequest;
 import com.kuraliupdates.bazaar.entity.DailyHelpBookingEntity;
 import com.kuraliupdates.bazaar.entity.DailyHelpProfessionalEntity;
 import com.kuraliupdates.bazaar.entity.DailyHelpProfessionalSlotEntity;
@@ -129,6 +130,83 @@ class DailyHelpServiceTest {
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
         assertEquals(1, booking.getOtpAttempts());
         verify(bookingRepository).save(booking);
+    }
+
+    @Test
+    void selfRegistrationCreatesUnverifiedOfflineProfessional() {
+        when(professionalRepository.findByPhone("9876500000")).thenReturn(Optional.empty());
+        when(professionalRepository.save(any(DailyHelpProfessionalEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = dailyHelpService.registerProfessional(
+                new DailyHelpProfessionalRegistrationRequest("New Helper", "9876500000", "Kurali"));
+
+        assertFalse(response.verified(), "self-registration must not bypass admin verification");
+        assertEquals("OFFLINE", response.status());
+        verify(professionalRepository).save(argThat(p -> Integer.valueOf(0).equals(p.getVerified())
+                && "OFFLINE".equals(p.getStatus())));
+    }
+
+    @Test
+    void adminApprovalVerifiesProfessionalWithoutMakingItAvailable() {
+        DailyHelpProfessionalEntity professional = professional();
+        professional.setVerified(0);
+        professional.setStatus("OFFLINE");
+        when(professionalRepository.findById("DHP-1")).thenReturn(Optional.of(professional));
+        when(professionalRepository.save(any(DailyHelpProfessionalEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = dailyHelpService.updateProfessionalVerification("DHP-1", true);
+
+        assertTrue(response.verified());
+        assertEquals("OFFLINE", response.status(), "verification must not opt the professional into accepting jobs");
+        verify(professionalRepository).save(professional);
+    }
+
+    @Test
+    void adminRevokingVerificationForcesProfessionalOffline() {
+        DailyHelpProfessionalEntity professional = professional();
+        professional.setStatus("AVAILABLE");
+        when(professionalRepository.findById("DHP-1")).thenReturn(Optional.of(professional));
+        when(professionalRepository.save(any(DailyHelpProfessionalEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = dailyHelpService.updateProfessionalVerification("DHP-1", false);
+
+        assertFalse(response.verified());
+        assertEquals("OFFLINE", response.status());
+        verify(professionalRepository).save(professional);
+    }
+
+    @Test
+    void unverifiedProfessionalCannotBeSetAvailable() {
+        DailyHelpProfessionalEntity professional = professional();
+        professional.setVerified(0);
+        when(professionalRepository.findById("DHP-1")).thenReturn(Optional.of(professional));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.updateProfessionalAvailability("DHP-1",
+                        new com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalAvailabilityRequest("AVAILABLE", "Kurali")));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        verify(professionalRepository, never()).save(any());
+    }
+
+    @Test
+    void bookingRejectsUnverifiedProfessionalEvenWhenSlotIsAvailable() {
+        DailyHelpServiceEntity service = service();
+        DailyHelpProfessionalEntity professional = professional();
+        professional.setVerified(0);
+        DailyHelpProfessionalSlotEntity slot = slot(professional, "AVAILABLE");
+        when(serviceRepository.findById("DH-CLEAN")).thenReturn(Optional.of(service));
+        when(slotRepository.findLockedBySlotId("SLOT-1")).thenReturn(Optional.of(slot));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.createBooking(request(slot.getSlotDate().atTime(slot.getStartTime()))));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        verify(bookingRepository, never()).save(any());
+        verify(slotRepository, never()).save(any());
     }
 
     private DailyHelpBookingRequest request(LocalDateTime start) {

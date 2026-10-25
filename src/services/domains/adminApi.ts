@@ -23,6 +23,16 @@ export const adminApi = {
       return data;
     },
 
+  async updateAdminDailyHelpProfessionalVerification(professionalId: string, verified: boolean): Promise<any> {
+      const res = await fetch(`${API_BASE_URL}/admin/daily-help/helpers/${encodeURIComponent(professionalId)}/verification?verified=${verified}`, {
+        method: 'POST',
+        headers: adminAuthHeaders(),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || data?.error || `Unable to update Daily Help verification (HTTP ${res.status}).`);
+      return data;
+    },
+
   async getAdminDailyHelpHelpers(): Promise<any[]> {
       const headers = adminAuthHeaders();
       try {

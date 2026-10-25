@@ -2,6 +2,8 @@
 
 The browser suite in `e2e/order-daily-help-lifecycle.spec.ts` contains two opt-in API-backed lifecycle tests:
 
+Before enabling the Daily Help lifecycle, confirm the fixture professional is explicitly approved by the admin workflow and is AVAILABLE. Self-registration no longer grants verification automatically. Do not use an unverified profile as a test fixture.
+
 - Order: synthetic buyer checkout → seller accepts and readies → delivery agent claims → invalid OTP rejected → valid OTP completes → buyer/seller histories reconcile.
 - Daily Help: synthetic buyer books a slot → professional marks arrival and ready-to-start → invalid OTP rejected → valid OTP starts the timer → professional completes → buyer reads back terminal status.
 
