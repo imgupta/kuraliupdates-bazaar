@@ -250,8 +250,10 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect((await getJson(request, "/sellers/me/orders", sellerToken)).filter((x: any) => x.orderId === orderId)).toHaveLength(1);
   });
 
-  test("Daily Help: buyer books synthetic slot → professional starts with OTP → completes → history reconciles", async ({ request }) => {
+  test("Daily Help: buyer books synthetic slot → professional starts with OTP → completes → history reconciles", async ({ request }, testInfo) => {
     test.setTimeout(120_000);
+    const runId = runScopedId(testInfo);
+    runIds.set(testKey(testInfo), runId);
     const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY");
     const professionalToken = await flowToken(request, "PROVIDER", "E2E_PROVIDER_IDENTITY");
     const serviceId = syntheticId("E2E_FLOW_DAILY_HELP_SERVICE_ID");
