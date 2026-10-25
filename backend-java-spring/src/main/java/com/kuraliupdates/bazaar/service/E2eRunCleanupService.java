@@ -81,7 +81,8 @@ public class E2eRunCleanupService {
                 """, runId);
         int orders = jdbc.update("DELETE FROM ORDERS WHERE E2E_RUN_ID = ?", runId);
 
-        return new CleanupResult(runId, orders, orderItems, bookings, deletedChats, chats);
+        int sessions = jdbc.update("DELETE FROM USER_SESSIONS WHERE E2E_RUN_ID = ?", runId);
+        return new CleanupResult(runId, orders, orderItems, bookings, deletedChats, chats, sessions);
     }
 
     private long count(String sql, String runId) {
@@ -90,5 +91,5 @@ public class E2eRunCleanupService {
     }
 
     public record CleanupResult(String runId, int orders, int orderItems, int dailyHelpBookings,
-                                int negotiationChats, int chatMessages) {}
+                                int negotiationChats, int chatMessages, int sessions) {}
 }
