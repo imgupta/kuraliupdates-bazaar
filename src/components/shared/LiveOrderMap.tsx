@@ -64,7 +64,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
   const routeDestination = enRouteToCustomer
     ? (buyerPoint || buyerAddress)
     : (pickupAddress || buyerPoint || buyerAddress);
-  const routeOrigin = riderPoint || (enRouteToCustomer ? pickupAddress : null) || DEFAULT_KURALI;
+  const routeOrigin = riderPoint;
 
   const fallbackPoint = useMemo(() => riderPoint || buyerPoint || DEFAULT_KURALI, [riderPoint, buyerPoint]);
   const bbox = useMemo(() => [
@@ -172,7 +172,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
   }, [orderId]);
 
   useEffect(() => {
-    if (!map.current || !window.google?.maps || !mapReady) return;
+    if (!map.current || !window.google?.maps || !mapReady || !riderPoint) return;
     if (buyerPoint) {
       if (!buyerMarker.current) buyerMarker.current = new window.google.maps.Marker({ map: map.current, position: buyerPoint, label: 'C', title: 'Customer destination' });
       else buyerMarker.current.setPosition(buyerPoint);
