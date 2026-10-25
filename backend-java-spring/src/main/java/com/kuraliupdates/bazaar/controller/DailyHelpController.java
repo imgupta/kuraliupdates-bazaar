@@ -30,6 +30,7 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 public class DailyHelpController {
     private final DailyHelpService dailyHelpService;
+    private final com.kuraliupdates.bazaar.service.E2eRunTagging e2eRunTagging;
 
     @GetMapping("/services")
     public ResponseEntity<List<DailyHelpServiceResponse>> services() {
@@ -38,12 +39,16 @@ public class DailyHelpController {
 
     @PostMapping("/bookings")
     public ResponseEntity<DailyHelpBookingResponse> createBooking(
-            @Valid @RequestBody DailyHelpBookingRequest request, Authentication authentication) {
+            @Valid @RequestBody DailyHelpBookingRequest request,
+            @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
+            @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
+            Authentication authentication) {
         UserEntity user = requireUser(authentication);
         if (!samePhone(user.getPhone(), request.buyerPhone())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You can only create a Daily Help booking for your own account");
         }
-        return ResponseEntity.ok(dailyHelpService.createBooking(request));
+        String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
+        return ResponseEntity.ok(dailyHelpService.createBooking(request, e2eRunId));
     }
 
     @GetMapping("/availability")
