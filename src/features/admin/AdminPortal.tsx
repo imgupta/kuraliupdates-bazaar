@@ -500,7 +500,7 @@ export const AdminDashboard: React.FC = () => {
                         <td className="px-4 py-4">
                           <div className="flex flex-col items-start gap-2">
                             <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold ${String(helper.status).toUpperCase() === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{helper.status}</span>
-                            <button type="button" disabled={updatingHelperId === helper.professionalId}
+                            <button type="button" disabled={updatingHelperId === helper.professionalId || (!helper.verified && String(helper.status).toUpperCase() !== 'AVAILABLE')}
                               onClick={async () => {
                                 const nextStatus = String(helper.status).toUpperCase() === 'AVAILABLE' ? 'OFFLINE' : 'AVAILABLE';
                                 setUpdatingHelperId(helper.professionalId);
@@ -514,13 +514,31 @@ export const AdminDashboard: React.FC = () => {
                                 } finally { setUpdatingHelperId(null); }
                               }}
                               className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-[10px] font-bold text-slate-700 disabled:opacity-50">
-                              {updatingHelperId === helper.professionalId ? 'Updating…' : String(helper.status).toUpperCase() === 'AVAILABLE' ? 'Set offline' : 'Set available'}
+                              {updatingHelperId === helper.professionalId ? 'Updating…' : !helper.verified && String(helper.status).toUpperCase() !== 'AVAILABLE' ? 'Verify before availability' : String(helper.status).toUpperCase() === 'AVAILABLE' ? 'Set offline' : 'Set available'}
                             </button>
                           </div>
                         </td>
                         <td className="px-4 py-4 text-xs font-bold">★ {helper.rating || '0.00'} <span className="text-slate-400 font-normal">({helper.reviewCount || 0})</span></td>
                         <td className="px-4 py-4">
-                          {helper.verified ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700"><CheckCircle2 className="w-3.5 h-3.5" /> Verified</span> : <span className="text-[10px] font-bold text-rose-600">Not verified</span>}
+                          <div className="flex flex-col items-start gap-2">
+                            {helper.verified ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700"><CheckCircle2 className="w-3.5 h-3.5" /> Verified</span> : <span className="text-[10px] font-bold text-rose-600">Not verified</span>}
+                            <button type="button" disabled={updatingHelperId === helper.professionalId}
+                              onClick={async () => {
+                                const nextVerified = !Boolean(helper.verified);
+                                if (!nextVerified && !window.confirm('Revoke verification? This will set the professional offline.')) return;
+                                setUpdatingHelperId(helper.professionalId);
+                                try {
+                                  await adminApi.updateAdminDailyHelpProfessionalVerification(helper.professionalId, nextVerified);
+                                  showToast(nextVerified ? 'Daily Help professional verified.' : 'Verification revoked; professional set offline.', 'success');
+                                  await refreshAdminData();
+                                } catch (error: any) {
+                                  showToast(error?.message || 'Unable to update Daily Help verification.', 'error');
+                                } finally { setUpdatingHelperId(null); }
+                              }}
+                              className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-[10px] font-bold text-slate-700 disabled:opacity-50">
+                              {updatingHelperId === helper.professionalId ? 'Updating…' : helper.verified ? 'Revoke verification' : 'Approve professional'}
+                            </button>
+                          </div>
                         </td>
                         <td className="px-4 py-4 text-[11px] text-slate-500">{helper.registeredAt ? new Date(helper.registeredAt).toLocaleDateString() : '—'}</td>
                       </tr>
