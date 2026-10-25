@@ -330,7 +330,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
 });
 
 test.describe("Admin login, approval queues, and role restrictions", () => {
-  test("root admin can read approval queues; buyer and seller sessions cannot", async ({ request }) => {
+  test("root admin can read approval queues; buyer and seller sessions cannot", async ({ request }, testInfo) => {
     const trustedEvent = process.env.GITHUB_EVENT_NAME === "schedule"
       || process.env.GITHUB_EVENT_NAME === "workflow_dispatch";
     const configured = trustedEvent
@@ -342,7 +342,9 @@ test.describe("Admin login, approval queues, and role restrictions", () => {
       && Boolean(process.env.E2E_SELLER_IDENTITY?.trim());
     test.skip(!configured, "Read-only admin authorization test requires configured staging role identities.");
 
-    const adminToken = await flowToken(request, "ADMIN", "E2E_ADMIN_IDENTITY");
+    const runId = runScopedId(testInfo);
+    runIds.set(testKey(testInfo), runId);
+    const adminToken = await flowToken(request, "ADMIN", "E2E_ADMIN_IDENTITY", runId);
     const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
     const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY", runId);
     const queues = ["/admin/sellers/pending", "/admin/delivery/pending", "/admin/daily-help/helpers"];
