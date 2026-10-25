@@ -29,7 +29,7 @@ async function waitForCapturedOtp(page: import("@playwright/test").Page, identif
     throw new Error("Staging OTP capture endpoint returned HTTP " + response.status() + "; verify staging configuration and OTP capture.");
   }
   const body = await response.json() as { otp?: string };
-  if (body.otp && /^\\d{6}$/.test(body.otp)) return body.otp;
+  if (body.otp && /^\d{6}$/.test(body.otp)) return body.otp;
   throw new Error("Staging OTP capture endpoint returned an invalid response.");
 }
 
