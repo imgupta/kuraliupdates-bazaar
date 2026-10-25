@@ -28,6 +28,7 @@ public class BuyerController {
     private final ProductService productService;
     private final OrderService orderService;
     private final AuthService authService;
+    private final com.kuraliupdates.bazaar.service.E2eRunTagging e2eRunTagging;
 
     @GetMapping("/products/search")
     @Operation(summary = "Search products across approved Kurali sellers")
@@ -40,11 +41,16 @@ public class BuyerController {
 
     @PostMapping("/orders")
     @Operation(summary = "Place a validated buyer order")
-    public ResponseEntity<OrderPlacementResponse> placeOrder(@Valid @RequestBody PlaceOrderRequest request, Authentication authentication) {
+    public ResponseEntity<OrderPlacementResponse> placeOrder(
+            @Valid @RequestBody PlaceOrderRequest request,
+            @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
+            @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
+            Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
         }
-        return ResponseEntity.ok(orderService.placeOrder(request, user));
+        String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
+        return ResponseEntity.ok(orderService.placeOrder(request, user, e2eRunId));
     }
 
     @GetMapping("/me/orders")
