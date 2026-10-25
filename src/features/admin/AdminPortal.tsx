@@ -383,11 +383,11 @@ export const AdminDashboard: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
             <div>
               <h2 className="text-base font-extrabold text-slate-900">User-wise Role & ID Directory</h2>
-              <p className="text-xs text-slate-500 mt-1">Each account appears once. All known roles and related profile, product, and service IDs are grouped under the same user ID. Unowned/system records remain separate. Read-only and admin-only.</p>
+              <p className="text-xs text-slate-500 mt-1">Search using the registered email address to find that account and view/copy all known user, role, profile, product, and service IDs grouped under it. Unowned/system records remain separate. Read-only and admin-only.</p>
             </div>
             <div className="relative w-full sm:w-80">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input aria-label="Search users, roles and IDs" value={directorySearch} onChange={event => setDirectorySearch(event.target.value)} placeholder="Search user, role, user ID, profile ID…" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100" />
+              <input aria-label="Search by email, user, role or ID" type="search" value={directorySearch} onChange={event => setDirectorySearch(event.target.value)} placeholder="Search by email address or user / profile ID…" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100" />
             </div>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
@@ -434,7 +434,7 @@ export const AdminDashboard: React.FC = () => {
                       <td className="px-4 py-3">
                         <div className="flex flex-col items-start gap-2">
                           {group.userId !== '—' && <button type="button" onClick={() => void copyDirectoryValue(String(group.userId))} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 font-bold text-slate-700 hover:bg-slate-100"><Copy className="w-3.5 h-3.5" /> Copy User ID</button>}
-                          <button type="button" onClick={() => void copyDirectoryValue(group.entries.map((item: any) => item.role + ': ' + item.profileId).join('\n'))} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 font-bold text-slate-700 hover:bg-slate-100"><Copy className="w-3.5 h-3.5" /> Copy all IDs</button>
+                          <button type="button" onClick={() => void copyDirectoryValue(['Email / Contact: ' + (group.contact || '—'), 'User ID: ' + (group.userId || '—'), ...group.entries.map((item: any) => item.role + ' ID: ' + item.profileId + (item.contact && item.contact !== group.contact ? ' | ' + item.contact : ''))].join('\n'))} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 font-bold text-slate-700 hover:bg-slate-100"><Copy className="w-3.5 h-3.5" /> Copy all IDs</button>
                         </div>
                       </td>
                     </tr>
