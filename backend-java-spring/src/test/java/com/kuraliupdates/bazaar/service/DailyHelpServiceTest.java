@@ -148,6 +148,22 @@ class DailyHelpServiceTest {
     }
 
     @Test
+    void adminApprovalVerifiesProfessionalWithoutMakingItAvailable() {
+        DailyHelpProfessionalEntity professional = professional();
+        professional.setVerified(0);
+        professional.setStatus("OFFLINE");
+        when(professionalRepository.findById("DHP-1")).thenReturn(Optional.of(professional));
+        when(professionalRepository.save(any(DailyHelpProfessionalEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = dailyHelpService.updateProfessionalVerification("DHP-1", true);
+
+        assertTrue(response.verified());
+        assertEquals("OFFLINE", response.status(), "verification must not opt the professional into accepting jobs");
+        verify(professionalRepository).save(professional);
+    }
+
+    @Test
     void adminRevokingVerificationForcesProfessionalOffline() {
         DailyHelpProfessionalEntity professional = professional();
         professional.setStatus("AVAILABLE");
