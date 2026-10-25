@@ -43,6 +43,7 @@ Use stable IDs, FK/unique/check constraints and query-driven indexes.
 - DAILY_HELP_SERVICES is the customer catalogue.
 - Professionals own dated time slots in DAILY_HELP_PROFESSIONAL_SLOTS.
 - A slot is bookable only when the slot is AVAILABLE and the professional is verified and AVAILABLE.
+- Self-registration creates an unverified, OFFLINE professional profile. Only the root-admin verification workflow can approve/revoke verification; revocation forces OFFLINE, and the API rejects AVAILABLE status until verification is granted.
 - Booking locks the selected slot and changes it to BOOKED in the same transaction.
 - Professional availability is independent of the user's primary role; the authenticated phone must own the professional profile.
 
