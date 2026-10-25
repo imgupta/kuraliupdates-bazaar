@@ -66,7 +66,18 @@ public class NegotiationChatService {
         String sellerId = Objects.toString(product.get("sellerId"));
         List<String> existing = jdbc.query("SELECT CHAT_ID FROM NEGOTIATION_CHATS WHERE PRODUCT_ID=? AND SELLER_ID=? AND LOWER(BUYER_EMAIL)=?",
                 (rs, row) -> rs.getString(1), request.productId().trim(), sellerId, email);
-        if (!existing.isEmpty()) return getChatForKnownParticipant(existing.get(0));
+        if (!existing.isEmpty()) {
+            if (e2eRunId != null) {
+                String existingRunId = jdbc.queryForObject(
+                        "SELECT E2E_RUN_ID FROM NEGOTIATION_CHATS WHERE CHAT_ID = ?",
+                        String.class, existing.get(0));
+                if (!e2eRunId.equals(existingRunId)) {
+                    throw new ApiException(HttpStatus.CONFLICT,
+                            "A prior conversation exists for this synthetic buyer/product; refusing to reuse an untagged or other-run record");
+                }
+            }
+            return getChatForKnownParticipant(existing.get(0));
+        }
 
         String chatId = "chat-" + UUID.randomUUID();
         BigDecimal listPrice = (BigDecimal) product.get("effectivePrice");
