@@ -326,3 +326,29 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(reconciledBooking.serviceCompletedAt).toBe(completed.serviceCompletedAt);
   });
 });
+
+test.describe("Admin login, approval queues, and role restrictions", () => {
+  test("root admin can read approval queues; buyer and seller sessions cannot", async ({ request }) => {
+    const configured = process.env.E2E_ENVIRONMENT === "staging"
+      && apiBase === "https://kuraliupdates-bazaar.onrender.com/api/v1"
+      && Boolean(process.env.E2E_FLOW_AUTH_TOKEN?.trim())
+      && Boolean(process.env.E2E_ADMIN_IDENTITY?.trim())
+      && Boolean(process.env.E2E_BUYER_IDENTITY?.trim())
+      && Boolean(process.env.E2E_SELLER_IDENTITY?.trim());
+    test.skip(!configured, "Read-only admin authorization test requires configured staging role identities.");
+
+    const adminToken = await flowToken(request, "ADMIN", "E2E_ADMIN_IDENTITY");
+    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY");
+    const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY");
+    const queues = ["/admin/sellers/pending", "/admin/delivery/pending", "/admin/daily-help/helpers"];
+
+    for (const path of queues) {
+      const adminResponse = await request.get(apiBase + path, { headers: auth(adminToken), timeout: 20_000 });
+      expect(adminResponse.status(), "root admin should be able to read " + path).toBe(200);
+      for (const [role, token] of [["buyer", buyerToken], ["seller", sellerToken]] as const) {
+        const denied = await request.get(apiBase + path, { headers: auth(token), timeout: 20_000 });
+        expect([401, 403], role + " must not access " + path).toContain(denied.status());
+      }
+    }
+  });
+});
