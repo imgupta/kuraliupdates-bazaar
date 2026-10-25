@@ -182,10 +182,16 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public OrderResponse track(String orderId) {
-        return orderRepository.findById(orderId)
-                .map(OrderResponse::from)
+    public OrderResponse trackForBuyer(String orderId, UserEntity buyer) {
+        if (buyer == null || !"BUYER".equalsIgnoreCase(buyer.getRole())
+                || buyer.getEmail() == null || buyer.getEmail().isBlank()) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only the owning buyer can track this order");
+        }
+        OrderEntity order = orderRepository.findById(orderId)
+                .filter(candidate -> candidate.getBuyerEmail() != null
+                        && candidate.getBuyerEmail().equalsIgnoreCase(buyer.getEmail().trim()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
+        return OrderResponse.from(order);
     }
 
     private String trim(String value) {
