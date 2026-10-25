@@ -172,7 +172,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
   }, [orderId]);
 
   useEffect(() => {
-    if (!map.current || !window.google?.maps || !mapReady || !riderPoint) return;
+    if (!map.current || !window.google?.maps || !mapReady) return;
     if (buyerPoint) {
       if (!buyerMarker.current) buyerMarker.current = new window.google.maps.Marker({ map: map.current, position: buyerPoint, label: 'C', title: 'Customer destination' });
       else buyerMarker.current.setPosition(buyerPoint);
@@ -191,7 +191,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
         }
       });
     }
-    if (routeDestination && window.google.maps.DirectionsService && directionsRenderer.current) {
+    if (riderPoint && routeDestination && window.google.maps.DirectionsService && directionsRenderer.current) {
       setRouteError(false);
       const directions = new window.google.maps.DirectionsService();
       directions.route({
