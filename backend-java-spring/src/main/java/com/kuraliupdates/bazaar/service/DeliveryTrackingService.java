@@ -67,6 +67,10 @@ public class DeliveryTrackingService {
         result.put("buyerLatitude", order.getDeliveryLatitude());
         result.put("buyerLongitude", order.getDeliveryLongitude());
         result.put("buyerAddress", order.getDeliveryAddress());
+        result.put("buyerLocality", order.getDeliveryLocality());
+        result.put("sellerName", order.getSeller() == null ? null : order.getSeller().getStoreName());
+        result.put("sellerAddress", order.getSeller() == null ? null : order.getSeller().getAddress());
+        result.put("sellerLocality", order.getSeller() == null ? null : order.getSeller().getLocality());
 
         // Delivery verification OTP is visible only to the authenticated order owner.
         String authenticatedEmail = sessionRepository.findBySessionToken(token)
