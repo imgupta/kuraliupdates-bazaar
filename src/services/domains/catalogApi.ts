@@ -65,7 +65,7 @@ export const catalogApi = {
       // Ignore incomplete API rows rather than presenting synthetic marketplace inventory.
       return data
         .filter(bp =>
-          Boolean(bp.productId && (bp.name || bp.title) && bp.sellerId && Number.isFinite(Number(bp.sellerPrice ?? bp.price)) && Number(bp.sellerPrice ?? bp.price) >= 0)
+          Boolean(bp.productId && (bp.name || bp.title) && (bp.sellerId || bp.seller?.sellerId) && Number.isFinite(Number(bp.sellerPrice ?? bp.price)) && Number(bp.sellerPrice ?? bp.price) >= 0)
         )
         .map((bp) => ({
           id: bp.productId,
