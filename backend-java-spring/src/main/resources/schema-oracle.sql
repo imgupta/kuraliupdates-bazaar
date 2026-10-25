@@ -266,6 +266,10 @@ CREATE TABLE USERS (
     ADDRESS                    VARCHAR2(500),
     IS_VERIFIED                NUMBER(1) DEFAULT 1 CHECK (IS_VERIFIED IN (0, 1)),
     IS_ADMIN                   NUMBER(1) DEFAULT 0 CHECK (IS_ADMIN IN (0, 1)),
+    ACCOUNT_STATUS             VARCHAR2(20) DEFAULT 'ACTIVE' NOT NULL CHECK (ACCOUNT_STATUS IN ('ACTIVE', 'SUSPENDED', 'REVOKED')),
+    ACCOUNT_STATUS_REASON     VARCHAR2(1000),
+    ACCOUNT_STATUS_UPDATED_AT TIMESTAMP,
+    ACCOUNT_SUSPENDED_UNTIL   TIMESTAMP,
     AVATAR_URL                 VARCHAR2(500),
     CREATED_AT                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     LAST_LOGIN                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -290,6 +294,25 @@ CREATE TABLE AUTH_OTPS (
 );
 
 CREATE INDEX IDX_AUTH_OTPS_ID ON AUTH_OTPS(IDENTIFIER, OTP_TYPE, IS_USED);
+
+
+-- ----------------------------------------------------------------------------
+-- Admin account control audit trail
+-- ----------------------------------------------------------------------------
+CREATE TABLE ADMIN_ACCOUNT_AUDIT (
+    AUDIT_ID                   VARCHAR2(64) PRIMARY KEY,
+    ACTOR_USER_ID              VARCHAR2(64),
+    ACTOR_EMAIL                VARCHAR2(255),
+    TARGET_USER_ID             VARCHAR2(64) NOT NULL,
+    TARGET_EMAIL               VARCHAR2(255),
+    ACTION                     VARCHAR2(30) NOT NULL,
+    PREVIOUS_STATUS            VARCHAR2(20),
+    NEW_STATUS                 VARCHAR2(20),
+    REASON                     VARCHAR2(1000),
+    OCCURRED_AT                TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+CREATE INDEX IDX_ADMIN_AUDIT_TARGET ON ADMIN_ACCOUNT_AUDIT(TARGET_USER_ID, OCCURRED_AT);
+CREATE INDEX IDX_ADMIN_AUDIT_ACTOR ON ADMIN_ACCOUNT_AUDIT(ACTOR_USER_ID, OCCURRED_AT);
 
 -- ----------------------------------------------------------------------------
 -- 12. Table: USER_SESSIONS (Stateful Authentication & Logout Tokens)
