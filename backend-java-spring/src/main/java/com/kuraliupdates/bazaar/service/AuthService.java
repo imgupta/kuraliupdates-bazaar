@@ -186,8 +186,13 @@ public class AuthService {
         if (session.isEmpty() || session.get().getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
         }
-        return userRepository.findById(session.get().getUserId())
+        UserEntity user = userRepository.findById(session.get().getUserId())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User not found"));
+        String status = user.getAccountStatus() == null ? "ACTIVE" : user.getAccountStatus().trim().toUpperCase();
+        if (!"ACTIVE".equals(status)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This account is " + status.toLowerCase() + ". Contact KuraliUpdates support.");
+        }
+        return user;
     }
 
     private AuthResult login(VerifyOtpRequest req) {
