@@ -3,7 +3,7 @@
 **Status:** coverage contract for guarded staging lifecycle tests. The API-backed lifecycle suite remains opt-in until dedicated synthetic fixtures and the V15 run-tag migration are verified in the single staging environment.  
 **Owner goal:** prove one order from buyer checkout through seller processing and delivery completion, then reconcile inventory and every relevant order-history view.  
 **Primary workflow:** `.github/workflows/e2e-login.yml`  
-**Browser suite:** `e2e/order-lifecycle.spec.ts` (to be enabled after the isolation preflight is implemented and verified)
+**Browser suite:** `e2e/order-daily-help-lifecycle.spec.ts` (guarded staging-only lifecycle tests; requires the V15 run-tag migration and dedicated synthetic fixtures)
 
 ## Flow OL-001 — one complete order, end to end
 
