@@ -24,21 +24,25 @@ public class E2eAuthController {
     private final String environment;
     private final String configuredToken;
     private final String configuredIdentities;
+    private final com.kuraliupdates.bazaar.service.E2eRunTagging e2eRunTagging;
 
     public E2eAuthController(
             AuthService authService,
             @Value("${E2E_FLOW_AUTH_ENV:}") String environment,
             @Value("${E2E_FLOW_AUTH_TOKEN:}") String configuredToken,
-            @Value("${E2E_FLOW_AUTH_IDENTITIES:}") String configuredIdentities) {
+            @Value("${E2E_FLOW_AUTH_IDENTITIES:}") String configuredIdentities,
+            com.kuraliupdates.bazaar.service.E2eRunTagging e2eRunTagging) {
         this.authService = authService;
         this.environment = environment == null ? "" : environment.trim().toLowerCase();
         this.configuredToken = configuredToken == null ? "" : configuredToken;
         this.configuredIdentities = configuredIdentities == null ? "" : configuredIdentities;
+        this.e2eRunTagging = e2eRunTagging;
     }
 
     @PostMapping("/token")
     public ResponseEntity<Map<String, Object>> issueToken(
             @RequestHeader(value = "X-E2E-Flow-Token", required = false) String suppliedToken,
+            @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
             @RequestBody(required = false) Map<String, String> body) {
         // Missing configuration, non-staging deployments, or a weak secret all
         // make the endpoint indistinguishable from a missing route.
@@ -65,7 +69,8 @@ public class E2eAuthController {
                     .body(Map.of("message", "Not found"));
         }
 
-        AuthService.AuthResult result = authService.createStagingE2eSession(identifier, role);
+        String e2eRunId = e2eRunTagging.optionalRunId(runId, suppliedToken);
+        AuthService.AuthResult result = authService.createStagingE2eSession(identifier, role, e2eRunId);
         List<String> roles = authService.registeredRoles(result.token());
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of(
                 "success", true,

@@ -174,6 +174,13 @@ test.describe("KuraliUpdates Bazaar production-safe E2E", () => {
       await expect(page).toHaveURL(transition.url, { timeout: 30_000 });
       await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toHaveCount(0);
       await expect(page.getByRole("button", { name: transition.active }).first()).toBeVisible({ timeout: 20_000 });
+
+      if (transition.active.source === "Admin Desk") {
+        const helpersTab = page.getByRole("button", { name: /Daily Help \/ Helpers/ }).first();
+        await expect(helpersTab, "admin portal exposes the Daily Help verification queue").toBeVisible({ timeout: 20_000 });
+        await helpersTab.click();
+        await expect(page.getByText("Daily Help Helpers", { exact: true })).toBeVisible({ timeout: 20_000 });
+      }
     }
   });
 

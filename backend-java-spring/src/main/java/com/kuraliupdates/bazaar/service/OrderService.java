@@ -36,6 +36,11 @@ public class OrderService {
 
     @Transactional
     public OrderPlacementResponse placeOrder(PlaceOrderRequest request, UserEntity buyer) {
+        return placeOrder(request, buyer, null);
+    }
+
+    @Transactional
+    public OrderPlacementResponse placeOrder(PlaceOrderRequest request, UserEntity buyer, String e2eRunId) {
         if (!"COD".equalsIgnoreCase(request.paymentMethod())) {
             throw new ApiException(HttpStatus.BAD_REQUEST,
                     "Online payment is not enabled yet. Please select Cash on Delivery.");
@@ -156,6 +161,7 @@ public class OrderService {
                 .deliveryOtp(String.format("%04d", random.nextInt(10000)))
                 .distanceKm(request.distanceKm() == null ? BigDecimal.valueOf(1.5) : request.distanceKm())
                 .estimatedDeliveryMins(25)
+                .e2eRunId(e2eRunId)
                 .placedAt(now)
                 .updatedAt(now)
                 .items(orderItems)

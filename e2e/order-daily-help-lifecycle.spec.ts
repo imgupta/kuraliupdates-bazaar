@@ -1,9 +1,11 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext, type TestInfo } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 
 const apiBase = (process.env.E2E_API_BASE_URL ?? "https://kuraliupdates-bazaar.onrender.com/api/v1").replace(/\/$/, "");
-const enabled = process.env.E2E_ENVIRONMENT === "staging"
-  && process.env.E2E_TRANSACTIONAL_FLOWS_ENABLED === "true"
-  && apiBase === "https://kuraliupdates-bazaar.onrender.com/api/v1";
+const taggingEnabled = process.env.E2E_ENVIRONMENT === "staging"
+  && apiBase === "https://kuraliupdates-bazaar.onrender.com/api/v1"
+  && (process.env.E2E_FLOW_AUTH_TOKEN ?? "").trim().length >= 32;
+const enabled = taggingEnabled && process.env.E2E_TRANSACTIONAL_FLOWS_ENABLED === "true";
 
 function required(name: string): string {
   const value = (process.env[name] ?? "").trim();
@@ -20,11 +22,11 @@ function syntheticId(name: string): string {
 function auth(token: string) {
   return { Authorization: "Bearer " + token, "Content-Type": "application/json", "Cache-Control": "no-store" };
 }
-async function flowToken(request: APIRequestContext, role: string, identityVariable: string): Promise<string> {
+async function flowToken(request: APIRequestContext, role: string, identityVariable: string, runId?: string): Promise<string> {
   const sharedSecret = required("E2E_FLOW_AUTH_TOKEN");
   const identifier = required(identityVariable);
   const response = await request.post(apiBase + "/e2e/auth/token", {
-    headers: { "X-E2E-Flow-Token": sharedSecret, "Content-Type": "application/json", "Cache-Control": "no-store" },
+    headers: { "X-E2E-Flow-Token": sharedSecret, ...(runId ? { "X-E2E-Run-Id": runId } : {}), "Content-Type": "application/json", "Cache-Control": "no-store" },
     data: { role, identifier },
     timeout: 15_000,
   });
@@ -42,14 +44,50 @@ async function getJson(request: APIRequestContext, path: string, token: string) 
   return response.json();
 }
 
+const runIds = new Map<string, string>();
+function testKey(info: TestInfo): string { return info.titlePath.join("::"); }
+function runScopedId(info: TestInfo): string {
+  const run = (process.env.GITHUB_RUN_ID ?? randomUUID().replace(/-/g, "").slice(0, 12)).replace(/[^A-Za-z0-9_-]/g, "");
+  const attempt = (process.env.GITHUB_RUN_ATTEMPT ?? "1").replace(/[^A-Za-z0-9_-]/g, "");
+  const title = info.title.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 28);
+  return "E2E-" + run + "-" + attempt + "-" + title;
+}
+function taggedAuth(token: string, runId: string) {
+  return {
+    ...auth(token),
+    "X-E2E-Run-Id": runId,
+    "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"),
+  };
+}
+
+test.afterEach(async ({ request }, testInfo) => {
+  const key = testKey(testInfo);
+  const runId = runIds.get(key);
+  runIds.delete(key);
+  if (!taggingEnabled || !runId) return;
+  const cleanup = await request.post(apiBase + "/e2e/cleanup/" + encodeURIComponent(runId), {
+    headers: { "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"), "Cache-Control": "no-store" },
+    timeout: 30_000,
+  });
+  expect(cleanup.status(), "run-scoped cleanup must succeed without touching untagged records").toBe(200);
+  const summary = await cleanup.json();
+  expect(summary.runId).toBe(runId);
+  for (const count of [summary.orders, summary.orderItems, summary.dailyHelpBookings, summary.negotiationChats, summary.chatMessages, summary.sessions]) {
+    expect(Number.isInteger(count) && count >= 0).toBeTruthy();
+  }
+});
+
 test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => {
   test.skip(!enabled, "Mutating lifecycle tests require explicit staging-only opt-in and run-scoped synthetic fixtures.");
 
-  test("order: buyer checkout → seller fulfilment → delivery claim and OTP → cross-role reconciliation", async ({ request }) => {
+
+  test("order: buyer checkout → seller fulfilment → delivery claim and OTP → cross-role reconciliation", async ({ request }, testInfo) => {
     test.setTimeout(120_000);
-    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY");
-    const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY");
-    const deliveryToken = await flowToken(request, "DELIVERY", "E2E_DELIVERY_IDENTITY");
+    const runId = runScopedId(testInfo);
+    runIds.set(testKey(testInfo), runId);
+    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
+    const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY", runId);
+    const deliveryToken = await flowToken(request, "DELIVERY", "E2E_DELIVERY_IDENTITY", runId);
     const productId = syntheticId("E2E_FLOW_PRODUCT_ID");
     const sellerId = syntheticId("E2E_FLOW_SELLER_ID");
     const agentId = syntheticId("E2E_FLOW_DELIVERY_AGENT_ID");
@@ -73,7 +111,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(counterPrice).toBeLessThan(catalogPrice);
 
     const openChatResponse = await request.post(apiBase + "/negotiations", {
-      headers: auth(buyerToken),
+      headers: taggedAuth(buyerToken, runId),
       data: { productId, startingOfferPrice: buyerOfferPrice, openingMessage: "E2E synthetic bargaining conversation" },
       timeout: 20_000,
     });
@@ -144,7 +182,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const expectedDiscount = 0;
     const expectedFinalPayable = Math.round((expectedSubtotal - expectedDiscount + expectedDeliveryFee) * 100) / 100;
     const placedResponse = await request.post(apiBase + "/buyers/orders", {
-      headers: auth(buyerToken),
+      headers: taggedAuth(buyerToken, runId),
       data: {
         buyerName: "E2E Synthetic Buyer", buyerPhone: required("E2E_FLOW_BUYER_PHONE"),
         buyerEmail: required("E2E_FLOW_BUYER_EMAIL"), deliveryAddress: "E2E Test Address - do not deliver",
@@ -214,10 +252,12 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect((await getJson(request, "/sellers/me/orders", sellerToken)).filter((x: any) => x.orderId === orderId)).toHaveLength(1);
   });
 
-  test("Daily Help: buyer books synthetic slot → professional starts with OTP → completes → history reconciles", async ({ request }) => {
+  test("Daily Help: buyer books synthetic slot → professional starts with OTP → completes → history reconciles", async ({ request }, testInfo) => {
     test.setTimeout(120_000);
-    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY");
-    const professionalToken = await flowToken(request, "PROVIDER", "E2E_PROVIDER_IDENTITY");
+    const runId = runScopedId(testInfo);
+    runIds.set(testKey(testInfo), runId);
+    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
+    const professionalToken = await flowToken(request, "PROVIDER", "E2E_PROVIDER_IDENTITY", runId);
     const serviceId = syntheticId("E2E_FLOW_DAILY_HELP_SERVICE_ID");
     const slotId = syntheticId("E2E_FLOW_DAILY_HELP_SLOT_ID");
     const professionalId = syntheticId("E2E_FLOW_PROFESSIONAL_ID");
@@ -230,7 +270,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(requestedHours >= 1 && requestedHours <= 2).toBeTruthy();
 
     const bookingResponse = await request.post(apiBase + "/daily-help/bookings", {
-      headers: auth(buyerToken),
+      headers: taggedAuth(buyerToken, runId),
       data: { serviceId, buyerName, buyerPhone, address, locality: "Kurali", scheduledStart, requestedHours, slotId },
       timeout: 20_000,
     });
@@ -286,5 +326,36 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(reconciledBooking.status).toBe("COMPLETED");
     expect(reconciledBooking.serviceStartedAt).toBe(started.serviceStartedAt);
     expect(reconciledBooking.serviceCompletedAt).toBe(completed.serviceCompletedAt);
+  });
+});
+
+test.describe("Admin login, approval queues, and role restrictions", () => {
+  test("root admin can read approval queues; buyer and seller sessions cannot", async ({ request }, testInfo) => {
+    const trustedEvent = process.env.GITHUB_EVENT_NAME === "schedule"
+      || process.env.GITHUB_EVENT_NAME === "workflow_dispatch";
+    const configured = trustedEvent
+      && process.env.E2E_ENVIRONMENT === "staging"
+      && apiBase === "https://kuraliupdates-bazaar.onrender.com/api/v1"
+      && Boolean(process.env.E2E_FLOW_AUTH_TOKEN?.trim())
+      && Boolean(process.env.E2E_ADMIN_IDENTITY?.trim())
+      && Boolean(process.env.E2E_BUYER_IDENTITY?.trim())
+      && Boolean(process.env.E2E_SELLER_IDENTITY?.trim());
+    test.skip(!configured, "Read-only admin authorization test requires configured staging role identities.");
+
+    const runId = runScopedId(testInfo);
+    runIds.set(testKey(testInfo), runId);
+    const adminToken = await flowToken(request, "ADMIN", "E2E_ADMIN_IDENTITY", runId);
+    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
+    const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY", runId);
+    const queues = ["/admin/sellers/pending", "/admin/delivery/pending", "/admin/daily-help/helpers"];
+
+    for (const path of queues) {
+      const adminResponse = await request.get(apiBase + path, { headers: auth(adminToken), timeout: 20_000 });
+      expect(adminResponse.status(), "root admin should be able to read " + path).toBe(200);
+      for (const [role, token] of [["buyer", buyerToken], ["seller", sellerToken]] as const) {
+        const denied = await request.get(apiBase + path, { headers: auth(token), timeout: 20_000 });
+        expect([401, 403], role + " must not access " + path).toContain(denied.status());
+      }
+    }
   });
 });

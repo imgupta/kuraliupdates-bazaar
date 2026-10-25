@@ -44,6 +44,11 @@ public class NegotiationChatService {
 
     @Transactional
     public Map<String, Object> open(UserEntity user, OpenChatRequest request) {
+        return open(user, request, null);
+    }
+
+    @Transactional
+    public Map<String, Object> open(UserEntity user, OpenChatRequest request, String e2eRunId) {
         requireBuyer(user);
         if (request == null || blank(request.productId())) throw new ApiException(HttpStatus.BAD_REQUEST, "Product is required");
         if (!blank(request.openingMessage()) && request.openingMessage().length() > 1000) {
@@ -61,15 +66,26 @@ public class NegotiationChatService {
         String sellerId = Objects.toString(product.get("sellerId"));
         List<String> existing = jdbc.query("SELECT CHAT_ID FROM NEGOTIATION_CHATS WHERE PRODUCT_ID=? AND SELLER_ID=? AND LOWER(BUYER_EMAIL)=?",
                 (rs, row) -> rs.getString(1), request.productId().trim(), sellerId, email);
-        if (!existing.isEmpty()) return getChatForKnownParticipant(existing.get(0));
+        if (!existing.isEmpty()) {
+            if (e2eRunId != null) {
+                String existingRunId = jdbc.queryForObject(
+                        "SELECT E2E_RUN_ID FROM NEGOTIATION_CHATS WHERE CHAT_ID = ?",
+                        String.class, existing.get(0));
+                if (!e2eRunId.equals(existingRunId)) {
+                    throw new ApiException(HttpStatus.CONFLICT,
+                            "A prior conversation exists for this synthetic buyer/product; refusing to reuse an untagged or other-run record");
+                }
+            }
+            return getChatForKnownParticipant(existing.get(0));
+        }
 
         String chatId = "chat-" + UUID.randomUUID();
         BigDecimal listPrice = (BigDecimal) product.get("effectivePrice");
         if (listPrice == null) listPrice = (BigDecimal) product.get("sellerPrice");
         BigDecimal offerPrice = request.startingOfferPrice() == null ? listPrice.multiply(new BigDecimal("0.90")).setScale(2, java.math.RoundingMode.HALF_UP) : request.startingOfferPrice();
         validatePrice(offerPrice, listPrice);
-        jdbc.update("INSERT INTO NEGOTIATION_CHATS (CHAT_ID,PRODUCT_ID,SELLER_ID,BUYER_NAME,BUYER_EMAIL,LAST_UPDATED) VALUES (?,?,?,?,?,?)",
-                chatId, request.productId().trim(), sellerId, safeName(user.getName(), "Buyer"), email, Timestamp.valueOf(LocalDateTime.now()));
+        jdbc.update("INSERT INTO NEGOTIATION_CHATS (CHAT_ID,PRODUCT_ID,SELLER_ID,BUYER_NAME,BUYER_EMAIL,LAST_UPDATED,E2E_RUN_ID) VALUES (?,?,?,?,?,?,?)",
+                chatId, request.productId().trim(), sellerId, safeName(user.getName(), "Buyer"), email, Timestamp.valueOf(LocalDateTime.now()), e2eRunId);
         insertMessage(chatId, "BUYER", safeName(user.getName(), "Buyer"),
                 blank(request.openingMessage()) ? "Hi, I'm interested in " + product.get("productTitle") + ". Can you offer a better price?" : request.openingMessage().trim(),
                 offerPrice, "PENDING");

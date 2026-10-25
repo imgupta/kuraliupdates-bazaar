@@ -1,9 +1,9 @@
 # Order lifecycle E2E coverage matrix
 
-**Status:** test design and coverage inventory; transactional browser execution is deliberately gated until an isolated synthetic-data environment is verified.  
+**Status:** coverage contract for guarded staging lifecycle tests. The API-backed lifecycle suite remains opt-in until dedicated synthetic fixtures and the V15 run-tag migration are verified in the single staging environment.  
 **Owner goal:** prove one order from buyer checkout through seller processing and delivery completion, then reconcile inventory and every relevant order-history view.  
 **Primary workflow:** `.github/workflows/e2e-login.yml`  
-**Browser suite:** `e2e/order-lifecycle.spec.ts` (to be enabled after the isolation preflight is implemented and verified)
+**Browser suite:** `e2e/order-daily-help-lifecycle.spec.ts` (guarded staging-only lifecycle tests; requires the V15 run-tag migration and dedicated synthetic fixtures)
 
 ## Flow OL-001 — one complete order, end to end
 
@@ -44,7 +44,7 @@ Use a dedicated synthetic buyer, approved synthetic seller, active synthetic del
 6. **Evidence and cleanup**
    - Attach screenshot and video for every scenario; retain trace on failure.
    - Save run ID, synthetic identifiers, before/after inventory values, order status snapshots and cross-role assertions as a sanitized test summary.
-   - Cleanup may delete only records tagged to this exact run and only through a reviewed, test-only cleanup operation after all assertions. Never truncate tables, reset the database, or delete by broad status/date/user queries. If safe cleanup cannot be proven, retain tagged synthetic records and report them for manual cleanup.
+   - Cleanup deletes only rows tagged to this exact run through `POST /e2e/cleanup/{runId}`. The cleanup preflight aborts before writes if a tagged order references non-synthetic seller/product data, a booking does not point to its run-scoped synthetic service/professional/slot, or an order state makes inventory restoration ambiguous. It restores the quantity reserved by tagged orders, releases only the exact booked synthetic slots, then deletes dependent items/messages before parent rows. Never truncate tables, reset the database, or delete by broad status/date/user queries. If the preflight refuses cleanup, retain the records and report the run ID for manual review.
 
 ## Required role-specific order-history assertions
 

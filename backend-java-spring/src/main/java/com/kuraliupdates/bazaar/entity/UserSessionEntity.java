@@ -26,4 +26,7 @@ public class UserSessionEntity {
 
     @Column(name = "EXPIRES_AT", nullable = false)
     private LocalDateTime expiresAt;
+
+    @Column(name = "E2E_RUN_ID", length = 80)
+    private String e2eRunId;
 }

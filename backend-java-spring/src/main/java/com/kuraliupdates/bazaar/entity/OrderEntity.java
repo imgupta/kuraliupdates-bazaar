@@ -45,6 +45,7 @@ public class OrderEntity {
     @Builder.Default
     private List<OrderItemEntity> items = new ArrayList<>();
 
+    @Column(name = "E2E_RUN_ID", length = 80) private String e2eRunId;
     @Column(name = "PLACED_AT") private LocalDateTime placedAt;
     @Column(name = "UPDATED_AT") private LocalDateTime updatedAt;
 }

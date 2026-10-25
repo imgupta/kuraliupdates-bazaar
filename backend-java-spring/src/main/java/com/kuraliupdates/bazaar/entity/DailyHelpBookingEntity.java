@@ -27,6 +27,7 @@ public class DailyHelpBookingEntity {
     @Column(name = "OTP_VERIFIED_AT") private LocalDateTime otpVerifiedAt;
     @Column(name = "SERVICE_STARTED_AT") private LocalDateTime serviceStartedAt;
     @Column(name = "SERVICE_COMPLETED_AT") private LocalDateTime serviceCompletedAt;
+    @Column(name = "E2E_RUN_ID", length = 80) private String e2eRunId;
     @Column(name = "CREATED_AT", nullable = false) private LocalDateTime createdAt;
     @Column(name = "UPDATED_AT", nullable = false) private LocalDateTime updatedAt;
 }

@@ -365,6 +365,11 @@ public class AuthService {
      */
     @Transactional
     public AuthResult createStagingE2eSession(String rawIdentifier, String requestedRole) {
+        return createStagingE2eSession(rawIdentifier, requestedRole, null);
+    }
+
+    @Transactional
+    public AuthResult createStagingE2eSession(String rawIdentifier, String requestedRole, String e2eRunId) {
         String raw = rawIdentifier == null ? "" : rawIdentifier.trim();
         if (raw.isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "A configured E2E test identity is required");
@@ -390,16 +395,16 @@ public class AuthService {
         }
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
-        return new AuthResult(createStagingE2eSessionToken(user),
+        return new AuthResult(createStagingE2eSessionToken(user, e2eRunId),
                 UserResponse.from(user, addressService.findByUserId(user.getUserId())),
                 "Staging E2E session issued");
     }
 
-    private String createStagingE2eSessionToken(UserEntity user) {
+    private String createStagingE2eSessionToken(UserEntity user, String e2eRunId) {
         String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
         LocalDateTime now = LocalDateTime.now();
         sessionRepository.save(UserSessionEntity.builder()
-                .sessionToken(token).userId(user.getUserId())
+                .sessionToken(token).userId(user.getUserId()).e2eRunId(e2eRunId)
                 .createdAt(now).expiresAt(now.plusHours(2)).build());
         return token;
     }
