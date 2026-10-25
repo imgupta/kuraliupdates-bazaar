@@ -18,6 +18,9 @@ public class DeliveryAgentEntity {
     @Column(name = "AGENT_ID", length = 64)
     private String agentId;
 
+    @Column(name = "USER_ID", length = 64)
+    private String userId;
+
     @Column(name = "FULL_NAME", nullable = false)
     private String fullName;
 
