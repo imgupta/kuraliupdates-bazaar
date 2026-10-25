@@ -24,6 +24,8 @@ import {
   UserRoundCheck,
   Database,
   RefreshCw,
+  Copy,
+  Search,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { adminApi } from '../../services/domains/adminApi';
@@ -46,7 +48,7 @@ export const AdminDashboard: React.FC = () => {
     showToast,
   } = useApp();
 
-  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'daily-help' | 'daily-helpers' | 'diagnostics'>('trends');
+  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory'>('trends');
   const [buyers, setBuyers] = useState<any[]>([]);
   const [buyersLoading, setBuyersLoading] = useState(false);
   const [adminSellers, setAdminSellers] = useState<any[]>([]);
@@ -60,6 +62,7 @@ export const AdminDashboard: React.FC = () => {
   const [diagnostics, setDiagnostics] = useState<any | null>(null);
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
+  const [directorySearch, setDirectorySearch] = useState('');
   const [editingDailyHelpId, setEditingDailyHelpId] = useState<string | null>(null);
   const [updatingHelperId, setUpdatingHelperId] = useState<string | null>(null);
   const [dailyHelpForm, setDailyHelpForm] = useState({ category: '', name: '', description: '', pricingUnit: 'HOUR', pricePerHour: '199', minHours: '1', imageUrl: '', active: 1 });
@@ -207,6 +210,30 @@ export const AdminDashboard: React.FC = () => {
   const rejectedSellers = adminSellers.filter(s => String(s.status).toLowerCase() === 'rejected');
   const totalGMV = Number(adminAnalytics?.totalGmv || 0);
 
+  // Admin-only inventory of account IDs and role-specific profile IDs.
+  // Values are read from existing admin API responses; this screen does not invent fixture IDs.
+  const directoryRows = [
+    { role: 'ROOT_ADMIN', name: ROOT_ADMIN_EMAIL, userId: '—', profileId: ROOT_ADMIN_EMAIL, contact: ROOT_ADMIN_EMAIL, status: 'ADMIN' },
+    ...buyers.map((item: any) => ({ role: 'BUYER', name: item.name || item.email || item.phone || 'Buyer', userId: item.userId || '—', profileId: item.userId || '—', contact: item.email || item.phone || '—', status: Number(item.isVerified) === 1 ? 'VERIFIED' : 'UNVERIFIED' })),
+    ...adminSellers.map((item: any) => ({ role: 'SELLER', name: item.businessName || item.storeName || item.name || item.email || 'Seller', userId: item.userId || item.ownerUserId || '—', profileId: item.sellerId || item.id || '—', contact: item.email || item.phone || '—', status: item.status || 'UNKNOWN' })),
+    ...adminDeliveryAgents.map((item: any) => ({ role: 'DELIVERY_AGENT', name: item.fullName || item.name || 'Delivery agent', userId: item.userId || '—', profileId: item.agentId || item.id || '—', contact: item.email || item.phone || '—', status: item.status || 'UNKNOWN' })),
+    ...dailyHelpHelpers.map((item: any) => ({ role: 'DAILY_HELP_PROVIDER', name: item.fullName || item.name || 'Daily Help provider', userId: item.userId || '—', profileId: item.professionalId || item.id || '—', contact: item.phone || item.email || '—', status: item.status || (item.verified ? 'VERIFIED' : 'UNVERIFIED') })),
+    ...products.map((item: any) => ({ role: 'PRODUCT_FIXTURE', name: item.name || item.title || 'Product', userId: '—', profileId: item.productId || item.id || '—', contact: 'Seller ID: ' + (item.sellerId || item.seller?.sellerId || '—'), status: item.status || (Number(item.stock ?? item.stockQty ?? 0) > 0 ? 'IN_STOCK' : 'CHECK_STOCK') })),
+    ...dailyHelpServices.map((item: any) => ({ role: 'DAILY_HELP_SERVICE', name: item.name || item.category || 'Daily Help service', userId: '—', profileId: item.serviceId || item.id || '—', contact: item.category || '—', status: item.active === true || Number(item.active) === 1 ? 'ACTIVE' : 'INACTIVE' })),
+  ];
+  const filteredDirectoryRows = directoryRows.filter((item: any) =>
+    [item.role, item.name, item.userId, item.profileId, item.contact, item.status]
+      .some(value => String(value ?? '').toLowerCase().includes(directorySearch.trim().toLowerCase()))
+  );
+  const copyDirectoryValue = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      showToast('ID copied to clipboard.', 'success');
+    } catch {
+      showToast('Could not copy automatically. Select and copy the ID manually.', 'error');
+    }
+  };
+
   return (
     <div className="space-y-6 pb-16">
       {/* Admin Desk Banner */}
@@ -311,6 +338,13 @@ export const AdminDashboard: React.FC = () => {
         </button>
 
         <button
+          onClick={() => setActiveAdminTab('directory')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeAdminTab === 'directory' ? 'bg-purple-700 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
+        >
+          <Users className="w-4 h-4" /> User & Role IDs ({directoryRows.length})
+        </button>
+
+        <button
           onClick={() => setActiveAdminTab('daily-help')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeAdminTab === 'daily-help' ? 'bg-purple-700 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
         >
@@ -326,6 +360,53 @@ export const AdminDashboard: React.FC = () => {
           <Database className="w-4 h-4" /> Diagnostics
         </button>
       </div>
+
+      {activeAdminTab === 'directory' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900">User, Role & Profile ID Directory</h2>
+              <p className="text-xs text-slate-500 mt-1">Admin-only, read-only directory of IDs returned by the current database APIs. Use profile IDs to reconcile role fixtures; IDs are not generated by this screen.</p>
+            </div>
+            <div className="relative w-full sm:w-80">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input aria-label="Search users, roles and IDs" value={directorySearch} onChange={event => setDirectorySearch(event.target.value)} placeholder="Search name, role, user ID, profile ID…" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100" />
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[850px] text-left text-xs">
+                <thead className="bg-slate-50 text-slate-500 uppercase tracking-wide">
+                  <tr>
+                    <th className="px-4 py-3 font-bold">Role / Record type</th>
+                    <th className="px-4 py-3 font-bold">Name / Contact</th>
+                    <th className="px-4 py-3 font-bold">User ID</th>
+                    <th className="px-4 py-3 font-bold">Profile / Record ID</th>
+                    <th className="px-4 py-3 font-bold">Status</th>
+                    <th className="px-4 py-3 font-bold">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredDirectoryRows.map((item: any, index: number) => (
+                    <tr key={item.role + '-' + item.profileId + '-' + index} className="hover:bg-slate-50">
+                      <td className="px-4 py-3"><span className="inline-flex rounded-lg bg-purple-50 px-2 py-1 font-bold text-purple-800">{item.role}</span></td>
+                      <td className="px-4 py-3"><div className="font-bold text-slate-800">{item.name}</div><div className="mt-1 text-slate-500">{item.contact}</div></td>
+                      <td className="px-4 py-3 font-mono text-slate-700">{item.userId}</td>
+                      <td className="px-4 py-3 font-mono font-bold text-slate-900">{item.profileId}</td>
+                      <td className="px-4 py-3"><span className="text-slate-600">{String(item.status || 'UNKNOWN').toUpperCase()}</span></td>
+                      <td className="px-4 py-3"><button type="button" onClick={() => void copyDirectoryValue(String(item.profileId))} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 font-bold text-slate-700 hover:bg-slate-100"><Copy className="w-3.5 h-3.5" /> Copy ID</button></td>
+                    </tr>
+                  ))}
+                  {filteredDirectoryRows.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">No users or IDs match this search.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            <div className="border-t border-slate-100 bg-slate-50 px-4 py-3 text-[11px] text-slate-500">
+              Showing {filteredDirectoryRows.length} of {directoryRows.length} records. Product and service rows are included to help locate fixture IDs. Missing IDs are displayed as — and must be resolved from the backend/database, not guessed.
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeAdminTab === 'diagnostics' && (
         <div className="space-y-5">
