@@ -461,7 +461,7 @@ export const AdminDashboard: React.FC = () => {
               <p className="text-xs text-slate-500 mt-1">All registered home-service professionals. Availability and verification status are read directly from the database.</p>
             </div>
             <div className="flex gap-2 text-[11px] font-bold">
-              <span className="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700">Available {dailyHelpHelpers.filter(h => String(h.status).toUpperCase() === 'AVAILABLE').length}</span>
+              <span className="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700">Available {dailyHelpHelpers.filter(h => Boolean(h.verified) && String(h.status).toUpperCase() === 'AVAILABLE').length}</span>
               <span className="px-3 py-2 rounded-xl bg-slate-100 text-slate-600">Offline {dailyHelpHelpers.filter(h => String(h.status).toUpperCase() === 'OFFLINE').length}</span>
               <span className="px-3 py-2 rounded-xl bg-blue-50 text-blue-700">Verified {dailyHelpHelpers.filter(h => h.verified).length}</span>
             </div>
