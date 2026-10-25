@@ -218,4 +218,46 @@ export const adminApi = {
     /**
      * Place an order into Oracle DB
      */
+  async getAdminAccounts(search = ''): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (search.trim()) params.set('search', search.trim());
+    const res = await fetch(`${API_BASE_URL}/admin/accounts?${params.toString()}`, {
+      headers: adminAuthHeaders(),
+      cache: 'no-store',
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to load account directory (HTTP ${res.status})`);
+    return Array.isArray(data) ? data : [];
+  },
+
+  async updateAdminAccountStatus(userId: string, status: 'ACTIVE' | 'SUSPENDED' | 'REVOKED', reason: string): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/accounts/${encodeURIComponent(userId)}/status`, {
+      method: 'POST',
+      headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, reason }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || data?.error || `Unable to update account status (HTTP ${res.status})`);
+    return data;
+  },
+
+  async revokeAdminAccountSessions(userId: string): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/accounts/${encodeURIComponent(userId)}/revoke-sessions`, {
+      method: 'POST',
+      headers: adminAuthHeaders(),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || data?.error || `Unable to revoke sessions (HTTP ${res.status})`);
+    return data;
+  },
+
+  async getAdminAccountAudit(userId: string): Promise<any[]> {
+    const res = await fetch(`${API_BASE_URL}/admin/accounts/${encodeURIComponent(userId)}/audit`, {
+      headers: adminAuthHeaders(),
+      cache: 'no-store',
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || data?.error || `Unable to load account audit (HTTP ${res.status})`);
+    return Array.isArray(data) ? data : [];
+  },
 };

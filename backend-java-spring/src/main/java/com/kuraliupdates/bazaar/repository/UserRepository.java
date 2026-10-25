@@ -16,4 +16,6 @@ public interface UserRepository extends JpaRepository<UserEntity, String> {
     Optional<UserEntity> findByEmailOrPhone(String email, String phone);
 
     List<UserEntity> findByRoleIgnoreCaseOrderByCreatedAtDesc(String role);
+
+    List<UserEntity> findAllByOrderByCreatedAtDesc();
 }

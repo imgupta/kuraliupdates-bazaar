@@ -186,8 +186,13 @@ public class AuthService {
         if (session.isEmpty() || session.get().getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
         }
-        return userRepository.findById(session.get().getUserId())
+        UserEntity user = userRepository.findById(session.get().getUserId())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User not found"));
+        String status = user.getAccountStatus() == null ? "ACTIVE" : user.getAccountStatus().trim().toUpperCase();
+        if (!"ACTIVE".equals(status)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This account is " + status.toLowerCase() + ". Contact KuraliUpdates support.");
+        }
+        return user;
     }
 
     private AuthResult login(VerifyOtpRequest req) {
@@ -199,6 +204,10 @@ public class AuthService {
         UserEntity user = findUser(identifier, type)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "No registered account was found. Please register first."));
 
+        String accountStatus = user.getAccountStatus() == null ? "ACTIVE" : user.getAccountStatus().trim().toUpperCase();
+        if (!"ACTIVE".equals(accountStatus)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This account is " + accountStatus.toLowerCase() + ". Contact KuraliUpdates support.");
+        }
         otpService.verify(identifier, type, req.otp());
 
         user.setLastLogin(LocalDateTime.now());
@@ -382,6 +391,10 @@ public class AuthService {
         UserEntity user = findUser(identifier, type)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "The configured E2E test account does not exist"));
 
+        String accountStatus = user.getAccountStatus() == null ? "ACTIVE" : user.getAccountStatus().trim().toUpperCase();
+        if (!"ACTIVE".equals(accountStatus)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This account is " + accountStatus.toLowerCase() + ". Contact KuraliUpdates support.");
+        }
         String role = requestedRole == null ? "" : requestedRole.trim().toUpperCase();
         if ("PROVIDER".equals(role)) role = "PROFESSIONAL";
         if (!Set.of("BUYER", "SELLER", "DELIVERY", "PROFESSIONAL", "ADMIN").contains(role)
