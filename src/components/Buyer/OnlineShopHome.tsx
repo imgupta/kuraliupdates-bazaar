@@ -183,6 +183,41 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
         </div>
       )}
 
+      {/* Complete buyer order history: every server-synced order has its own tracking action. */}
+      {orders.length > 0 && (
+        <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-extrabold text-slate-900">My Orders</h2>
+              <p className="text-xs text-slate-500">All your orders, including completed deliveries</p>
+            </div>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{orders.length} total</span>
+          </div>
+          <div className="space-y-2">
+            {[...orders]
+              .filter((order, index, all) => order.id && all.findIndex(candidate => candidate.id === order.id) === index)
+              .sort((a, b) => new Date(b.placedAt || 0).getTime() - new Date(a.placedAt || 0).getTime())
+              .map(order => (
+                <div key={order.id} className="flex flex-col gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="truncate font-mono text-xs font-extrabold text-slate-800">#{order.id}</p>
+                    <p className="mt-1 text-xs text-slate-600">{order.sellerName || 'Local seller'} · {order.deliveryLocality || order.sellerLocality || 'Kurali'}</p>
+                    <p className="mt-1 text-xs font-semibold capitalize text-slate-700">{String(order.status || 'placed').replace(/_/g, ' ')} · ₹{Number(order.totalAmount || 0).toFixed(2)}</p>
+                    <p className="mt-1 text-[11px] text-slate-500">{order.placedAt ? new Date(order.placedAt).toLocaleString() : 'Order date unavailable'}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onOpenTracking(order.id)}
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-extrabold text-white transition-colors hover:bg-emerald-800"
+                  >
+                    <Truck className="h-4 w-4" /> Track order
+                  </button>
+                </div>
+              ))}
+          </div>
+        </section>
+      )}
+
       {/* Category + Filter Controls */}
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0">
