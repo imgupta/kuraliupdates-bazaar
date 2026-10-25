@@ -22,7 +22,7 @@ export const buyerOrdersApi = {
           deliveryFee: order.deliveryFee,
           finalPayable: order.totalAmount,
           paymentMethod: order.paymentMethod,
-          distanceKm: order.distanceKm || 1.5,
+          distanceKm: Number(order.distanceKm ?? 0),
           deliveryLatitude: (order as any).deliveryLatitude,
           deliveryLongitude: (order as any).deliveryLongitude,
           deliveryPlaceId: (order as any).deliveryPlaceId,
