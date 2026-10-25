@@ -51,6 +51,7 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
   const [mapReady, setMapReady] = useState(false);
   const [routeDistance, setRouteDistance] = useState<string | null>(null);
   const [routeDuration, setRouteDuration] = useState<string | null>(null);
+  const [sellerCustomerDistance, setSellerCustomerDistance] = useState<string | null>(null);
   const [routeError, setRouteError] = useState(false);
 
   const fallbackBuyerPoint = useMemo(() => toPoint(fallbackBuyer?.latitude, fallbackBuyer?.longitude), [fallbackBuyer?.latitude, fallbackBuyer?.longitude]);
@@ -103,9 +104,11 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
         const existingScript = document.getElementById('kurali-google-maps-script') as HTMLScriptElement | null;
         if (existingScript) {
           await new Promise<void>((resolve, reject) => {
-            existingScript.addEventListener('load', () => resolve(), { once: true });
-            existingScript.addEventListener('error', () => reject(new Error('Google Maps script failed')), { once: true });
-            if (window.google?.maps) resolve();
+            const existingScriptTimeout = window.setTimeout(() => reject(new Error('Google Maps script initialization timed out')), 12000);
+            const done = () => { window.clearTimeout(existingScriptTimeout); resolve(); };
+            existingScript.addEventListener('load', done, { once: true });
+            existingScript.addEventListener('error', () => { window.clearTimeout(existingScriptTimeout); reject(new Error('Google Maps script failed')); }, { once: true });
+            if (window.google?.maps) done();
           });
         } else {
           await new Promise<void>((resolve, reject) => {
@@ -211,7 +214,23 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
         }
       });
     }
-  }, [mapReady, tracking, buyerPoint?.lat, buyerPoint?.lng, riderPoint?.lat, riderPoint?.lng, pickupAddress, buyerAddress, routeDestination, routeOrigin]);
+  }, [mapReady, buyerPoint?.lat, buyerPoint?.lng, riderPoint?.lat, riderPoint?.lng, pickupAddress, buyerAddress, routeDestination, routeOrigin]);
+
+  useEffect(() => {
+    if (!mapReady || !window.google?.maps || !pickupAddress || !(buyerPoint || buyerAddress)) return;
+    const directions = new window.google.maps.DirectionsService();
+    directions.route({
+      origin: pickupAddress,
+      destination: buyerPoint || buyerAddress,
+      travelMode: window.google.maps.TravelMode.DRIVING,
+    }, (result: any, routeStatus: string) => {
+      if (routeStatus === 'OK' && result?.routes?.[0]?.legs?.[0]) {
+        setSellerCustomerDistance(result.routes[0].legs[0].distance?.text || null);
+      } else {
+        setSellerCustomerDistance(null);
+      }
+    });
+  }, [mapReady, pickupAddress, buyerAddress, buyerPoint?.lat, buyerPoint?.lng]);
 
   const navigationUrl = useMemo(() => {
     const destination = enRouteToCustomer ? buyerAddress : pickupAddress;
@@ -241,7 +260,8 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-3 py-3">
         <div className="min-w-0 space-y-1">
           <p className="flex items-center gap-1.5 text-xs font-extrabold text-slate-800"><Route className="h-4 w-4 text-emerald-700" /> {enRouteToCustomer ? 'Route to customer' : 'Route to seller pickup'}</p>
-          <p className="text-[11px] text-slate-600">{routeDistance ? `Distance: ${routeDistance}${routeDuration ? ` · ETA ${routeDuration}` : ''}` : riderPoint && buyerPoint ? `Approx. ${distanceKm(riderPoint, buyerPoint).toFixed(1)} km straight-line to customer` : 'Waiting for GPS and route details…'}</p>
+          <p className="text-[11px] text-slate-600">{routeDistance ? `Rider route: ${routeDistance}${routeDuration ? ` · ETA ${routeDuration}` : ''}` : riderPoint && buyerPoint ? `Approx. ${distanceKm(riderPoint, buyerPoint).toFixed(1)} km straight-line to customer` : 'Waiting for GPS and route details…'}</p>
+          {sellerCustomerDistance && <p className="text-[11px] text-slate-600">Seller → customer: {sellerCustomerDistance} by road</p>
           {routeError && <p className="text-[10px] text-amber-700">Road route unavailable here; open navigation for turn-by-turn directions.</p>}
           {!riderPoint && <p className="text-[10px] text-slate-500">Rider GPS is not available yet. Allow location access on the delivery device.</p>}
         </div>
