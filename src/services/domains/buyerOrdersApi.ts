@@ -22,7 +22,7 @@ export const buyerOrdersApi = {
           deliveryFee: order.deliveryFee,
           finalPayable: order.totalAmount,
           paymentMethod: order.paymentMethod,
-          distanceKm: order.distanceKm || 1.5,
+          distanceKm: Number(order.distanceKm ?? 0),
           deliveryLatitude: (order as any).deliveryLatitude,
           deliveryLongitude: (order as any).deliveryLongitude,
           deliveryPlaceId: (order as any).deliveryPlaceId,
@@ -37,9 +37,9 @@ export const buyerOrdersApi = {
     }
   },
 
-  async getMyOrders(): Promise<Order[]> {
+  async getMyOrders(): Promise<Order[] | null> {
     const token = localStorage.getItem('kurali_auth_token');
-    if (!token) return [];
+    if (!token) return null;
     try {
       const res = await fetch(`${API_BASE_URL}/buyers/me/orders`, {
         headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
@@ -48,8 +48,8 @@ export const buyerOrdersApi = {
       const data: BackendOrder[] = await res.json();
       return data.map(order => mapBackendOrder(order));
     } catch (err) {
-      console.warn('Backend getMyOrders failed:', err);
-      return [];
+      console.warn('Backend getMyOrders request failed:', err);
+      return null;
     }
   },
 

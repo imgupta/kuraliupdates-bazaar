@@ -60,20 +60,17 @@ export const useBackendSync = ({
 
       if (user.isSignedIn && user.role === 'buyer') {
         const remoteBuyerOrders = await bazaarApi.getMyOrders();
-        if (remoteBuyerOrders.length > 0) {
-          setOrders(prev => {
-            const remoteIds = new Set(remoteBuyerOrders.map(order => order.id));
-            return [...remoteBuyerOrders, ...prev.filter(order => !remoteIds.has(order.id))];
-          });
+        // The authenticated buyer endpoint is authoritative, including an empty result.
+        // Do not merge locally cached orders from another session into this buyer's list.
+        if (remoteBuyerOrders !== null) {
+          setOrders(remoteBuyerOrders);
         }
       }
 
       const remoteProducts = await bazaarApi.searchProducts();
-      if (remoteProducts?.length) {
-        setProducts(prev => {
-          const remoteIds = new Set(remoteProducts.map(product => product.id));
-          return [...remoteProducts, ...prev.filter(product => !remoteIds.has(product.id))];
-        });
+      // Replace cached catalogue only after a successful response; preserve cache on API failure.
+      if (remoteProducts !== null) {
+        setProducts(remoteProducts);
       }
 
       const [remotePendingSellers, remotePendingAgents] = await Promise.all([

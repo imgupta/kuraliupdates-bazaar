@@ -25,7 +25,7 @@ export const catalogApi = {
     }
   },
 
-  async searchProducts(query: string = ''): Promise<Product[]> {
+  async searchProducts(query: string = ''): Promise<Product[] | null> {
     try {
       // The backend caps each response to keep catalogue queries bounded. Fetch
       // successive pages here so existing screens continue to receive the full
@@ -61,35 +61,38 @@ export const catalogApi = {
         }).catch(() => undefined);
       }
 
-      return data.map((bp) => ({
-        id: bp.productId || `prod-${Math.random()}`,
-        sellerId: bp.seller?.sellerId || bp.sellerId || 'seller-1',
-        sellerName: bp.seller?.name || 'Kurali Merchant',
-        sellerLocality: bp.seller?.locality || bp.locality || 'Main Bazaar',
-        sellerDistanceKm: bp.seller?.distanceKm || 1.2,
-        sellerRating: bp.seller?.rating || 4.8,
-        title: bp.name || bp.title || 'Kurali Product',
-        category: bp.category || 'General',
-        description: bp.description || '',
-        image:
-          bp.imageUrl ||
-          bp.image ||
-          'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
-        mrp: bp.mrp || bp.originalPrice || bp.price || 100,
-        sellerPrice: bp.sellerPrice || bp.price || 90,
-        additionalDiscountPercent: bp.additionalDiscountPercent || 0,
-        stock: bp.stockQty || bp.stock || 20,
-        unit: bp.unit || '1 pc',
-        tags: Array.isArray(bp.tags)
-          ? bp.tags
-          : typeof bp.tags === 'string'
-          ? (bp.tags as string).split(',')
-          : ['Kurali', 'Local'],
-        isFeatured: bp.featured || bp.isFeatured || false,
-      }));
+      // Never manufacture product IDs, merchant details, prices, stock, ratings, or images.
+      // Ignore incomplete API rows rather than presenting synthetic marketplace inventory.
+      return data
+        .filter(bp =>
+          Boolean(bp.productId && (bp.name || bp.title) && (bp.sellerId || bp.seller?.sellerId) && Number.isFinite(Number(bp.sellerPrice ?? bp.price)) && Number(bp.sellerPrice ?? bp.price) >= 0 && Number.isFinite(Number(bp.stockQty ?? bp.stock)))
+        )
+        .map((bp) => ({
+          id: bp.productId,
+          sellerId: bp.seller?.sellerId || bp.sellerId || '',
+          sellerName: bp.seller?.name || '',
+          sellerLocality: bp.seller?.locality || bp.locality || '',
+          sellerDistanceKm: Number(bp.seller?.distanceKm ?? 0),
+          sellerRating: Number(bp.seller?.rating ?? 0),
+          title: bp.name || bp.title || '',
+          category: bp.category || '',
+          description: bp.description || '',
+          image: bp.imageUrl || bp.image || '',
+          mrp: Number(bp.mrp ?? bp.originalPrice ?? bp.sellerPrice ?? bp.price),
+          sellerPrice: Number(bp.sellerPrice ?? bp.price),
+          additionalDiscountPercent: Number(bp.additionalDiscountPercent ?? 0),
+          stock: Number(bp.stockQty ?? bp.stock ?? 0),
+          unit: bp.unit || '',
+          tags: Array.isArray(bp.tags)
+            ? bp.tags
+            : typeof bp.tags === 'string'
+            ? bp.tags.split(',').map(tag => tag.trim()).filter(Boolean)
+            : [],
+          isFeatured: Boolean(bp.featured ?? bp.isFeatured ?? false),
+        }));
     } catch (err) {
-      console.warn('Backend searchProducts fallback to local store:', err);
-      return [];
+      console.warn('Backend searchProducts request failed:', err);
+      return null;
     }
   },
 };
