@@ -108,7 +108,7 @@ if (ready) {
     ["/sellers/me/orders", protectedRoute, "Seller orders require authentication"],
     ["/daily-help/bookings/latest?buyerPhone=0000000000", protectedRoute, "Daily Help booking data requires authentication"],
     ["/daily-help/professionals/by-phone/0000000000", protectedRoute, "Professional profile requires authentication"],
-    ["/buyers/orders/__smoke_test_missing_order__/track", (status) => status === 404, "Unknown order returns 404"],
+    ["/buyers/orders/__smoke_test_missing_order__/track", protectedRoute, "Buyer order tracking requires authentication"],
   ];
   // Keep DB-backed smoke probes sequential. Parallel unauthenticated reads previously
   // saturated the single staging service and caused every endpoint to time out together.
