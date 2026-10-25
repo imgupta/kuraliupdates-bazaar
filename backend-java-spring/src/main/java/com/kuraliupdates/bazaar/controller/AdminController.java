@@ -198,6 +198,14 @@ public class AdminController {
     }
 
 
+    @PostMapping("/daily-help/helpers/{professionalId}/verification")
+    @Operation(summary = "Approve or revoke a Daily Help professional's verification")
+    public ResponseEntity<DailyHelpProfessionalResponse> updateDailyHelpProfessionalVerification(
+            @PathVariable String professionalId,
+            @RequestParam boolean verified) {
+        return ResponseEntity.ok(dailyHelpService.updateProfessionalVerification(professionalId, verified));
+    }
+
     @PostMapping("/daily-help/helpers/{professionalId}/availability")
     @Operation(summary = "Set a Daily Help professional's availability from the admin desk")
     public ResponseEntity<DailyHelpProfessionalResponse> updateDailyHelpProfessionalAvailability(
