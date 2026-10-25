@@ -49,25 +49,5 @@ export const INITIAL_ORDERS: Order[] = [];
 
 export const INITIAL_CHATS: NegotiationChat[] = [];
 
-// Standard platform promotional coupons
-export const INITIAL_COUPONS: Coupon[] = [
-  {
-    code: 'WELCOMEKURALI',
-    discountPercentage: 10,
-    minOrderValue: 200,
-    maxDiscount: 50,
-    description: '10% instant discount on your first order in Kurali',
-  },
-  {
-    code: 'FREESHIP',
-    flatDiscount: 30,
-    minOrderValue: 299,
-    description: 'Free standard delivery across Kurali for orders above ₹299',
-  },
-  {
-    code: 'KURALI50',
-    flatDiscount: 50,
-    minOrderValue: 500,
-    description: 'Flat ₹50 OFF on orders above ₹500',
-  }
-];
+// No hardcoded promotional coupons. Coupons must be explicitly created by an authorized admin.
+export const INITIAL_COUPONS: Coupon[] = [];
