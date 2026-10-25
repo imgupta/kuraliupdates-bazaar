@@ -329,7 +329,10 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
 
 test.describe("Admin login, approval queues, and role restrictions", () => {
   test("root admin can read approval queues; buyer and seller sessions cannot", async ({ request }) => {
-    const configured = process.env.E2E_ENVIRONMENT === "staging"
+    const trustedEvent = process.env.GITHUB_EVENT_NAME === "schedule"
+      || process.env.GITHUB_EVENT_NAME === "workflow_dispatch";
+    const configured = trustedEvent
+      && process.env.E2E_ENVIRONMENT === "staging"
       && apiBase === "https://kuraliupdates-bazaar.onrender.com/api/v1"
       && Boolean(process.env.E2E_FLOW_AUTH_TOKEN?.trim())
       && Boolean(process.env.E2E_ADMIN_IDENTITY?.trim())
