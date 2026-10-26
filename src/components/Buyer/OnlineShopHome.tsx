@@ -145,31 +145,41 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
     );
   }, [products]);
 
-  const uniqueOrders = useMemo(() => {
+  // The Buyer home screen is for current orders only; terminal orders belong in order history.
+  const currentOrders = useMemo(() => {
+    const terminalStatuses = new Set([
+      'delivered', 'completed', 'cancelled', 'canceled', 'rejected',
+      'failed', 'refunded', 'returned', 'closed',
+    ]);
     const distinct = orders.filter((order, index, all) =>
       Boolean(order.id) && all.findIndex(candidate => candidate.id === order.id) === index
     );
-    return distinct.sort((a, b) => {
-      const aActive = !['delivered', 'cancelled'].includes(String(a.status).toLowerCase());
-      const bActive = !['delivered', 'cancelled'].includes(String(b.status).toLowerCase());
-      if (aActive !== bActive) return aActive ? -1 : 1;
-      return new Date(b.placedAt || 0).getTime() - new Date(a.placedAt || 0).getTime();
-    });
+    return distinct
+      .filter(order => {
+        const normalizedStatus = String(order.status || 'placed')
+          .trim()
+          .replace(/[\\s-]+/g, '_')
+          .toLowerCase();
+        return !terminalStatuses.has(normalizedStatus);
+      })
+      .sort((a, b) =>
+        new Date(b.placedAt || 0).getTime() - new Date(a.placedAt || 0).getTime()
+      );
   }, [orders]);
 
   return (
     <div className="space-y-4 sm:space-y-5 pb-12">
       {/* Compact horizontally scrollable buyer order cards. */}
-      {uniqueOrders.length > 0 && (
+      {currentOrders.length > 0 && (
         <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <h2 className="text-sm font-extrabold text-slate-900">My Orders</h2>
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
-                {uniqueOrders.length}
+                {currentOrders.length}
               </span>
             </div>
-            {uniqueOrders.length > 1 && (
+            {currentOrders.length > 1 && (
               <span className="shrink-0 text-[10px] font-medium text-slate-400">Swipe to view all</span>
             )}
           </div>
@@ -177,7 +187,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
             className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2"
             aria-label="Your orders, swipe horizontally to browse"
           >
-            {uniqueOrders.map(order => {
+            {currentOrders.map(order => {
               const status = String(order.status || 'placed').replace(/_/g, ' ').toLowerCase();
               const isDelivered = status === 'delivered';
               const isCancelled = status === 'cancelled';
