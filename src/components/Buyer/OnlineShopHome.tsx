@@ -145,7 +145,6 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
     );
   }, [products]);
 
-  const [showAllOrders, setShowAllOrders] = useState(false);
   const uniqueOrders = useMemo(() => {
     const distinct = orders.filter((order, index, all) =>
       Boolean(order.id) && all.findIndex(candidate => candidate.id === order.id) === index
@@ -157,66 +156,73 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
       return new Date(b.placedAt || 0).getTime() - new Date(a.placedAt || 0).getTime();
     });
   }, [orders]);
-  const visibleOrders = showAllOrders ? uniqueOrders : uniqueOrders.slice(0, 2);
 
   return (
     <div className="space-y-4 sm:space-y-5 pb-12">
-      {/* Compact buyer orders: active orders first; history expands on demand. */}
+      {/* Compact horizontally scrollable buyer order cards. */}
       {uniqueOrders.length > 0 && (
         <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="mb-1 flex items-center justify-between gap-2">
+          <div className="mb-3 flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <h2 className="text-sm font-extrabold text-slate-900">My Orders</h2>
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
                 {uniqueOrders.length}
               </span>
             </div>
-            {uniqueOrders.length > 2 && (
-              <button
-                type="button"
-                onClick={() => setShowAllOrders(value => !value)}
-                className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-50"
-                aria-expanded={showAllOrders}
-              >
-                {showAllOrders ? 'Show less' : 'View all'}
-              </button>
+            {uniqueOrders.length > 1 && (
+              <span className="shrink-0 text-[10px] font-medium text-slate-400">Swipe to view all</span>
             )}
           </div>
-          <div className="divide-y divide-slate-100">
-            {visibleOrders.map(order => (
-              <div key={order.id} className="flex items-center gap-2 py-2 first:pt-1 last:pb-1">
-                <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 items-center gap-1.5">
+          <div
+            className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2"
+            aria-label="Your orders, swipe horizontally to browse"
+          >
+            {uniqueOrders.map(order => {
+              const status = String(order.status || 'placed').replace(/_/g, ' ').toLowerCase();
+              const isDelivered = status === 'delivered';
+              const isCancelled = status === 'cancelled';
+              return (
+                <article
+                  key={order.id}
+                  className="flex w-[235px] min-w-[235px] snap-start flex-col rounded-xl border border-slate-200 bg-slate-50 p-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
                     <span className="truncate font-mono text-[11px] font-extrabold text-slate-800">#{order.id}</span>
-                    <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold capitalize text-slate-600">
-                      {String(order.status || 'placed').replace(/_/g, ' ')}
+                    <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold capitalize ${
+                      isDelivered
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : isCancelled
+                          ? 'bg-rose-100 text-rose-700'
+                          : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {status}
                     </span>
                   </div>
-                  <p className="mt-0.5 truncate text-[11px] text-slate-500">
-                    {order.sellerName || 'Seller'} · {order.deliveryLocality || order.sellerLocality || 'Local delivery'} · ₹{Number(order.totalAmount || 0).toFixed(0)}
+                  <p className="mt-3 truncate text-xs font-semibold text-slate-700">
+                    {order.sellerName || 'Seller'}
                   </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onOpenTracking(order.id)}
-                  aria-label={`Track order ${order.id}`}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-2 text-[11px] font-extrabold text-white transition-colors hover:bg-emerald-800"
-                >
-                  <Truck className="h-3.5 w-3.5" />
-                  Track
-                </button>
-              </div>
-            ))}
+                  <p className="mt-1 truncate text-[10px] text-slate-500">
+                    {order.deliveryLocality || order.sellerLocality || 'Local delivery'}
+                  </p>
+                  <div className="mt-auto flex items-end justify-between gap-2 pt-4">
+                    <div>
+                      <p className="text-[10px] text-slate-500">Order total</p>
+                      <p className="text-base font-extrabold text-slate-900">₹{Number(order.totalAmount || 0).toFixed(0)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onOpenTracking(order.id)}
+                      aria-label={`Track order ${order.id}`}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-2 text-[11px] font-extrabold text-white transition-colors hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                    >
+                      <Truck className="h-3.5 w-3.5" />
+                      {isDelivered ? 'Details' : 'Track'}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
-          {!showAllOrders && uniqueOrders.length > 2 && (
-            <button
-              type="button"
-              onClick={() => setShowAllOrders(true)}
-              className="mt-1 w-full rounded-lg py-1.5 text-center text-[11px] font-bold text-slate-500 hover:bg-slate-50"
-            >
-              Show {uniqueOrders.length - 2} more orders
-            </button>
-          )}
         </section>
       )}
 
