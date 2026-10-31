@@ -31,11 +31,11 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
   const { orders, user } = useApp();
   const activeOrders = useMemo(() => {
     const email = user.email?.trim().toLowerCase();
-    const phone = user.phone?.replace(/\\D/g, '');
+    const phone = user.phone?.replace(/\D/g, '');
     return orders
       .filter(order => {
         const emailMatches = Boolean(email && order.buyerEmail?.trim().toLowerCase() === email);
-        const orderPhone = order.buyerPhone?.replace(/\\D/g, '');
+        const orderPhone = order.buyerPhone?.replace(/\D/g, '');
         const phoneMatches = Boolean(phone && orderPhone && orderPhone.slice(-10) === phone.slice(-10));
         return (emailMatches || phoneMatches) && ACTIVE_ORDER_STATUSES.has(order.status);
       })
