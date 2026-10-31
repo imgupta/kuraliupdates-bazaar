@@ -182,19 +182,21 @@ export const useDailyHelpProviderOperations = () => {
       return;
     }
 
-    let createdCount = 0;
+    const createdSlotIds: string[] = [];
     try {
       for (let minute = startMinutes; minute < endMinutes; minute += 60) {
         const from = `${String(Math.floor(minute / 60)).padStart(2, '0')}:00`;
         const to = `${String(Math.floor((minute + 60) / 60)).padStart(2, '0')}:00`;
-        await dailyHelpProviderApi.createDailyHelpProfessionalSlot(professional.professionalId, slotDate, from, to);
-        createdCount += 1;
+        const created = await dailyHelpProviderApi.createDailyHelpProfessionalSlot(professional.professionalId, slotDate, from, to);
+        if (created?.slotId) createdSlotIds.push(created.slotId);
       }
-      showToast(`${createdCount} one-hour booking slots added.`, 'success');
+      showToast(`${createdSlotIds.length} one-hour booking slots added.`, 'success');
     } catch (error: unknown) {
-      showToast(createdCount > 0
-        ? `${createdCount} hourly slots were added before an error. Refresh availability and retry the remaining time.`
-        : error instanceof Error ? error.message : 'Unable to add availability.', 'error');
+      // Roll back any earlier hour rows so the requested availability window is all-or-nothing.
+      await Promise.all(createdSlotIds.map(slotId =>
+        dailyHelpProviderApi.cancelDailyHelpProfessionalSlot(professional.professionalId, slotId)
+      ));
+      showToast(error instanceof Error ? error.message : 'Unable to add availability.', 'error');
     } finally {
       setMySlots(await dailyHelpProviderApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate) as DailyHelpSlot[]);
     }
