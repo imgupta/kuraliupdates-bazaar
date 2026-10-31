@@ -272,8 +272,8 @@ export const DeliveryDashboard: React.FC = () => {
     }
   };
 
-  const handleVerifyDeliveryOtp = async (orderId: string) => {
-    const enteredOtp = otpInputs[orderId] || '';
+  const handleVerifyDeliveryOtp = async (orderId: string, inputKey: string = orderId) => {
+    const enteredOtp = otpInputs[inputKey] || '';
     if (!/^\d{4}$/.test(enteredOtp.trim())) {
       showToast('Please enter the customer’s 4-digit OTP upon delivery.', 'error');
       return;
@@ -282,7 +282,7 @@ export const DeliveryDashboard: React.FC = () => {
     const res = await completeDelivery(orderId, enteredOtp.trim());
     if (res.success) {
       showToast(res.message, 'success');
-      setOtpInputs(prev => ({ ...prev, [orderId]: '' }));
+      setOtpInputs(prev => ({ ...prev, [inputKey]: '' }));
       await syncWithBackend();
     } else {
       showToast(res.message, 'error');
@@ -451,7 +451,7 @@ export const DeliveryDashboard: React.FC = () => {
                         />
                       </div>
                       <button
-                        onClick={() => handleVerifyDeliveryOtp(ord.trackingOrderId || ord.id)}
+                        onClick={() => handleVerifyDeliveryOtp(ord.trackingOrderId || ord.id, ord.id)}
                         disabled={(ord.checkoutGroupOrders || [ord]).some(stop => stop.status !== 'picked_up')}
                         className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
                       >
