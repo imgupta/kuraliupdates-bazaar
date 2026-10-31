@@ -24,6 +24,8 @@ public class OrderEntity {
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "SELLER_ID", nullable = false)
     private SellerEntity seller;
 
+    @Column(name = "CHECKOUT_GROUP_ID", length = 64) private String checkoutGroupId;
+    @Column(name = "FULFILMENT_STATUS", length = 40) private String fulfilmentStatus;
     @Column(name = "SUBTOTAL", nullable = false, precision = 10, scale = 2) private BigDecimal subtotal;
     @Column(name = "BILL_DISCOUNT_AMOUNT", precision = 10, scale = 2) private BigDecimal billDiscountAmount;
     @Column(name = "COUPON_DISCOUNT_AMOUNT", precision = 10, scale = 2) private BigDecimal couponDiscountAmount;
