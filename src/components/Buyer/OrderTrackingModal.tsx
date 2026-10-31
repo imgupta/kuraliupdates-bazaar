@@ -47,20 +47,21 @@ const safeSponsorUrl = (value?: string) => {
 export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId, onClose }) => {
   const { orders, syncWithBackend, showToast } = useApp();
   const order = orders.find(o => o.id === orderId || o.checkoutGroupId === orderId);
+  const [trackingSnapshot, setTrackingSnapshot] = useState<any>(null);
+  const [pickupOtp, setPickupOtp] = useState('');
+  const [pickupSubmitting, setPickupSubmitting] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const trackingOrderId = order?.trackingOrderId || orderId;
   const orderItems = Array.isArray(order?.items) ? order.items : [];
-  const orderStatus = String(order?.status || 'placed').toLowerCase();
+  // The tracking endpoint is the authoritative live status. AppContext can lag
+  // behind seller actions, so prefer its refreshed status over the cached order.
+  const orderStatus = String(trackingSnapshot?.status || order?.status || 'placed').toLowerCase();
   const isStorePickup = order?.fulfilmentMode === 'STORE_PICKUP';
   const isDelivered = orderStatus === 'delivered';
   const isCancelled = orderStatus === 'cancelled';
   const isDeliveryOtpStage = ['picked_up', 'out_for_delivery'].includes(orderStatus);
   const hasRider = Boolean(order?.deliveryAgentName || order?.deliveryAgentPhone);
   const showMap = !isStorePickup && ['assigned_to_delivery', 'picked_up', 'out_for_delivery'].includes(orderStatus);
-  const [trackingSnapshot, setTrackingSnapshot] = useState<any>(null);
-  const [pickupOtp, setPickupOtp] = useState('');
-  const [pickupSubmitting, setPickupSubmitting] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-
   const currentStepIndex = STEPS.findIndex(step => step.key === orderStatus);
   const copy = statusCopy[orderStatus] || { title: 'Order status update', message: 'We will keep you updated as your order progresses.' };
 
