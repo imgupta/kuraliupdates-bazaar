@@ -62,7 +62,6 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const currentStepIndex = STEPS.findIndex(step => step.key === orderStatus);
-  const currentStep = STEPS[Math.max(0, currentStepIndex)];
   const copy = statusCopy[orderStatus] || { title: 'Order status update', message: 'We will keep you updated as your order progresses.' };
 
   useEffect(() => {
@@ -93,7 +92,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
   }, [onClose]);
 
   const confirmPickup = async () => {
-    if (!/^\\d{4}$/.test(pickupOtp) || pickupSubmitting) return;
+    if (!/^\d{4}$/.test(pickupOtp) || pickupSubmitting) return;
     setPickupSubmitting(true);
     try {
       const token = localStorage.getItem('kurali_auth_token');
@@ -133,7 +132,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
   );
 
   const etaText = trackingSnapshot?.estimatedDeliveryAt || trackingSnapshot?.estimatedDeliveryTime || trackingSnapshot?.eta;
-  const otp = isDeliveryOtpStage && !isDelivered && typeof trackingSnapshot?.deliveryOtp === 'string' && /^\\d{4}$/.test(trackingSnapshot.deliveryOtp)
+  const otp = isDeliveryOtpStage && !isDelivered && typeof trackingSnapshot?.deliveryOtp === 'string' && /^\d{4}$/.test(trackingSnapshot.deliveryOtp)
     ? trackingSnapshot.deliveryOtp
     : null;
 
@@ -260,7 +259,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
               <p className="text-[11px] text-emerald-800">Enter the collection code provided by the store to confirm pickup.</p>
               <div className="flex gap-2">
                 <input aria-label="Store pickup OTP" inputMode="numeric" maxLength={4} value={pickupOtp}
-                  onChange={event => setPickupOtp(event.target.value.replace(/\\D/g, '').slice(0, 4))}
+                  onChange={event => setPickupOtp(event.target.value.replace(/\D/g, '').slice(0, 4))}
                   placeholder="4-digit code" className="min-w-0 flex-1 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-mono tracking-widest" />
                 <button type="button" onClick={confirmPickup} disabled={pickupOtp.length !== 4 || pickupSubmitting}
                   className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
