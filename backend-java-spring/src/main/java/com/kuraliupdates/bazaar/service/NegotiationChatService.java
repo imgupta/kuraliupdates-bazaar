@@ -133,7 +133,9 @@ public class NegotiationChatService {
         String action = request.action().trim().toUpperCase(Locale.ROOT);
         if (!List.of("ACCEPT", "REJECT", "COUNTER").contains(action)) throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported offer action");
         Map<String, Object> chat = requireChatParticipant(user, role, chatId);
-        jdbc.queryForObject("SELECT CHAT_ID FROM NEGOTIATION_CHATS WHERE CHAT_ID=? FOR UPDATE", String.class, chatId);
+        Map<String, Object> lockedLifecycle = jdbc.queryForMap("SELECT BARGAIN_STATUS, EXPIRES_AT FROM NEGOTIATION_CHATS WHERE CHAT_ID=? FOR UPDATE", chatId);
+        chat.put("bargainStatus", lockedLifecycle.get("BARGAIN_STATUS"));
+        chat.put("expiresAt", lockedLifecycle.get("EXPIRES_AT"));
         if ("CLOSED_PURCHASED".equalsIgnoreCase(Objects.toString(chat.get("bargainStatus"), ""))) {
             throw new ApiException(HttpStatus.CONFLICT, "This bargain was closed by checkout and can no longer be accepted.");
         }
