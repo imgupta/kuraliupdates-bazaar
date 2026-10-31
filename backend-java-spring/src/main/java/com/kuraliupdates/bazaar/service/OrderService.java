@@ -162,7 +162,7 @@ public class OrderService {
                 .paymentStatus("PENDING_COD")
                 .status("PLACED")
                 .deliveryOtp(String.format("%04d", random.nextInt(10000)))
-                .distanceKm(request.distanceKm() == null ? BigDecimal.valueOf(1.5) : request.distanceKm())
+                .distanceKm(request.distanceKm())
                 .estimatedDeliveryMins(25)
                 .e2eRunId(e2eRunId)
                 .placedAt(now)
