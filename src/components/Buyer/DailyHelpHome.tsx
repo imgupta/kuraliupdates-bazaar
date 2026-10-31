@@ -36,7 +36,7 @@ export const DailyHelpHome: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [catalogError, setCatalogError] = useState(false);
   const [selected, setSelected] = useState<DailyHelpService | null>(null);
-  const [hours, setHours] = useState(2);
+  const [hours, setHours] = useState(1);
   const [bookingDate, setBookingDate] = useState(localDateString(new Date(Date.now() + 24 * 60 * 60 * 1000)));
   const [slots, setSlots] = useState<DailyHelpSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<DailyHelpSlot | null>(null);
@@ -95,7 +95,7 @@ export const DailyHelpHome: React.FC = () => {
 
   const openBooking = (service: DailyHelpService) => {
     setSelected(service);
-    setHours(Math.max(service.minHours, 2));
+    setHours(1);
     setBookingDate(localDateString(new Date(Date.now() + 24 * 60 * 60 * 1000)));
     setSelectedSlot(null);
   };
@@ -140,21 +140,6 @@ export const DailyHelpHome: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      <section className="bg-gradient-to-br from-amber-50 via-white to-orange-50 border border-amber-100 rounded-2xl p-5 sm:p-7">
-        <div className="max-w-2xl">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase tracking-wide">
-            <ShieldCheck className="w-3.5 h-3.5" /> Trusted local professionals
-          </div>
-          <h1 className="mt-3 text-2xl sm:text-3xl font-black text-slate-900">Daily Help, whenever you need it</h1>
-          <p className="mt-2 text-sm text-slate-600">Book a verified local helper by the hour. Choose a date and duration to see every maid with a matching available slot.</p>
-          <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold text-slate-600">
-            <span className="bg-white border border-slate-200 rounded-full px-3 py-1.5">Verified maids</span>
-            <span className="bg-white border border-slate-200 rounded-full px-3 py-1.5">Live slot availability</span>
-            <span className="bg-white border border-slate-200 rounded-full px-3 py-1.5">OTP start verification</span>
-          </div>
-        </div>
-      </section>
-
       {booking && (
         <section className="bg-white border border-emerald-200 rounded-2xl p-4 sm:p-5 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -226,7 +211,7 @@ export const DailyHelpHome: React.FC = () => {
             <div className="mt-4 grid grid-cols-2 gap-3">
               <label className="text-xs font-bold text-slate-700">Duration
                 <select value={hours} onChange={e => setHours(Number(e.target.value))} className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 bg-white">
-                  {Array.from({ length: 12 - selected.minHours + 1 }, (_, i) => selected.minHours + i).map(value => <option key={value} value={value}>{value} hour{value > 1 ? 's' : ''}</option>)}
+                  <option value={1}>1 hour</option>
                 </select>
               </label>
               <label className="text-xs font-bold text-slate-700">Date
@@ -237,7 +222,7 @@ export const DailyHelpHome: React.FC = () => {
             <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs">
               <div className="flex justify-between"><span>Rate</span><strong>₹{selected.pricePerHour}/hr</strong></div>
               <div className="flex justify-between mt-1"><span>Estimated total</span><strong>₹{selected.pricePerHour * hours}</strong></div>
-              <div className="mt-2 flex gap-2 text-slate-500"><CalendarDays className="w-4 h-4 shrink-0" /> Only maid slots matching your selected duration are shown.</div>
+              <div className="mt-2 flex gap-2 text-slate-500"><CalendarDays className="w-4 h-4 shrink-0" /> Choose any available one-hour period within the professional’s availability window.</div>
             </div>
 
             <div className="mt-5">
@@ -281,6 +266,21 @@ export const DailyHelpHome: React.FC = () => {
           </div>
         </div>
       )}
+
+      <section className="mt-6 rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-4 sm:px-5">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><ShieldCheck className="h-5 w-5" /></div>
+          <div className="min-w-0">
+            <h2 className="text-sm font-black text-slate-900">Daily Help, whenever you need it</h2>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">Book a trusted local professional by the hour. Choose a service and date to see available one-hour slots. Your service timer starts only after OTP verification.</p>
+            <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold text-slate-600">
+              <span className="rounded-full border border-amber-100 bg-white px-2.5 py-1">Verified professionals</span>
+              <span className="rounded-full border border-amber-100 bg-white px-2.5 py-1">Live availability</span>
+              <span className="rounded-full border border-amber-100 bg-white px-2.5 py-1">OTP-secured start</span>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };
