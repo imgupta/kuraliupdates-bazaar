@@ -27,10 +27,12 @@ public class NegotiationChatService {
     private final SellerRepository sellerRepository;
     private static final DateTimeFormatter DISPLAY_TIME = DateTimeFormatter.ofPattern("hh:mm a");
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<Map<String, Object>> list(UserEntity user, String requestedRole) {
         String role = normalizeActiveRole(requestedRole);
         if ("SELLER".equals(role)) {
+            String sellerIdForExpiry = requireSellerId(user.getEmail());
+            jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS='EXPIRED', CLOSED_AT=CURRENT_TIMESTAMP, CURRENT_AGREED_PRICE=NULL WHERE SELLER_ID=? AND BARGAIN_STATUS IN ('PENDING_SELLER','PENDING_BUYER') AND EXPIRES_AT<=CURRENT_TIMESTAMP", sellerIdForExpiry);
             String sellerId = requireSellerId(user.getEmail());
             return jdbc.query("SELECT c.CHAT_ID FROM NEGOTIATION_CHATS c WHERE c.SELLER_ID=? ORDER BY c.LAST_UPDATED DESC",
                     (rs, row) -> rs.getString(1), sellerId).stream().map(this::getChatForKnownParticipant).toList();
@@ -38,6 +40,7 @@ public class NegotiationChatService {
         if (!"BUYER".equals(role)) throw new ApiException(HttpStatus.FORBIDDEN, "Only buyers and sellers can access bargaining chat");
         String email = normalizeEmail(user.getEmail());
         if (email.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "A verified email is required for bargaining chat");
+        jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS='EXPIRED', CLOSED_AT=CURRENT_TIMESTAMP, CURRENT_AGREED_PRICE=NULL WHERE LOWER(BUYER_EMAIL)=? AND BARGAIN_STATUS IN ('PENDING_SELLER','PENDING_BUYER') AND EXPIRES_AT<=CURRENT_TIMESTAMP", email);
         return jdbc.query("SELECT c.CHAT_ID FROM NEGOTIATION_CHATS c WHERE LOWER(c.BUYER_EMAIL)=? ORDER BY c.LAST_UPDATED DESC",
                 (rs, row) -> rs.getString(1), email).stream().map(this::getChatForKnownParticipant).toList();
     }
