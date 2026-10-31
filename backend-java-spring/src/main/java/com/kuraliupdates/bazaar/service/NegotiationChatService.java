@@ -101,6 +101,9 @@ public class NegotiationChatService {
         }
         String role = normalizeActiveRole(requestedRole);
         Map<String, Object> chat = requireChatParticipant(user, role, chatId);
+        if ("CLOSED_PURCHASED".equalsIgnoreCase(Objects.toString(chat.get("bargainStatus"), ""))) {
+            throw new ApiException(HttpStatus.CONFLICT, "This bargain is closed because the item was already purchased.");
+        }
         BigDecimal offerPrice = request.offerPrice();
         if (offerPrice != null) {
             BigDecimal original = (BigDecimal) chat.get("originalPrice");
@@ -127,6 +130,9 @@ public class NegotiationChatService {
         String action = request.action().trim().toUpperCase(Locale.ROOT);
         if (!List.of("ACCEPT", "REJECT", "COUNTER").contains(action)) throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported offer action");
         Map<String, Object> chat = requireChatParticipant(user, role, chatId);
+        if ("CLOSED_PURCHASED".equalsIgnoreCase(Objects.toString(chat.get("bargainStatus"), ""))) {
+            throw new ApiException(HttpStatus.CONFLICT, "This bargain was closed by checkout and can no longer be accepted.");
+        }
         if ("EXPIRED".equalsIgnoreCase(Objects.toString(chat.get("bargainStatus"), ""))
                 || (chat.get("expiresAt") instanceof Timestamp expiry && expiry.toLocalDateTime().isBefore(LocalDateTime.now()))) {
             jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS='EXPIRED', CLOSED_AT=?, CURRENT_AGREED_PRICE=NULL WHERE CHAT_ID=? AND BARGAIN_STATUS IN ('PENDING_SELLER','PENDING_BUYER')",
@@ -153,6 +159,10 @@ public class NegotiationChatService {
             jdbc.update("UPDATE CHAT_MESSAGES SET OFFER_STATUS='COUNTERED' WHERE MESSAGE_ID=? AND CHAT_ID=?", offerId, chatId);
             insertMessage(chatId, role, safeName(user.getName(), role.equals("SELLER") ? "Seller" : "Buyer"),
                     "Counter offer: ₹" + request.counterPrice(), request.counterPrice(), "PENDING");
+            String nextStatus = "SELLER".equals(role) ? "PENDING_BUYER" : "PENDING_SELLER";
+            jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS=?, EXPIRES_AT=?, CURRENT_AGREED_PRICE=NULL, LAST_UPDATED=? WHERE CHAT_ID=?",
+                    nextStatus, Timestamp.valueOf(LocalDateTime.now().plusHours(24)), Timestamp.valueOf(LocalDateTime.now()), chatId);
+            notifyOtherParticipant(chat, role, "COUNTER_OFFER", "A new counter-offer is waiting for your response.");
         } else if ("ACCEPT".equals(action)) {
             jdbc.update("UPDATE CHAT_MESSAGES SET OFFER_STATUS='ACCEPTED' WHERE MESSAGE_ID=? AND CHAT_ID=?", offerId, chatId);
             jdbc.update("UPDATE CHAT_MESSAGES SET OFFER_STATUS='REJECTED' WHERE CHAT_ID=? AND OFFER_PRICE IS NOT NULL AND OFFER_STATUS='PENDING' AND MESSAGE_ID<>?", chatId, offerId);
@@ -162,7 +172,7 @@ public class NegotiationChatService {
                     "Offer accepted. Agreed item price: ₹" + acceptedPrice, null, null);
             notifyOtherParticipant(chat, role, "OFFER_ACCEPTED", "Your bargain was accepted at ₹" + acceptedPrice + ". The negotiated price is now available in your cart.");
         } else {
-            jdbc.update("UPDATE CHAT_MESSAGES SET OFFER_STATUS='REJECTED' WHERE MESSAGE_ID=? AND CHAT_ID=?", offerId, chatId);
+            jdbc.update("UPDATE CHAT_MESSAGES SET OFFER_STATUS='REJECTED' WHERE CHAT_ID=? AND OFFER_STATUS='PENDING'", chatId);
             jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS='REJECTED', CURRENT_AGREED_PRICE=NULL, EXPIRES_AT=NULL, CLOSED_AT=? WHERE CHAT_ID=?",
                     Timestamp.valueOf(LocalDateTime.now()), chatId);
             insertMessage(chatId, role, safeName(user.getName(), role.equals("SELLER") ? "Seller" : "Buyer"), "Offer declined. Standard price applies.", null, null);
