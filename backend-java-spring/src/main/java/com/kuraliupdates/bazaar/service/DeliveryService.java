@@ -8,6 +8,7 @@ import com.kuraliupdates.bazaar.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -28,6 +29,7 @@ public class DeliveryService {
 
     private final DeliveryAgentRepository agentRepository;
     private final OrderRepository orderRepository;
+    private final JdbcTemplate jdbc;
     private final ConcurrentMap<String, LocalDateTime> deliveryOtpResendAt = new ConcurrentHashMap<>();
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -163,8 +165,12 @@ public class DeliveryService {
         orderRepository.save(order);
 
         if (agent != null) {
-            BigDecimal distance = order.getDistanceKm() == null ? BigDecimal.ONE : order.getDistanceKm();
-            BigDecimal payout = BigDecimal.valueOf(Math.max(45, Math.round(distance.doubleValue() * 22) + 20));
+            BigDecimal distance = order.getDistanceKm() == null ? BigDecimal.ZERO : order.getDistanceKm();
+            BigDecimal basePayout = jdbc.queryForObject("SELECT RIDER_BASE_PAYOUT FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", BigDecimal.class);
+            BigDecimal perKmPayout = jdbc.queryForObject("SELECT RIDER_PER_KM_PAYOUT FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", BigDecimal.class);
+            BigDecimal payout = (basePayout == null ? BigDecimal.valueOf(45) : basePayout)
+                    .add(distance.multiply(perKmPayout == null ? BigDecimal.valueOf(22) : perKmPayout))
+                    .setScale(2, java.math.RoundingMode.HALF_UP);
             agent.setTotalTrips(agent.getTotalTrips() + 1);
             agent.setTodayEarnings(agent.getTodayEarnings().add(payout));
             agent.setTotalEarnings(agent.getTotalEarnings().add(payout));
