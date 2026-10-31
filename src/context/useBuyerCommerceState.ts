@@ -67,22 +67,27 @@ export const useBuyerCommerceState = (
     negotiatedPrice?: number,
     acceptedOfferId?: string,
   ) => {
-    setCart(prev => prev.map(item => {
-      if (item.product.id !== product.id || (!item.bargainId && !item.bargainStatus)) return item;
-      const bargainFields = {
-        bargainId,
-        bargainStatus,
-        bargainOfferPrice,
-        negotiatedPrice: bargainStatus === 'ACCEPTED' ? negotiatedPrice : undefined,
-        acceptedOfferId: bargainStatus === 'ACCEPTED' ? acceptedOfferId : undefined,
-      };
-      if (item.bargainId === bargainFields.bargainId
-        && item.bargainStatus === bargainFields.bargainStatus
-        && item.bargainOfferPrice === bargainFields.bargainOfferPrice
-        && item.negotiatedPrice === bargainFields.negotiatedPrice
-        && item.acceptedOfferId === bargainFields.acceptedOfferId) return item;
-      return { ...item, ...bargainFields };
-    }));
+    setCart(prev => {
+      let changed = false;
+      const next = prev.map(item => {
+        if (item.product.id !== product.id || (!item.bargainId && !item.bargainStatus)) return item;
+        const bargainFields = {
+          bargainId,
+          bargainStatus,
+          bargainOfferPrice,
+          negotiatedPrice: bargainStatus === 'ACCEPTED' ? negotiatedPrice : undefined,
+          acceptedOfferId: bargainStatus === 'ACCEPTED' ? acceptedOfferId : undefined,
+        };
+        if (item.bargainId === bargainFields.bargainId
+          && item.bargainStatus === bargainFields.bargainStatus
+          && item.bargainOfferPrice === bargainFields.bargainOfferPrice
+          && item.negotiatedPrice === bargainFields.negotiatedPrice
+          && item.acceptedOfferId === bargainFields.acceptedOfferId) return item;
+        changed = true;
+        return { ...item, ...bargainFields };
+      });
+      return changed ? next : prev;
+    });
   }, []);
 
   const effectivePrice = (item: CartItem) => item.negotiatedPrice
