@@ -173,16 +173,30 @@ export const useDailyHelpProviderOperations = () => {
 
   const createSlot = async () => {
     if (!professional) return;
+    const [startHour, startMinute] = slotStart.split(':').map(Number);
+    const [endHour, endMinute] = slotEnd.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMinute;
+    const endMinutes = endHour * 60 + endMinute;
+    if (startMinute !== 0 || endMinute !== 0 || endMinutes <= startMinutes || (endMinutes - startMinutes) % 60 !== 0) {
+      showToast('Choose whole-hour timings, for example 09:00 to 19:00.', 'error');
+      return;
+    }
+
+    let createdCount = 0;
     try {
-      const created = await dailyHelpProviderApi.createDailyHelpProfessionalSlot(
-        professional.professionalId, slotDate, slotStart, slotEnd
-      );
-      if (created) {
-        showToast('Availability slot added.', 'success');
-        setMySlots(await dailyHelpProviderApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate) as DailyHelpSlot[]);
+      for (let minute = startMinutes; minute < endMinutes; minute += 60) {
+        const from = `${String(Math.floor(minute / 60)).padStart(2, '0')}:00`;
+        const to = `${String(Math.floor((minute + 60) / 60)).padStart(2, '0')}:00`;
+        await dailyHelpProviderApi.createDailyHelpProfessionalSlot(professional.professionalId, slotDate, from, to);
+        createdCount += 1;
       }
+      showToast(`${createdCount} one-hour booking slots added.`, 'success');
     } catch (error: unknown) {
-      showToast(error instanceof Error ? error.message : 'Unable to add availability slot.', 'error');
+      showToast(createdCount > 0
+        ? `${createdCount} hourly slots were added before an error. Refresh availability and retry the remaining time.`
+        : error instanceof Error ? error.message : 'Unable to add availability.', 'error');
+    } finally {
+      setMySlots(await dailyHelpProviderApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate) as DailyHelpSlot[]);
     }
   };
 
