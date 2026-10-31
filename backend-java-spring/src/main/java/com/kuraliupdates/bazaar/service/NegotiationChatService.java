@@ -133,6 +133,7 @@ public class NegotiationChatService {
         String action = request.action().trim().toUpperCase(Locale.ROOT);
         if (!List.of("ACCEPT", "REJECT", "COUNTER").contains(action)) throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported offer action");
         Map<String, Object> chat = requireChatParticipant(user, role, chatId);
+        jdbc.queryForObject("SELECT CHAT_ID FROM NEGOTIATION_CHATS WHERE CHAT_ID=? FOR UPDATE", String.class, chatId);
         if ("CLOSED_PURCHASED".equalsIgnoreCase(Objects.toString(chat.get("bargainStatus"), ""))) {
             throw new ApiException(HttpStatus.CONFLICT, "This bargain was closed by checkout and can no longer be accepted.");
         }
@@ -144,7 +145,6 @@ public class NegotiationChatService {
         }
         // Serialize offer decisions per conversation. Locking only the selected offer
         // allows two different pending offers in the same chat to be accepted concurrently.
-        jdbc.queryForObject("SELECT CHAT_ID FROM NEGOTIATION_CHATS WHERE CHAT_ID=? FOR UPDATE", String.class, chatId);
         List<Map<String, Object>> rows = jdbc.query("SELECT MESSAGE_ID,SENDER_ROLE,OFFER_PRICE,OFFER_STATUS FROM CHAT_MESSAGES WHERE CHAT_ID=? AND MESSAGE_ID=? FOR UPDATE",
                 (rs, row) -> {
                     Map<String, Object> item = new HashMap<>();
@@ -313,6 +313,7 @@ public class NegotiationChatService {
     }
     private void requireBuyer(UserEntity user) {
         if (user == null || blank(user.getUserId())) throw new ApiException(HttpStatus.UNAUTHORIZED, "An authenticated account is required");
+        if (!"BUYER".equalsIgnoreCase(Objects.toString(user.getRole(), ""))) throw new ApiException(HttpStatus.FORBIDDEN, "Only a buyer account can start a bargaining conversation");
     }
     private String normalizeActiveRole(String role) {
         String normalized = role == null ? "BUYER" : role.trim().toUpperCase(Locale.ROOT);
