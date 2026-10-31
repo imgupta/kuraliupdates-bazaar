@@ -64,6 +64,14 @@ public class DeliveryController {
         return ResponseEntity.ok(deliveryService.availableJobs(user).stream().map(OrderResponse::from).toList());
     }
 
+    @GetMapping("/jobs/mine")
+    @Transactional(readOnly = true)
+    @Operation(summary = "Get active deliveries assigned to the authenticated delivery partner")
+    public ResponseEntity<List<OrderResponse>> getMyAssignedJobs(Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        return ResponseEntity.ok(deliveryService.assignedJobs(user).stream().map(OrderResponse::from).toList());
+    }
+
     @PostMapping("/jobs/{orderId}/claim")
     @Transactional
     public ResponseEntity<OrderResponse> claimJob(
