@@ -60,9 +60,13 @@ jobs:
             if (!value) throw new Error('Required E2E config key is blank: ' + key);
             return value;
           };
-          const transactionalFixturesEnabled =
+          // Match the CI workflow's trusted-event gate: pushes/PRs must never
+          // run transactional fixture validation, even if the stored secret opts in.
+          const trustedRun = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch';
+          const transactionalFixturesEnabled = trustedRun && (
             config.E2E_TRANSACTIONAL_FLOWS_ENABLED === true ||
-            config.E2E_TRANSACTIONAL_FLOWS_ENABLED === 'true';
+            config.E2E_TRANSACTIONAL_FLOWS_ENABLED === 'true'
+          );
           const syntheticFixtureId = (key) => {
             const value = required(key);
             if (!/^E2E-[A-Za-z0-9_-]{3,80}$/.test(value)) {
