@@ -7,12 +7,13 @@ type NegotiationChatOptions = {
   role: UserRole;
   products: Product[];
   upsertBargainCartItem: (product: Product, bargainId: string, status: 'PENDING_SELLER' | 'PENDING_BUYER' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CLOSED_PURCHASED', offerPrice?: number, negotiatedPrice?: number, acceptedOfferId?: string) => void;
+  updateExistingBargainCartItem: (product: Product, bargainId: string, status: 'PENDING_SELLER' | 'PENDING_BUYER' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CLOSED_PURCHASED', offerPrice?: number, negotiatedPrice?: number, acceptedOfferId?: string) => void;
   user: NegotiationUser;
   currentSeller?: Pick<Seller, 'name'>;
   showToast: (message: string, type?: 'success' | 'info' | 'error') => void;
 };
 
-export const useNegotiationChatState = ({ role, user, products, upsertBargainCartItem, showToast }: NegotiationChatOptions) => {
+export const useNegotiationChatState = ({ role, user, products, upsertBargainCartItem, updateExistingBargainCartItem, showToast }: NegotiationChatOptions) => {
   const [chats, setChats] = useState<NegotiationChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const showToastRef = useRef(showToast);
@@ -61,6 +62,16 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
     chats.forEach(chat => {
       const status = chat.bargainStatus || (chat.currentAgreedPrice != null ? 'ACCEPTED' : 'PENDING_SELLER');
       const previous = lastSeenStatusRef.current.get(chat.id);
+      const product = products.find(item => item.id === chat.productId);
+      const pendingOffer = [...chat.messages].reverse().find(message => message.offer?.status === 'pending')?.offer;
+      // Reconcile only an existing bargain cart line. This handles both seller-accepted
+      // offers arriving through polling and the chat ID changing from its local placeholder
+      // to the persisted server ID, without resurrecting a line the buyer removed.
+      if (product && status !== 'CLOSED_PURCHASED') {
+        updateExistingBargainCartItem(product, chat.id, status as 'PENDING_SELLER' | 'PENDING_BUYER' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED',
+          pendingOffer?.offeredPrice, status === 'ACCEPTED' ? chat.currentAgreedPrice : undefined,
+          status === 'ACCEPTED' ? chat.currentAgreedOfferId : undefined);
+      }
       if (previous && previous !== status) {
         if (status === 'ACCEPTED') showToastRef.current('Seller accepted your bargain. Your cart price has been updated.', 'success');
         if (status === 'REJECTED') showToastRef.current('Your bargain was declined. You can still order at the catalogue price.', 'info');
@@ -68,17 +79,7 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
       }
       lastSeenStatusRef.current.set(chat.id, status);
     });
-  }, [chats, role]);
-  useEffect(() => {
-    if (role !== 'buyer') return;
-    chats.filter(chat => !chat.id.startsWith('pending-')).forEach(chat => {
-      const product = products.find(item => item.id === chat.productId);
-      if (!product) return;
-      const pendingOffer = [...chat.messages].reverse().find(message => message.offer?.status === 'pending')?.offer;
-      const status = chat.bargainStatus || (chat.currentAgreedPrice != null ? 'ACCEPTED' : 'PENDING_SELLER');
-      upsertBargainCartItem(product, chat.id, status, pendingOffer?.offeredPrice, status === 'ACCEPTED' ? chat.currentAgreedPrice : undefined, status === 'ACCEPTED' ? chat.currentAgreedOfferId : undefined);
-    });
-  }, [chats, products, role, upsertBargainCartItem]);
+  }, [chats, products, role, updateExistingBargainCartItem]);
   const openChatForProduct = (product: Product, startingOfferPrice?: number): string => {
     if (role !== 'buyer') {
       showToast('Only a signed-in buyer can start a bargaining conversation.', 'error');
@@ -114,7 +115,7 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
       setChats(prev => [remote, ...prev.filter(chat => chat.id !== tempId && chat.id !== remote.id)]);
       setActiveChatId(current => current === tempId ? remote.id : current);
     }).catch(error => {
-      upsertBargainCartItem(product, tempId, 'EXPIRED', price);
+      updateExistingBargainCartItem(product, tempId, 'EXPIRED', price);
       setChats(prev => prev.filter(chat => chat.id !== tempId));
       setActiveChatId(current => current === tempId ? null : current);
       showToast(error instanceof Error ? error.message : 'Could not start the conversation.', 'error');

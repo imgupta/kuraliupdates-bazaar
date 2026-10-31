@@ -32,6 +32,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
   const [streetAddress, setStreetAddress] = useState(selectedAddress?.addressLine1 || user.addressLine1 || user.address || '');
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Card' | 'COD' | 'NetBanking'>('COD');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [checkoutStep, setCheckoutStep] = useState<'review' | 'payment'>('review');
   const [fulfilmentMode, setFulfilmentMode] = useState<'DELIVERY' | 'STORE_PICKUP'>('DELIVERY');
   const multiSellerCart = new Set(cart.map(item => item.product.sellerId)).size > 1;
   const pickupTotal = Math.max(0, cartCalculations.subtotal - cartCalculations.billDiscount - cartCalculations.couponDiscount);
@@ -39,6 +40,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0 || isProcessing) return;
+    if (checkoutStep === 'review') { setCheckoutStep('payment'); return; }
 
     setIsProcessing(true);
     try {
@@ -193,6 +195,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
             </div>
           </div>
 
+          {checkoutStep === 'payment' && (
+          <>
           {/* Section 2: Payment Method */}
           <div className="space-y-3">
             <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -281,6 +285,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
             )}
           </div>
 
+          </>
+          )}
+
+          {/* Review the exact items before proceeding to payment. */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Order review · {cart.length} item{cart.length === 1 ? '' : 's'}</h3>
+            {cart.map(item => (
+              <div key={item.product.id} className="flex items-center justify-between gap-3 text-xs">
+                <div className="min-w-0">
+                  <p className="truncate font-bold text-slate-800">{item.product.title}</p>
+                  <p className="text-slate-500">Qty {item.quantity} · {item.product.sellerName}</p>
+                </div>
+                <span className="shrink-0 font-extrabold text-slate-900">₹{((item.negotiatedPrice ?? item.product.sellerPrice) * item.quantity).toFixed(2)}</span>
+              </div>
+            ))}
+          </section>
+
           {/* Section 3: Final Bill Breakdown */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
             <h4 className="font-bold text-slate-800">Payment Breakdown</h4>
@@ -319,6 +340,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
           >
             {isProcessing ? (
               <span>Confirming Order with Kurali Store...</span>
+            ) : checkoutStep === 'review' ? (
+              <span>Continue to Payment &bull; ₹{fulfilmentMode === 'STORE_PICKUP' ? pickupTotal : cartCalculations.finalTotal}</span>
             ) : (
               <span>
                 {paymentMethod === 'COD' ? (fulfilmentMode === 'STORE_PICKUP' ? 'Place Store Pickup Order' : 'Place COD Order') : 'Online payment unavailable'} &bull; ₹{fulfilmentMode === 'STORE_PICKUP' ? pickupTotal : cartCalculations.finalTotal}

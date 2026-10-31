@@ -10,6 +10,8 @@ export const NegotiationChatModal: React.FC = () => {
     sendMessage,
     respondToOffer,
     products,
+    cart,
+    upsertBargainCartItem,
     role,
     user,
     showToast,
@@ -36,6 +38,9 @@ export const NegotiationChatModal: React.FC = () => {
     : currentChat.originalPrice ?? 500;
 
   const isOpening = currentChat.id.startsWith('pending-');
+  const isAccepted = String(currentChat.bargainStatus || (currentChat.currentAgreedPrice != null ? 'ACCEPTED' : '')).toUpperCase() === 'ACCEPTED';
+  const acceptedLineInCart = cart.some(item => item.product.id === currentChat.productId
+    && item.bargainId === currentChat.id && item.bargainStatus === 'ACCEPTED');
 
   const handleSendTextMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,10 +138,21 @@ export const NegotiationChatModal: React.FC = () => {
             </div>
           </div>
 
-          {role !== 'seller' && currentChat.currentAgreedPrice != null && (
-            <span className="shrink-0 rounded-lg bg-emerald-100 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800">
-              Accepted · added to cart automatically
-            </span>
+          {role !== 'seller' && isAccepted && currentChat.bargainStatus !== 'CLOSED_PURCHASED' && (
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="rounded-lg bg-emerald-100 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800">
+                Accepted · ₹{currentChat.currentAgreedPrice}
+              </span>
+              {targetProduct && !acceptedLineInCart && (
+                <button type="button" onClick={() => {
+                  upsertBargainCartItem(targetProduct, currentChat.id, 'ACCEPTED', undefined,
+                    currentChat.currentAgreedPrice, currentChat.currentAgreedOfferId);
+                  showToast('Accepted bargain added to your cart.', 'success');
+                }} className="rounded-lg bg-amber-600 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-amber-700">
+                  Add agreed price to cart
+                </button>
+              )}
+            </div>
           )}
         </div>
 

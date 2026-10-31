@@ -293,6 +293,16 @@ public class OrderService {
         }
         orderItems.forEach(item -> item.setOrder(order));
         OrderEntity saved = orderRepository.save(order);
+        // A successfully placed order consumes the accepted bargain. Keep the
+        // conversation as history, but close it for both buyer and seller inboxes.
+        for (Map.Entry<String, String> accepted : acceptedOffers.entrySet()) {
+            jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS='CLOSED_PURCHASED', EXPIRES_AT=NULL, CLOSED_AT=?, LAST_UPDATED=? "
+                            + "WHERE PRODUCT_ID=? AND LOWER(BUYER_EMAIL)=? AND BARGAIN_STATUS='ACCEPTED' "
+                            + "AND EXISTS (SELECT 1 FROM CHAT_MESSAGES m WHERE m.CHAT_ID=NEGOTIATION_CHATS.CHAT_ID "
+                            + "AND m.MESSAGE_ID=? AND m.OFFER_STATUS='ACCEPTED')",
+                    Timestamp.valueOf(now), Timestamp.valueOf(now), accepted.getKey(),
+                    buyer.getEmail() == null ? "" : buyer.getEmail().trim().toLowerCase(Locale.ROOT), accepted.getValue());
+        }
         return new OrderPlacementResponse(OrderResponse.from(saved), saved.getDeliveryOtp());
     }
 
