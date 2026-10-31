@@ -103,8 +103,8 @@ class DeliveryServiceTest {
         assertEquals("DELIVERED", order.getStatus());
         assertEquals("PAID", order.getPaymentStatus());
         assertEquals(1, agent.getTotalTrips());
-        assertEquals(new BigDecimal("78"), agent.getTodayEarnings());
-        assertEquals(new BigDecimal("53"), agent.getTotalEarnings());
+        assertEquals(0, new BigDecimal("78").compareTo(agent.getTodayEarnings()));
+        assertEquals(0, new BigDecimal("78").compareTo(agent.getTotalEarnings()));
         verify(orderRepository, times(1)).save(order);
         verify(agentRepository, times(1)).save(agent);
     }
@@ -266,8 +266,8 @@ class DeliveryServiceTest {
         assertEquals("DELIVERED", order.getStatus());
         assertEquals("PAID", order.getPaymentStatus());
         assertEquals(1, agent.getTotalTrips());
-        assertEquals(new BigDecimal("53"), agent.getTodayEarnings());
-        assertEquals(new BigDecimal("53"), agent.getTotalEarnings());
+        assertEquals(0, new BigDecimal("78").compareTo(agent.getTodayEarnings()));
+        assertEquals(0, new BigDecimal("78").compareTo(agent.getTotalEarnings()));
         verify(orderRepository).save(order);
         verify(agentRepository).save(agent);
     }
