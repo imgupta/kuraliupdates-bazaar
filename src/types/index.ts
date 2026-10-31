@@ -78,6 +78,9 @@ export interface CartItem {
   quantity: number;
   negotiatedPrice?: number; // if acquired through bargaining
   acceptedOfferId?: string; // server-verified accepted offer; never trust negotiatedPrice alone
+  bargainId?: string;
+  bargainStatus?: 'PENDING_SELLER' | 'PENDING_BUYER' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CLOSED_PURCHASED';
+  bargainOfferPrice?: number;
 }
 
 export interface DeliveryAgent {
@@ -196,6 +199,8 @@ export interface NegotiationChat {
   originalPrice?: number;
   currentAgreedPrice?: number;
   currentAgreedOfferId?: string;
+  bargainStatus?: 'PENDING_SELLER' | 'PENDING_BUYER' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CLOSED_PURCHASED';
+  expiresAt?: string;
 }
 
 export type DailyHelpBookingStatus =
