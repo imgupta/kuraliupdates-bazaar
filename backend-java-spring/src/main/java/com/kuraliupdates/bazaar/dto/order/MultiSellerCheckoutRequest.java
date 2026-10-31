@@ -1,12 +1,12 @@
 package com.kuraliupdates.bazaar.dto.order;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.DecimalMax;
 import java.util.List;
 
 /** Public multi-seller checkout contract. Seller and price data are resolved by the server. */
