@@ -161,6 +161,7 @@ public class DeliveryService {
             order.setDeliveryAgent(agent);
             order.setStatus("ASSIGNED_TO_DELIVERY");
             order.setDeliveryOtp(sharedOtp);
+            order.setCombinedDeliveryBatchId(checkoutGroupId);
             order.setDistanceKm(i == 0 ? routeKm : BigDecimal.ZERO);
             order.setRiderPayoutSnapshot(i == 0 ? groupPayout : BigDecimal.ZERO);
             order.setRiderPayoutSnapshottedAt(now);
@@ -173,7 +174,7 @@ public class DeliveryService {
     public Map<String, Object> resendDeliveryOtp(String orderId, com.kuraliupdates.bazaar.entity.UserEntity user) {
         DeliveryAgentEntity authenticatedAgent = findAgentForUser(user);
         requireActive(authenticatedAgent);
-        OrderEntity order = orderRepository.findById(orderId)
+        OrderEntity order = orderRepository.findLockedByOrderId(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
 
         if (order.getDeliveryAgent() == null
@@ -185,17 +186,35 @@ public class DeliveryService {
         }
         LocalDateTime now = LocalDateTime.now();
         synchronized (deliveryOtpResendAt) {
-            LocalDateTime lastSent = deliveryOtpResendAt.get(orderId);
+            String resendKey = order.getCombinedDeliveryBatchId() != null
+                    ? order.getCombinedDeliveryBatchId() : orderId;
+            LocalDateTime lastSent = deliveryOtpResendAt.get(resendKey);
             if (lastSent != null && lastSent.plusSeconds(60).isAfter(now)) {
                 long waitSeconds = Math.max(1, java.time.Duration.between(now, lastSent.plusSeconds(60)).getSeconds());
                 throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
                         "Please wait " + waitSeconds + " seconds before resending the delivery OTP");
             }
             String newOtp = String.format("%04d", secureRandom.nextInt(10_000));
-            order.setDeliveryOtp(newOtp);
-            order.setUpdatedAt(now);
-            orderRepository.save(order);
-            deliveryOtpResendAt.put(orderId, now);
+            boolean combined = order.getCombinedDeliveryBatchId() != null
+                    && order.getCombinedDeliveryBatchId().equals(order.getCheckoutGroupId());
+            if (combined) {
+                List<OrderEntity> group = orderRepository.findLockedByCheckoutGroupId(order.getCheckoutGroupId());
+                for (OrderEntity groupedOrder : group) {
+                    if (!order.getCombinedDeliveryBatchId().equals(groupedOrder.getCombinedDeliveryBatchId())
+                            || groupedOrder.getDeliveryAgent() == null
+                            || !groupedOrder.getDeliveryAgent().getAgentId().equals(authenticatedAgent.getAgentId())) {
+                        throw new ApiException(HttpStatus.CONFLICT, "Combined delivery group is no longer consistently assigned");
+                    }
+                    groupedOrder.setDeliveryOtp(newOtp);
+                    groupedOrder.setUpdatedAt(now);
+                }
+                orderRepository.saveAll(group);
+            } else {
+                order.setDeliveryOtp(newOtp);
+                order.setUpdatedAt(now);
+                orderRepository.save(order);
+            }
+            deliveryOtpResendAt.put(resendKey, now);
         }
         return Map.of("success", true, "message", "A new delivery OTP is now available in the customer app.");
     }
@@ -232,7 +251,8 @@ public class DeliveryService {
                 ? List.of(order)
                 : orderRepository.findLockedByCheckoutGroupId(order.getCheckoutGroupId());
         boolean combinedClaim = checkoutOrders.size() > 1 && checkoutOrders.stream().allMatch(deliveryOrder ->
-                deliveryOrder.getDeliveryAgent() != null
+                order.getCheckoutGroupId().equals(deliveryOrder.getCombinedDeliveryBatchId())
+                && deliveryOrder.getDeliveryAgent() != null
                 && deliveryOrder.getDeliveryAgent().getAgentId().equals(authenticatedAgent.getAgentId())
                 && enteredOtp.equals(deliveryOrder.getDeliveryOtp())
                 && ("ASSIGNED_TO_DELIVERY".equals(deliveryOrder.getStatus())
