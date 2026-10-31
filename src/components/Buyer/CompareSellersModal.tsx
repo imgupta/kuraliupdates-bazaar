@@ -2,6 +2,7 @@ import React from 'react';
 import { X, CheckCircle2, MapPin, Star, Tag, Truck, MessageSquare, ArrowRight, TrendingDown } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
+import { getComparableSellerOffers } from './comparableProducts';
 
 interface CompareSellersModalProps {
   product: Product;
@@ -11,18 +12,9 @@ interface CompareSellersModalProps {
 export const CompareSellersModal: React.FC<CompareSellersModalProps> = ({ product, onClose }) => {
   const { products, sellers, addToCart, openChatForProduct, setIsCartOpen } = useApp();
 
-  // Find equivalent or similar products across different approved sellers
-  // Match by title keywords or category
-  const titleKeywords = product.title.toLowerCase().split(' ').slice(0, 3).join(' ');
-  const matchingProducts = products.filter(p => {
-    const isSameCategory = p.category === product.category;
-    const isSimilarTitle = p.title.toLowerCase().includes(titleKeywords) ||
-      product.title.toLowerCase().includes(p.title.toLowerCase().split(' ').slice(0, 2).join(' '));
-    return isSimilarTitle || (isSameCategory && (p.title === product.title || p.tags.some(t => product.tags.includes(t))));
-  });
-
-  // Ensure unique sellers represented
-  const candidateProducts = matchingProducts.length > 1 ? matchingProducts : products.filter(p => p.category === product.category);
+  // Use the same strict product + pack matching as the count shown on each card.
+  // Never pad a comparison with unrelated products from the same category.
+  const candidateProducts = getComparableSellerOffers(products, product);
 
   // Calculate effective price for each
   const comparisonList = candidateProducts.map(item => {
@@ -30,7 +22,7 @@ export const CompareSellersModal: React.FC<CompareSellersModalProps> = ({ produc
     const extraDiscountAmount = (item.sellerPrice * item.additionalDiscountPercent) / 100;
     const effectivePrice = Math.round(item.sellerPrice - extraDiscountAmount);
     const totalSavings = item.mrp - effectivePrice;
-    const savingsPercent = Math.round((totalSavings / item.mrp) * 100);
+    const savingsPercent = item.mrp > 0 ? Math.round((totalSavings / item.mrp) * 100) : 0;
 
     return {
       product: item,
@@ -45,6 +37,7 @@ export const CompareSellersModal: React.FC<CompareSellersModalProps> = ({ produc
   // Sort by effective price ascending to highlight lowest price, and find closest
   const lowestPrice = Math.min(...comparisonList.map(c => c.effectivePrice));
   const minDistance = Math.min(...comparisonList.map(c => c.distanceKm));
+  const hasMultipleSellers = comparisonList.length > 1;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
@@ -75,12 +68,12 @@ export const CompareSellersModal: React.FC<CompareSellersModalProps> = ({ produc
           <div className="flex items-center gap-2 text-amber-900 font-semibold">
             <TrendingDown className="w-4 h-4 text-emerald-600" />
             <span>
-              Best price found in Kurali: <strong className="text-emerald-700 text-sm">₹{lowestPrice}</strong> (Save up to ₹{product.mrp - lowestPrice})
+              {hasMultipleSellers ? 'Best comparable price:' : 'This product is currently listed by one store:'} <strong className="text-emerald-700 text-sm">₹{lowestPrice}</strong>{hasMultipleSellers ? ` (Save up to ₹${Math.max(0, product.mrp - lowestPrice)})` : ''}
             </span>
           </div>
           <div className="flex items-center gap-2 text-slate-600">
             <MapPin className="w-3.5 h-3.5 text-amber-600" />
-            <span>Closest seller is just <strong>{minDistance} km</strong> away</span>
+            <span>{hasMultipleSellers ? <>Closest seller is <strong>{minDistance} km</strong> away</> : <>Only one matching store offer is currently available</>}</span>
           </div>
         </div>
 
@@ -135,7 +128,7 @@ export const CompareSellersModal: React.FC<CompareSellersModalProps> = ({ produc
                       <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                       <span className="font-bold text-slate-800">{p.sellerRating}</span>
                       <span className="text-slate-400 text-[11px]">
-                        ({seller?.reviewCount || 45} reviews)
+                        ({seller?.reviewCount || 0} reviews)
                       </span>
                     </div>
                   </div>
@@ -186,7 +179,7 @@ export const CompareSellersModal: React.FC<CompareSellersModalProps> = ({ produc
                         <Truck className="w-3 h-3 text-slate-400" />
                         Free delivery on ₹{seller?.minOrderForFreeDelivery || 399}
                       </span>
-                      <span className="text-emerald-700 font-bold">In Stock ({p.stock})</span>
+                      <span className={p.stock > 0 ? 'text-emerald-700 font-bold' : 'text-rose-600 font-bold'}>{p.stock > 0 ? `In Stock (${p.stock})` : 'Out of stock'}</span>
                     </div>
                   </div>
 
@@ -198,7 +191,8 @@ export const CompareSellersModal: React.FC<CompareSellersModalProps> = ({ produc
                         setIsCartOpen(true);
                         onClose();
                       }}
-                      className={`w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+                      disabled={p.stock <= 0}
+                      className={`w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer disabled:cursor-not-allowed disabled:bg-slate-300 ${
                         isLowestPrice
                           ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                           : 'bg-amber-500 hover:bg-amber-600 text-white'
