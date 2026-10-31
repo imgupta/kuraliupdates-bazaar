@@ -81,10 +81,10 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col border border-slate-200 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-slate-950/60 backdrop-blur-sm animate-in fade-in sm:items-center sm:p-4">
+      <div className="flex h-full w-full max-w-3xl flex-col overflow-hidden bg-slate-50 shadow-2xl sm:h-auto sm:max-h-[94vh] sm:rounded-2xl sm:border sm:border-slate-200">
         {/* Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white flex items-center justify-between">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 text-slate-900 sm:px-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white">
               <Bike className="w-5 h-5 animate-pulse" />
@@ -106,7 +106,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-white/20 text-white transition-colors"
+            className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
             <X className="w-5 h-5" />
           </button>
@@ -116,11 +116,11 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
         <LiveOrderMap orderId={order.id} fallbackBuyer={{ latitude: order.deliveryLatitude, longitude: order.deliveryLongitude }} sellerAddress={order.sellerLocality} destinationAddress={order.deliveryAddress} orderStatus={order.status} />
 
         {/* Scrollable Content Body */}
-        <div className="p-6 overflow-y-auto space-y-6">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 sm:space-y-4 sm:p-4">
           {/* OTP and Delivery Agent Card */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {/* OTP Box */}
-            <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-200/80 flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
               <div>
                 <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
                   <ShieldCheck className="w-4 h-4 text-amber-600" />
@@ -136,17 +136,17 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
             </div>
 
             {/* Delivery Agent Card */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold">
                   <Bike className="w-6 h-6" />
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-900">
-                    {order.deliveryAgentName || 'Gurpreet Singh (Rider)'}
+                    {order.deliveryAgentName || 'Delivery partner not assigned'}
                   </p>
                   <p className="text-[11px] text-slate-500">
-                    {order.deliveryAgentVehicle || 'Hero Splendor (PB 65 AB 4589)'}
+                    {order.deliveryAgentVehicle || 'Vehicle details will appear here'}
                   </p>
                   <span className="inline-block mt-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded">
                     ★ 4.9 Verified Kurali Partner
@@ -155,7 +155,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
               </div>
 
               <a
-                href={`tel:${order.deliveryAgentPhone || '9876588990'}`}
+                href={order.deliveryAgentPhone ? `tel:${order.deliveryAgentPhone}` : undefined}
                 className="p-2.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors"
                 title="Call Delivery Partner"
               >
@@ -169,13 +169,13 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
             <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-3">
               Order Timeline &amp; Journey
             </h4>
-            <div className="space-y-4 relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+            <div className="relative space-y-2 before:absolute before:bottom-2 before:left-3 before:top-2 before:w-0.5 before:bg-slate-200">
               {statusUpdates.map((update, idx) => (
                 <div key={idx} className="relative flex items-start gap-4">
                   <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 z-10 shadow-xs">
                     <CheckCircle2 className="w-4 h-4" />
                   </div>
-                  <div className="flex-1 bg-white p-3 rounded-xl border border-slate-100 shadow-xs">
+                  <div className="flex-1 rounded-lg border border-slate-100 bg-white px-3 py-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-800 capitalize">
                         {String(update?.status || 'Update').replace(/_/g, ' ')}
@@ -192,7 +192,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
           </div>
 
           {/* Items & Payment Breakdown */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
             <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center justify-between">
               <span>Items in this Order ({orderItems.length})</span>
               <span className="text-emerald-700 font-bold">
@@ -268,13 +268,13 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-3">
           <span className="text-xs text-slate-500">
             Delivery to: <strong className="text-slate-700">{order.deliveryAddress}</strong>
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            className="shrink-0 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-800"
           >
             Close Tracker
           </button>
