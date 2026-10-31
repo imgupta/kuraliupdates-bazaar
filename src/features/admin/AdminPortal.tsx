@@ -130,9 +130,9 @@ export const AdminDashboard: React.FC = () => {
         riderBasePayout: Number(config.riderBasePayout ?? 45),
         riderPerKmPayout: Number(config.riderPerKmPayout ?? 22),
         maxWaitMinutes: Number(config.maxWaitMinutes ?? 15),
-        batchEnabled: Boolean(config.batchEnabled),
-        flexibleFallback: Boolean(config.flexibleFallback),
-        storePickupEnabled: Boolean(config.storePickupEnabled),
+        batchEnabled: config.batchEnabled === true || Number(config.batchEnabled) === 1,
+        flexibleFallback: config.flexibleFallback === true || Number(config.flexibleFallback) === 1,
+        storePickupEnabled: config.storePickupEnabled === true || Number(config.storePickupEnabled) === 1,
         updatedAt: config.updatedAt,
       });
     } catch (error: any) {
