@@ -1,7 +1,7 @@
 import { Product } from '../../types';
 
 const normalizeComparableValue = (value: string) =>
-  value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\\s+/g, ' ');
+  value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
 
 /**
  * Conservative catalogue matching: compare only the same normalized product
