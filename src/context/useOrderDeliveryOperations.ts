@@ -107,8 +107,8 @@ export const useOrderDeliveryOperations = ({
     const confirmedOrders: Order[] = serverOrders.length > 0
       ? serverOrderEntries.map((placement: any) => ({
           ...confirmed,
-          ...placement.order,
           id: placement.order.orderId,
+          status: String(placement.order.status || 'PLACED').toLowerCase() as OrderStatus,
           deliveryOtp: placement.deliveryOtp || '',
           sellerId: placement.order.sellerId || confirmed.sellerId,
           subtotal: Number(placement.order.subtotal ?? 0),
