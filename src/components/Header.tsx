@@ -135,26 +135,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {role === 'buyer' && (
-            <div className="flex-1 max-w-md mx-2 hidden md:block">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search products across Kurali shops..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-9 py-2 bg-slate-100 hover:bg-slate-200/60 focus:bg-white text-xs rounded-xl border border-transparent focus:border-amber-500 outline-none transition-all"
-                />
-                {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600">
-                    &times;
-                  </button>
-                )}
-                <SearchSuggestions query={searchQuery} products={products} onSelect={setSearchQuery} />
-              </div>
-            </div>
-          )}
+
 
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {user.isSignedIn && roleConfigs.length > 0 ? (
@@ -269,22 +250,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {role === 'buyer' && (
-          <div className="mt-2 md:hidden">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search products in Kurali..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-8 py-2 text-xs bg-slate-100 rounded-xl border border-slate-200 outline-none"
-              />
-              {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">Clear</button>}
-              <SearchSuggestions query={searchQuery} products={products} onSelect={setSearchQuery} />
-            </div>
-          </div>
-        )}
+
       </div>
 
       <div className="sm:hidden px-3 pb-2 pt-0.5 border-t border-slate-100 bg-white">
