@@ -25,6 +25,9 @@ interface OrderTrackingModalProps {
 export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId, onClose }) => {
   const { orders } = useApp();
   const order = orders.find(o => o.id === orderId);
+  const orderItems = Array.isArray(order?.items) ? order.items : [];
+  const statusUpdates = Array.isArray(order?.statusUpdates) ? order.statusUpdates : [];
+  const orderStatus = String(order?.status || 'placed').toLowerCase();
   const [authorizedDeliveryOtp, setAuthorizedDeliveryOtp] = useState<string | null>(null);
 
   useEffect(() => {
@@ -92,7 +95,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
                   Live Kurali Express Tracker
                 </h3>
                 <span className="bg-emerald-400 text-emerald-950 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">
-                  {order.status.replace(/_/g, ' ')}
+                  {orderStatus.replace(/_/g, ' ')}
                 </span>
               </div>
               <p className="text-xs text-amber-100">
@@ -167,7 +170,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
               Order Timeline &amp; Journey
             </h4>
             <div className="space-y-4 relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-              {order.statusUpdates.map((update, idx) => (
+              {statusUpdates.map((update, idx) => (
                 <div key={idx} className="relative flex items-start gap-4">
                   <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 z-10 shadow-xs">
                     <CheckCircle2 className="w-4 h-4" />
@@ -175,7 +178,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
                   <div className="flex-1 bg-white p-3 rounded-xl border border-slate-100 shadow-xs">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-800 capitalize">
-                        {update.status.replace(/_/g, ' ')}
+                        {String(update?.status || 'Update').replace(/_/g, ' ')}
                       </span>
                       <span className="text-[11px] text-slate-400 font-medium">
                         {update.timestamp}
@@ -191,41 +194,48 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
           {/* Items & Payment Breakdown */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
             <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center justify-between">
-              <span>Items in this Order ({order.items.length})</span>
+              <span>Items in this Order ({orderItems.length})</span>
               <span className="text-emerald-700 font-bold">
                 {order.isFreeDelivery ? '🎉 FREE Kurali Delivery' : `Delivery Fee: ₹${order.deliveryFee}`}
               </span>
             </h4>
 
             <div className="divide-y divide-slate-200">
-              {order.items.map((item, idx) => (
-                <div key={idx} className="py-2 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <img
-                      src={item.product.image}
-                      alt={item.product.title}
-                      className="w-8 h-8 rounded-md object-cover border border-slate-200"
-                    />
-                    <div>
-                      <span className="font-semibold text-slate-800">{item.product.title}</span>
-                      <span className="text-slate-500 ml-1.5 font-medium">&times; {item.quantity}</span>
-                      {item.negotiatedPrice && (
-                        <span className="ml-2 text-[10px] font-bold text-amber-700 bg-amber-100 px-1 py-0.2 rounded">
-                          Negotiated Deal
-                        </span>
+              {orderItems.map((item: any, idx) => {
+                // API orders use flat item fields; locally-created orders use item.product.
+                const product = item?.product || item || {};
+                const quantity = Math.max(1, Number(item?.quantity) || 1);
+                const title = product?.title || item?.title || item?.productName || 'Order item';
+                const image = product?.image || item?.imageUrl || item?.image;
+                const negotiatedPrice = Number(item?.negotiatedPrice) || 0;
+                const unitPrice = negotiatedPrice ||
+                  Number(product?.sellerPrice) ||
+                  Number(item?.unitPrice) ||
+                  (Number(item?.totalPrice) > 0 ? Number(item.totalPrice) / quantity : 0);
+                const discountPercent = Number(product?.additionalDiscountPercent) || 0;
+                const effectiveUnitPrice = product?.sellerPrice
+                  ? Math.round(unitPrice * (1 - discountPercent / 100))
+                  : unitPrice;
+                return (
+                  <div key={item?.productId || item?.id || idx} className="py-2 flex items-center justify-between text-xs">
+                    <div className="flex min-w-0 items-center gap-2">
+                      {image ? (
+                        <img src={image} alt={title} className="w-8 h-8 rounded-md object-cover border border-slate-200" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-md border border-slate-200 bg-white flex items-center justify-center"><Package className="w-4 h-4 text-slate-400" /></div>
                       )}
+                      <div className="min-w-0">
+                        <span className="font-semibold text-slate-800">{title}</span>
+                        <span className="text-slate-500 ml-1.5 font-medium">&times; {quantity}</span>
+                        {negotiatedPrice > 0 && (
+                          <span className="ml-2 text-[10px] font-bold text-amber-700 bg-amber-100 px-1 py-0.2 rounded">Negotiated Deal</span>
+                        )}
+                      </div>
                     </div>
+                    <span className="shrink-0 font-bold text-slate-900">₹{Math.round(effectiveUnitPrice * quantity)}</span>
                   </div>
-                  <span className="font-bold text-slate-900">
-                    ₹
-                    {(item.negotiatedPrice ||
-                      Math.round(
-                        item.product.sellerPrice *
-                          (1 - item.product.additionalDiscountPercent / 100)
-                      )) * item.quantity}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="pt-2 border-t border-slate-200 space-y-1 text-xs">
