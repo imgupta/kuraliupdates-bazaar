@@ -26,7 +26,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
         const emailMatches = Boolean(email && order.buyerEmail?.trim().toLowerCase() === email);
         const orderPhone = order.buyerPhone?.replace(/\D/g, '');
         const phoneMatches = Boolean(phone && orderPhone && orderPhone.slice(-10) === phone.slice(-10));
-        const normalizedStatus = String(order.status || 'placed').trim().replace(/[\\s-]+/g, '_').toLowerCase();
+        const normalizedStatus = String(order.status || 'placed').trim().replace(/[\s-]+/g, '_').toLowerCase();
         const terminalStatuses = new Set(['delivered', 'completed', 'cancelled', 'canceled', 'rejected', 'failed', 'refunded', 'returned', 'closed']);
         return (emailMatches || phoneMatches) && !terminalStatuses.has(normalizedStatus);
       })
