@@ -49,6 +49,16 @@ public class SellerController {
         return ResponseEntity.ok(sellerService.getCurrentSeller(bearerToken(authorization)));
     }
 
+    @PutMapping("/me/availability")
+    @Operation(summary = "Open or close the authenticated seller store")
+    public ResponseEntity<SellerEntity> updateStoreAvailability(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody java.util.Map<String, Boolean> payload) {
+        Boolean open = payload == null ? null : payload.get("open");
+        if (open == null) throw new com.kuraliupdates.bazaar.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "The open flag is required");
+        return ResponseEntity.ok(sellerService.updateStoreAvailability(bearerToken(authorization), open));
+    }
+
     @GetMapping("/me/products")
     @Operation(summary = "Get products owned by the authenticated seller")
     public ResponseEntity<List<ProductResponse>> getMyProducts(

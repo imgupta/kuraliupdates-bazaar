@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Store, PlusCircle, Package, ShoppingBag, Percent, Trash2, Pencil, RefreshCw, MessageSquare } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PRODUCT_CATEGORIES } from '../../data/initialData';
@@ -22,6 +22,8 @@ export const SellerDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
+  const knownOrderIds = useRef<Set<string> | null>(null);
 
   const emptyForm = { title: '', category: PRODUCT_CATEGORIES[0], mrp: '', sellerPrice: '', additionalDiscount: '0', stock: '25', unit: '1 kg', image: '', description: '' };
   const [form, setForm] = useState(emptyForm);
@@ -38,6 +40,7 @@ export const SellerDashboard: React.FC = () => {
       setSeller(remoteSeller);
       setProducts((remoteProducts || []).map((p: any) => mapSellerProduct(p, remoteSeller)));
       setOrders(remoteOrders || []);
+      knownOrderIds.current = new Set((remoteOrders || []).map((order: any) => String(order.orderId || order.id)));
       setDiscounts((remoteDiscounts || []).map((d: any) => ({ ...d })));
       if (!remoteSeller) showToast('Seller store profile could not be loaded. Please sign in again.', 'error');
     } finally {
@@ -46,6 +49,35 @@ export const SellerDashboard: React.FC = () => {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    if (!seller?.sellerId) return;
+    const poll = async () => {
+      try {
+        const latest = await sellerApi.getSellerOrders();
+        const nextIds = new Set((latest || []).map((order: any) => String(order.orderId || order.id)));
+        if (knownOrderIds.current) {
+          const newOrders = (latest || []).filter((order: any) => !knownOrderIds.current!.has(String(order.orderId || order.id)));
+          newOrders.forEach((order: any) => showToast(`New order received: #${order.orderId || order.id}`, 'success'));
+        }
+        knownOrderIds.current = nextIds;
+        setOrders(latest || []);
+      } catch (error) { console.warn('Seller order notification refresh failed:', error); }
+    };
+    const timer = window.setInterval(() => { void poll(); }, 15000);
+    return () => window.clearInterval(timer);
+  }, [seller?.sellerId, showToast]);
+
+  const toggleStoreAvailability = async () => {
+    if (!seller || availabilitySaving) return;
+    setAvailabilitySaving(true);
+    try {
+      const updated = await sellerApi.setStoreAvailability(Boolean(seller.storeOpen) === false);
+      setSeller(updated);
+      showToast(updated.storeOpen ? 'Your store is now open for new orders.' : 'Your store is closed. Existing orders remain active.', 'success');
+    } catch (error: any) { showToast(error?.message || 'Unable to update store availability.', 'error'); }
+    finally { setAvailabilitySaving(false); }
+  };
 
   const sellerStatus = String(seller?.status || 'PENDING').toLowerCase();
   const isApproved = sellerStatus === 'approved';
@@ -163,6 +195,18 @@ export const SellerDashboard: React.FC = () => {
                 <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-white/10 border border-white/20">{sellerStatus}</span>
               </div>
               <p className="text-xs text-blue-100 mt-1">Owner: <strong>{seller?.ownerName || user.name}</strong> • Locality: <strong>{seller?.locality || user.locality}</strong></p>
+              {isApproved && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-3 py-1 text-[11px] font-extrabold ${seller?.storeOpen === false ? 'bg-rose-500/20 text-rose-100' : 'bg-emerald-400/20 text-emerald-100'}`}>
+                    Store {seller?.storeOpen === false ? 'Closed' : 'Open'}
+                  </span>
+                  <button type="button" onClick={() => void toggleStoreAvailability()} disabled={availabilitySaving}
+                    className="rounded-xl border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/20 disabled:opacity-60">
+                    {availabilitySaving ? 'Updating…' : seller?.storeOpen === false ? 'Open store' : 'Close store'}
+                  </button>
+                  <span className="text-[10px] text-blue-100">Closing stops new orders; existing orders can still be completed.</span>
+                </div>
+              )}
               {!isApproved && <p className="text-xs text-amber-200 mt-2">Inventory publishing is enabled only after Admin approval.</p>}
             </div>
           </div>

@@ -47,6 +47,19 @@ export const deliveryApi = {
     }
   },
 
+  async setAvailability(available: boolean): Promise<any> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) throw new Error('Your delivery session has expired. Please sign in again.');
+    const res = await fetch(`${API_BASE_URL}/delivery/me/availability`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ available }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+    return data;
+  },
+
   async getAvailableDeliveryJobs(): Promise<any[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/delivery/jobs/available`, {

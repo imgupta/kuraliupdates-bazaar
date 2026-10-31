@@ -26,6 +26,7 @@ public class SellerEntity {
     @Column(name = "RATING", precision = 3, scale = 2) private BigDecimal rating;
     @Column(name = "REVIEW_COUNT") private Integer reviewCount;
     @Column(name = "STATUS", length = 20) private String status;
+    @Column(name = "STORE_OPEN", nullable = false) @Builder.Default private Boolean storeOpen = true;
     @Column(name = "GST_NUMBER", length = 50) private String gstNumber;
     @Column(name = "FSSAI_NUMBER", length = 50) private String fssaiNumber;
     @Column(name = "MIN_ORDER_FREE_DELIVERY", precision = 10, scale = 2) private BigDecimal minOrderForFreeDelivery;
