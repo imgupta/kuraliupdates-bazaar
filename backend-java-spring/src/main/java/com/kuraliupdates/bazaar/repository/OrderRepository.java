@@ -18,6 +18,10 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
     List<OrderEntity> findByCheckoutGroupIdOrderByPlacedAtAsc(String checkoutGroupId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from OrderEntity o where o.checkoutGroupId = :checkoutGroupId order by o.placedAt asc")
+    List<OrderEntity> findLockedByCheckoutGroupId(@Param("checkoutGroupId") String checkoutGroupId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from OrderEntity o where o.orderId = :orderId")
     Optional<OrderEntity> findLockedByOrderId(@Param("orderId") String orderId);
 
