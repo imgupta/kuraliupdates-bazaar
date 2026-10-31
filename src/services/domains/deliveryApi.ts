@@ -116,6 +116,33 @@ export const deliveryApi = {
     }
   },
 
+  async claimDeliveryCheckoutGroup(checkoutGroupId: string, agentId: string): Promise<boolean> {
+    try {
+      const token = localStorage.getItem('kurali_auth_token');
+      if (!token) return false;
+      const res = await fetch(
+        `${API_BASE_URL}/delivery/jobs/checkout/${encodeURIComponent(checkoutGroupId)}/claim?agentId=${encodeURIComponent(agentId)}`,
+        { method: 'POST', headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } }
+      );
+      return res.ok;
+    } catch (err) {
+      console.warn('Backend claimDeliveryCheckoutGroup failed:', err);
+      return false;
+    }
+  },
+
+  async confirmSellerPickup(orderId: string): Promise<any> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) throw new Error('Your delivery session has expired. Please sign in again.');
+    const res = await fetch(`${API_BASE_URL}/delivery/jobs/${encodeURIComponent(orderId)}/confirm-pickup`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || 'Unable to confirm seller pickup');
+    return data;
+  },
+
   async verifyDeliveryOtp(orderId: string, otp: string): Promise<{ success: boolean; message: string }> {
     try {
       const token = localStorage.getItem('kurali_auth_token');

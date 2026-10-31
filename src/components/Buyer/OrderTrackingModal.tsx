@@ -25,7 +25,8 @@ interface OrderTrackingModalProps {
 
 export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId, onClose }) => {
   const { orders, syncWithBackend, showToast } = useApp();
-  const order = orders.find(o => o.id === orderId);
+  const order = orders.find(o => o.id === orderId || o.checkoutGroupId === orderId);
+  const trackingOrderId = order?.trackingOrderId || orderId;
   const orderItems = Array.isArray(order?.items) ? order.items : [];
   const statusUpdates = Array.isArray(order?.statusUpdates) ? order.statusUpdates : [];
   const orderStatus = String(order?.status || 'placed').toLowerCase();
@@ -39,7 +40,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
     setPickupSubmitting(true);
     try {
       const token = localStorage.getItem('kurali_auth_token');
-      const response = await fetch(`${API_BASE_URL}/buyers/orders/${encodeURIComponent(orderId)}/confirm-pickup`, {
+      const response = await fetch(`${API_BASE_URL}/buyers/orders/${encodeURIComponent(trackingOrderId)}/confirm-pickup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ otp: pickupOtp }),
@@ -61,7 +62,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
     setAuthorizedDeliveryOtp(null);
     const refreshOtp = async () => {
       try {
-        const tracking = await buyerApi.getLiveTracking(orderId);
+        const tracking = await buyerApi.getLiveTracking(trackingOrderId);
         if (active && typeof tracking?.deliveryOtp === 'string' && /^\d{4}$/.test(tracking.deliveryOtp)) {
           setAuthorizedDeliveryOtp(tracking.deliveryOtp);
         }
@@ -72,7 +73,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
     void refreshOtp();
     const timer = window.setInterval(refreshOtp, 5000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [orderId]);
+  }, [trackingOrderId]);
 
   if (!order) return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
@@ -227,6 +228,24 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
               ))}
             </div>
           </div>
+
+          {order.checkoutGroupOrders && order.checkoutGroupOrders.length > 1 && (
+            <section className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-blue-900">One combined order · {order.checkoutGroupOrders.length} stores</h4>
+                <span className="text-[10px] font-bold text-blue-700">Single delivery</span>
+              </div>
+              {order.checkoutGroupOrders.map((sellerOrder, index) => (
+                <div key={sellerOrder.id} className="flex items-start justify-between gap-2 rounded-lg bg-white/80 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800">Pickup {index + 1}: {sellerOrder.sellerName || sellerOrder.sellerId}</p>
+                    <p className="text-[11px] text-slate-500">{sellerOrder.sellerAddress || sellerOrder.sellerLocality}</p>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-bold capitalize text-blue-800">{String(sellerOrder.status).replace(/_/g, ' ')}</span>
+                </div>
+              ))}
+            </section>
+          )}
 
           {/* Items & Payment Breakdown */}
           <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
