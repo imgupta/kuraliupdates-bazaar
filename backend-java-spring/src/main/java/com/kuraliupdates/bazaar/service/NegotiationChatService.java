@@ -112,7 +112,7 @@ public class NegotiationChatService {
         }
         boolean expired = expiry != null && expiry.toLocalDateTime().isBefore(LocalDateTime.now());
         BigDecimal offerPrice = request.offerPrice();
-        if (expired && (offerPrice == null || !"EXPIRED".equalsIgnoreCase(lifecycle) && !"REJECTED".equalsIgnoreCase(lifecycle))) {
+        if (expired && offerPrice == null) {
             throw new ApiException(HttpStatus.CONFLICT, "This bargain has expired. Send a new offer to restart bargaining; the catalogue price remains available.");
         }
         if (offerPrice != null && "ACCEPTED".equalsIgnoreCase(lifecycle)) {
