@@ -17,7 +17,6 @@ interface BuyerHomeProps {
   setSearchQuery: (query: string) => void;
   selectedCategory: string;
   setSelectedCategory: (cat: string) => void;
-  onOpenTracking: (orderId: string) => void;
   onBuyNow: (product: Product) => void;
 }
 
@@ -26,7 +25,6 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
   setSearchQuery,
   selectedCategory,
   setSelectedCategory,
-  onOpenTracking,
   onBuyNow,
 }) => {
   const {
