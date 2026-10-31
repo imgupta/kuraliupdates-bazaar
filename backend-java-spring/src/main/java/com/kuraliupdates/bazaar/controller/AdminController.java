@@ -395,6 +395,7 @@ public class AdminController {
                        BATCH_ENABLED AS "batchEnabled",
                        FLEXIBLE_FALLBACK AS "flexibleFallback",
                        STORE_PICKUP_ENABLED AS "storePickupEnabled",
+                       OTP_RESEND_TIMEOUT_SECONDS AS "otpResendTimeoutSeconds",
                        UPDATED_AT AS "updatedAt"
                   FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID = 1
                 """));
@@ -417,15 +418,16 @@ public class AdminController {
         int batch = configFlag(payload, "batchEnabled");
         int fallback = configFlag(payload, "flexibleFallback");
         int pickup = configFlag(payload, "storePickupEnabled");
+        int otpResendTimeout = configDecimal(payload, "otpResendTimeoutSeconds", new BigDecimal("5"), new BigDecimal("300")).intValueExact();
         jdbcTemplate.update("""
                 UPDATE DELIVERY_CONFIGURATION
                    SET NEARBY_RADIUS_KM=?, MAX_SELLERS_PER_BATCH=?, MAX_ROUTE_KM=?,
                        CUSTOMER_BASE_FEE=?, CUSTOMER_PER_KM_FEE=?, RIDER_BASE_PAYOUT=?,
                        RIDER_PER_KM_PAYOUT=?, MAX_WAIT_MINUTES=?, BATCH_ENABLED=?,
-                       FLEXIBLE_FALLBACK=?, STORE_PICKUP_ENABLED=?, UPDATED_AT=CURRENT_TIMESTAMP
+                       FLEXIBLE_FALLBACK=?, STORE_PICKUP_ENABLED=?, OTP_RESEND_TIMEOUT_SECONDS=?, UPDATED_AT=CURRENT_TIMESTAMP
                  WHERE CONFIG_ID=1
                 """, radius, maxSellers, maxRoute, customerBase, customerPerKm, riderBase,
-                riderPerKm, wait.intValueExact(), batch, fallback, pickup);
+                riderPerKm, wait.intValueExact(), batch, fallback, pickup, otpResendTimeout);
         return getDeliveryConfiguration();
     }
 

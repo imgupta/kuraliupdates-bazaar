@@ -42,7 +42,8 @@ public class AuthController {
                 "message", "A 6-digit verification code has been sent",
                 "identifier", result.identifier(),
                 "type", result.type(),
-                "expiresInSeconds", result.expiresInSeconds()
+                "expiresInSeconds", result.expiresInSeconds(),
+                "resendAfterSeconds", result.resendAfterSeconds()
         ));
     }
 

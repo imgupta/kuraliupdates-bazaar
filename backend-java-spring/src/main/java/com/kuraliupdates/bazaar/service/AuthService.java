@@ -64,7 +64,7 @@ public class AuthService {
         // identity can add another marketplace role (seller, rider or Daily Help).
         // The requested role is validated during OTP verification.
         otpService.send(identifier, type);
-        return new OtpSendResult(mask(identifier), type, 600);
+        return new OtpSendResult(mask(identifier), type, 600, otpService.getResendCooldownSeconds());
     }
 
     @Transactional(readOnly = true)
@@ -522,7 +522,7 @@ public class AuthService {
         return value == null ? "" : value.trim();
     }
 
-    public record OtpSendResult(String identifier, String type, int expiresInSeconds) {}
+    public record OtpSendResult(String identifier, String type, int expiresInSeconds, int resendAfterSeconds) {}
 
     public record AuthResult(String token, UserResponse user, String message) {}
     public record OnboardingStatus(String role, String status) {}
