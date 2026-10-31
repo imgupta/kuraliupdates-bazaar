@@ -60,6 +60,7 @@ export const DeliveryDashboard: React.FC = () => {
   const [otpInputs, setOtpInputs] = useState<{ [orderId: string]: string }>({});
   const [deliveryJobsLoading, setDeliveryJobsLoading] = useState(false);
   const [backendAgent, setBackendAgent] = useState<any | null>(null);
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [liveAvailableOrders, setLiveAvailableOrders] = useState<Order[]>([]);
   const [resendingOtp, setResendingOtp] = useState<Record<string, boolean>>({});
   const [otpCooldowns, setOtpCooldowns] = useState<Record<string, number>>({});
@@ -108,6 +109,7 @@ export const DeliveryDashboard: React.FC = () => {
         vehicleNumber: backendAgent.vehicleNumber,
         licenseNumber: backendAgent.licenseNumber,
         status: String(backendAgent.status || '').toLowerCase(),
+        availableForJobs: backendAgent.availableForJobs !== false,
         rating: Number(backendAgent.rating || 0),
         totalTrips: Number(backendAgent.totalTrips || 0),
         todayEarnings: Number(backendAgent.todayEarnings || 0),
@@ -171,6 +173,18 @@ export const DeliveryDashboard: React.FC = () => {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [agent?.id]);
 
+  const toggleRiderAvailability = async () => {
+    if (!backendAgent || availabilitySaving || String(backendAgent.status || '').toUpperCase() !== 'ACTIVE') return;
+    setAvailabilitySaving(true);
+    try {
+      const updated = await deliveryApi.setAvailability(backendAgent.availableForJobs === false);
+      setBackendAgent(updated);
+      setLiveAvailableOrders(updated.availableForJobs === false ? [] : await deliveryApi.getDeliveryAvailableJobs() as Order[]);
+      showToast(updated.availableForJobs === false ? 'You are offline. No new jobs will be assigned.' : 'You are online and can accept new jobs.', 'success');
+    } catch (error: any) { showToast(error?.message || 'Unable to update availability.', 'error'); }
+    finally { setAvailabilitySaving(false); }
+  };
+
   // Normalize duplicate records from overlapping background syncs. When the same
   // order appears with conflicting states, keep the most advanced server state.
   const uniqueOrders = uniqueOrdersById(orders);
@@ -183,7 +197,7 @@ export const DeliveryDashboard: React.FC = () => {
 
   // Available jobs come from the live dispatch endpoint. Never fall back to stale
   // local READY_FOR_PICKUP records when the server currently returns no jobs.
-  const availableOrders = agent?.status === 'active'
+  const availableOrders = agent?.status === 'active' && backendAgent?.availableForJobs !== false
     ? uniqueOrdersById(liveAvailableOrders).filter(
         o => o.status === 'ready_for_pickup'
           && !activeOrderIds.has(o.id)
@@ -272,12 +286,20 @@ export const DeliveryDashboard: React.FC = () => {
             </div>
           </div>
 
-          <button
-            onClick={() => setIsDeliveryRegisterOpen(true)}
-            className="px-4 py-2 bg-emerald-800/60 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs transition-colors border border-emerald-400/30 cursor-pointer"
-          >
-            Update Profile / Vehicle
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {backendAgent && String(backendAgent.status || '').toUpperCase() === 'ACTIVE' && (
+              <button type="button" onClick={() => void toggleRiderAvailability()} disabled={availabilitySaving}
+                className={`rounded-xl px-4 py-2 text-xs font-extrabold transition-colors disabled:opacity-60 ${backendAgent.availableForJobs === false ? 'bg-slate-200 text-slate-800' : 'bg-emerald-500 text-white'}`}>
+                {availabilitySaving ? 'Updating…' : backendAgent.availableForJobs === false ? 'Go Online' : 'Go Offline'}
+              </button>
+            )}
+            <button
+              onClick={() => setIsDeliveryRegisterOpen(true)}
+              className="px-4 py-2 bg-emerald-800/60 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs transition-colors border border-emerald-400/30 cursor-pointer"
+            >
+              Update Profile / Vehicle
+            </button>
+          </div>
         </div>
 
         {/* Earnings Stats */}
