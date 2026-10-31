@@ -220,7 +220,7 @@ public class OrderService {
                         "SELECT CHAT_ID FROM NEGOTIATION_CHATS WHERE PRODUCT_ID=? AND LOWER(BUYER_EMAIL)=? AND BARGAIN_STATUS IN ('PENDING_SELLER','PENDING_BUYER') FOR UPDATE",
                         (rs, row) -> rs.getString(1), entry.getKey(),
                         buyer.getEmail() == null ? "" : buyer.getEmail().trim().toLowerCase(Locale.ROOT));
-                for (String pendingChatId : pendingChats) {
+                if (pendingChats != null) for (String pendingChatId : pendingChats) {
                     jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS='CLOSED_PURCHASED', EXPIRES_AT=NULL, CLOSED_AT=?, LAST_UPDATED=? WHERE CHAT_ID=? AND BARGAIN_STATUS IN ('PENDING_SELLER','PENDING_BUYER')",
                             Timestamp.valueOf(LocalDateTime.now()), Timestamp.valueOf(LocalDateTime.now()), pendingChatId);
                 }
