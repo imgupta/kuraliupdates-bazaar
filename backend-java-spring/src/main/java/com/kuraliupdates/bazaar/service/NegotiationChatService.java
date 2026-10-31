@@ -89,7 +89,7 @@ public class NegotiationChatService {
         insertMessage(chatId, "BUYER", safeName(user.getName(), "Buyer"),
                 blank(request.openingMessage()) ? "Hi, I'm interested in " + product.get("productTitle") + ". Can you offer a better price?" : request.openingMessage().trim(),
                 offerPrice, "PENDING");
-        notifyParticipant(chatId, sellerId, "SELLER", "NEW_OFFER", "A buyer sent you a price offer.");
+        notifyParticipant(chatId, sellerEmail(sellerId), "SELLER", "NEW_OFFER", "A buyer sent you a price offer.");
         return getChatForKnownParticipant(chatId);
     }
 
@@ -112,7 +112,7 @@ public class NegotiationChatService {
             String nextStatus = "SELLER".equals(role) ? "PENDING_BUYER" : "PENDING_SELLER";
             jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS=?, EXPIRES_AT=?, LAST_UPDATED=? WHERE CHAT_ID=?",
                     nextStatus, Timestamp.valueOf(LocalDateTime.now().plusHours(24)), Timestamp.valueOf(LocalDateTime.now()), chatId);
-            String recipient = "SELLER".equals(role) ? normalizeEmail(Objects.toString(chat.get("buyerEmail"), "")) : Objects.toString(chat.get("sellerId"));
+            String recipient = "SELLER".equals(role) ? normalizeEmail(Objects.toString(chat.get("buyerEmail"), "")) : sellerEmail(Objects.toString(chat.get("sellerId"), ""));
             notifyParticipant(chatId, recipient, "SELLER".equals(role) ? "BUYER" : "SELLER", "COUNTER_OFFER", "A new counter-offer is waiting for your response.");
         } else {
             jdbc.update("UPDATE NEGOTIATION_CHATS SET LAST_UPDATED=? WHERE CHAT_ID=?", Timestamp.valueOf(LocalDateTime.now()), chatId);
@@ -250,9 +250,14 @@ public class NegotiationChatService {
     private void notifyOtherParticipant(Map<String, Object> chat, String actingRole, String event, String message) {
         String recipient = "SELLER".equals(actingRole)
                 ? normalizeEmail(Objects.toString(chat.get("buyerEmail"), ""))
-                : Objects.toString(chat.get("sellerId"), "");
+                : sellerEmail(Objects.toString(chat.get("sellerId"), ""));
         notifyParticipant(Objects.toString(chat.get("id"), ""), recipient,
                 "SELLER".equals(actingRole) ? "BUYER" : "SELLER", event, message);
+    }
+
+    private String sellerEmail(String sellerId) {
+        if (blank(sellerId)) return "";
+        return sellerRepository.findById(sellerId).map(seller -> normalizeEmail(seller.getEmail())).orElse("");
     }
 
     private void notifyParticipant(String chatId, String recipient, String recipientRole, String event, String message) {
