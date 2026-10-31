@@ -495,6 +495,21 @@ class DeliveryServiceTest {
     }
 
     @Test
+    void combinedCheckoutIsNotDispatchableUntilEverySellerIsReady() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity ready = OrderEntity.builder().orderId("READY-1").checkoutGroupId("CHK-READY")
+                .status("READY_FOR_PICKUP").fulfilmentMode("DELIVERY").build();
+        OrderEntity notReady = OrderEntity.builder().orderId("WAITING-2").checkoutGroupId("CHK-READY")
+                .status("ACCEPTED_BY_SELLER").fulfilmentMode("DELIVERY").build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findByStatus("READY_FOR_PICKUP")).thenReturn(java.util.List.of(ready));
+        when(orderRepository.findByCheckoutGroupIdOrderByPlacedAtAsc("CHK-READY"))
+                .thenReturn(java.util.List.of(ready, notReady));
+
+        assertTrue(deliveryService.availableJobs(user()).isEmpty());
+    }
+
+    @Test
     void riderConfirmsEachSellerPickupIndependently() {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder().orderId("PICKUP-1")
