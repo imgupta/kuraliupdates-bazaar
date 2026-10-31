@@ -26,6 +26,9 @@ public class OrderEntity {
 
     @Column(name = "CHECKOUT_GROUP_ID", length = 64) private String checkoutGroupId;
     @Column(name = "FULFILMENT_STATUS", length = 40) private String fulfilmentStatus;
+    @Column(name = "FULFILMENT_MODE", nullable = false, length = 20) private String fulfilmentMode;
+    @Column(name = "RIDER_PAYOUT_SNAPSHOT", precision = 10, scale = 2) private BigDecimal riderPayoutSnapshot;
+    @Column(name = "RIDER_PAYOUT_SNAPSHOTTED_AT") private LocalDateTime riderPayoutSnapshottedAt;
     @Column(name = "SUBTOTAL", nullable = false, precision = 10, scale = 2) private BigDecimal subtotal;
     @Column(name = "BILL_DISCOUNT_AMOUNT", precision = 10, scale = 2) private BigDecimal billDiscountAmount;
     @Column(name = "COUPON_DISCOUNT_AMOUNT", precision = 10, scale = 2) private BigDecimal couponDiscountAmount;
