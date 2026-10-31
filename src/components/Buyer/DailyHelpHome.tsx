@@ -36,7 +36,7 @@ export const DailyHelpHome: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [catalogError, setCatalogError] = useState(false);
   const [selected, setSelected] = useState<DailyHelpService | null>(null);
-  const [hours, setHours] = useState(2);
+  const [hours, setHours] = useState(1);
   const [bookingDate, setBookingDate] = useState(localDateString(new Date(Date.now() + 24 * 60 * 60 * 1000)));
   const [slots, setSlots] = useState<DailyHelpSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<DailyHelpSlot | null>(null);
@@ -95,7 +95,7 @@ export const DailyHelpHome: React.FC = () => {
 
   const openBooking = (service: DailyHelpService) => {
     setSelected(service);
-    setHours(Math.max(service.minHours, 2));
+    setHours(1);
     setBookingDate(localDateString(new Date(Date.now() + 24 * 60 * 60 * 1000)));
     setSelectedSlot(null);
   };
@@ -211,7 +211,7 @@ export const DailyHelpHome: React.FC = () => {
             <div className="mt-4 grid grid-cols-2 gap-3">
               <label className="text-xs font-bold text-slate-700">Duration
                 <select value={hours} onChange={e => setHours(Number(e.target.value))} className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 bg-white">
-                  {Array.from({ length: 12 - selected.minHours + 1 }, (_, i) => selected.minHours + i).map(value => <option key={value} value={value}>{value} hour{value > 1 ? 's' : ''}</option>)}
+                  <option value={1}>1 hour</option>
                 </select>
               </label>
               <label className="text-xs font-bold text-slate-700">Date
@@ -222,7 +222,7 @@ export const DailyHelpHome: React.FC = () => {
             <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs">
               <div className="flex justify-between"><span>Rate</span><strong>₹{selected.pricePerHour}/hr</strong></div>
               <div className="flex justify-between mt-1"><span>Estimated total</span><strong>₹{selected.pricePerHour * hours}</strong></div>
-              <div className="mt-2 flex gap-2 text-slate-500"><CalendarDays className="w-4 h-4 shrink-0" /> Only maid slots matching your selected duration are shown.</div>
+              <div className="mt-2 flex gap-2 text-slate-500"><CalendarDays className="w-4 h-4 shrink-0" /> Choose any available one-hour period within the professional’s availability window.</div>
             </div>
 
             <div className="mt-5">
@@ -272,7 +272,7 @@ export const DailyHelpHome: React.FC = () => {
           <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><ShieldCheck className="h-5 w-5" /></div>
           <div className="min-w-0">
             <h2 className="text-sm font-black text-slate-900">Daily Help, whenever you need it</h2>
-            <p className="mt-1 text-xs leading-relaxed text-slate-600">Book a trusted local professional by the hour. Choose a service, date and duration to see available slots. Your service timer starts only after OTP verification.</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">Book a trusted local professional by the hour. Choose a service and date to see available one-hour slots. Your service timer starts only after OTP verification.</p>
             <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold text-slate-600">
               <span className="rounded-full border border-amber-100 bg-white px-2.5 py-1">Verified professionals</span>
               <span className="rounded-full border border-amber-100 bg-white px-2.5 py-1">Live availability</span>
