@@ -182,6 +182,26 @@ public class DeliveryService {
         return orderRepository.saveAll(orders);
     }
 
+    /** Confirms collection at one seller stop without completing the whole checkout. */
+    @Transactional
+    public OrderEntity confirmSellerPickup(String orderId, com.kuraliupdates.bazaar.entity.UserEntity user) {
+        DeliveryAgentEntity agent = findAgentForUser(user);
+        requireActive(agent);
+        OrderEntity order = orderRepository.findLockedByOrderId(orderId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Seller order not found"));
+        if (order.getDeliveryAgent() == null
+                || !order.getDeliveryAgent().getAgentId().equals(agent.getAgentId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This pickup is not assigned to your delivery profile");
+        }
+        if (!"ASSIGNED_TO_DELIVERY".equals(order.getStatus()) && !"PICKED_UP".equals(order.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "This seller order is not awaiting pickup");
+        }
+        order.setStatus("PICKED_UP");
+        order.setFulfilmentStatus("PICKED_UP_BY_RIDER");
+        order.setUpdatedAt(LocalDateTime.now());
+        return orderRepository.save(order);
+    }
+
     @Transactional
     public Map<String, Object> resendDeliveryOtp(String orderId, com.kuraliupdates.bazaar.entity.UserEntity user) {
         DeliveryAgentEntity authenticatedAgent = findAgentForUser(user);
@@ -247,8 +267,8 @@ public class DeliveryService {
         if ("DELIVERED".equals(order.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "Order has already been delivered");
         }
-        if (!"ASSIGNED_TO_DELIVERY".equals(order.getStatus()) && !"PICKED_UP".equals(order.getStatus())) {
-            throw new ApiException(HttpStatus.CONFLICT, "Order is not in an active delivery state");
+        if (!"PICKED_UP".equals(order.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Confirm collection from the seller before completing customer delivery");
         }
         if (!enteredOtp.equals(order.getDeliveryOtp())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid Delivery OTP");
@@ -267,8 +287,7 @@ public class DeliveryService {
                 && deliveryOrder.getDeliveryAgent() != null
                 && deliveryOrder.getDeliveryAgent().getAgentId().equals(authenticatedAgent.getAgentId())
                 && enteredOtp.equals(deliveryOrder.getDeliveryOtp())
-                && ("ASSIGNED_TO_DELIVERY".equals(deliveryOrder.getStatus())
-                    || "PICKED_UP".equals(deliveryOrder.getStatus())));
+                && "PICKED_UP".equals(deliveryOrder.getStatus()));
         // Separate-job fallback remains valid: only complete the individually assigned order.
         List<OrderEntity> deliveryOrders = combinedClaim ? checkoutOrders : List.of(order);
         LocalDateTime deliveredAt = LocalDateTime.now();
