@@ -76,6 +76,11 @@ export const useBuyerCommerceState = (
         negotiatedPrice: bargainStatus === 'ACCEPTED' ? negotiatedPrice : undefined,
         acceptedOfferId: bargainStatus === 'ACCEPTED' ? acceptedOfferId : undefined,
       };
+      if (item.bargainId === bargainFields.bargainId
+        && item.bargainStatus === bargainFields.bargainStatus
+        && item.bargainOfferPrice === bargainFields.bargainOfferPrice
+        && item.negotiatedPrice === bargainFields.negotiatedPrice
+        && item.acceptedOfferId === bargainFields.acceptedOfferId) return item;
       return { ...item, ...bargainFields };
     }));
   }, []);
