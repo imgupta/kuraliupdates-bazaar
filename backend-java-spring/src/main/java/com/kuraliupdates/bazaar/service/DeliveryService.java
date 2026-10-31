@@ -102,6 +102,7 @@ public class DeliveryService {
 
         order.setDeliveryAgent(authenticatedAgent);
         order.setStatus("ASSIGNED_TO_DELIVERY");
+        order.setCombinedDeliveryBatchId(null);
         if (order.getRiderPayoutSnapshot() == null) {
             BigDecimal base = configuredPayout("RIDER_BASE_PAYOUT", BigDecimal.valueOf(45));
             BigDecimal perKm = configuredPayout("RIDER_PER_KM_PAYOUT", BigDecimal.valueOf(22));
