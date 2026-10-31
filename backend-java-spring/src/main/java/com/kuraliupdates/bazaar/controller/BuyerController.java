@@ -68,6 +68,19 @@ public class BuyerController {
         return ResponseEntity.ok(orderService.placeMultiSellerOrder(request, user, e2eRunId));
     }
 
+    @PostMapping("/orders/{orderId}/confirm-pickup")
+    @Operation(summary = "Confirm store pickup using the buyer's one-time pickup OTP")
+    public ResponseEntity<OrderResponse> confirmStorePickup(
+            @PathVariable String orderId,
+            @RequestBody java.util.Map<String, String> payload,
+            Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
+        }
+        return ResponseEntity.ok(orderService.confirmStorePickup(orderId,
+                payload == null ? null : payload.get("otp"), user));
+    }
+
     @GetMapping("/me/orders")
     @Operation(summary = "Get order history for the authenticated buyer")
     public ResponseEntity<List<OrderResponse>> myOrders(Authentication authentication) {
