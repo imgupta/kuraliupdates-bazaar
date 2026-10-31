@@ -241,10 +241,22 @@ public class DeliveryService {
         if (combinedClaim) orderRepository.saveAll(deliveryOrders);
         else orderRepository.save(order);
 
-        BigDecimal payout = deliveryOrders.stream().map(OrderEntity::getRiderPayoutSnapshot)
-                .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (deliveryOrders.stream().anyMatch(deliveryOrder -> deliveryOrder.getRiderPayoutSnapshot() == null)) {
-            throw new ApiException(HttpStatus.CONFLICT, "Rider payout snapshot is missing; contact support before completing this delivery");
+        BigDecimal payout;
+        if (deliveryOrders.stream().allMatch(deliveryOrder -> deliveryOrder.getRiderPayoutSnapshot() != null)) {
+            payout = deliveryOrders.stream().map(OrderEntity::getRiderPayoutSnapshot)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        } else {
+            // Backward compatibility for orders claimed before payout snapshots were introduced.
+            BigDecimal distance = deliveryOrders.stream().map(OrderEntity::getDistanceKm)
+                    .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+            payout = configuredPayout("RIDER_BASE_PAYOUT", BigDecimal.valueOf(45))
+                    .add(distance.multiply(configuredPayout("RIDER_PER_KM_PAYOUT", BigDecimal.valueOf(22))))
+                    .setScale(2, java.math.RoundingMode.HALF_UP);
+            deliveryOrders.forEach(deliveryOrder -> {
+                deliveryOrder.setRiderPayoutSnapshot(BigDecimal.ZERO);
+                deliveryOrder.setRiderPayoutSnapshottedAt(deliveredAt);
+            });
+            deliveryOrders.get(0).setRiderPayoutSnapshot(payout);
         }
         agent.setTotalTrips(agent.getTotalTrips() + 1);
         agent.setTodayEarnings(agent.getTodayEarnings().add(payout));
