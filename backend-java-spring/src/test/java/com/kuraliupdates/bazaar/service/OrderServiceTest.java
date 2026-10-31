@@ -141,6 +141,47 @@ class OrderServiceTest {
     }
 
     @Test
+    void buyerCanConfirmReadyStorePickupWithOwnOtp() {
+        OrderEntity order = OrderEntity.builder()
+                .orderId("PICKUP-ORDER-1")
+                .buyerEmail("authenticated@example.test")
+                .fulfilmentMode("STORE_PICKUP")
+                .status("READY_FOR_PICKUP")
+                .paymentMethod("COD")
+                .paymentStatus("PENDING_COD")
+                .deliveryOtp("0042")
+                .build();
+        when(orderRepository.findLockedByOrderId("PICKUP-ORDER-1")).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = orderService.confirmStorePickup("PICKUP-ORDER-1", "0042", buyer());
+
+        assertEquals("DELIVERED", order.getStatus());
+        assertEquals("PICKED_UP_BY_BUYER", order.getFulfilmentStatus());
+        assertEquals("PAID", order.getPaymentStatus());
+        assertEquals("STORE_PICKUP", response.fulfilmentMode());
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    void buyerCannotConfirmStorePickupForAnotherBuyer() {
+        OrderEntity order = OrderEntity.builder()
+                .orderId("PICKUP-ORDER-2")
+                .buyerEmail("owner@example.test")
+                .fulfilmentMode("STORE_PICKUP")
+                .status("READY_FOR_PICKUP")
+                .deliveryOtp("0042")
+                .build();
+        when(orderRepository.findLockedByOrderId("PICKUP-ORDER-2")).thenReturn(Optional.of(order));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.confirmStorePickup("PICKUP-ORDER-2", "0042", buyer()));
+
+        assertEquals(HttpStatus.NOT_FOUND, error.getStatus());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
     void allowsBuyerToTrackOnlyTheirOwnOrder() {
         OrderEntity order = OrderEntity.builder()
                 .orderId("ORDER-1")

@@ -12,6 +12,7 @@ import {
   Lock,
   Truck,
   Sparkles,
+  Store,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useApp } from '../../context/AppContext';
@@ -31,6 +32,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
   const [streetAddress, setStreetAddress] = useState(selectedAddress?.addressLine1 || user.addressLine1 || user.address || '');
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Card' | 'COD' | 'NetBanking'>('COD');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [fulfilmentMode, setFulfilmentMode] = useState<'DELIVERY' | 'STORE_PICKUP'>('DELIVERY');
+  const multiSellerCart = new Set(cart.map(item => item.product.sellerId)).size > 1;
+  const pickupTotal = Math.max(0, cartCalculations.subtotal - cartCalculations.billDiscount - cartCalculations.couponDiscount);
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +49,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
         deliveryAddress: fullAddress,
         deliveryLocality,
         paymentMethod,
+        fulfilmentMode,
       });
 
       if (created) {
@@ -84,18 +89,38 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
           <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between text-xs">
             <span className="flex items-center gap-2 text-amber-900 font-bold">
               <Truck className="w-4 h-4 text-amber-600" />
-              {cartCalculations.isFreeDelivery
+              {fulfilmentMode === 'STORE_PICKUP' ? 'Store pickup selected — no delivery charge' : cartCalculations.isFreeDelivery
                 ? 'FREE Delivery Qualified (Order > Min Threshold)'
                 : `Standard Delivery Fee: ₹${cartCalculations.deliveryFee}`}
             </span>
             <span className="text-emerald-700 font-extrabold">25 Mins ETA</span>
           </div>
 
+          {multiSellerCart && (
+            <section className="space-y-2">
+              <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Fulfilment preference</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => setFulfilmentMode('DELIVERY')}
+                  className={`rounded-xl border-2 p-3 text-left ${fulfilmentMode === 'DELIVERY' ? 'border-amber-500 bg-amber-50' : 'border-slate-200'}`}>
+                  <Truck className="w-5 h-5 mb-1 text-amber-600" />
+                  <span className="block text-xs font-bold text-slate-900">Deliver to me</span>
+                  <span className="block text-[11px] text-slate-500">Rider collects from stores</span>
+                </button>
+                <button type="button" onClick={() => setFulfilmentMode('STORE_PICKUP')}
+                  className={`rounded-xl border-2 p-3 text-left ${fulfilmentMode === 'STORE_PICKUP' ? 'border-amber-500 bg-amber-50' : 'border-slate-200'}`}>
+                  <Store className="w-5 h-5 mb-1 text-emerald-600" />
+                  <span className="block text-xs font-bold text-slate-900">I’ll collect from stores</span>
+                  <span className="block text-[11px] text-slate-500">No delivery fee or rider</span>
+                </button>
+              </div>
+            </section>
+          )}
+
           {/* Section 1: Delivery Details */}
           <div className="space-y-3">
             <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-amber-600" />
-              1. Delivery Address in Kurali
+              {fulfilmentMode === 'STORE_PICKUP' ? '1. Your pickup locality in Kurali' : '1. Delivery Address in Kurali'}
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -276,15 +301,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
               </div>
             )}
             <div className="flex justify-between text-slate-600">
-              <span>Delivery Fee</span>
-              <span>
-                {cartCalculations.isFreeDelivery ? 'FREE' : `₹${cartCalculations.deliveryFee}`}
-              </span>
+              <span>{fulfilmentMode === 'STORE_PICKUP' ? 'Store Pickup' : 'Delivery Fee'}</span>
+              <span>{fulfilmentMode === 'STORE_PICKUP' || cartCalculations.isFreeDelivery ? 'FREE' : `₹${cartCalculations.deliveryFee}`}</span>
             </div>
             <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline font-extrabold text-sm text-slate-900">
               <span>Final Total</span>
               <span className="text-base text-amber-600 font-black">
-                ₹{cartCalculations.finalTotal}
+                ₹{fulfilmentMode === 'STORE_PICKUP' ? pickupTotal : cartCalculations.finalTotal}
               </span>
             </div>
           </div>
@@ -298,7 +321,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
               <span>Confirming Order with Kurali Store...</span>
             ) : (
               <span>
-                {paymentMethod === 'COD' ? 'Place COD Order' : 'Online payment unavailable'} &bull; ₹{cartCalculations.finalTotal}
+                {paymentMethod === 'COD' ? (fulfilmentMode === 'STORE_PICKUP' ? 'Place Store Pickup Order' : 'Place COD Order') : 'Online payment unavailable'} &bull; ₹{fulfilmentMode === 'STORE_PICKUP' ? pickupTotal : cartCalculations.finalTotal}
               </span>
             )}
           </button>

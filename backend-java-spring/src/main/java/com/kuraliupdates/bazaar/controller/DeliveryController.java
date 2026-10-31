@@ -74,6 +74,18 @@ public class DeliveryController {
         return ResponseEntity.ok(OrderResponse.from(deliveryService.claim(orderId, agentId, user)));
     }
 
+    @PostMapping("/jobs/checkout/{checkoutGroupId}/claim")
+    @Transactional
+    @Operation(summary = "Atomically claim every ready seller order in a route-feasible combined checkout")
+    public ResponseEntity<List<OrderResponse>> claimCheckoutGroup(
+            @PathVariable String checkoutGroupId,
+            @RequestParam String agentId,
+            Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        return ResponseEntity.ok(deliveryService.claimCheckoutGroup(checkoutGroupId, agentId, user)
+                .stream().map(OrderResponse::from).toList());
+    }
+
     @PostMapping("/jobs/{orderId}/resend-otp")
     public ResponseEntity<Map<String, Object>> resendDeliveryOtp(
             @PathVariable String orderId,

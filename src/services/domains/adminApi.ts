@@ -260,4 +260,34 @@ export const adminApi = {
     if (!res.ok) throw new Error(data?.message || data?.error || `Unable to load account audit (HTTP ${res.status})`);
     return Array.isArray(data) ? data : [];
   },
+
+  async getDeliveryConfiguration(): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/delivery/configuration`, { headers: adminAuthHeaders(), cache: 'no-store' });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to load delivery configuration (HTTP ${res.status})`);
+    return data;
+  },
+
+  async updateDeliveryConfiguration(payload: Record<string, number | boolean>): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/delivery/configuration`, {
+      method: 'PUT',
+      headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to update delivery configuration (HTTP ${res.status})`);
+    return data;
+  },
+
+  async verifySellerLocation(sellerId: string, latitude: number, longitude: number, verified: boolean): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/sellers/${encodeURIComponent(sellerId)}/location`, {
+      method: 'POST',
+      headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ latitude, longitude, verified }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to save seller location (HTTP ${res.status})`);
+    return data;
+  },
+
 };

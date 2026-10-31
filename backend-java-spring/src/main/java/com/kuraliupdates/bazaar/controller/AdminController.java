@@ -378,4 +378,113 @@ public class AdminController {
         return ResponseEntity.ok(rows);
     }
 
+
+    @GetMapping("/delivery/configuration")
+    @Transactional(readOnly = true)
+    @Operation(summary = "Read multi-seller delivery configuration")
+    public ResponseEntity<Map<String, Object>> getDeliveryConfiguration() {
+        return ResponseEntity.ok(jdbcTemplate.queryForMap("""
+                SELECT NEARBY_RADIUS_KM AS "nearbyRadiusKm",
+                       MAX_SELLERS_PER_BATCH AS "maxSellersPerBatch",
+                       MAX_ROUTE_KM AS "maxRouteKm",
+                       CUSTOMER_BASE_FEE AS "customerBaseFee",
+                       CUSTOMER_PER_KM_FEE AS "customerPerKmFee",
+                       RIDER_BASE_PAYOUT AS "riderBasePayout",
+                       RIDER_PER_KM_PAYOUT AS "riderPerKmPayout",
+                       MAX_WAIT_MINUTES AS "maxWaitMinutes",
+                       BATCH_ENABLED AS "batchEnabled",
+                       FLEXIBLE_FALLBACK AS "flexibleFallback",
+                       STORE_PICKUP_ENABLED AS "storePickupEnabled",
+                       UPDATED_AT AS "updatedAt"
+                  FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID = 1
+                """));
+    }
+
+    @PutMapping("/delivery/configuration")
+    @Transactional
+    @Operation(summary = "Update multi-seller delivery configuration")
+    public ResponseEntity<Map<String, Object>> updateDeliveryConfiguration(
+            @RequestBody Map<String, Object> payload) {
+        BigDecimal radius = configDecimal(payload, "nearbyRadiusKm", new BigDecimal("0.5"), new BigDecimal("50"));
+        BigDecimal maxSellersValue = configDecimal(payload, "maxSellersPerBatch", BigDecimal.ONE, BigDecimal.TEN);
+        BigDecimal maxRoute = configDecimal(payload, "maxRouteKm", BigDecimal.ONE, new BigDecimal("100"));
+        BigDecimal customerBase = configDecimal(payload, "customerBaseFee", BigDecimal.ZERO, new BigDecimal("10000"));
+        BigDecimal customerPerKm = configDecimal(payload, "customerPerKmFee", BigDecimal.ZERO, new BigDecimal("1000"));
+        BigDecimal riderBase = configDecimal(payload, "riderBasePayout", BigDecimal.ZERO, new BigDecimal("10000"));
+        BigDecimal riderPerKm = configDecimal(payload, "riderPerKmPayout", BigDecimal.ZERO, new BigDecimal("1000"));
+        BigDecimal wait = configDecimal(payload, "maxWaitMinutes", BigDecimal.ZERO, new BigDecimal("120"));
+        int maxSellers = maxSellersValue.intValueExact();
+        int batch = configFlag(payload, "batchEnabled");
+        int fallback = configFlag(payload, "flexibleFallback");
+        int pickup = configFlag(payload, "storePickupEnabled");
+        jdbcTemplate.update("""
+                UPDATE DELIVERY_CONFIGURATION
+                   SET NEARBY_RADIUS_KM=?, MAX_SELLERS_PER_BATCH=?, MAX_ROUTE_KM=?,
+                       CUSTOMER_BASE_FEE=?, CUSTOMER_PER_KM_FEE=?, RIDER_BASE_PAYOUT=?,
+                       RIDER_PER_KM_PAYOUT=?, MAX_WAIT_MINUTES=?, BATCH_ENABLED=?,
+                       FLEXIBLE_FALLBACK=?, STORE_PICKUP_ENABLED=?, UPDATED_AT=CURRENT_TIMESTAMP
+                 WHERE CONFIG_ID=1
+                """, radius, maxSellers, maxRoute, customerBase, customerPerKm, riderBase,
+                riderPerKm, wait.intValueExact(), batch, fallback, pickup);
+        return getDeliveryConfiguration();
+    }
+
+    @PostMapping("/sellers/{sellerId}/location")
+    @Transactional
+    @Operation(summary = "Set and verify seller store coordinates")
+    public ResponseEntity<Map<String, Object>> verifySellerLocation(
+            @PathVariable String sellerId, @RequestBody Map<String, Object> payload) {
+        SellerEntity seller = sellerRepository.findById(sellerId)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Seller not found"));
+        Object latValue = payload.get("latitude");
+        Object lngValue = payload.get("longitude");
+        boolean verified = Boolean.TRUE.equals(payload.get("verified"));
+        if (latValue != null || lngValue != null) {
+            if (!(latValue instanceof Number) || !(lngValue instanceof Number)) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Both numeric latitude and longitude are required");
+            }
+            double lat = ((Number) latValue).doubleValue();
+            double lng = ((Number) lngValue).doubleValue();
+            if (!Double.isFinite(lat) || !Double.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Coordinates are outside valid latitude/longitude ranges");
+            }
+            seller.setLatitude(BigDecimal.valueOf(lat));
+            seller.setLongitude(BigDecimal.valueOf(lng));
+        }
+        if (verified && (seller.getLatitude() == null || seller.getLongitude() == null)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Coordinates must be saved before verification");
+        }
+        seller.setLocationVerified(verified);
+        sellerRepository.save(seller);
+        return ResponseEntity.ok(Map.of("sellerId", sellerId, "latitude", seller.getLatitude() == null ? "" : seller.getLatitude(),
+                "longitude", seller.getLongitude() == null ? "" : seller.getLongitude(), "locationVerified", verified));
+    }
+
+    private BigDecimal configDecimal(Map<String, Object> payload, String key, BigDecimal min, BigDecimal max) {
+        Object value = payload.get(key);
+        if (!(value instanceof Number number)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, key + " must be numeric");
+        }
+        BigDecimal parsed = new BigDecimal(number.toString());
+        if (parsed.compareTo(min) < 0 || parsed.compareTo(max) > 0) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, key + " must be between " + min + " and " + max);
+        }
+        return parsed;
+    }
+
+    private int configFlag(Map<String, Object> payload, String key) {
+        Object value = payload.get(key);
+        if (!(value instanceof Boolean flag)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, key + " must be true or false");
+        }
+        return flag ? 1 : 0;
+    }
+
 }

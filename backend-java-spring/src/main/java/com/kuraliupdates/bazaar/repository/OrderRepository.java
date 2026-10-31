@@ -8,8 +8,6 @@ import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 import java.util.Optional;
 import org.springframework.stereotype.Repository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 @Repository
@@ -18,6 +16,12 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
     List<OrderEntity> findBySeller_SellerId(String sellerId);
 
     List<OrderEntity> findByStatus(String status);
+
+    List<OrderEntity> findByCheckoutGroupIdOrderByPlacedAtAsc(String checkoutGroupId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from OrderEntity o where o.checkoutGroupId = :checkoutGroupId order by o.placedAt asc")
+    List<OrderEntity> findLockedByCheckoutGroupId(@Param("checkoutGroupId") String checkoutGroupId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from OrderEntity o where o.orderId = :orderId")

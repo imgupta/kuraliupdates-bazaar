@@ -3,6 +3,7 @@ package com.kuraliupdates.bazaar.controller;
 import com.kuraliupdates.bazaar.dto.order.OrderResponse;
 import com.kuraliupdates.bazaar.dto.order.OrderPlacementResponse;
 import com.kuraliupdates.bazaar.dto.order.PlaceOrderRequest;
+import com.kuraliupdates.bazaar.dto.order.MultiSellerCheckoutRequest;
 import com.kuraliupdates.bazaar.dto.product.ProductResponse;
 import com.kuraliupdates.bazaar.service.OrderService;
 import com.kuraliupdates.bazaar.service.ProductService;
@@ -51,6 +52,33 @@ public class BuyerController {
         }
         String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
         return ResponseEntity.ok(orderService.placeOrder(request, user, e2eRunId));
+    }
+
+    @PostMapping("/orders/checkout")
+    @Operation(summary = "Place an atomic multi-seller COD checkout")
+    public ResponseEntity<com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse> placeMultiSellerOrder(
+            @Valid @RequestBody MultiSellerCheckoutRequest request,
+            @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
+            @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
+            Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
+        }
+        String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
+        return ResponseEntity.ok(orderService.placeMultiSellerOrder(request, user, e2eRunId));
+    }
+
+    @PostMapping("/orders/{orderId}/confirm-pickup")
+    @Operation(summary = "Confirm store pickup using the buyer's one-time pickup OTP")
+    public ResponseEntity<OrderResponse> confirmStorePickup(
+            @PathVariable String orderId,
+            @RequestBody java.util.Map<String, String> payload,
+            Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
+        }
+        return ResponseEntity.ok(orderService.confirmStorePickup(orderId,
+                payload == null ? null : payload.get("otp"), user));
     }
 
     @GetMapping("/me/orders")

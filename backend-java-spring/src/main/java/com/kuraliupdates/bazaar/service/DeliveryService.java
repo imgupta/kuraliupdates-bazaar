@@ -8,6 +8,7 @@ import com.kuraliupdates.bazaar.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -28,6 +29,8 @@ public class DeliveryService {
 
     private final DeliveryAgentRepository agentRepository;
     private final OrderRepository orderRepository;
+    private final JdbcTemplate jdbc;
+    private final GoogleRoutesService googleRoutesService;
     private final ConcurrentMap<String, LocalDateTime> deliveryOtpResendAt = new ConcurrentHashMap<>();
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -73,7 +76,9 @@ public class DeliveryService {
         DeliveryAgentEntity agent = findAgentForUser(user);
         requireActive(agent);
         if (Boolean.FALSE.equals(agent.getAvailableForJobs())) return List.of();
-        return orderRepository.findByStatus("READY_FOR_PICKUP");
+        return orderRepository.findByStatus("READY_FOR_PICKUP").stream()
+                .filter(order -> !"STORE_PICKUP".equalsIgnoreCase(order.getFulfilmentMode()))
+                .toList();
     }
 
     @Transactional
@@ -88,21 +93,89 @@ public class DeliveryService {
         // Serialize competing claims so only one active agent can win a READY_FOR_PICKUP order.
         OrderEntity order = orderRepository.findLockedByOrderId(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
+        if ("STORE_PICKUP".equalsIgnoreCase(order.getFulfilmentMode())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Store-pickup orders are collected by the buyer and cannot be claimed by a rider");
+        }
         if (!"READY_FOR_PICKUP".equals(order.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "Order is not available for pickup");
         }
 
         order.setDeliveryAgent(authenticatedAgent);
         order.setStatus("ASSIGNED_TO_DELIVERY");
+        order.setCombinedDeliveryBatchId(null);
+        if (order.getRiderPayoutSnapshot() == null) {
+            BigDecimal base = configuredPayout("RIDER_BASE_PAYOUT", BigDecimal.valueOf(45));
+            BigDecimal perKm = configuredPayout("RIDER_PER_KM_PAYOUT", BigDecimal.valueOf(22));
+            BigDecimal distance = order.getDistanceKm() == null ? BigDecimal.ZERO : order.getDistanceKm();
+            order.setRiderPayoutSnapshot(base.add(distance.multiply(perKm)).setScale(2, java.math.RoundingMode.HALF_UP));
+            order.setRiderPayoutSnapshottedAt(LocalDateTime.now());
+        }
         order.setUpdatedAt(LocalDateTime.now());
         return orderRepository.save(order);
+    }
+
+    @Transactional
+    public List<OrderEntity> claimCheckoutGroup(String checkoutGroupId, String agentId,
+            com.kuraliupdates.bazaar.entity.UserEntity user) {
+        DeliveryAgentEntity agent = findAgentForUser(user);
+        requireActive(agent);
+        requireAvailable(agent);
+        if (!agent.getAgentId().equals(agentId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You can only claim jobs for your own delivery profile");
+        }
+        Integer batchEnabled = jdbc.queryForObject(
+                "SELECT BATCH_ENABLED FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
+        if (!Integer.valueOf(1).equals(batchEnabled)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Combined delivery is currently disabled");
+        }
+        List<OrderEntity> orders = orderRepository.findLockedByCheckoutGroupId(checkoutGroupId);
+        if (orders.size() < 2) throw new ApiException(HttpStatus.NOT_FOUND, "Combined checkout was not found");
+        Integer maxSellers = jdbc.queryForObject(
+                "SELECT MAX_SELLERS_PER_BATCH FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
+        if (maxSellers != null && orders.size() > maxSellers) {
+            throw new ApiException(HttpStatus.CONFLICT, "This checkout exceeds the configured combined-delivery seller limit");
+        }
+        if (orders.stream().anyMatch(o -> "STORE_PICKUP".equalsIgnoreCase(o.getFulfilmentMode()))) {
+            throw new ApiException(HttpStatus.CONFLICT, "Store-pickup checkout cannot be claimed by a rider");
+        }
+        if (orders.stream().anyMatch(o -> !"READY_FOR_PICKUP".equals(o.getStatus()) || o.getDeliveryAgent() != null)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Every seller order must be ready and unassigned before a combined claim");
+        }
+        BigDecimal routeKm = googleRoutesService.calculateCombinedRouteKm(orders);
+        if (routeKm == null) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "A verified Google Maps road route is unavailable. Claim these seller orders as separate delivery jobs.");
+        }
+        BigDecimal maxRouteKm = jdbc.queryForObject(
+                "SELECT MAX_ROUTE_KM FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", BigDecimal.class);
+        if (maxRouteKm != null && routeKm.compareTo(maxRouteKm) > 0) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Combined road route exceeds the configured limit. Claim these seller orders as separate delivery jobs.");
+        }
+        String sharedOtp = String.format("%04d", secureRandom.nextInt(10_000));
+        LocalDateTime now = LocalDateTime.now();
+        BigDecimal groupPayout = configuredPayout("RIDER_BASE_PAYOUT", BigDecimal.valueOf(45))
+                .add(routeKm.multiply(configuredPayout("RIDER_PER_KM_PAYOUT", BigDecimal.valueOf(22))))
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+        for (int i = 0; i < orders.size(); i++) {
+            OrderEntity order = orders.get(i);
+            order.setDeliveryAgent(agent);
+            order.setStatus("ASSIGNED_TO_DELIVERY");
+            order.setDeliveryOtp(sharedOtp);
+            order.setCombinedDeliveryBatchId(checkoutGroupId);
+            order.setDistanceKm(i == 0 ? routeKm : BigDecimal.ZERO);
+            order.setRiderPayoutSnapshot(i == 0 ? groupPayout : BigDecimal.ZERO);
+            order.setRiderPayoutSnapshottedAt(now);
+            order.setUpdatedAt(now);
+        }
+        return orderRepository.saveAll(orders);
     }
 
     @Transactional
     public Map<String, Object> resendDeliveryOtp(String orderId, com.kuraliupdates.bazaar.entity.UserEntity user) {
         DeliveryAgentEntity authenticatedAgent = findAgentForUser(user);
         requireActive(authenticatedAgent);
-        OrderEntity order = orderRepository.findById(orderId)
+        OrderEntity order = orderRepository.findLockedByOrderId(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
 
         if (order.getDeliveryAgent() == null
@@ -114,17 +187,35 @@ public class DeliveryService {
         }
         LocalDateTime now = LocalDateTime.now();
         synchronized (deliveryOtpResendAt) {
-            LocalDateTime lastSent = deliveryOtpResendAt.get(orderId);
+            String resendKey = order.getCombinedDeliveryBatchId() != null
+                    ? order.getCombinedDeliveryBatchId() : orderId;
+            LocalDateTime lastSent = deliveryOtpResendAt.get(resendKey);
             if (lastSent != null && lastSent.plusSeconds(60).isAfter(now)) {
                 long waitSeconds = Math.max(1, java.time.Duration.between(now, lastSent.plusSeconds(60)).getSeconds());
                 throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
                         "Please wait " + waitSeconds + " seconds before resending the delivery OTP");
             }
             String newOtp = String.format("%04d", secureRandom.nextInt(10_000));
-            order.setDeliveryOtp(newOtp);
-            order.setUpdatedAt(now);
-            orderRepository.save(order);
-            deliveryOtpResendAt.put(orderId, now);
+            boolean combined = order.getCombinedDeliveryBatchId() != null
+                    && order.getCombinedDeliveryBatchId().equals(order.getCheckoutGroupId());
+            if (combined) {
+                List<OrderEntity> group = orderRepository.findLockedByCheckoutGroupId(order.getCheckoutGroupId());
+                for (OrderEntity groupedOrder : group) {
+                    if (!order.getCombinedDeliveryBatchId().equals(groupedOrder.getCombinedDeliveryBatchId())
+                            || groupedOrder.getDeliveryAgent() == null
+                            || !groupedOrder.getDeliveryAgent().getAgentId().equals(authenticatedAgent.getAgentId())) {
+                        throw new ApiException(HttpStatus.CONFLICT, "Combined delivery group is no longer consistently assigned");
+                    }
+                    groupedOrder.setDeliveryOtp(newOtp);
+                    groupedOrder.setUpdatedAt(now);
+                }
+                orderRepository.saveAll(group);
+            } else {
+                order.setDeliveryOtp(newOtp);
+                order.setUpdatedAt(now);
+                orderRepository.save(order);
+            }
+            deliveryOtpResendAt.put(resendKey, now);
         }
         return Map.of("success", true, "message", "A new delivery OTP is now available in the customer app.");
     }
@@ -157,21 +248,57 @@ public class DeliveryService {
             throw new ApiException(HttpStatus.FORBIDDEN, "This order is not assigned to your delivery profile");
         }
 
-        order.setStatus("DELIVERED");
-        order.setPaymentStatus("COD".equalsIgnoreCase(order.getPaymentMethod()) ? "PAID" : order.getPaymentStatus());
-        order.setUpdatedAt(LocalDateTime.now());
-        orderRepository.save(order);
-
-        if (agent != null) {
-            BigDecimal distance = order.getDistanceKm() == null ? BigDecimal.ONE : order.getDistanceKm();
-            BigDecimal payout = BigDecimal.valueOf(Math.max(45, Math.round(distance.doubleValue() * 22) + 20));
-            agent.setTotalTrips(agent.getTotalTrips() + 1);
-            agent.setTodayEarnings(agent.getTodayEarnings().add(payout));
-            agent.setTotalEarnings(agent.getTotalEarnings().add(payout));
-            agentRepository.save(agent);
+        List<OrderEntity> checkoutOrders = order.getCheckoutGroupId() == null
+                ? List.of(order)
+                : orderRepository.findLockedByCheckoutGroupId(order.getCheckoutGroupId());
+        boolean combinedClaim = checkoutOrders.size() > 1 && checkoutOrders.stream().allMatch(deliveryOrder ->
+                order.getCheckoutGroupId().equals(deliveryOrder.getCombinedDeliveryBatchId())
+                && deliveryOrder.getDeliveryAgent() != null
+                && deliveryOrder.getDeliveryAgent().getAgentId().equals(authenticatedAgent.getAgentId())
+                && enteredOtp.equals(deliveryOrder.getDeliveryOtp())
+                && ("ASSIGNED_TO_DELIVERY".equals(deliveryOrder.getStatus())
+                    || "PICKED_UP".equals(deliveryOrder.getStatus())));
+        // Separate-job fallback remains valid: only complete the individually assigned order.
+        List<OrderEntity> deliveryOrders = combinedClaim ? checkoutOrders : List.of(order);
+        LocalDateTime deliveredAt = LocalDateTime.now();
+        for (OrderEntity deliveryOrder : deliveryOrders) {
+            deliveryOrder.setStatus("DELIVERED");
+            deliveryOrder.setPaymentStatus("COD".equalsIgnoreCase(deliveryOrder.getPaymentMethod())
+                    ? "PAID" : deliveryOrder.getPaymentStatus());
+            deliveryOrder.setUpdatedAt(deliveredAt);
         }
+        if (combinedClaim) orderRepository.saveAll(deliveryOrders);
+        else orderRepository.save(order);
 
-        return Map.of("success", true, "message", "Order delivered and payout credited!");
+        BigDecimal payout;
+        if (deliveryOrders.stream().allMatch(deliveryOrder -> deliveryOrder.getRiderPayoutSnapshot() != null)) {
+            payout = deliveryOrders.stream().map(OrderEntity::getRiderPayoutSnapshot)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        } else {
+            // Backward compatibility for orders claimed before payout snapshots were introduced.
+            BigDecimal distance = deliveryOrders.stream().map(OrderEntity::getDistanceKm)
+                    .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+            payout = configuredPayout("RIDER_BASE_PAYOUT", BigDecimal.valueOf(45))
+                    .add(distance.multiply(configuredPayout("RIDER_PER_KM_PAYOUT", BigDecimal.valueOf(22))))
+                    .setScale(2, java.math.RoundingMode.HALF_UP);
+            deliveryOrders.forEach(deliveryOrder -> {
+                deliveryOrder.setRiderPayoutSnapshot(BigDecimal.ZERO);
+                deliveryOrder.setRiderPayoutSnapshottedAt(deliveredAt);
+            });
+            deliveryOrders.get(0).setRiderPayoutSnapshot(payout);
+        }
+        agent.setTotalTrips(agent.getTotalTrips() + 1);
+        agent.setTodayEarnings(agent.getTodayEarnings().add(payout));
+        agent.setTotalEarnings(agent.getTotalEarnings().add(payout));
+        agentRepository.save(agent);
+
+        return Map.of("success", true, "message", "Delivery completed and configured rider payout credited.",
+                "completedOrders", deliveryOrders.size());
+    }
+
+    private BigDecimal configuredPayout(String column, BigDecimal fallback) {
+        BigDecimal value = jdbc.queryForObject("SELECT " + column + " FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", BigDecimal.class);
+        return value == null ? fallback : value;
     }
 
     private DeliveryAgentEntity findAgentForUser(com.kuraliupdates.bazaar.entity.UserEntity user) {

@@ -3,6 +3,7 @@ package com.kuraliupdates.bazaar.service;
 import com.kuraliupdates.bazaar.dto.order.OrderPlacementResponse;
 import com.kuraliupdates.bazaar.dto.order.OrderResponse;
 import com.kuraliupdates.bazaar.dto.order.PlaceOrderRequest;
+import com.kuraliupdates.bazaar.dto.order.MultiSellerCheckoutRequest;
 import com.kuraliupdates.bazaar.dto.order.OrderItemRequest;
 import com.kuraliupdates.bazaar.entity.OrderEntity;
 import com.kuraliupdates.bazaar.entity.OrderItemEntity;
@@ -32,7 +33,107 @@ public class OrderService {
     private final SellerRepository sellerRepository;
     private final ProductRepository productRepository;
     private final JdbcTemplate jdbc;
+    private final GoogleRoutesService googleRoutesService;
     private final SecureRandom random = new SecureRandom();
+
+    /** Creates seller-owned suborders under one transaction; any seller failure rolls back the entire checkout. */
+    @Transactional
+    public com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse placeMultiSellerOrder(
+            MultiSellerCheckoutRequest request, UserEntity buyer, String e2eRunId) {
+        if (!"COD".equalsIgnoreCase(request.paymentMethod())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Online payment is not enabled yet. Please select Cash on Delivery.");
+        }
+        String fulfilmentMode = request.fulfilmentMode() == null ? "DELIVERY" : request.fulfilmentMode().trim().toUpperCase(Locale.ROOT);
+        if (!Set.of("DELIVERY", "STORE_PICKUP").contains(fulfilmentMode)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Fulfilment mode must be DELIVERY or STORE_PICKUP");
+        }
+        if ("STORE_PICKUP".equals(fulfilmentMode)) {
+            Integer pickupEnabled = jdbc.queryForObject("SELECT STORE_PICKUP_ENABLED FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
+            if (!Integer.valueOf(1).equals(pickupEnabled)) {
+                throw new ApiException(HttpStatus.CONFLICT, "Store pickup is currently disabled");
+            }
+        }
+        if (request.items() == null || request.items().isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "At least one order item is required");
+        }
+        Map<String, List<OrderItemRequest>> bySeller = new TreeMap<>();
+        for (OrderItemRequest item : request.items()) {
+            if (item.productId() == null || item.productId().isBlank() || item.quantity() == null || item.quantity() <= 0) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Each order item needs a product and positive quantity");
+            }
+            // Resolve seller grouping without acquiring row locks in cart order. The authoritative
+            // stock/price pass below locks every product in deterministic product-ID order.
+            ProductEntity product = productRepository.findById(item.productId().trim())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Product not found: " + item.productId()));
+            if (product.getSeller() == null || !"APPROVED".equalsIgnoreCase(product.getSeller().getStatus())) {
+                throw new ApiException(HttpStatus.CONFLICT, "Product seller is not approved");
+            }
+            bySeller.computeIfAbsent(product.getSeller().getSellerId(), ignored -> new ArrayList<>()).add(item);
+        }
+        Integer configuredMax = jdbc.queryForObject("SELECT MAX_SELLERS_PER_BATCH FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
+        int maxSellers = configuredMax == null ? 3 : Math.min(configuredMax, 10);
+        if (bySeller.size() > maxSellers) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A checkout can contain products from at most " + maxSellers + " stores");
+        }
+        String checkoutGroupId = "CHK-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT);
+        List<OrderPlacementResponse> placed = new ArrayList<>();
+        List<OrderEntity> savedOrders = new ArrayList<>();
+        for (Map.Entry<String, List<OrderItemRequest>> group : bySeller.entrySet()) {
+            PlaceOrderRequest sellerRequest = new PlaceOrderRequest(
+                    buyer.getName(), buyer.getPhone(), buyer.getEmail(), request.deliveryAddress(),
+                    request.deliveryLocality(), group.getKey(), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                    BigDecimal.ZERO, request.paymentMethod(), request.distanceKm(), request.deliveryLatitude(),
+                    request.deliveryLongitude(), request.deliveryPlaceId(), group.getValue());
+            OrderPlacementResponse result = placeOrder(sellerRequest, buyer, e2eRunId);
+            OrderEntity saved = orderRepository.findById(result.order().orderId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Created seller order could not be reloaded"));
+            saved.setCheckoutGroupId(checkoutGroupId);
+            saved.setFulfilmentStatus("AWAITING_SELLER_ACCEPTANCE");
+            saved.setFulfilmentMode(fulfilmentMode);
+            if ("STORE_PICKUP".equals(fulfilmentMode)) {
+                saved.setDeliveryFee(BigDecimal.ZERO);
+                saved.setIsFreeDelivery(1);
+                saved.setTotalAmount(saved.getSubtotal().subtract(
+                        saved.getBillDiscountAmount() == null ? BigDecimal.ZERO : saved.getBillDiscountAmount())
+                        .subtract(saved.getCouponDiscountAmount() == null ? BigDecimal.ZERO : saved.getCouponDiscountAmount())
+                        .setScale(2, RoundingMode.HALF_UP));
+                saved.setDistanceKm(BigDecimal.ZERO);
+                saved.setRiderPayoutSnapshot(BigDecimal.ZERO);
+                saved.setRiderPayoutSnapshottedAt(LocalDateTime.now());
+            } else {
+                saved.setRiderPayoutSnapshot(null);
+                saved.setRiderPayoutSnapshottedAt(null);
+            }
+            orderRepository.save(saved);
+            savedOrders.add(saved);
+            placed.add(result);
+        }
+        if ("DELIVERY".equals(fulfilmentMode)) {
+            BigDecimal baseFee = configuredDecimal("CUSTOMER_BASE_FEE", BigDecimal.valueOf(35));
+            BigDecimal perKmFee = configuredDecimal("CUSTOMER_PER_KM_FEE", BigDecimal.ZERO);
+            BigDecimal roadKm = googleRoutesService.calculateCombinedRouteKm(savedOrders);
+            BigDecimal checkoutDeliveryFee = baseFee;
+            if (roadKm != null) checkoutDeliveryFee = checkoutDeliveryFee.add(roadKm.multiply(perKmFee));
+            checkoutDeliveryFee = checkoutDeliveryFee.setScale(2, RoundingMode.HALF_UP);
+            for (int i = 0; i < savedOrders.size(); i++) {
+                OrderEntity saved = savedOrders.get(i);
+                BigDecimal allocatedFee = i == 0 ? checkoutDeliveryFee : BigDecimal.ZERO;
+                saved.setDeliveryFee(allocatedFee);
+                saved.setIsFreeDelivery(allocatedFee.signum() == 0 ? 1 : 0);
+                BigDecimal discounts = (saved.getBillDiscountAmount() == null ? BigDecimal.ZERO : saved.getBillDiscountAmount())
+                        .add(saved.getCouponDiscountAmount() == null ? BigDecimal.ZERO : saved.getCouponDiscountAmount());
+                saved.setTotalAmount(saved.getSubtotal().subtract(discounts).add(allocatedFee).setScale(2, RoundingMode.HALF_UP));
+            }
+            orderRepository.saveAll(savedOrders);
+        }
+        List<OrderPlacementResponse> originalPlacements = new ArrayList<>(placed);
+        placed.clear();
+        for (int i = 0; i < savedOrders.size(); i++) {
+            placed.add(new OrderPlacementResponse(OrderResponse.from(savedOrders.get(i)),
+                    originalPlacements.get(i).deliveryOtp()));
+        }
+        return new com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse(checkoutGroupId, List.copyOf(placed));
+    }
 
     @Transactional
     public OrderPlacementResponse placeOrder(PlaceOrderRequest request, UserEntity buyer) {
@@ -152,6 +253,7 @@ public class OrderService {
                 .deliveryLongitude(request.deliveryLongitude() == null ? null : BigDecimal.valueOf(request.deliveryLongitude()))
                 .deliveryPlaceId(trim(request.deliveryPlaceId()))
                 .seller(seller)
+                .fulfilmentMode("DELIVERY")
                 .subtotal(itemSubtotal)
                 .billDiscountAmount(BigDecimal.ZERO)
                 .couponDiscountAmount(BigDecimal.ZERO)
@@ -162,7 +264,7 @@ public class OrderService {
                 .paymentStatus("PENDING_COD")
                 .status("PLACED")
                 .deliveryOtp(String.format("%04d", random.nextInt(10000)))
-                .distanceKm(request.distanceKm() == null ? BigDecimal.valueOf(1.5) : request.distanceKm())
+                .distanceKm(request.distanceKm())
                 .estimatedDeliveryMins(25)
                 .e2eRunId(e2eRunId)
                 .placedAt(now)
@@ -179,6 +281,35 @@ public class OrderService {
         orderItems.forEach(item -> item.setOrder(order));
         OrderEntity saved = orderRepository.save(order);
         return new OrderPlacementResponse(OrderResponse.from(saved), saved.getDeliveryOtp());
+    }
+
+    @Transactional
+    public OrderResponse confirmStorePickup(String orderId, String otp, UserEntity buyer) {
+        if (buyer == null || !"BUYER".equalsIgnoreCase(buyer.getRole()) || buyer.getEmail() == null) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only the owning buyer can confirm store pickup");
+        }
+        if (otp == null || !otp.matches("\\d{4}")) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Pickup OTP must be 4 digits");
+        }
+        OrderEntity order = orderRepository.findLockedByOrderId(orderId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
+        if (order.getBuyerEmail() == null || !order.getBuyerEmail().equalsIgnoreCase(buyer.getEmail().trim())) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
+        }
+        if (!"STORE_PICKUP".equalsIgnoreCase(order.getFulfilmentMode())) {
+            throw new ApiException(HttpStatus.CONFLICT, "This order is not configured for store pickup");
+        }
+        if (!"READY_FOR_PICKUP".equals(order.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "The seller has not marked this order ready for pickup");
+        }
+        if (!otp.equals(order.getDeliveryOtp())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid pickup OTP");
+        }
+        order.setStatus("DELIVERED");
+        order.setFulfilmentStatus("PICKED_UP_BY_BUYER");
+        order.setPaymentStatus("PAID");
+        order.setUpdatedAt(LocalDateTime.now());
+        return OrderResponse.from(orderRepository.save(order));
     }
 
     @Transactional(readOnly = true)
@@ -201,6 +332,11 @@ public class OrderService {
                         && candidate.getBuyerEmail().equalsIgnoreCase(buyer.getEmail().trim()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
         return OrderResponse.from(order);
+    }
+
+    private BigDecimal configuredDecimal(String column, BigDecimal fallback) {
+        BigDecimal value = jdbc.queryForObject("SELECT " + column + " FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", BigDecimal.class);
+        return value == null ? fallback : value;
     }
 
     private String trim(String value) {

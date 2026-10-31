@@ -119,6 +119,8 @@ export interface Order {
   deliveryLongitude?: number;
   deliveryPlaceId?: string;
   items: CartItem[];
+  checkoutGroupId?: string;
+  fulfilmentMode?: 'DELIVERY' | 'STORE_PICKUP';
   sellerId: string;
   sellerName: string;
   sellerLocality: string;

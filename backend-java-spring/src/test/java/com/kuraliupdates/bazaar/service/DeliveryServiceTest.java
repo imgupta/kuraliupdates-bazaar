@@ -12,6 +12,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.junit.jupiter.api.BeforeEach;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -24,7 +26,17 @@ import static org.mockito.Mockito.*;
 class DeliveryServiceTest {
     @Mock private DeliveryAgentRepository agentRepository;
     @Mock private OrderRepository orderRepository;
+    @Mock private JdbcTemplate jdbc;
+    @Mock private GoogleRoutesService googleRoutesService;
     @InjectMocks private DeliveryService deliveryService;
+
+    @BeforeEach
+    void configureDefaultRiderPayout() {
+        lenient().when(jdbc.queryForObject(anyString(), eq(BigDecimal.class))).thenAnswer(invocation -> {
+            String sql = invocation.getArgument(0);
+            return sql.contains("RIDER_BASE_PAYOUT") ? new BigDecimal("45") : new BigDecimal("22");
+        });
+    }
 
     @Test
     void pendingAgentCannotSeePickupJobs() {
@@ -79,6 +91,8 @@ class DeliveryServiceTest {
                 .paymentMethod("COD")
                 .paymentStatus("PENDING_COD")
                 .distanceKm(new BigDecimal("1.5"))
+                .riderPayoutSnapshot(new BigDecimal("78.00"))
+                .riderPayoutSnapshottedAt(java.time.LocalDateTime.now().minusDays(1))
                 .build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedForDeliveryVerification("SYNTH-OTP-VERIFY-1")).thenReturn(Optional.of(order));
@@ -91,10 +105,26 @@ class DeliveryServiceTest {
         assertEquals("DELIVERED", order.getStatus());
         assertEquals("PAID", order.getPaymentStatus());
         assertEquals(1, agent.getTotalTrips());
-        assertEquals(new BigDecimal("53"), agent.getTodayEarnings());
-        assertEquals(new BigDecimal("53"), agent.getTotalEarnings());
+        assertEquals(0, new BigDecimal("78").compareTo(agent.getTodayEarnings()));
+        assertEquals(0, new BigDecimal("78").compareTo(agent.getTotalEarnings()));
         verify(orderRepository, times(1)).save(order);
         verify(agentRepository, times(1)).save(agent);
+    }
+
+    @Test
+    void storePickupOrdersAreNeverOfferedAsRiderJobs() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity delivery = OrderEntity.builder().orderId("DELIVERY-1").status("READY_FOR_PICKUP")
+                .fulfilmentMode("DELIVERY").build();
+        OrderEntity pickup = OrderEntity.builder().orderId("PICKUP-1").status("READY_FOR_PICKUP")
+                .fulfilmentMode("STORE_PICKUP").build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findByStatus("READY_FOR_PICKUP")).thenReturn(java.util.List.of(delivery, pickup));
+
+        var jobs = deliveryService.availableJobs(user());
+
+        assertEquals(1, jobs.size());
+        assertEquals("DELIVERY-1", jobs.get(0).getOrderId());
     }
 
     @Test
@@ -165,7 +195,7 @@ class DeliveryServiceTest {
                 .orderId("ORD-OTP-1").status("ASSIGNED_TO_DELIVERY")
                 .deliveryAgent(agent).deliveryOtp("1234").build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
-        when(orderRepository.findById("ORD-OTP-1")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-OTP-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = deliveryService.resendDeliveryOtp("ORD-OTP-1", user());
@@ -178,6 +208,28 @@ class DeliveryServiceTest {
     }
 
     @Test
+    void resendOnCombinedDeliveryRotatesOtpForEverySellerOrder() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity first = OrderEntity.builder().orderId("BATCH-1").checkoutGroupId("CHK-1")
+                .combinedDeliveryBatchId("CHK-1").status("ASSIGNED_TO_DELIVERY")
+                .deliveryAgent(agent).deliveryOtp("1111").build();
+        OrderEntity second = OrderEntity.builder().orderId("BATCH-2").checkoutGroupId("CHK-1")
+                .combinedDeliveryBatchId("CHK-1").status("ASSIGNED_TO_DELIVERY")
+                .deliveryAgent(agent).deliveryOtp("1111").build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findLockedByOrderId("BATCH-1")).thenReturn(Optional.of(first));
+        when(orderRepository.findLockedByCheckoutGroupId("CHK-1")).thenReturn(java.util.List.of(first, second));
+
+        var response = deliveryService.resendDeliveryOtp("BATCH-1", user());
+
+        assertEquals(Boolean.TRUE, response.get("success"));
+        assertTrue(first.getDeliveryOtp().matches("\\d{4}"));
+        assertEquals(first.getDeliveryOtp(), second.getDeliveryOtp());
+        assertNotEquals("1111", first.getDeliveryOtp());
+        verify(orderRepository).saveAll(java.util.List.of(first, second));
+    }
+
+    @Test
     void resendOtpRejectsOrderAssignedToAnotherAgent() {
         DeliveryAgentEntity authenticatedAgent = agent("ACTIVE");
         DeliveryAgentEntity otherAgent = DeliveryAgentEntity.builder()
@@ -186,7 +238,7 @@ class DeliveryServiceTest {
                 .orderId("ORD-OTP-2").status("ASSIGNED_TO_DELIVERY")
                 .deliveryAgent(otherAgent).deliveryOtp("1234").build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(authenticatedAgent));
-        when(orderRepository.findById("ORD-OTP-2")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-OTP-2")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.resendDeliveryOtp("ORD-OTP-2", user()));
@@ -202,7 +254,7 @@ class DeliveryServiceTest {
                 .orderId("ORD-OTP-3").status("DELIVERED")
                 .deliveryAgent(agent).deliveryOtp("1234").build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
-        when(orderRepository.findById("ORD-OTP-3")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-OTP-3")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.resendDeliveryOtp("ORD-OTP-3", user()));
@@ -219,7 +271,7 @@ class DeliveryServiceTest {
                 .orderId("ORD-OTP-4").status("PICKED_UP")
                 .deliveryAgent(agent).deliveryOtp("1234").build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
-        when(orderRepository.findById("ORD-OTP-4")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-OTP-4")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         deliveryService.resendDeliveryOtp("ORD-OTP-4", user());
@@ -254,10 +306,60 @@ class DeliveryServiceTest {
         assertEquals("DELIVERED", order.getStatus());
         assertEquals("PAID", order.getPaymentStatus());
         assertEquals(1, agent.getTotalTrips());
-        assertEquals(new BigDecimal("53"), agent.getTodayEarnings());
-        assertEquals(new BigDecimal("53"), agent.getTotalEarnings());
+        assertEquals(0, new BigDecimal("78").compareTo(agent.getTodayEarnings()));
+        assertEquals(0, new BigDecimal("78").compareTo(agent.getTotalEarnings()));
         verify(orderRepository).save(order);
         verify(agentRepository).save(agent);
+    }
+
+    @Test
+    void sameOtpOnSeparateSellerJobsDoesNotCompleteTheSiblingOrder() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity first = OrderEntity.builder().orderId("SEP-1").checkoutGroupId("CHK-SEP")
+                .status("ASSIGNED_TO_DELIVERY").deliveryAgent(agent).deliveryOtp("0042")
+                .riderPayoutSnapshot(new BigDecimal("67")).build();
+        OrderEntity second = OrderEntity.builder().orderId("SEP-2").checkoutGroupId("CHK-SEP")
+                .status("ASSIGNED_TO_DELIVERY").deliveryAgent(agent).deliveryOtp("0042")
+                .riderPayoutSnapshot(new BigDecimal("67")).build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findLockedForDeliveryVerification("SEP-1")).thenReturn(Optional.of(first));
+        when(orderRepository.findLockedByCheckoutGroupId("CHK-SEP")).thenReturn(java.util.List.of(first, second));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(agentRepository.save(any(DeliveryAgentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = deliveryService.verifyDeliveryOtp("SEP-1", "0042", user());
+
+        assertEquals(1, response.get("completedOrders"));
+        assertEquals("DELIVERED", first.getStatus());
+        assertEquals("ASSIGNED_TO_DELIVERY", second.getStatus());
+        assertEquals(0, new BigDecimal("67").compareTo(agent.getTotalEarnings()));
+        verify(orderRepository).save(first);
+        verify(orderRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void combinedBatchOtpCompletesAllSellerOrdersAndCreditsOnePayout() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity first = OrderEntity.builder().orderId("COMB-1").checkoutGroupId("CHK-COMB")
+                .combinedDeliveryBatchId("CHK-COMB").status("ASSIGNED_TO_DELIVERY")
+                .deliveryAgent(agent).deliveryOtp("0042").riderPayoutSnapshot(new BigDecimal("78")).build();
+        OrderEntity second = OrderEntity.builder().orderId("COMB-2").checkoutGroupId("CHK-COMB")
+                .combinedDeliveryBatchId("CHK-COMB").status("ASSIGNED_TO_DELIVERY")
+                .deliveryAgent(agent).deliveryOtp("0042").riderPayoutSnapshot(BigDecimal.ZERO).build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findLockedForDeliveryVerification("COMB-2")).thenReturn(Optional.of(second));
+        when(orderRepository.findLockedByCheckoutGroupId("CHK-COMB")).thenReturn(java.util.List.of(first, second));
+        when(orderRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(agentRepository.save(any(DeliveryAgentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = deliveryService.verifyDeliveryOtp("COMB-2", "0042", user());
+
+        assertEquals(2, response.get("completedOrders"));
+        assertEquals("DELIVERED", first.getStatus());
+        assertEquals("DELIVERED", second.getStatus());
+        assertEquals(0, new BigDecimal("78").compareTo(agent.getTotalEarnings()));
+        assertEquals(1, agent.getTotalTrips());
+        verify(orderRepository).saveAll(any());
     }
 
     @Test

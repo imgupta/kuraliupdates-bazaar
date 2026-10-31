@@ -23,6 +23,9 @@ public class SellerEntity {
     @Column(name = "ADDRESS", nullable = false, length = 500) private String address;
     @Column(name = "LOCALITY", nullable = false, length = 150) private String locality;
     @Column(name = "DISTANCE_KM", precision = 5, scale = 2) private BigDecimal distanceKm;
+    @Column(name = "LATITUDE", precision = 10, scale = 7) private BigDecimal latitude;
+    @Column(name = "LONGITUDE", precision = 10, scale = 7) private BigDecimal longitude;
+    @Column(name = "LOCATION_VERIFIED", nullable = false) @Builder.Default private Boolean locationVerified = false;
     @Column(name = "RATING", precision = 3, scale = 2) private BigDecimal rating;
     @Column(name = "REVIEW_COUNT") private Integer reviewCount;
     @Column(name = "STATUS", length = 20) private String status;

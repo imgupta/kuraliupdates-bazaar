@@ -16,6 +16,7 @@ import { useApp } from '../../context/AppContext';
 import { OrderStatus } from '../../types';
 import { LiveOrderMap } from './LiveOrderMap';
 import { buyerApi } from '../../services/domains/buyerApi';
+import { API_BASE_URL } from '../../services/http/apiConfig';
 
 interface OrderTrackingModalProps {
   orderId: string;
@@ -23,12 +24,37 @@ interface OrderTrackingModalProps {
 }
 
 export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId, onClose }) => {
-  const { orders } = useApp();
+  const { orders, syncWithBackend, showToast } = useApp();
   const order = orders.find(o => o.id === orderId);
   const orderItems = Array.isArray(order?.items) ? order.items : [];
   const statusUpdates = Array.isArray(order?.statusUpdates) ? order.statusUpdates : [];
   const orderStatus = String(order?.status || 'placed').toLowerCase();
   const [authorizedDeliveryOtp, setAuthorizedDeliveryOtp] = useState<string | null>(null);
+  const [pickupOtp, setPickupOtp] = useState('');
+  const [pickupSubmitting, setPickupSubmitting] = useState(false);
+  const isStorePickup = order?.fulfilmentMode === 'STORE_PICKUP';
+
+  const confirmPickup = async () => {
+    if (!/^\d{4}$/.test(pickupOtp) || pickupSubmitting) return;
+    setPickupSubmitting(true);
+    try {
+      const token = localStorage.getItem('kurali_auth_token');
+      const response = await fetch(`${API_BASE_URL}/buyers/orders/${encodeURIComponent(orderId)}/confirm-pickup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ otp: pickupOtp }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.message || 'Pickup confirmation failed');
+      showToast('Store pickup confirmed successfully.', 'success');
+      setPickupOtp('');
+      await syncWithBackend();
+    } catch (error: any) {
+      showToast(error?.message || 'Unable to confirm pickup.', 'error');
+    } finally {
+      setPickupSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -110,7 +136,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
         </div>
 
         {/* Live Google Maps tracking */}
-        <LiveOrderMap orderId={order.id} fallbackBuyer={{ latitude: order.deliveryLatitude, longitude: order.deliveryLongitude }} sellerAddress={order.sellerLocality} destinationAddress={order.deliveryAddress} orderStatus={order.status} />
+        {!isStorePickup && <LiveOrderMap orderId={order.id} fallbackBuyer={{ latitude: order.deliveryLatitude, longitude: order.deliveryLongitude }} sellerAddress={order.sellerLocality} destinationAddress={order.deliveryAddress} orderStatus={order.status} />}
 
         {/* Scrollable Content Body */}
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 sm:space-y-4 sm:p-4">
@@ -121,10 +147,10 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
               <div>
                 <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
                   <ShieldCheck className="w-4 h-4 text-amber-600" />
-                  DELIVERY SECURITY OTP
+                  {isStorePickup ? 'STORE PICKUP OTP' : 'DELIVERY SECURITY OTP'}
                 </div>
                 <p className="text-[11px] text-amber-700 mt-0.5">
-                  This code updates automatically when the delivery partner generates a new one. Share only at handover:
+                  {isStorePickup ? 'Show this code to the shopkeeper when collecting your order.' : 'This code updates automatically when the delivery partner generates a new one. Share only at handover:'}
                 </p>
               </div>
               <div className="bg-white px-4 py-2 rounded-xl border border-amber-300 shadow-xs text-center font-mono text-xl font-extrabold text-amber-700 tracking-wider">
@@ -132,7 +158,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
               </div>
             </div>
 
-            {/* Delivery Agent Card */}
+            {!isStorePickup && (
             <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold">
@@ -158,7 +184,22 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
                 <Phone className="w-4 h-4 text-emerald-600" />
               </a>
             </div>
+            )}
           </div>
+          {isStorePickup && orderStatus === 'ready_for_pickup' && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 space-y-2">
+              <p className="text-xs font-bold text-emerald-900">Have you collected your items from the store?</p>
+              <div className="flex gap-2">
+                <input aria-label="Store pickup OTP" inputMode="numeric" maxLength={4} value={pickupOtp}
+                  onChange={event => setPickupOtp(event.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="Enter 4-digit OTP" className="min-w-0 flex-1 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-mono tracking-widest" />
+                <button type="button" onClick={confirmPickup} disabled={pickupOtp.length !== 4 || pickupSubmitting}
+                  className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
+                  {pickupSubmitting ? 'Confirming…' : 'Confirm collection'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Step Timeline */}
           <div>

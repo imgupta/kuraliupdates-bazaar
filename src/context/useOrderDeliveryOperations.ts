@@ -39,13 +39,10 @@ export const useOrderDeliveryOperations = ({
     deliveryPhone?: string;
     customerNotes?: string;
     paymentMethod: 'COD' | 'UPI' | 'StorePay' | 'Card' | 'NetBanking';
+    fulfilmentMode?: 'DELIVERY' | 'STORE_PICKUP';
   }): Promise<Order | null> => {
     if (cart.length === 0) return null;
     const sellerIds = Array.from(new Set(cart.map(item => item.product.sellerId)));
-    if (sellerIds.length !== 1) {
-      showToast('Please place separate orders for products from different stores.', 'error');
-      return null;
-    }
 
     const newOrder: Order = {
       id: '',
@@ -70,6 +67,7 @@ export const useOrderDeliveryOperations = ({
       isFreeDelivery: cartCalculations.isFreeDelivery,
       totalAmount: cartCalculations.finalTotal,
       paymentMethod: orderData.paymentMethod,
+      fulfilmentMode: orderData.fulfilmentMode || 'DELIVERY',
       paymentStatus: 'pending',
       status: 'placed',
       deliveryOtp: '',
@@ -84,7 +82,9 @@ export const useOrderDeliveryOperations = ({
     };
 
     const response = await bazaarApi.placeOrder(newOrder);
-    const serverOrder = response?.order;
+    const serverOrderEntries = Array.isArray(response?.orders) ? response.orders.filter((entry: any) => entry?.order) : [];
+    const serverOrders = serverOrderEntries.map((entry: any) => entry.order);
+    const serverOrder = response?.order || serverOrders[0];
     if (!serverOrder?.orderId) {
       showToast('Order was not confirmed by the server. Your cart has been kept; please retry after checking order history.', 'error');
       return null;
@@ -102,11 +102,30 @@ export const useOrderDeliveryOperations = ({
       totalAmount: Number(serverOrder.totalAmount ?? newOrder.totalAmount),
       paymentStatus: String(serverOrder.paymentStatus || 'PENDING_COD').toLowerCase() as Order['paymentStatus'],
       status: String(serverOrder.status || 'PLACED').toLowerCase() as OrderStatus,
+      fulfilmentMode: serverOrder.fulfilmentMode || orderData.fulfilmentMode || 'DELIVERY',
+      checkoutGroupId: serverOrder.checkoutGroupId,
+      deliveryOtp: response?.deliveryOtp || serverOrder.deliveryOtp || '',
     };
-    setOrders(prev => [confirmed, ...prev.filter(order => order.id !== confirmed.id)]);
+    const confirmedOrders: Order[] = serverOrders.length > 0
+      ? serverOrderEntries.map((placement: any) => ({
+          ...confirmed,
+          id: placement.order.orderId,
+          status: String(placement.order.status || 'PLACED').toLowerCase() as OrderStatus,
+          deliveryOtp: placement.deliveryOtp || '',
+          sellerId: placement.order.sellerId || confirmed.sellerId,
+          subtotal: Number(placement.order.subtotal ?? 0),
+          itemSubtotal: Number(placement.order.subtotal ?? 0),
+          deliveryFee: Number(placement.order.deliveryFee ?? 0),
+          totalAmount: Number(placement.order.totalAmount ?? 0),
+          fulfilmentMode: placement.order.fulfilmentMode || orderData.fulfilmentMode || 'DELIVERY',
+          checkoutGroupId: placement.order.checkoutGroupId,
+          items: (placement.order.items || []).map((line: any) => ({ ...line })),
+        }))
+      : [confirmed];
+    setOrders(prev => [...confirmedOrders, ...prev.filter(order => !confirmedOrders.some(created => created.id === order.id))]);
     clearCart();
     setTrackingOrderId(confirmed.id);
-    showToast(`Order #${confirmed.id} placed successfully!`, 'success');
+    showToast(confirmedOrders.length > 1 ? `${confirmedOrders.length} store orders placed in one checkout!` : `Order #${confirmed.id} placed successfully!`, 'success');
     return confirmed;
   };
 
