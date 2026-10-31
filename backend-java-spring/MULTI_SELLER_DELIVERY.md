@@ -17,7 +17,7 @@ For a delivery checkout, the configured customer base fee is applied once to the
 ## Combined rider claim
 When every seller suborder is `READY_FOR_PICKUP`, an active rider can call `POST /delivery/jobs/checkout/{checkoutGroupId}/claim?agentId=...`. The backend locks all suborders, requests an optimized driving route from Google Routes, checks the configured maximum road distance, then assigns all orders with one shared OTP. Existing individual order claims remain the fallback when the route cannot be validated or exceeds the configured limit.
 
-Set `google.maps.routes.api-key` (environment variable `GOOGLE_MAPS_ROUTES_API_KEY` when relaxed Spring environment binding is used) on the backend. Without a valid Routes API key, combined claims fail closed and individual jobs remain available.
+Set `GOOGLE_MAPS_ROUTES_API_KEY` on the backend, or reuse the existing backend `GOOGLE_MAPS_API_KEY` setting. The Routes-specific key takes precedence. Without a valid Routes API key, combined claims fail closed and individual jobs remain available.
 
 ## Completion and payout
 
