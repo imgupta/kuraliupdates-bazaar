@@ -4,7 +4,6 @@ import {
   Store,
   Bike,
   ShieldCheck,
-  Search,
   ChevronDown,
   LogOut,
   User,
@@ -14,7 +13,6 @@ import { useApp } from '../context/AppContext';
 import { isRootAdminEmail } from '../data/initialData';
 import { UserRole } from '../types';
 import { pathForRole } from '../app/routing/routeConfig';
-import { SearchSuggestions } from './Buyer/SearchSuggestions';
 import { bazaarApi } from '../services/api';
 
 interface HeaderProps {
@@ -24,10 +22,7 @@ interface HeaderProps {
   setSelectedCategory: (cat: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({
-  searchQuery,
-  setSearchQuery,
-}) => {
+export const Header: React.FC<HeaderProps> = () => {
   const {
     role,
     setRole,
