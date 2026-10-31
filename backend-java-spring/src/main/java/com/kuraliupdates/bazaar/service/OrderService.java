@@ -42,6 +42,16 @@ public class OrderService {
         if (!"COD".equalsIgnoreCase(request.paymentMethod())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Online payment is not enabled yet. Please select Cash on Delivery.");
         }
+        String fulfilmentMode = request.fulfilmentMode() == null ? "DELIVERY" : request.fulfilmentMode().trim().toUpperCase(Locale.ROOT);
+        if (!Set.of("DELIVERY", "STORE_PICKUP").contains(fulfilmentMode)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Fulfilment mode must be DELIVERY or STORE_PICKUP");
+        }
+        if ("STORE_PICKUP".equals(fulfilmentMode)) {
+            Integer pickupEnabled = jdbc.queryForObject("SELECT STORE_PICKUP_ENABLED FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
+            if (!Integer.valueOf(1).equals(pickupEnabled)) {
+                throw new ApiException(HttpStatus.CONFLICT, "Store pickup is currently disabled");
+            }
+        }
         if (request.items() == null || request.items().isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "At least one order item is required");
         }
@@ -75,6 +85,21 @@ public class OrderService {
                     .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Created seller order could not be reloaded"));
             saved.setCheckoutGroupId(checkoutGroupId);
             saved.setFulfilmentStatus("AWAITING_SELLER_ACCEPTANCE");
+            saved.setFulfilmentMode(fulfilmentMode);
+            if ("STORE_PICKUP".equals(fulfilmentMode)) {
+                saved.setDeliveryFee(BigDecimal.ZERO);
+                saved.setIsFreeDelivery(1);
+                saved.setTotalAmount(saved.getSubtotal().subtract(
+                        saved.getBillDiscountAmount() == null ? BigDecimal.ZERO : saved.getBillDiscountAmount())
+                        .subtract(saved.getCouponDiscountAmount() == null ? BigDecimal.ZERO : saved.getCouponDiscountAmount())
+                        .setScale(2, RoundingMode.HALF_UP));
+                saved.setDistanceKm(BigDecimal.ZERO);
+                saved.setRiderPayoutSnapshot(BigDecimal.ZERO);
+                saved.setRiderPayoutSnapshottedAt(LocalDateTime.now());
+            } else {
+                saved.setRiderPayoutSnapshot(null);
+                saved.setRiderPayoutSnapshottedAt(null);
+            }
             orderRepository.save(saved);
             placed.add(result);
         }
