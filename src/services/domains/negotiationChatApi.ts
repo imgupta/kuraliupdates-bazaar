@@ -49,6 +49,8 @@ const normalizeChat = (raw: any): NegotiationChat => ({
     } } : {}),
   })),
   lastUpdated: raw.lastUpdated || '',
+  ...(raw.bargainStatus ? { bargainStatus: String(raw.bargainStatus).toUpperCase() as NegotiationChat['bargainStatus'] } : {}),
+  ...(raw.expiresAt ? { expiresAt: String(raw.expiresAt) } : {}),
   ...(raw.originalPrice != null ? { originalPrice: Number(raw.originalPrice) } : {}),
   ...(raw.currentAgreedPrice != null ? { currentAgreedPrice: Number(raw.currentAgreedPrice) } : {}),
   ...(raw.currentAgreedOfferId ? { currentAgreedOfferId: String(raw.currentAgreedOfferId) } : {}),
