@@ -58,7 +58,7 @@ export const SellerDashboard: React.FC = () => {
         const nextIds = new Set((latest || []).map((order: any) => String(order.orderId || order.id)));
         if (knownOrderIds.current) {
           const newOrders = (latest || []).filter((order: any) => !knownOrderIds.current!.has(String(order.orderId || order.id)));
-          newOrders.forEach((order: any) => showToast(\`New order received: #\${order.orderId || order.id}\`, 'success'));
+          newOrders.forEach((order: any) => showToast(`New order received: #${order.orderId || order.id}`, 'success'));
         }
         knownOrderIds.current = nextIds;
         setOrders(latest || []);
