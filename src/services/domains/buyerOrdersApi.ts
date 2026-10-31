@@ -8,28 +8,44 @@ export const buyerOrdersApi = {
     try {
       const sellerCount = new Set((order.items || []).map(item => item.product.sellerId)).size;
       const endpoint = sellerCount > 1 ? '/buyers/orders/checkout' : '/buyers/orders';
+      const items = (order.items || []).map(item => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+        negotiatedPrice: item.negotiatedPrice,
+        acceptedOfferId: item.acceptedOfferId,
+      }));
+      const multiSellerPayload = {
+        deliveryAddress: order.deliveryAddress,
+        deliveryLocality: order.deliveryLocality,
+        paymentMethod: order.paymentMethod,
+        deliveryLatitude: (order as any).deliveryLatitude,
+        deliveryLongitude: (order as any).deliveryLongitude,
+        deliveryPlaceId: (order as any).deliveryPlaceId,
+        items,
+      };
+      const singleSellerPayload = {
+        buyerName: order.buyerName,
+        buyerEmail: order.buyerEmail,
+        buyerPhone: order.buyerPhone,
+        deliveryAddress: order.deliveryAddress,
+        deliveryLocality: order.deliveryLocality,
+        sellerId: order.sellerId,
+        subtotal: order.itemSubtotal || order.subtotal || order.totalAmount,
+        totalAmount: order.totalAmount,
+        discountAmount: (order.billDiscountAmount || 0) + (order.couponDiscountAmount || 0),
+        deliveryFee: order.deliveryFee,
+        finalPayable: order.totalAmount,
+        paymentMethod: order.paymentMethod,
+        distanceKm: Number(order.distanceKm ?? 0),
+        deliveryLatitude: (order as any).deliveryLatitude,
+        deliveryLongitude: (order as any).deliveryLongitude,
+        deliveryPlaceId: (order as any).deliveryPlaceId,
+        items,
+      };
       const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(localStorage.getItem('kurali_auth_token') ? { Authorization: `Bearer ${localStorage.getItem('kurali_auth_token')}` } : {}) },
-        body: JSON.stringify({
-          buyerName: order.buyerName,
-          buyerEmail: order.buyerEmail,
-          buyerPhone: order.buyerPhone,
-          deliveryAddress: order.deliveryAddress,
-          deliveryLocality: order.deliveryLocality,
-          sellerId: order.sellerId,
-          subtotal: order.itemSubtotal || order.subtotal || order.totalAmount,
-          totalAmount: order.totalAmount,
-          discountAmount: (order.billDiscountAmount || 0) + (order.couponDiscountAmount || 0),
-          deliveryFee: order.deliveryFee,
-          finalPayable: order.totalAmount,
-          paymentMethod: order.paymentMethod,
-          distanceKm: Number(order.distanceKm ?? 0),
-          deliveryLatitude: (order as any).deliveryLatitude,
-          deliveryLongitude: (order as any).deliveryLongitude,
-          deliveryPlaceId: (order as any).deliveryPlaceId,
-          items: (order.items || []).map(item => ({ productId: item.product.id, quantity: item.quantity, negotiatedPrice: item.negotiatedPrice, acceptedOfferId: item.acceptedOfferId })),
-        }),
+        body: JSON.stringify(sellerCount > 1 ? multiSellerPayload : singleSellerPayload),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
