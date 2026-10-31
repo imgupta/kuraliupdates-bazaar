@@ -30,7 +30,7 @@ const localDateString = (date: Date) => {
   return `${y}-${m}-${d}`;
 };
 
-export const DailyHelpHome: React.FC = () => {
+export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery = '' }) => {
   const { user, showToast } = useApp();
   const [services, setServices] = useState<DailyHelpService[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,6 +92,14 @@ export const DailyHelpHome: React.FC = () => {
   }, [booking?.serviceStartedAt, now]);
 
   const minDate = localDateString(new Date());
+  const filteredServices = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return services;
+    return services.filter(service =>
+      [service.name, service.category, service.description]
+        .some(value => String(value || '').toLowerCase().includes(query))
+    );
+  }, [services, searchQuery]);
 
   const openBooking = (service: DailyHelpService) => {
     setSelected(service);
@@ -185,7 +193,7 @@ export const DailyHelpHome: React.FC = () => {
           <div><h2 className="text-lg font-black text-slate-900">What do you need help with?</h2><p className="text-xs text-slate-500">Choose a service and then select an available maid slot.</p></div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {services.map(service => (
+          {filteredServices.map(service => (
             <article key={service.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-amber-300 hover:shadow-md transition-all">
               {service.imageUrl ? <img src={service.imageUrl} alt="" className="w-full h-36 object-cover" /> : <div className="h-28 bg-slate-100 flex items-center justify-center"><Home className="w-10 h-10 text-slate-400" /></div>}
               <div className="p-4">
@@ -197,7 +205,7 @@ export const DailyHelpHome: React.FC = () => {
             </article>
           ))}
         </div>
-        {services.length === 0 && !loading && !catalogError && <div className="sm:col-span-2 lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-10 text-center"><p className="text-sm font-bold text-slate-700">No Daily Help services are currently available.</p><p className="text-xs text-slate-500 mt-1">The administrator can add or activate services from Admin → Daily Help Services.</p></div>}
+        {filteredServices.length === 0 && searchQuery.trim() ? <div className="sm:col-span-2 lg:col-span-3 rounded-2xl border border-slate-200 bg-white p-8 text-center"><p className="text-sm font-bold text-slate-700">No matching Daily Help services</p><p className="mt-1 text-xs text-slate-500">Try another service name or category.</p></div> : services.length === 0 && !loading && !catalogError && <div className="sm:col-span-2 lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-10 text-center"><p className="text-sm font-bold text-slate-700">No Daily Help services are currently available.</p><p className="text-xs text-slate-500 mt-1">The administrator can add or activate services from Admin → Daily Help Services.</p></div>}
       </section>
 
       {selected && (
