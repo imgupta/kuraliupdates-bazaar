@@ -115,7 +115,7 @@ public class DeliveryService {
         if (!Integer.valueOf(1).equals(batchEnabled)) {
             throw new ApiException(HttpStatus.CONFLICT, "Combined delivery is currently disabled");
         }
-        List<OrderEntity> orders = orderRepository.findByCheckoutGroupIdOrderByPlacedAtAsc(checkoutGroupId);
+        List<OrderEntity> orders = orderRepository.findLockedByCheckoutGroupId(checkoutGroupId);
         if (orders.size() < 2) throw new ApiException(HttpStatus.NOT_FOUND, "Combined checkout was not found");
         Integer maxSellers = jdbc.queryForObject(
                 "SELECT MAX_SELLERS_PER_BATCH FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
@@ -211,7 +211,7 @@ public class DeliveryService {
 
         List<OrderEntity> deliveryOrders = order.getCheckoutGroupId() == null
                 ? List.of(order)
-                : orderRepository.findByCheckoutGroupIdOrderByPlacedAtAsc(order.getCheckoutGroupId());
+                : orderRepository.findLockedByCheckoutGroupId(order.getCheckoutGroupId());
         for (OrderEntity deliveryOrder : deliveryOrders) {
             if (deliveryOrder.getDeliveryAgent() == null
                     || !deliveryOrder.getDeliveryAgent().getAgentId().equals(authenticatedAgent.getAgentId())
