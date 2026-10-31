@@ -16,7 +16,7 @@ export const getComparableSellerOffers = (products: Product[], reference: Produc
   const matching = products.filter(product =>
     product.stock > 0 && isComparableProduct(product, reference)
   );
-  if (!matching.some(product => product.id === reference.id)) matching.push(reference);
+  if (reference.stock > 0 && !matching.some(product => product.id === reference.id)) matching.push(reference);
 
   // A seller can publish duplicate catalogue rows; represent that store once,
   // preferring the lowest effective in-stock offer.
@@ -37,4 +37,21 @@ export const getComparableSellerOffers = (products: Product[], reference: Produc
     a.sellerPrice * (1 - a.additionalDiscountPercent / 100)
     - b.sellerPrice * (1 - b.additionalDiscountPercent / 100)
   );
+};
+
+/** Build all card counts in one pass so a large catalogue does not cause O(n²) filtering. */
+export const getComparableSellerCounts = (products: Product[]) => {
+  const sellersByProduct = new Map<string, Set<string>>();
+  products.forEach(product => {
+    if (product.stock <= 0) return;
+    const key = `${normalizeComparableValue(product.title)}::${normalizeComparableValue(product.unit)}`;
+    const sellers = sellersByProduct.get(key) || new Set<string>();
+    sellers.add(product.sellerId || product.id);
+    sellersByProduct.set(key, sellers);
+  });
+
+  return new Map(products.map(product => {
+    const key = `${normalizeComparableValue(product.title)}::${normalizeComparableValue(product.unit)}`;
+    return [product.id, sellersByProduct.get(key)?.size || 0] as const;
+  }));
 };
