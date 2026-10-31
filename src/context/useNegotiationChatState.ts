@@ -115,7 +115,7 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
       setChats(prev => [remote, ...prev.filter(chat => chat.id !== tempId && chat.id !== remote.id)]);
       setActiveChatId(current => current === tempId ? remote.id : current);
     }).catch(error => {
-      upsertBargainCartItem(product, tempId, 'EXPIRED', price);
+      updateExistingBargainCartItem(product, tempId, 'EXPIRED', price);
       setChats(prev => prev.filter(chat => chat.id !== tempId));
       setActiveChatId(current => current === tempId ? null : current);
       showToast(error instanceof Error ? error.message : 'Could not start the conversation.', 'error');
