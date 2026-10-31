@@ -18,6 +18,7 @@ export const buyerOrdersApi = {
         deliveryAddress: order.deliveryAddress,
         deliveryLocality: order.deliveryLocality,
         paymentMethod: order.paymentMethod,
+        fulfilmentMode: (order as any).fulfilmentMode || 'DELIVERY',
         deliveryLatitude: (order as any).deliveryLatitude,
         deliveryLongitude: (order as any).deliveryLongitude,
         deliveryPlaceId: (order as any).deliveryPlaceId,
