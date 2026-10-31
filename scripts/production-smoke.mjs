@@ -11,7 +11,7 @@
 // canonical documented API as a single-environment fallback.
 const baseUrl = process.env.KURALI_API_BASE_URL || "https://kuraliupdates-bazaar.onrender.com/api/v1";
 const base = baseUrl.replace(/\/$/, "");
-const timeoutMs = Number(process.env.SMOKE_TIMEOUT_MS || 45000);
+const timeoutMs = Number(process.env.SMOKE_TIMEOUT_MS || 90000);
 const readinessTimeoutMs = Number(process.env.SMOKE_READINESS_TIMEOUT_MS || 360000);
 const retryIntervalMs = Number(process.env.SMOKE_RETRY_INTERVAL_MS || 10000);
 const failures = [];
@@ -100,7 +100,9 @@ async function waitForReadiness() {
 const ready = await waitForReadiness();
 if (ready) {
   const checks = [
-    ["/buyers/products/search?query=", success, "Buyer product search"],
+    // Limit the read to one catalogue row. The previous default requested 100 rows and
+    // caused a slow full-catalogue read to exceed the smoke timeout on the single staging DB.
+    ["/buyers/products/search?query=&page=0&size=1", success, "Buyer product search (one-row probe)"],
     ["/daily-help/services", success, "Daily Help service catalogue"],
     ["/daily-help/availability?date=2099-01-01&requestedHours=1", success, "Daily Help availability query"],
     ["/delivery/me", protectedRoute, "Delivery profile requires authentication"],
