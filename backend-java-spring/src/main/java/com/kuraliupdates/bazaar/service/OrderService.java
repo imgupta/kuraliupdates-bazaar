@@ -224,6 +224,7 @@ public class OrderService {
                 .deliveryLongitude(request.deliveryLongitude() == null ? null : BigDecimal.valueOf(request.deliveryLongitude()))
                 .deliveryPlaceId(trim(request.deliveryPlaceId()))
                 .seller(seller)
+                .fulfilmentMode("DELIVERY")
                 .subtotal(itemSubtotal)
                 .billDiscountAmount(BigDecimal.ZERO)
                 .couponDiscountAmount(BigDecimal.ZERO)
