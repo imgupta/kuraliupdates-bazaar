@@ -204,7 +204,7 @@ public class OrderService {
             BigDecimal negotiatedPrice = null;
             if (acceptedOfferId != null) {
                 negotiatedPrice = jdbc.query(
-                        "SELECT m.OFFER_PRICE FROM CHAT_MESSAGES m JOIN NEGOTIATION_CHATS c ON c.CHAT_ID=m.CHAT_ID WHERE m.MESSAGE_ID=? AND m.OFFER_STATUS='ACCEPTED' AND c.PRODUCT_ID=? AND c.SELLER_ID=? AND LOWER(c.BUYER_EMAIL)=? AND c.CURRENT_AGREED_PRICE=m.OFFER_PRICE",
+                        "SELECT m.OFFER_PRICE FROM CHAT_MESSAGES m JOIN NEGOTIATION_CHATS c ON c.CHAT_ID=m.CHAT_ID WHERE m.MESSAGE_ID=? AND m.OFFER_STATUS='ACCEPTED' AND c.PRODUCT_ID=? AND c.SELLER_ID=? AND LOWER(c.BUYER_EMAIL)=? AND c.CURRENT_AGREED_PRICE=m.OFFER_PRICE AND c.BARGAIN_STATUS='ACCEPTED' AND c.EXPIRES_AT IS NULL",
                         rs -> rs.next() ? rs.getBigDecimal(1) : null,
                         acceptedOfferId, product.getProductId(), productSeller.getSellerId(),
                         buyer.getEmail() == null ? "" : buyer.getEmail().trim().toLowerCase(Locale.ROOT));
@@ -212,8 +212,20 @@ public class OrderService {
                         && clientNegotiatedPrices.get(entry.getKey()).compareTo(negotiatedPrice) != 0)) {
                     throw new ApiException(HttpStatus.CONFLICT, "The negotiated price is no longer valid. Reopen the chat and add the accepted offer to your cart again.");
                 }
-            } else if (clientNegotiatedPrices.containsKey(entry.getKey())) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Negotiated cart price must reference a seller-accepted offer. Reopen bargaining chat and add the accepted offer again.");
+            } else {
+                // Serialize standard-price checkout against seller acceptance. A late
+                // approval cannot change the price of an order already being placed.
+                List<String> pendingChats = jdbc.query(
+                        "SELECT CHAT_ID FROM NEGOTIATION_CHATS WHERE PRODUCT_ID=? AND LOWER(BUYER_EMAIL)=? AND BARGAIN_STATUS IN ('PENDING_SELLER','PENDING_BUYER') FOR UPDATE",
+                        (rs, row) -> rs.getString(1), entry.getKey(),
+                        buyer.getEmail() == null ? "" : buyer.getEmail().trim().toLowerCase(Locale.ROOT));
+                for (String pendingChatId : pendingChats) {
+                    jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS='CLOSED_PURCHASED', EXPIRES_AT=NULL, CLOSED_AT=?, LAST_UPDATED=? WHERE CHAT_ID=? AND BARGAIN_STATUS IN ('PENDING_SELLER','PENDING_BUYER')",
+                            Timestamp.valueOf(LocalDateTime.now()), Timestamp.valueOf(LocalDateTime.now()), pendingChatId);
+                }
+                if (clientNegotiatedPrices.containsKey(entry.getKey())) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "Negotiated cart price must reference a seller-accepted offer. Reopen bargaining chat and add the accepted offer again.");
+                }
             }
             if (negotiatedPrice != null) unitPrice = negotiatedPrice;
             if (unitPrice == null || unitPrice.signum() <= 0) {
