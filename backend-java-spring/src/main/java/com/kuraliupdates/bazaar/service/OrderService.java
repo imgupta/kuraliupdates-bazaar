@@ -33,6 +33,7 @@ public class OrderService {
     private final SellerRepository sellerRepository;
     private final ProductRepository productRepository;
     private final JdbcTemplate jdbc;
+    private final GoogleRoutesService googleRoutesService;
     private final SecureRandom random = new SecureRandom();
 
     /** Creates seller-owned suborders under one transaction; any seller failure rolls back the entire checkout. */
@@ -74,6 +75,7 @@ public class OrderService {
         }
         String checkoutGroupId = "CHK-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT);
         List<OrderPlacementResponse> placed = new ArrayList<>();
+        List<OrderEntity> savedOrders = new ArrayList<>();
         for (Map.Entry<String, List<OrderItemRequest>> group : bySeller.entrySet()) {
             PlaceOrderRequest sellerRequest = new PlaceOrderRequest(
                     buyer.getName(), buyer.getPhone(), buyer.getEmail(), request.deliveryAddress(),
@@ -101,7 +103,30 @@ public class OrderService {
                 saved.setRiderPayoutSnapshottedAt(null);
             }
             orderRepository.save(saved);
+            savedOrders.add(saved);
             placed.add(result);
+        }
+        if ("DELIVERY".equals(fulfilmentMode)) {
+            BigDecimal baseFee = configuredDecimal("CUSTOMER_BASE_FEE", BigDecimal.valueOf(35));
+            BigDecimal perKmFee = configuredDecimal("CUSTOMER_PER_KM_FEE", BigDecimal.ZERO);
+            BigDecimal roadKm = googleRoutesService.calculateCombinedRouteKm(savedOrders);
+            BigDecimal checkoutDeliveryFee = baseFee;
+            if (roadKm != null) checkoutDeliveryFee = checkoutDeliveryFee.add(roadKm.multiply(perKmFee));
+            checkoutDeliveryFee = checkoutDeliveryFee.setScale(2, RoundingMode.HALF_UP);
+            for (int i = 0; i < savedOrders.size(); i++) {
+                OrderEntity saved = savedOrders.get(i);
+                BigDecimal allocatedFee = i == 0 ? checkoutDeliveryFee : BigDecimal.ZERO;
+                saved.setDeliveryFee(allocatedFee);
+                saved.setIsFreeDelivery(allocatedFee.signum() == 0 ? 1 : 0);
+                BigDecimal discounts = (saved.getBillDiscountAmount() == null ? BigDecimal.ZERO : saved.getBillDiscountAmount())
+                        .add(saved.getCouponDiscountAmount() == null ? BigDecimal.ZERO : saved.getCouponDiscountAmount());
+                saved.setTotalAmount(saved.getSubtotal().subtract(discounts).add(allocatedFee).setScale(2, RoundingMode.HALF_UP));
+            }
+            orderRepository.saveAll(savedOrders);
+            placed.clear();
+            for (OrderEntity saved : savedOrders) {
+                OrderPlacementResponse previous = placedResponseFor(saved, placed);
+            }
         }
         return new com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse(checkoutGroupId, List.copyOf(placed));
     }
@@ -303,6 +328,11 @@ public class OrderService {
                         && candidate.getBuyerEmail().equalsIgnoreCase(buyer.getEmail().trim()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
         return OrderResponse.from(order);
+    }
+
+    private BigDecimal configuredDecimal(String column, BigDecimal fallback) {
+        BigDecimal value = jdbc.queryForObject("SELECT " + column + " FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", BigDecimal.class);
+        return value == null ? fallback : value;
     }
 
     private String trim(String value) {
