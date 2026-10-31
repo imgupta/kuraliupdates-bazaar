@@ -12,6 +12,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.junit.jupiter.api.BeforeEach;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -24,7 +26,17 @@ import static org.mockito.Mockito.*;
 class DeliveryServiceTest {
     @Mock private DeliveryAgentRepository agentRepository;
     @Mock private OrderRepository orderRepository;
+    @Mock private JdbcTemplate jdbc;
+    @Mock private GoogleRoutesService googleRoutesService;
     @InjectMocks private DeliveryService deliveryService;
+
+    @BeforeEach
+    void configureDefaultRiderPayout() {
+        lenient().when(jdbc.queryForObject(anyString(), eq(BigDecimal.class))).thenAnswer(invocation -> {
+            String sql = invocation.getArgument(0);
+            return sql.contains("RIDER_BASE_PAYOUT") ? new BigDecimal("45") : new BigDecimal("22");
+        });
+    }
 
     @Test
     void pendingAgentCannotSeePickupJobs() {
@@ -91,7 +103,7 @@ class DeliveryServiceTest {
         assertEquals("DELIVERED", order.getStatus());
         assertEquals("PAID", order.getPaymentStatus());
         assertEquals(1, agent.getTotalTrips());
-        assertEquals(new BigDecimal("53"), agent.getTodayEarnings());
+        assertEquals(new BigDecimal("78"), agent.getTodayEarnings());
         assertEquals(new BigDecimal("53"), agent.getTotalEarnings());
         verify(orderRepository, times(1)).save(order);
         verify(agentRepository, times(1)).save(agent);
