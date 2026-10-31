@@ -35,7 +35,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
   const isStorePickup = order?.fulfilmentMode === 'STORE_PICKUP';
 
   const confirmPickup = async () => {
-    if (!/^\\d{4}$/.test(pickupOtp) || pickupSubmitting) return;
+    if (!/^\d{4}$/.test(pickupOtp) || pickupSubmitting) return;
     setPickupSubmitting(true);
     try {
       const token = localStorage.getItem('kurali_auth_token');
@@ -191,7 +191,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
               <p className="text-xs font-bold text-emerald-900">Have you collected your items from the store?</p>
               <div className="flex gap-2">
                 <input aria-label="Store pickup OTP" inputMode="numeric" maxLength={4} value={pickupOtp}
-                  onChange={event => setPickupOtp(event.target.value.replace(/\\D/g, '').slice(0, 4))}
+                  onChange={event => setPickupOtp(event.target.value.replace(/\D/g, '').slice(0, 4))}
                   placeholder="Enter 4-digit OTP" className="min-w-0 flex-1 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-mono tracking-widest" />
                 <button type="button" onClick={confirmPickup} disabled={pickupOtp.length !== 4 || pickupSubmitting}
                   className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
