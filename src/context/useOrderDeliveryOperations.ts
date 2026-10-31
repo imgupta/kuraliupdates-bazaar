@@ -81,7 +81,8 @@ export const useOrderDeliveryOperations = ({
     };
 
     const response = await bazaarApi.placeOrder(newOrder);
-    const serverOrders = Array.isArray(response?.orders) ? response.orders.map((entry: any) => entry.order).filter(Boolean) : [];
+    const serverOrderEntries = Array.isArray(response?.orders) ? response.orders.filter((entry: any) => entry?.order) : [];
+    const serverOrders = serverOrderEntries.map((entry: any) => entry.order);
     const serverOrder = response?.order || serverOrders[0];
     if (!serverOrder?.orderId) {
       showToast('Order was not confirmed by the server. Your cart has been kept; please retry after checking order history.', 'error');
@@ -101,20 +102,21 @@ export const useOrderDeliveryOperations = ({
       paymentStatus: String(serverOrder.paymentStatus || 'PENDING_COD').toLowerCase() as Order['paymentStatus'],
       status: String(serverOrder.status || 'PLACED').toLowerCase() as OrderStatus,
       fulfilmentMode: serverOrder.fulfilmentMode || orderData.fulfilmentMode || 'DELIVERY',
-      deliveryOtp: serverOrder.deliveryOtp || '',
+      deliveryOtp: response?.deliveryOtp || serverOrder.deliveryOtp || '',
     };
     const confirmedOrders: Order[] = serverOrders.length > 0
-      ? serverOrders.map((entry: any) => ({
+      ? serverOrderEntries.map((placement: any) => ({
           ...confirmed,
-          id: entry.orderId,
-          sellerId: entry.sellerId || confirmed.sellerId,
-          subtotal: Number(entry.subtotal ?? 0),
-          itemSubtotal: Number(entry.subtotal ?? 0),
-          deliveryFee: Number(entry.deliveryFee ?? 0),
-          totalAmount: Number(entry.totalAmount ?? 0),
-          fulfilmentMode: entry.fulfilmentMode || orderData.fulfilmentMode || 'DELIVERY',
-          deliveryOtp: entry.deliveryOtp || '',
-          items: (entry.items || []).map((line: any) => ({ ...line })),
+          ...placement.order,
+          id: placement.order.orderId,
+          deliveryOtp: placement.deliveryOtp || '',
+          sellerId: placement.order.sellerId || confirmed.sellerId,
+          subtotal: Number(placement.order.subtotal ?? 0),
+          itemSubtotal: Number(placement.order.subtotal ?? 0),
+          deliveryFee: Number(placement.order.deliveryFee ?? 0),
+          totalAmount: Number(placement.order.totalAmount ?? 0),
+          fulfilmentMode: placement.order.fulfilmentMode || orderData.fulfilmentMode || 'DELIVERY',
+          items: (placement.order.items || []).map((line: any) => ({ ...line })),
         }))
       : [confirmed];
     setOrders(prev => [...confirmedOrders, ...prev.filter(order => !confirmedOrders.some(created => created.id === order.id))]);
