@@ -19,6 +19,8 @@ public class V20__Pickup_fulfilment_and_rider_payout_snapshots extends BaseJavaM
                 "ALTER TABLE ORDERS ADD RIDER_PAYOUT_SNAPSHOT NUMBER(10,2)");
         ensureColumn(connection, "ORDERS", "RIDER_PAYOUT_SNAPSHOTTED_AT",
                 "ALTER TABLE ORDERS ADD RIDER_PAYOUT_SNAPSHOTTED_AT TIMESTAMP");
+        ensureColumn(connection, "ORDERS", "COMBINED_DELIVERY_BATCH_ID",
+                "ALTER TABLE ORDERS ADD COMBINED_DELIVERY_BATCH_ID VARCHAR2(64)");
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate("UPDATE ORDERS SET FULFILMENT_MODE='DELIVERY' WHERE FULFILMENT_MODE IS NULL");
         }
