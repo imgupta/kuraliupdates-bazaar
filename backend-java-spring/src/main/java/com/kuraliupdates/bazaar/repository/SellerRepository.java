@@ -15,6 +15,8 @@ public interface SellerRepository extends JpaRepository<SellerEntity, String> {
     @Query("SELECT s FROM SellerEntity s WHERE UPPER(TRIM(s.status)) = UPPER(TRIM(:status))")
     List<SellerEntity> findByStatusNormalized(@org.springframework.data.repository.query.Param("status") String status);
 
+    Optional<SellerEntity> findByUserId(String userId);
+
     Optional<SellerEntity> findByEmail(String email);
 
     Optional<SellerEntity> findByEmailIgnoreCase(String email);
