@@ -468,6 +468,33 @@ class DeliveryServiceTest {
     }
 
     @Test
+    void combinedDeliveryCannotCompleteUntilEverySellerStopIsCollected() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity collected = OrderEntity.builder().orderId("BATCH-PICKED")
+                .checkoutGroupId("CHK-INCOMPLETE").combinedDeliveryBatchId("CHK-INCOMPLETE")
+                .status("PICKED_UP").deliveryAgent(agent).deliveryOtp("0042")
+                .riderPayoutSnapshot(new BigDecimal("78")).build();
+        OrderEntity waiting = OrderEntity.builder().orderId("BATCH-WAITING")
+                .checkoutGroupId("CHK-INCOMPLETE").combinedDeliveryBatchId("CHK-INCOMPLETE")
+                .status("ASSIGNED_TO_DELIVERY").deliveryAgent(agent).deliveryOtp("0042")
+                .riderPayoutSnapshot(BigDecimal.ZERO).build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findLockedForDeliveryVerification("BATCH-PICKED")).thenReturn(Optional.of(collected));
+        when(orderRepository.findLockedByCheckoutGroupId("CHK-INCOMPLETE")).thenReturn(java.util.List.of(collected, waiting));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.verifyDeliveryOtp("BATCH-PICKED", "0042", user()));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("PICKED_UP", collected.getStatus());
+        assertEquals("ASSIGNED_TO_DELIVERY", waiting.getStatus());
+        assertEquals(0, agent.getTotalTrips());
+        verify(orderRepository, never()).save(any());
+        verify(orderRepository, never()).saveAll(any());
+        verify(agentRepository, never()).save(any());
+    }
+
+    @Test
     void riderConfirmsEachSellerPickupIndependently() {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder().orderId("PICKUP-1")
