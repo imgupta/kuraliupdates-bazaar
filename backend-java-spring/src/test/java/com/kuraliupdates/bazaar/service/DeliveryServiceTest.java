@@ -510,6 +510,23 @@ class DeliveryServiceTest {
     }
 
     @Test
+    void singleSellerCheckoutWithCheckoutGroupIdIsDispatchableAsIndividualJob() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity order = OrderEntity.builder().orderId("SINGLE-CHECKOUT-READY")
+                .checkoutGroupId("CHK-SINGLE").status("READY_FOR_PICKUP")
+                .fulfilmentMode("DELIVERY").build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findByStatus("READY_FOR_PICKUP")).thenReturn(java.util.List.of(order));
+        when(orderRepository.findByCheckoutGroupIdOrderByPlacedAtAsc("CHK-SINGLE"))
+                .thenReturn(java.util.List.of(order));
+
+        var jobs = deliveryService.availableJobs(user());
+
+        assertEquals(1, jobs.size());
+        assertEquals("SINGLE-CHECKOUT-READY", jobs.get(0).getOrderId());
+    }
+
+    @Test
     void combinedCheckoutIsNotDispatchableUntilEverySellerIsReady() {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity ready = OrderEntity.builder().orderId("READY-1").checkoutGroupId("CHK-READY")
