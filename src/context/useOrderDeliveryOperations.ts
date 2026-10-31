@@ -3,6 +3,7 @@ import type { CartItem, DeliveryAgent, Order, OrderStatus, UserRole } from '../t
 import type { UserProfile } from '../entities/userProfile';
 import { bazaarApi } from '../services/api';
 import { deliveryApi } from '../services/domains/deliveryApi';
+import { groupCheckoutOrders } from '../entities/orderGrouping';
 
 type OrderDeliveryOperationsOptions = {
   deliveryAgents: DeliveryAgent[];
@@ -122,11 +123,17 @@ export const useOrderDeliveryOperations = ({
           items: (placement.order.items || []).map((line: any) => ({ ...line })),
         }))
       : [confirmed];
-    setOrders(prev => [...confirmedOrders, ...prev.filter(order => !confirmedOrders.some(created => created.id === order.id))]);
+    const buyerOrder = groupCheckoutOrders(confirmedOrders)[0] || confirmed;
+    const replacedIds = new Set(confirmedOrders.map(order => order.id));
+    setOrders(prev => [buyerOrder, ...prev.filter(order =>
+      !replacedIds.has(order.id) && order.checkoutGroupId !== buyerOrder.checkoutGroupId
+    )]);
     clearCart();
-    setTrackingOrderId(confirmed.id);
-    showToast(confirmedOrders.length > 1 ? `${confirmedOrders.length} store orders placed in one checkout!` : `Order #${confirmed.id} placed successfully!`, 'success');
-    return confirmed;
+    setTrackingOrderId(buyerOrder.id);
+    showToast(confirmedOrders.length > 1
+      ? `One KuraliUpdates order placed across ${confirmedOrders.length} stores!`
+      : `Order #${confirmed.id} placed successfully!`, 'success');
+    return buyerOrder;
   };
 
   const updateOrderStatus = (orderId: string, status: OrderStatus, note?: string) => {
