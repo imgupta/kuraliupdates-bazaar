@@ -60,10 +60,16 @@ jobs:
             if (!value) throw new Error('Required E2E config key is blank: ' + key);
             return value;
           };
-          // This workflow performs read-only GET checks only. Existing staging fixture IDs
-          // may be legacy IDs; the synthetic-ID requirement is enforced separately by the
-          // transactional E2E workflow before any test is allowed to create business data.
-          const fixtureId = (key) => required(key);
+          const transactionalFixturesEnabled =
+            config.E2E_TRANSACTIONAL_FLOWS_ENABLED === true ||
+            config.E2E_TRANSACTIONAL_FLOWS_ENABLED === 'true';
+          const syntheticFixtureId = (key) => {
+            const value = required(key);
+            if (!/^E2E-[A-Za-z0-9_-]{3,80}$/.test(value)) {
+              throw new Error(key + ' must be a synthetic E2E- fixture ID when transactional E2E is enabled.');
+            }
+            return value;
+          };
           const expected = [
             ['BUYER', 'E2E_BUYER_IDENTITY', 'BUYER'],
             ['SELLER', 'E2E_SELLER_IDENTITY', 'SELLER'],
@@ -110,23 +116,23 @@ jobs:
                   mismatches.push('BUYER contact identity');
                 }
               }
-              if (role === 'SELLER') {
+              if (transactionalFixturesEnabled && role === 'SELLER') {
                 const seller = await getJson('/sellers/me', session.token);
-                if (String(seller.sellerId) !== fixtureId('E2E_FLOW_SELLER_ID')) {
+                if (String(seller.sellerId) !== syntheticFixtureId('E2E_FLOW_SELLER_ID')) {
                   mismatches.push('SELLER profile ID');
                 }
               }
-              if (role === 'DELIVERY') {
+              if (transactionalFixturesEnabled && role === 'DELIVERY') {
                 const agent = await getJson('/delivery/me', session.token);
-                if (String(agent.agentId) !== fixtureId('E2E_FLOW_DELIVERY_AGENT_ID')) {
+                if (String(agent.agentId) !== syntheticFixtureId('E2E_FLOW_DELIVERY_AGENT_ID')) {
                   mismatches.push('DELIVERY profile ID');
                 }
               }
-              if (role === 'PROVIDER') {
+              if (transactionalFixturesEnabled && role === 'PROVIDER') {
                 const providerPhone = String(session.user?.phone ?? '');
                 if (!providerPhone) throw new Error('Provider session did not return a phone for profile verification.');
                 const profile = await getJson('/daily-help/professionals/by-phone/' + encodeURIComponent(providerPhone), session.token);
-                if (String(profile.professionalId) !== fixtureId('E2E_FLOW_PROFESSIONAL_ID')) {
+                if (String(profile.professionalId) !== syntheticFixtureId('E2E_FLOW_PROFESSIONAL_ID')) {
                   mismatches.push('PROVIDER profile ID');
                 }
               }
@@ -136,76 +142,82 @@ jobs:
                   : ' session issued; a profile/configuration mismatch was recorded.'));
             }
 
-            const productId = fixtureId('E2E_FLOW_PRODUCT_ID');
-            const sellerId = fixtureId('E2E_FLOW_SELLER_ID');
-            fixtureId('E2E_FLOW_DELIVERY_AGENT_ID');
-            const quantity = Number(required('E2E_FLOW_ORDER_QUANTITY'));
-            if (!Number.isInteger(quantity) || quantity < 1 || quantity > 2) {
-              throw new Error('E2E_FLOW_ORDER_QUANTITY must be an integer between 1 and 2.');
-            }
-            const productResults = await getJson('/buyers/products/search?query=' + encodeURIComponent(productId), tokens.BUYER);
-            if (!Array.isArray(productResults)) throw new Error('Product search did not return a list.');
-            const product = productResults.find(item => item.productId === productId);
-            if (!product) {
-              mismatches.push('PRODUCT fixture missing/not visible to Buyer');
-            } else {
-              const actualSellerId = product.sellerId ?? product.seller?.sellerId;
-              const stock = Number(product.stock ?? product.stockQty);
-              const price = Number(product.effectivePrice ?? product.price ?? product.sellerPrice);
-              if (String(actualSellerId) !== sellerId) mismatches.push('PRODUCT seller ownership');
-              if (!Number.isFinite(stock) || stock < quantity) mismatches.push('PRODUCT stock quantity');
-              if (!Number.isFinite(price) || price <= 0) mismatches.push('PRODUCT catalogue price');
-              console.log('PASS: synthetic product is visible; ownership, stock and price checks completed.');
-            }
-
-            const services = await getJson('/daily-help/services', tokens.BUYER);
-            if (!Array.isArray(services)) throw new Error('Daily Help services endpoint did not return a list.');
-            const serviceId = fixtureId('E2E_FLOW_DAILY_HELP_SERVICE_ID');
-            const service = services.find(item => item.id === serviceId);
-            if (!service || service.active !== true) mismatches.push('DAILY HELP service missing/inactive');
-
-            const slotId = fixtureId('E2E_FLOW_DAILY_HELP_SLOT_ID');
-            const professionalId = fixtureId('E2E_FLOW_PROFESSIONAL_ID');
-            const scheduledStart = required('E2E_FLOW_DAILY_HELP_START');
-            const date = scheduledStart.slice(0, 10);
-            const validDate = /^\\d{4}-\\d{2}-\\d{2}$/.test(date) && !Number.isNaN(Date.parse(date + 'T00:00:00Z'));
-            if (!validDate) mismatches.push('DAILY HELP scheduled start must be ISO local datetime YYYY-MM-DDTHH:mm:ss');
-
-            const hours = Number(required('E2E_FLOW_DAILY_HELP_HOURS'));
-            const validHours = Number.isFinite(hours) && hours >= 1 && hours <= 2;
-            if (!validHours) mismatches.push('DAILY HELP requested hours must be between 1 and 2');
-
-            if (validDate && validHours) {
-              const slots = await getJson('/daily-help/availability?date=' + encodeURIComponent(date) +
-                '&requestedHours=' + encodeURIComponent(String(hours)) + '&locality=Kurali', tokens.BUYER);
-              if (!Array.isArray(slots)) {
-                mismatches.push('DAILY HELP availability response contract');
+            if (transactionalFixturesEnabled) {
+              const productId = syntheticFixtureId('E2E_FLOW_PRODUCT_ID');
+              const sellerId = syntheticFixtureId('E2E_FLOW_SELLER_ID');
+              syntheticFixtureId('E2E_FLOW_DELIVERY_AGENT_ID');
+              const quantity = Number(required('E2E_FLOW_ORDER_QUANTITY'));
+              if (!Number.isInteger(quantity) || quantity < 1 || quantity > 2) {
+                throw new Error('E2E_FLOW_ORDER_QUANTITY must be an integer between 1 and 2.');
+              }
+              const productResults = await getJson('/buyers/products/search?query=' + encodeURIComponent(productId), tokens.BUYER);
+              if (!Array.isArray(productResults)) throw new Error('Product search did not return a list.');
+              const product = productResults.find(item => item.productId === productId);
+              if (!product) {
+                mismatches.push('PRODUCT fixture missing/not visible to Buyer');
               } else {
-                const slot = slots.find(item => item.slotId === slotId);
-                if (!slot) {
-                  mismatches.push('DAILY HELP slot availability');
+                const actualSellerId = product.sellerId ?? product.seller?.sellerId;
+                const stock = Number(product.stock ?? product.stockQty);
+                const price = Number(product.effectivePrice ?? product.price ?? product.sellerPrice);
+                if (String(actualSellerId) !== sellerId) mismatches.push('PRODUCT seller ownership');
+                if (!Number.isFinite(stock) || stock < quantity) mismatches.push('PRODUCT stock quantity');
+                if (!Number.isFinite(price) || price <= 0) mismatches.push('PRODUCT catalogue price');
+                console.log('PASS: synthetic product is visible; ownership, stock and price checks completed.');
+              }
+  
+              const services = await getJson('/daily-help/services', tokens.BUYER);
+              if (!Array.isArray(services)) throw new Error('Daily Help services endpoint did not return a list.');
+              const serviceId = syntheticFixtureId('E2E_FLOW_DAILY_HELP_SERVICE_ID');
+              const service = services.find(item => item.id === serviceId);
+              if (!service || service.active !== true) mismatches.push('DAILY HELP service missing/inactive');
+  
+              const slotId = syntheticFixtureId('E2E_FLOW_DAILY_HELP_SLOT_ID');
+              const professionalId = syntheticFixtureId('E2E_FLOW_PROFESSIONAL_ID');
+              const scheduledStart = required('E2E_FLOW_DAILY_HELP_START');
+              const date = scheduledStart.slice(0, 10);
+              const validDate = /^\\d{4}-\\d{2}-\\d{2}$/.test(date) && !Number.isNaN(Date.parse(date + 'T00:00:00Z'));
+              if (!validDate) mismatches.push('DAILY HELP scheduled start must be ISO local datetime YYYY-MM-DDTHH:mm:ss');
+  
+              const hours = Number(required('E2E_FLOW_DAILY_HELP_HOURS'));
+              const validHours = Number.isFinite(hours) && hours >= 1 && hours <= 2;
+              if (!validHours) mismatches.push('DAILY HELP requested hours must be between 1 and 2');
+  
+              if (validDate && validHours) {
+                const slots = await getJson('/daily-help/availability?date=' + encodeURIComponent(date) +
+                  '&requestedHours=' + encodeURIComponent(String(hours)) + '&locality=Kurali', tokens.BUYER);
+                if (!Array.isArray(slots)) {
+                  mismatches.push('DAILY HELP availability response contract');
                 } else {
-                  if (String(slot.professionalId) !== professionalId) mismatches.push('DAILY HELP slot professional');
-                  if (String(slot.status ?? '').toUpperCase() !== 'AVAILABLE') mismatches.push('DAILY HELP slot status');
-                  const expectedTime = scheduledStart.slice(11, 16);
-                  if (!/^\\d{2}:\\d{2}$/.test(expectedTime) || String(slot.startTime ?? '').slice(0, 5) !== expectedTime) {
-                    mismatches.push('DAILY HELP slot start time');
-                  }
-                  const slotMinutes = (time) => {
-                    const match = /^(\\d{2}):(\\d{2})/.exec(String(time ?? ''));
-                    return match ? Number(match[1]) * 60 + Number(match[2]) : NaN;
-                  };
-                  if (slotMinutes(slot.endTime) - slotMinutes(slot.startTime) !== hours * 60) {
-                    mismatches.push('DAILY HELP slot duration');
+                  const slot = slots.find(item => item.slotId === slotId);
+                  if (!slot) {
+                    mismatches.push('DAILY HELP slot availability');
+                  } else {
+                    if (String(slot.professionalId) !== professionalId) mismatches.push('DAILY HELP slot professional');
+                    if (String(slot.status ?? '').toUpperCase() !== 'AVAILABLE') mismatches.push('DAILY HELP slot status');
+                    const expectedTime = scheduledStart.slice(11, 16);
+                    if (!/^\\d{2}:\\d{2}$/.test(expectedTime) || String(slot.startTime ?? '').slice(0, 5) !== expectedTime) {
+                      mismatches.push('DAILY HELP slot start time');
+                    }
+                    const slotMinutes = (time) => {
+                      const match = /^(\\d{2}):(\\d{2})/.exec(String(time ?? ''));
+                      return match ? Number(match[1]) * 60 + Number(match[2]) : NaN;
+                    };
+                    if (slotMinutes(slot.endTime) - slotMinutes(slot.startTime) !== hours * 60) {
+                      mismatches.push('DAILY HELP slot duration');
+                    }
                   }
                 }
               }
+              console.log('Completed Daily Help service and slot preflight checks.');
+            } else {
+              console.log('SKIP: fixture/profile preflight because transactional E2E is disabled. No fixture reads or business mutations were attempted.');
             }
-            console.log('Completed Daily Help service and slot preflight checks.');
             if (mismatches.length) {
               throw new Error('Fixture/profile checks need configuration fixes: ' + [...new Set(mismatches)].join(', ') + '. No business transactions were attempted.');
             }
-            console.log('PASS: all five role sessions and both synthetic fixture families verified. No orders, bookings, inventory changes, OTPs, or customer records were created. Session tokens were not printed.');
+            console.log('PASS: all five role sessions verified.' +
+              (transactionalFixturesEnabled ? ' Synthetic fixture checks also passed.' : ' Fixture checks skipped because transactional E2E is disabled.') +
+              ' No orders, bookings, inventory changes, OTPs, or customer records were created. Session tokens were not printed.');
           } catch (error) {
             console.error('PREFLIGHT FAILED: ' + (error?.message ?? 'unexpected failure') + '. No business transactions were attempted.');
             process.exit(1);
