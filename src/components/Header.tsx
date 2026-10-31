@@ -4,17 +4,17 @@ import {
   Store,
   Bike,
   ShieldCheck,
-  Search,
   ChevronDown,
   LogOut,
   User,
   Home,
+  MapPin,
+  Check,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { isRootAdminEmail } from '../data/initialData';
 import { UserRole } from '../types';
 import { pathForRole } from '../app/routing/routeConfig';
-import { SearchSuggestions } from './Buyer/SearchSuggestions';
 import { bazaarApi } from '../services/api';
 
 interface HeaderProps {
@@ -24,10 +24,7 @@ interface HeaderProps {
   setSelectedCategory: (cat: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({
-  searchQuery,
-  setSearchQuery,
-}) => {
+export const Header: React.FC<HeaderProps> = () => {
   const {
     role,
     setRole,
@@ -42,9 +39,24 @@ export const Header: React.FC<HeaderProps> = ({
     setIsGmailAuthOpen,
     products,
     showToast,
+    setDefaultBuyerAddress,
   } = useApp();
 
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [isAddressMenuOpen, setIsAddressMenuOpen] = useState(false);
+  const [addressBusy, setAddressBusy] = useState(false);
+  const savedAddresses = user.savedAddresses || [];
+  const activeAddress = savedAddresses.find(address => address.isDefault) || savedAddresses[0];
+  const chooseAddress = async (addressId: string) => {
+    if (addressBusy) return;
+    setAddressBusy(true);
+    try {
+      const saved = await setDefaultBuyerAddress(addressId);
+      if (!saved) { showToast('Could not switch delivery address. Please try again.', 'error'); return; }
+      setIsAddressMenuOpen(false);
+      showToast('Delivery address switched.', 'success');
+    } finally { setAddressBusy(false); }
+  };
 
   const selectRole = async (targetRole: UserRole) => {
     const portalUrls: Record<UserRole, string> = {
@@ -135,26 +147,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {role === 'buyer' && (
-            <div className="flex-1 max-w-md mx-2 hidden md:block">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search products across Kurali shops..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-9 py-2 bg-slate-100 hover:bg-slate-200/60 focus:bg-white text-xs rounded-xl border border-transparent focus:border-amber-500 outline-none transition-all"
-                />
-                {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600">
-                    &times;
-                  </button>
-                )}
-                <SearchSuggestions query={searchQuery} products={products} onSelect={setSearchQuery} />
-              </div>
-            </div>
-          )}
+
 
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {user.isSignedIn && roleConfigs.length > 0 ? (
@@ -197,6 +190,39 @@ export const Header: React.FC<HeaderProps> = ({
                 {availableJobsCount > 0 && <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[10px] font-bold rounded-full">{availableJobsCount}</span>}
               </div>
             ) : null}
+
+            {role === 'buyer' && user.isSignedIn && (
+              <div className="relative">
+                <button type="button" onClick={() => setIsAddressMenuOpen(open => !open)}
+                  aria-label="Switch delivery address" aria-expanded={isAddressMenuOpen}
+                  className="flex max-w-[116px] items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-2 text-left text-slate-700 shadow-xs hover:border-amber-300 hover:bg-amber-50 sm:max-w-[170px]">
+                  <MapPin className="h-4 w-4 shrink-0 text-amber-600" />
+                  <span className="min-w-0">
+                    <span className="block text-[9px] font-semibold uppercase leading-tight text-slate-400">Deliver to</span>
+                    <span className="block truncate text-[11px] font-extrabold leading-tight">{activeAddress?.label || 'Add address'}</span>
+                  </span>
+                  <ChevronDown className="h-3 w-3 shrink-0 text-slate-400" />
+                </button>
+                {isAddressMenuOpen && (
+                  <div className="absolute right-0 top-full z-[60] mt-2 w-[min(88vw,340px)] rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl">
+                    <p className="px-2 pb-2 pt-1 text-xs font-black text-slate-900">Choose delivery address</p>
+                    {savedAddresses.length ? savedAddresses.map(address => (
+                      <button key={address.id} type="button" disabled={addressBusy || address.isDefault}
+                        onClick={() => void chooseAddress(address.id)}
+                        className="flex w-full items-start gap-2 rounded-xl px-2.5 py-2.5 text-left hover:bg-slate-50 disabled:cursor-default">
+                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-1.5 text-xs font-extrabold text-slate-800">{address.label}{address.isDefault && <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">Selected</span>}</span>
+                          <span className="mt-0.5 block line-clamp-2 text-[10px] text-slate-500">{address.formattedAddress || address.addressLine1}{address.landmark ? ' · ' + address.landmark : ''}</span>
+                        </span>
+                        {address.isDefault && <Check className="h-4 w-4 shrink-0 text-emerald-600" />}
+                      </button>
+                    )) : <p className="px-2 py-3 text-xs text-slate-500">No saved addresses yet. Add one in My Account → My addresses.</p>}
+                    <a href="/account" onClick={() => setIsAddressMenuOpen(false)} className="mt-1 block border-t border-slate-100 px-2.5 py-2.5 text-xs font-bold text-amber-700">Manage addresses</a>
+                  </div>
+                )}
+              </div>
+            )}
 
             <button
               onClick={() => setIsCartOpen(true)}
@@ -269,22 +295,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {role === 'buyer' && (
-          <div className="mt-2 md:hidden">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search products in Kurali..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-8 py-2 text-xs bg-slate-100 rounded-xl border border-slate-200 outline-none"
-              />
-              {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">Clear</button>}
-              <SearchSuggestions query={searchQuery} products={products} onSelect={setSearchQuery} />
-            </div>
-          </div>
-        )}
+
       </div>
 
       <div className="sm:hidden px-3 pb-2 pt-0.5 border-t border-slate-100 bg-white">
