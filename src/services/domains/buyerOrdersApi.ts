@@ -6,7 +6,9 @@ import { API_BASE_URL } from '../http/apiConfig';
 export const buyerOrdersApi = {
   async placeOrder(order: Partial<Order>): Promise<any> {
     try {
-      const res = await fetch(`${API_BASE_URL}/buyers/orders`, {
+      const sellerCount = new Set((order.items || []).map(item => item.product.sellerId)).size;
+      const endpoint = sellerCount > 1 ? '/buyers/orders/checkout' : '/buyers/orders';
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(localStorage.getItem('kurali_auth_token') ? { Authorization: `Bearer ${localStorage.getItem('kurali_auth_token')}` } : {}) },
         body: JSON.stringify({

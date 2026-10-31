@@ -34,6 +34,50 @@ public class OrderService {
     private final JdbcTemplate jdbc;
     private final SecureRandom random = new SecureRandom();
 
+    /** Creates seller-owned suborders under one transaction; any seller failure rolls back the entire checkout. */
+    @Transactional
+    public com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse placeMultiSellerOrder(
+            PlaceOrderRequest request, UserEntity buyer, String e2eRunId) {
+        if (!"COD".equalsIgnoreCase(request.paymentMethod())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Online payment is not enabled yet. Please select Cash on Delivery.");
+        }
+        if (request.items() == null || request.items().isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "At least one order item is required");
+        }
+        Map<String, List<OrderItemRequest>> bySeller = new TreeMap<>();
+        for (OrderItemRequest item : request.items()) {
+            if (item.productId() == null || item.productId().isBlank() || item.quantity() == null || item.quantity() <= 0) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Each order item needs a product and positive quantity");
+            }
+            ProductEntity product = productRepository.findLockedByProductId(item.productId().trim())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Product not found: " + item.productId()));
+            if (product.getSeller() == null || !"APPROVED".equalsIgnoreCase(product.getSeller().getStatus())) {
+                throw new ApiException(HttpStatus.CONFLICT, "Product seller is not approved");
+            }
+            bySeller.computeIfAbsent(product.getSeller().getSellerId(), ignored -> new ArrayList<>()).add(item);
+        }
+        if (bySeller.size() > 10) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A checkout can contain products from at most 10 stores");
+        }
+        String checkoutGroupId = "CHK-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT);
+        List<OrderPlacementResponse> placed = new ArrayList<>();
+        for (Map.Entry<String, List<OrderItemRequest>> group : bySeller.entrySet()) {
+            PlaceOrderRequest sellerRequest = new PlaceOrderRequest(
+                    request.buyerName(), request.buyerPhone(), request.buyerEmail(), request.deliveryAddress(),
+                    request.deliveryLocality(), group.getKey(), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                    BigDecimal.ZERO, request.paymentMethod(), request.distanceKm(), request.deliveryLatitude(),
+                    request.deliveryLongitude(), request.deliveryPlaceId(), group.getValue());
+            OrderPlacementResponse result = placeOrder(sellerRequest, buyer, e2eRunId);
+            OrderEntity saved = orderRepository.findById(result.order().orderId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Created seller order could not be reloaded"));
+            saved.setCheckoutGroupId(checkoutGroupId);
+            saved.setFulfilmentStatus("AWAITING_SELLER_ACCEPTANCE");
+            orderRepository.save(saved);
+            placed.add(result);
+        }
+        return new com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse(checkoutGroupId, List.copyOf(placed));
+    }
+
     @Transactional
     public OrderPlacementResponse placeOrder(PlaceOrderRequest request, UserEntity buyer) {
         return placeOrder(request, buyer, null);

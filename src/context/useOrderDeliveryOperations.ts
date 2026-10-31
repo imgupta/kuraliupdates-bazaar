@@ -42,10 +42,6 @@ export const useOrderDeliveryOperations = ({
   }): Promise<Order | null> => {
     if (cart.length === 0) return null;
     const sellerIds = Array.from(new Set(cart.map(item => item.product.sellerId)));
-    if (sellerIds.length !== 1) {
-      showToast('Please place separate orders for products from different stores.', 'error');
-      return null;
-    }
 
     const newOrder: Order = {
       id: '',
@@ -84,7 +80,8 @@ export const useOrderDeliveryOperations = ({
     };
 
     const response = await bazaarApi.placeOrder(newOrder);
-    const serverOrder = response?.order;
+    const serverOrders = Array.isArray(response?.orders) ? response.orders.map((entry: any) => entry.order).filter(Boolean) : [];
+    const serverOrder = response?.order || serverOrders[0];
     if (!serverOrder?.orderId) {
       showToast('Order was not confirmed by the server. Your cart has been kept; please retry after checking order history.', 'error');
       return null;
@@ -103,10 +100,22 @@ export const useOrderDeliveryOperations = ({
       paymentStatus: String(serverOrder.paymentStatus || 'PENDING_COD').toLowerCase() as Order['paymentStatus'],
       status: String(serverOrder.status || 'PLACED').toLowerCase() as OrderStatus,
     };
-    setOrders(prev => [confirmed, ...prev.filter(order => order.id !== confirmed.id)]);
+    const confirmedOrders: Order[] = serverOrders.length > 0
+      ? serverOrders.map((entry: any) => ({
+          ...confirmed,
+          id: entry.orderId,
+          sellerId: entry.sellerId || confirmed.sellerId,
+          subtotal: Number(entry.subtotal ?? 0),
+          itemSubtotal: Number(entry.subtotal ?? 0),
+          deliveryFee: Number(entry.deliveryFee ?? 0),
+          totalAmount: Number(entry.totalAmount ?? 0),
+          items: (entry.items || []).map((line: any) => ({ ...line })),
+        }))
+      : [confirmed];
+    setOrders(prev => [...confirmedOrders, ...prev.filter(order => !confirmedOrders.some(created => created.id === order.id))]);
     clearCart();
     setTrackingOrderId(confirmed.id);
-    showToast(`Order #${confirmed.id} placed successfully!`, 'success');
+    showToast(confirmedOrders.length > 1 ? `${confirmedOrders.length} store orders placed in one checkout!` : `Order #${confirmed.id} placed successfully!`, 'success');
     return confirmed;
   };
 

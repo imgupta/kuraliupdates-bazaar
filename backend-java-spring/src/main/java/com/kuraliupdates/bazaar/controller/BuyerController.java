@@ -53,6 +53,20 @@ public class BuyerController {
         return ResponseEntity.ok(orderService.placeOrder(request, user, e2eRunId));
     }
 
+    @PostMapping("/orders/checkout")
+    @Operation(summary = "Place an atomic multi-seller COD checkout")
+    public ResponseEntity<com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse> placeMultiSellerOrder(
+            @Valid @RequestBody PlaceOrderRequest request,
+            @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
+            @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
+            Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
+        }
+        String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
+        return ResponseEntity.ok(orderService.placeMultiSellerOrder(request, user, e2eRunId));
+    }
+
     @GetMapping("/me/orders")
     @Operation(summary = "Get order history for the authenticated buyer")
     public ResponseEntity<List<OrderResponse>> myOrders(Authentication authentication) {
