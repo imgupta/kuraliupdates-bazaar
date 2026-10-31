@@ -195,7 +195,7 @@ class DeliveryServiceTest {
                 .orderId("ORD-OTP-1").status("ASSIGNED_TO_DELIVERY")
                 .deliveryAgent(agent).deliveryOtp("1234").build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
-        when(orderRepository.findById("ORD-OTP-1")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-OTP-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = deliveryService.resendDeliveryOtp("ORD-OTP-1", user());
@@ -216,7 +216,7 @@ class DeliveryServiceTest {
                 .orderId("ORD-OTP-2").status("ASSIGNED_TO_DELIVERY")
                 .deliveryAgent(otherAgent).deliveryOtp("1234").build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(authenticatedAgent));
-        when(orderRepository.findById("ORD-OTP-2")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-OTP-2")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.resendDeliveryOtp("ORD-OTP-2", user()));
@@ -232,7 +232,7 @@ class DeliveryServiceTest {
                 .orderId("ORD-OTP-3").status("DELIVERED")
                 .deliveryAgent(agent).deliveryOtp("1234").build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
-        when(orderRepository.findById("ORD-OTP-3")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-OTP-3")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.resendDeliveryOtp("ORD-OTP-3", user()));
@@ -249,7 +249,7 @@ class DeliveryServiceTest {
                 .orderId("ORD-OTP-4").status("PICKED_UP")
                 .deliveryAgent(agent).deliveryOtp("1234").build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
-        when(orderRepository.findById("ORD-OTP-4")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-OTP-4")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         deliveryService.resendDeliveryOtp("ORD-OTP-4", user());
