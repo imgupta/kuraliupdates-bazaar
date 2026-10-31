@@ -89,6 +89,18 @@ export const deliveryApi = {
     }
   },
 
+  async getMyAssignedJobs(): Promise<any[]> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) return [];
+    const res = await fetch(`${API_BASE_URL}/delivery/jobs/mine`, {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    const data = await res.json().catch(() => []);
+    if (!res.ok) throw new Error(data?.message || data?.error || `Unable to load assigned deliveries (HTTP ${res.status})`);
+    return (Array.isArray(data) ? data : []).map(mapBackendOrder);
+  },
+
   async claimDeliveryJob(orderId: string, agentId: string): Promise<boolean> {
     try {
       const token = localStorage.getItem('kurali_auth_token');
