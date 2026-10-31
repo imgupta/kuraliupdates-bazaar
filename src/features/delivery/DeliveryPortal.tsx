@@ -467,7 +467,7 @@ export const DeliveryDashboard: React.FC = () => {
                         onClick={() => void handleResendDeliveryOtp(ord.trackingOrderId || ord.id)}
                         className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-emerald-200 px-3 py-2 text-[11px] font-bold text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <RefreshCw className={`h-3.5 w-3.5 ${resendingOtp[ord.id] ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`h-3.5 w-3.5 ${resendingOtp[ord.trackingOrderId || ord.id] ? 'animate-spin' : ''}`} />
                         {resendingOtp[ord.trackingOrderId || ord.id] ? 'Sending…' : (otpCooldowns[ord.trackingOrderId || ord.id] || 0) > Date.now() ? `New OTP in ${Math.ceil(((otpCooldowns[ord.trackingOrderId || ord.id] || 0) - Date.now()) / 1000)}s` : 'Generate new app OTP'}
                       </button>
                     </div>
