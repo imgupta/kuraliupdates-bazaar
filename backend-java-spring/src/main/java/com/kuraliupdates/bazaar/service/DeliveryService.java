@@ -76,7 +76,9 @@ public class DeliveryService {
         DeliveryAgentEntity agent = findAgentForUser(user);
         requireActive(agent);
         if (Boolean.FALSE.equals(agent.getAvailableForJobs())) return List.of();
-        return orderRepository.findByStatus("READY_FOR_PICKUP");
+        return orderRepository.findByStatus("READY_FOR_PICKUP").stream()
+                .filter(order -> !"STORE_PICKUP".equalsIgnoreCase(order.getFulfilmentMode()))
+                .toList();
     }
 
     @Transactional
