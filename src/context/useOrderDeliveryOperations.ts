@@ -129,7 +129,7 @@ export const useOrderDeliveryOperations = ({
     const buyerOrder = groupCheckoutOrders(confirmedOrders)[0] || confirmed;
     const replacedIds = new Set(confirmedOrders.map(order => order.id));
     setOrders(prev => [buyerOrder, ...prev.filter(order =>
-      !replacedIds.has(order.id) && order.checkoutGroupId !== buyerOrder.checkoutGroupId
+      !replacedIds.has(order.id) && (!buyerOrder.checkoutGroupId || order.checkoutGroupId !== buyerOrder.checkoutGroupId)
     )]);
     clearCart();
     setTrackingOrderId(buyerOrder.id);
