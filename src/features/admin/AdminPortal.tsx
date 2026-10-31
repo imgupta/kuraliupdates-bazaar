@@ -26,6 +26,7 @@ import {
   RefreshCw,
   Copy,
   Search,
+  Settings2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { adminApi } from '../../services/domains/adminApi';
@@ -48,7 +49,7 @@ export const AdminDashboard: React.FC = () => {
     showToast,
   } = useApp();
 
-  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory' | 'accounts'>('trends');
+  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory' | 'accounts' | 'delivery-config'>('trends');
   const [buyers, setBuyers] = useState<any[]>([]);
   const [adminAccounts, setAdminAccounts] = useState<any[]>([]);
   const [accountSearch, setAccountSearch] = useState('');
@@ -67,6 +68,10 @@ export const AdminDashboard: React.FC = () => {
   const [diagnostics, setDiagnostics] = useState<any | null>(null);
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
+  const [deliveryConfig, setDeliveryConfig] = useState<any | null>(null);
+  const [deliveryConfigLoading, setDeliveryConfigLoading] = useState(false);
+  const [deliveryConfigSaving, setDeliveryConfigSaving] = useState(false);
+  const [deliveryConfigError, setDeliveryConfigError] = useState<string | null>(null);
   const [directorySearch, setDirectorySearch] = useState('');
   const [editingDailyHelpId, setEditingDailyHelpId] = useState<string | null>(null);
   const [updatingHelperId, setUpdatingHelperId] = useState<string | null>(null);
@@ -110,6 +115,66 @@ export const AdminDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, [isRootAdmin]);
 
+
+  const refreshDeliveryConfiguration = async () => {
+    setDeliveryConfigLoading(true);
+    setDeliveryConfigError(null);
+    try {
+      const config = await adminApi.getDeliveryConfiguration();
+      setDeliveryConfig({
+        nearbyRadiusKm: Number(config.nearbyRadiusKm ?? 3),
+        maxSellersPerBatch: Number(config.maxSellersPerBatch ?? 3),
+        maxRouteKm: Number(config.maxRouteKm ?? 10),
+        customerBaseFee: Number(config.customerBaseFee ?? 25),
+        customerPerKmFee: Number(config.customerPerKmFee ?? 5),
+        riderBasePayout: Number(config.riderBasePayout ?? 45),
+        riderPerKmPayout: Number(config.riderPerKmPayout ?? 22),
+        maxWaitMinutes: Number(config.maxWaitMinutes ?? 15),
+        batchEnabled: config.batchEnabled === true || Number(config.batchEnabled) === 1,
+        flexibleFallback: config.flexibleFallback === true || Number(config.flexibleFallback) === 1,
+        storePickupEnabled: config.storePickupEnabled === true || Number(config.storePickupEnabled) === 1,
+        updatedAt: config.updatedAt,
+      });
+    } catch (error: any) {
+      setDeliveryConfigError(error?.message || 'Unable to load delivery configuration.');
+    } finally {
+      setDeliveryConfigLoading(false);
+    }
+  };
+
+  const saveDeliveryConfiguration = async () => {
+    if (!deliveryConfig || deliveryConfigSaving) return;
+    setDeliveryConfigSaving(true);
+    setDeliveryConfigError(null);
+    try {
+      const payload = {
+        nearbyRadiusKm: Number(deliveryConfig.nearbyRadiusKm),
+        maxSellersPerBatch: Number(deliveryConfig.maxSellersPerBatch),
+        maxRouteKm: Number(deliveryConfig.maxRouteKm),
+        customerBaseFee: Number(deliveryConfig.customerBaseFee),
+        customerPerKmFee: Number(deliveryConfig.customerPerKmFee),
+        riderBasePayout: Number(deliveryConfig.riderBasePayout),
+        riderPerKmPayout: Number(deliveryConfig.riderPerKmPayout),
+        maxWaitMinutes: Number(deliveryConfig.maxWaitMinutes),
+        batchEnabled: Boolean(deliveryConfig.batchEnabled),
+        flexibleFallback: Boolean(deliveryConfig.flexibleFallback),
+        storePickupEnabled: Boolean(deliveryConfig.storePickupEnabled),
+      };
+      const saved = await adminApi.updateDeliveryConfiguration(payload);
+      setDeliveryConfig((current: any) => ({ ...current, ...saved }));
+      showToast('Delivery charges and payout settings saved.', 'success');
+      await refreshDeliveryConfiguration();
+    } catch (error: any) {
+      setDeliveryConfigError(error?.message || 'Unable to save delivery configuration.');
+      showToast(error?.message || 'Unable to save delivery configuration.', 'error');
+    } finally {
+      setDeliveryConfigSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isRootAdmin && activeAdminTab === 'delivery-config') void refreshDeliveryConfiguration();
+  }, [activeAdminTab, isRootAdmin]);
 
   const refreshDiagnostics = async () => {
     if (!isRootAdmin) return;
@@ -376,6 +441,13 @@ export const AdminDashboard: React.FC = () => {
           <Bike className="w-4 h-4" /> Delivery Fleet ({adminDeliveryAgents.length})
         </button>
         <button
+          onClick={() => setActiveAdminTab('delivery-config')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeAdminTab === 'delivery-config' ? 'bg-purple-700 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
+        >
+          <Settings2 className="w-4 h-4" /> Delivery Charges & Payouts
+        </button>
+
+        <button
           onClick={() => setActiveAdminTab('trends')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeAdminTab === 'trends'
@@ -525,6 +597,58 @@ export const AdminDashboard: React.FC = () => {
               Showing {filteredDirectoryGroups.length} of {directoryGroups.length} user groups / unowned records. Product IDs are attached to a seller's user group when the seller-user relationship is present in the API data. Missing IDs are shown as — and are never guessed. ACCOUNT_LINK_MISSING flags provider profiles that need ownership review.
             </div>
           </div>
+        </div>
+      )}
+
+      {activeAdminTab === 'delivery-config' && (
+        <div className="space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900">Delivery Charges & Rider Payouts</h2>
+              <p className="text-xs text-slate-500 mt-1">Changes apply to future checkouts and newly claimed deliveries. Existing payout snapshots are not recalculated.</p>
+            </div>
+            <button type="button" onClick={() => void refreshDeliveryConfiguration()} disabled={deliveryConfigLoading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 disabled:opacity-50">
+              <RefreshCw className={`h-4 w-4 ${deliveryConfigLoading ? 'animate-spin' : ''}`} /> Refresh settings
+            </button>
+          </div>
+          {deliveryConfigError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">{deliveryConfigError}</div>}
+          {deliveryConfigLoading && !deliveryConfig ? <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Loading delivery settings…</div> : deliveryConfig && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                {([
+                  ['customerBaseFee', 'Customer base delivery fee (₹)', 0, 10000, 1],
+                  ['customerPerKmFee', 'Customer fee per km (₹)', 0, 1000, 1],
+                  ['riderBasePayout', 'Rider base payout (₹)', 0, 10000, 1],
+                  ['riderPerKmPayout', 'Rider payout per km (₹)', 0, 1000, 1],
+                  ['nearbyRadiusKm', 'Nearby seller radius (km)', 0.5, 50, 0.5],
+                  ['maxRouteKm', 'Maximum combined route (km)', 1, 100, 0.5],
+                  ['maxSellersPerBatch', 'Maximum sellers per batch', 1, 10, 1],
+                  ['maxWaitMinutes', 'Maximum wait (minutes)', 0, 120, 1],
+                ] as [string, string, number, number, number][]).map(([key, label, min, max, step]) => (
+                  <label key={key} className="block rounded-xl border border-slate-200 bg-white p-4">
+                    <span className="block text-xs font-bold text-slate-700 mb-2">{label}</span>
+                    <input type="number" min={min} max={max} step={step} value={deliveryConfig[key]} onChange={event => setDeliveryConfig((current: any) => ({ ...current, [key]: event.target.value === '' ? '' : Number(event.target.value) }))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-900 focus:border-purple-500 focus:outline-none" />
+                  </label>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {([
+                  ['batchEnabled', 'Enable combined rider delivery', 'Eligible multi-seller orders can be claimed as one trip.'],
+                  ['flexibleFallback', 'Allow separate-job fallback', 'Keep individual rider jobs available when combined routing is unavailable.'],
+                  ['storePickupEnabled', 'Enable store pickup', 'Allow buyers to collect orders directly from sellers.'],
+                ] as [string, string, string][]).map(([key, label, description]) => (
+                  <label key={key} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 cursor-pointer">
+                    <input type="checkbox" checked={Boolean(deliveryConfig[key])} onChange={event => setDeliveryConfig((current: any) => ({ ...current, [key]: event.target.checked }))} className="mt-0.5 h-4 w-4 accent-purple-700" />
+                    <span><span className="block text-xs font-extrabold text-slate-800">{label}</span><span className="block text-[11px] text-slate-500 mt-1">{description}</span></span>
+                  </label>
+                ))}
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl bg-slate-50 p-4">
+                <p className="text-[11px] text-slate-500">Validate charges and payout amounts before saving. Existing orders and claimed rider payouts remain unchanged.</p>
+                <button type="button" onClick={() => void saveDeliveryConfiguration()} disabled={deliveryConfigSaving || deliveryConfigLoading} className="rounded-xl bg-purple-700 px-5 py-3 text-xs font-extrabold text-white hover:bg-purple-800 disabled:opacity-50">{deliveryConfigSaving ? 'Saving…' : 'Save delivery configuration'}</button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
