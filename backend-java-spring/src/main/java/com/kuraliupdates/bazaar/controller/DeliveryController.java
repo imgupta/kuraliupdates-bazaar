@@ -94,6 +94,15 @@ public class DeliveryController {
                 .stream().map(OrderResponse::from).toList());
     }
 
+    @PostMapping("/jobs/{orderId}/confirm-pickup")
+    @Transactional
+    @Operation(summary = "Confirm collection at one seller pickup stop")
+    public ResponseEntity<OrderResponse> confirmSellerPickup(
+            @PathVariable String orderId, Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        return ResponseEntity.ok(OrderResponse.from(deliveryService.confirmSellerPickup(orderId, user)));
+    }
+
     @PostMapping("/jobs/{orderId}/resend-otp")
     public ResponseEntity<Map<String, Object>> resendDeliveryOtp(
             @PathVariable String orderId,
