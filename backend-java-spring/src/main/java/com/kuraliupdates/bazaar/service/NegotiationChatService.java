@@ -84,11 +84,12 @@ public class NegotiationChatService {
         if (listPrice == null) listPrice = (BigDecimal) product.get("sellerPrice");
         BigDecimal offerPrice = request.startingOfferPrice() == null ? listPrice.multiply(new BigDecimal("0.90")).setScale(2, java.math.RoundingMode.HALF_UP) : request.startingOfferPrice();
         validatePrice(offerPrice, listPrice);
-        jdbc.update("INSERT INTO NEGOTIATION_CHATS (CHAT_ID,PRODUCT_ID,SELLER_ID,BUYER_NAME,BUYER_EMAIL,LAST_UPDATED,E2E_RUN_ID) VALUES (?,?,?,?,?,?,?)",
-                chatId, request.productId().trim(), sellerId, safeName(user.getName(), "Buyer"), email, Timestamp.valueOf(LocalDateTime.now()), e2eRunId);
+        jdbc.update("INSERT INTO NEGOTIATION_CHATS (CHAT_ID,PRODUCT_ID,SELLER_ID,BUYER_NAME,BUYER_EMAIL,BARGAIN_STATUS,EXPIRES_AT,LAST_UPDATED,E2E_RUN_ID) VALUES (?,?,?,?,?,'PENDING_SELLER',?,?,?)",
+                chatId, request.productId().trim(), sellerId, safeName(user.getName(), "Buyer"), email, Timestamp.valueOf(LocalDateTime.now().plusHours(24)), Timestamp.valueOf(LocalDateTime.now()), e2eRunId);
         insertMessage(chatId, "BUYER", safeName(user.getName(), "Buyer"),
                 blank(request.openingMessage()) ? "Hi, I'm interested in " + product.get("productTitle") + ". Can you offer a better price?" : request.openingMessage().trim(),
                 offerPrice, "PENDING");
+        notifyParticipant(chatId, sellerId, "SELLER", "NEW_OFFER", "A buyer sent you a price offer.");
         return getChatForKnownParticipant(chatId);
     }
 
@@ -107,7 +108,15 @@ public class NegotiationChatService {
         }
         insertMessage(chatId, role, safeName(user.getName(), role.equals("SELLER") ? "Seller" : "Buyer"),
                 blank(request.text()) ? "Price offer: ₹" + offerPrice : request.text().trim(), offerPrice, offerPrice == null ? null : "PENDING");
-        jdbc.update("UPDATE NEGOTIATION_CHATS SET LAST_UPDATED=? WHERE CHAT_ID=?", Timestamp.valueOf(LocalDateTime.now()), chatId);
+        if (offerPrice != null) {
+            String nextStatus = "SELLER".equals(role) ? "PENDING_BUYER" : "PENDING_SELLER";
+            jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS=?, EXPIRES_AT=?, LAST_UPDATED=? WHERE CHAT_ID=?",
+                    nextStatus, Timestamp.valueOf(LocalDateTime.now().plusHours(24)), Timestamp.valueOf(LocalDateTime.now()), chatId);
+            String recipient = "SELLER".equals(role) ? normalizeEmail(Objects.toString(chat.get("buyerEmail"), "")) : Objects.toString(chat.get("sellerId"));
+            notifyParticipant(chatId, recipient, "SELLER".equals(role) ? "BUYER" : "SELLER", "COUNTER_OFFER", "A new counter-offer is waiting for your response.");
+        } else {
+            jdbc.update("UPDATE NEGOTIATION_CHATS SET LAST_UPDATED=? WHERE CHAT_ID=?", Timestamp.valueOf(LocalDateTime.now()), chatId);
+        }
         return getChatForKnownParticipant(chatId);
     }
 
@@ -118,6 +127,12 @@ public class NegotiationChatService {
         String action = request.action().trim().toUpperCase(Locale.ROOT);
         if (!List.of("ACCEPT", "REJECT", "COUNTER").contains(action)) throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported offer action");
         Map<String, Object> chat = requireChatParticipant(user, role, chatId);
+        if ("EXPIRED".equalsIgnoreCase(Objects.toString(chat.get("bargainStatus"), ""))
+                || (chat.get("expiresAt") instanceof Timestamp expiry && expiry.toLocalDateTime().isBefore(LocalDateTime.now()))) {
+            jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS='EXPIRED', CLOSED_AT=?, CURRENT_AGREED_PRICE=NULL WHERE CHAT_ID=? AND BARGAIN_STATUS IN ('PENDING_SELLER','PENDING_BUYER')",
+                    Timestamp.valueOf(LocalDateTime.now()), chatId);
+            throw new ApiException(HttpStatus.CONFLICT, "This bargain has expired. The catalogue price applies.");
+        }
         // Serialize offer decisions per conversation. Locking only the selected offer
         // allows two different pending offers in the same chat to be accepted concurrently.
         jdbc.queryForObject("SELECT CHAT_ID FROM NEGOTIATION_CHATS WHERE CHAT_ID=? FOR UPDATE", String.class, chatId);
@@ -141,13 +156,17 @@ public class NegotiationChatService {
         } else if ("ACCEPT".equals(action)) {
             jdbc.update("UPDATE CHAT_MESSAGES SET OFFER_STATUS='ACCEPTED' WHERE MESSAGE_ID=? AND CHAT_ID=?", offerId, chatId);
             jdbc.update("UPDATE CHAT_MESSAGES SET OFFER_STATUS='REJECTED' WHERE CHAT_ID=? AND OFFER_PRICE IS NOT NULL AND OFFER_STATUS='PENDING' AND MESSAGE_ID<>?", chatId, offerId);
-            jdbc.update("UPDATE NEGOTIATION_CHATS SET CURRENT_AGREED_PRICE=?, LAST_UPDATED=? WHERE CHAT_ID=?",
-                    acceptedPrice, Timestamp.valueOf(LocalDateTime.now()), chatId);
+            jdbc.update("UPDATE NEGOTIATION_CHATS SET CURRENT_AGREED_PRICE=?, BARGAIN_STATUS='ACCEPTED', EXPIRES_AT=NULL, CLOSED_AT=?, LAST_UPDATED=? WHERE CHAT_ID=?",
+                    acceptedPrice, Timestamp.valueOf(LocalDateTime.now()), Timestamp.valueOf(LocalDateTime.now()), chatId);
             insertMessage(chatId, role, safeName(user.getName(), role.equals("SELLER") ? "Seller" : "Buyer"),
                     "Offer accepted. Agreed item price: ₹" + acceptedPrice, null, null);
+            notifyOtherParticipant(chat, role, "OFFER_ACCEPTED", "Your bargain was accepted at ₹" + acceptedPrice + ". The negotiated price is now available in your cart.");
         } else {
             jdbc.update("UPDATE CHAT_MESSAGES SET OFFER_STATUS='REJECTED' WHERE MESSAGE_ID=? AND CHAT_ID=?", offerId, chatId);
+            jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS='REJECTED', CURRENT_AGREED_PRICE=NULL, EXPIRES_AT=NULL, CLOSED_AT=? WHERE CHAT_ID=?",
+                    Timestamp.valueOf(LocalDateTime.now()), chatId);
             insertMessage(chatId, role, safeName(user.getName(), role.equals("SELLER") ? "Seller" : "Buyer"), "Offer declined. Standard price applies.", null, null);
+            notifyOtherParticipant(chat, role, "OFFER_REJECTED", "Your bargain was declined. You can still buy at the current catalogue price.");
         }
         jdbc.update("UPDATE NEGOTIATION_CHATS SET LAST_UPDATED=? WHERE CHAT_ID=?", Timestamp.valueOf(LocalDateTime.now()), chatId);
         return getChatForKnownParticipant(chatId);
@@ -155,7 +174,7 @@ public class NegotiationChatService {
 
     private Map<String, Object> requireChatParticipant(UserEntity user, String role, String chatId) {
         if (!"BUYER".equals(role) && !"SELLER".equals(role)) throw new ApiException(HttpStatus.FORBIDDEN, "Only buyers and sellers can use bargaining chat");
-        List<Map<String, Object>> rows = jdbc.query("SELECT c.CHAT_ID,c.PRODUCT_ID,c.SELLER_ID,c.BUYER_NAME,c.BUYER_EMAIL,c.CURRENT_AGREED_PRICE,c.LAST_UPDATED,p.TITLE,p.IMAGE_URL,p.SELLER_PRICE,p.EFFECTIVE_PRICE,s.STORE_NAME,s.STATUS AS SELLER_STATUS,s.LOCALITY,(SELECT MAX(m.MESSAGE_ID) KEEP (DENSE_RANK LAST ORDER BY m.CREATED_AT) FROM CHAT_MESSAGES m WHERE m.CHAT_ID=c.CHAT_ID AND m.OFFER_STATUS='ACCEPTED') AS ACCEPTED_OFFER_ID FROM NEGOTIATION_CHATS c JOIN PRODUCTS p ON p.PRODUCT_ID=c.PRODUCT_ID JOIN SELLERS s ON s.SELLER_ID=c.SELLER_ID WHERE c.CHAT_ID=?",
+        List<Map<String, Object>> rows = jdbc.query("SELECT c.CHAT_ID,c.PRODUCT_ID,c.SELLER_ID,c.BUYER_NAME,c.BUYER_EMAIL,c.CURRENT_AGREED_PRICE,c.BARGAIN_STATUS,c.EXPIRES_AT,c.LAST_UPDATED,p.TITLE,p.IMAGE_URL,p.SELLER_PRICE,p.EFFECTIVE_PRICE,s.STORE_NAME,s.STATUS AS SELLER_STATUS,s.LOCALITY,(SELECT MAX(m.MESSAGE_ID) KEEP (DENSE_RANK LAST ORDER BY m.CREATED_AT) FROM CHAT_MESSAGES m WHERE m.CHAT_ID=c.CHAT_ID AND m.OFFER_STATUS='ACCEPTED') AS ACCEPTED_OFFER_ID FROM NEGOTIATION_CHATS c JOIN PRODUCTS p ON p.PRODUCT_ID=c.PRODUCT_ID JOIN SELLERS s ON s.SELLER_ID=c.SELLER_ID WHERE c.CHAT_ID=?",
                 (rs, row) -> chatMap(rs), chatId);
         if (rows.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "Conversation not found");
         Map<String, Object> chat = rows.get(0);
@@ -185,6 +204,7 @@ public class NegotiationChatService {
         chat.put("sellerStatus", rs.getString("SELLER_STATUS")); chat.put("sellerLocality", rs.getString("LOCALITY"));
         chat.put("buyerName", rs.getString("BUYER_NAME")); chat.put("buyerEmail", rs.getString("BUYER_EMAIL"));
         chat.put("currentAgreedPrice", rs.getBigDecimal("CURRENT_AGREED_PRICE")); chat.put("currentAgreedOfferId", rs.getString("ACCEPTED_OFFER_ID"));
+        chat.put("bargainStatus", rs.getString("BARGAIN_STATUS")); chat.put("expiresAt", rs.getTimestamp("EXPIRES_AT"));
         BigDecimal effectivePrice = rs.getBigDecimal("EFFECTIVE_PRICE");
         chat.put("originalPrice", effectivePrice == null ? rs.getBigDecimal("SELLER_PRICE") : effectivePrice);
         Timestamp updated = rs.getTimestamp("LAST_UPDATED");
@@ -225,6 +245,20 @@ public class NegotiationChatService {
     private void insertMessage(String chatId, String role, String name, String text, BigDecimal offerPrice, String status) {
         jdbc.update("INSERT INTO CHAT_MESSAGES (MESSAGE_ID,CHAT_ID,SENDER_ROLE,SENDER_NAME,MESSAGE_TEXT,OFFER_PRICE,OFFER_STATUS,CREATED_AT) VALUES (?,?,?,?,?,?,?,?)",
                 "msg-" + UUID.randomUUID(), chatId, role, name, text, offerPrice, status, Timestamp.valueOf(LocalDateTime.now()));
+    }
+
+    private void notifyOtherParticipant(Map<String, Object> chat, String actingRole, String event, String message) {
+        String recipient = "SELLER".equals(actingRole)
+                ? normalizeEmail(Objects.toString(chat.get("buyerEmail"), ""))
+                : Objects.toString(chat.get("sellerId"), "");
+        notifyParticipant(Objects.toString(chat.get("id"), ""), recipient,
+                "SELLER".equals(actingRole) ? "BUYER" : "SELLER", event, message);
+    }
+
+    private void notifyParticipant(String chatId, String recipient, String recipientRole, String event, String message) {
+        if (blank(chatId) || blank(recipient)) return;
+        jdbc.update("INSERT INTO BARGAIN_NOTIFICATIONS (NOTIFICATION_ID,CHAT_ID,RECIPIENT_EMAIL,RECIPIENT_ROLE,EVENT_TYPE,MESSAGE_TEXT,IS_READ,CREATED_AT) VALUES (?,?,?,?,?,?,0,?)",
+                "bn-" + UUID.randomUUID(), chatId, recipient, recipientRole, event, message, Timestamp.valueOf(LocalDateTime.now()));
     }
 
     private String requireSellerId(String email) {
