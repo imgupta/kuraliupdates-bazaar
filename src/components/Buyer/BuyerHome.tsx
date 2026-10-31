@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { ShoppingBag, Home, Search, X, Package, ChevronRight } from 'lucide-react';
+import React, { useMemo, useRef, useState } from 'react';
+import { ShoppingBag, Home, Search, X, Package, ChevronRight, ChevronLeft } from 'lucide-react';
 import { OnlineShopHome } from './OnlineShopHome';
 import { DailyHelpHome } from './DailyHelpHome';
 import { Product } from '../../types';
@@ -12,6 +12,7 @@ interface BuyerHomeProps {
   setSelectedCategory: (cat: string) => void;
   onOpenTracking: (orderId: string) => void;
   onBuyNow: (product: Product) => void;
+  isCheckoutOpen?: boolean;
 }
 
 const ACTIVE_ORDER_STATUSES = new Set([
@@ -28,6 +29,8 @@ const formatOrderStatus = (status: string) =>
 
 export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
   const [mode, setMode] = useState<'shop' | 'daily-help'>('shop');
+  const [ordersTrayOpen, setOrdersTrayOpen] = useState(true);
+  const touchStartX = useRef<number | null>(null);
   const { orders, user } = useApp();
   const activeOrders = useMemo(() => {
     const email = user.email?.trim().toLowerCase();
@@ -47,8 +50,22 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
     setMode(nextMode);
   };
 
+  const handleTouchStart = (event: React.TouchEvent<HTMLElement>) => {
+    touchStartX.current = event.changedTouches[0]?.clientX ?? null;
+  };
+
+  const handleTouchEnd = (event: React.TouchEvent<HTMLElement>) => {
+    const startX = touchStartX.current;
+    const endX = event.changedTouches[0]?.clientX;
+    touchStartX.current = null;
+    if (startX === null || endX === undefined) return;
+    const deltaX = endX - startX;
+    if (deltaX < -45) setOrdersTrayOpen(false);
+    if (deltaX > 45) setOrdersTrayOpen(true);
+  };
+
   return (
-    <div className={`space-y-4 sm:space-y-5 ${activeOrders.length ? 'pb-36 sm:pb-32' : 'pb-12'}`}>
+    <div className={`space-y-4 sm:space-y-5 ${activeOrders.length && !props.isCheckoutOpen ? 'pb-36 sm:pb-32' : 'pb-12'}`}>
       <div className="sticky top-[108px] sm:top-[68px] z-30 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-1.5 shadow-sm">
         <div className="grid grid-cols-2 gap-1">
           <button
@@ -86,35 +103,49 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
       </div>
       {mode === 'shop' ? <OnlineShopHome {...props} /> : <DailyHelpHome searchQuery={props.searchQuery} />}
 
-      {activeOrders.length > 0 && (
-        <section aria-label="Current orders" className="fixed inset-x-0 bottom-0 z-[90] border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_28px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-          <div className="mx-auto max-w-7xl px-3 py-2 sm:px-4 sm:py-3">
-            <div className="mb-1.5 flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-1.5 text-xs font-black text-slate-900">
-                <Package className="h-4 w-4 shrink-0 text-amber-600" />
-                <span>Your current orders</span>
-                <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-800">{activeOrders.length}</span>
-              </div>
-              <span className="text-[10px] font-semibold text-slate-500">Track anytime</span>
+      {activeOrders.length > 0 && !props.isCheckoutOpen && (
+        <section
+          aria-label="Current orders"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          className={`fixed bottom-[calc(env(safe-area-inset-bottom)+12px)] left-3 z-[70] w-[min(390px,calc(100vw-24px))] overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-[0_-8px_28px_rgba(15,23,42,0.16)] backdrop-blur-xl transition-transform duration-300 ease-out ${ordersTrayOpen ? 'translate-x-0' : '-translate-x-[calc(100%-48px)]'}`}
+        >
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
+            <div className="flex min-w-0 items-center gap-1.5 text-xs font-black text-slate-900">
+              <Package className="h-4 w-4 shrink-0 text-amber-600" />
+              <span>Your current orders</span>
+              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-800">{activeOrders.length}</span>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {activeOrders.map(order => (
-                <button
-                  key={order.id}
-                  type="button"
-                  onClick={() => props.onOpenTracking(order.id)}
-                  className="flex min-w-[230px] max-w-[290px] flex-1 items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-left transition hover:border-amber-400 hover:bg-amber-50"
-                  aria-label={`Track order ${order.id}, ${formatOrderStatus(order.status)}`}
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-amber-700 shadow-sm"><Package className="h-4 w-4" /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[11px] font-extrabold text-slate-900">{order.sellerName || 'KuraliUpdates order'}</span>
-                    <span className="mt-0.5 block truncate text-[10px] font-semibold text-amber-800">{formatOrderStatus(order.status)} · #{order.id.slice(-6)}</span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-amber-700" />
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              onClick={() => setOrdersTrayOpen(open => !open)}
+              aria-label={ordersTrayOpen ? 'Hide current orders' : 'Show current orders'}
+              aria-expanded={ordersTrayOpen}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700 transition hover:bg-amber-100 hover:text-amber-800"
+            >
+              {ordersTrayOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </button>
+          </div>
+          <div className="flex gap-2 overflow-x-auto p-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {activeOrders.map(order => (
+              <button
+                key={order.id}
+                type="button"
+                onClick={() => props.onOpenTracking(order.id)}
+                className="flex min-w-[230px] max-w-[290px] flex-1 items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-left transition hover:border-amber-400 hover:bg-amber-50"
+                aria-label={`Track order ${order.id}, ${formatOrderStatus(order.status)}`}
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-amber-700 shadow-sm"><Package className="h-4 w-4" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[11px] font-extrabold text-slate-900">{order.sellerName || 'KuraliUpdates order'}</span>
+                  <span className="mt-0.5 block truncate text-[10px] font-semibold text-amber-800">{formatOrderStatus(order.status)} · #{order.id.slice(-6)}</span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-amber-700" />
+              </button>
+            ))}
+          </div>
+          <div className="px-3 pb-2 text-center text-[10px] font-medium text-slate-400">
+            Swipe left to tuck away · Swipe right or tap the arrow to reopen
           </div>
         </section>
       )}
