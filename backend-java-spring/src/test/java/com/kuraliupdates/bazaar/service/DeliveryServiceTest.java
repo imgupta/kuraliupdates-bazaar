@@ -51,6 +51,21 @@ class DeliveryServiceTest {
     }
 
     @Test
+    void activeOnlineAgentSeesUnassignedSingleSellerReadyForPickupOrder() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity order = OrderEntity.builder().orderId("SINGLE-READY-1")
+                .status("READY_FOR_PICKUP").fulfilmentMode("DELIVERY").build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findByStatus("READY_FOR_PICKUP")).thenReturn(java.util.List.of(order));
+
+        var jobs = deliveryService.availableJobs(user());
+
+        assertEquals(1, jobs.size());
+        assertEquals("SINGLE-READY-1", jobs.get(0).getOrderId());
+        verify(orderRepository).findByStatus("READY_FOR_PICKUP");
+    }
+
+    @Test
     void activeAgentClaimsOnlyReadyOrderAndClaimChangesStatus() {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder().orderId("ORD-1").status("READY_FOR_PICKUP").build();
