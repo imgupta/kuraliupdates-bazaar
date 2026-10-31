@@ -149,7 +149,7 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
     }
     void negotiationChatApi.respond(chatId, offerId, role === 'seller' ? 'seller' : 'buyer', action, counterPrice).then(remote => {
       setChats(prev => prev.map(item => item.id === remote.id ? remote : item));
-      if (action === 'accept') showToast('Offer accepted. The buyer's cart will reflect the agreed price automatically.', 'success');
+      if (action === 'accept') showToast("Offer accepted. The buyer's cart will reflect the agreed price automatically.", 'success');
       else if (action === 'reject') showToast('Offer declined. The catalogue price remains unchanged.', 'info');
       else showToast('Counter-offer sent. The other participant can now accept or decline it.', 'success');
     }).catch(error => showToast(error instanceof Error ? error.message : 'Could not update the offer.', 'error'));
