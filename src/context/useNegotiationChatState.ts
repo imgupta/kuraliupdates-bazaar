@@ -29,8 +29,14 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
       if (!['buyer', 'seller'].includes(role) || requestInFlight || !localStorage.getItem('kurali_auth_token')) return;
       requestInFlight = true;
       try {
-        const remote = await negotiationChatApi.list(role === 'seller' ? 'seller' : 'buyer');
+        const activeRole = role === 'seller' ? 'seller' : 'buyer';
+        const remote = await negotiationChatApi.list(activeRole);
+        const notifications = await negotiationChatApi.listUnreadNotifications(activeRole);
         if (!disposed) {
+          notifications.forEach(notification => {
+            showToastRef.current(notification.message, 'info');
+            void negotiationChatApi.markNotificationRead(notification.id, activeRole).catch(() => undefined);
+          });
           // Keep a newly opened local placeholder until the create response
           // replaces it; an older list response must not close the chat modal.
           setChats(previous => {
