@@ -40,6 +40,7 @@ export const BuyerPortal: React.FC<BuyerPortalProps> = ({
           addToCart(product, 1);
           setIsCheckoutOpen(true);
         }}
+        isCheckoutOpen={isCheckoutOpen}
       />
       <CartDrawer onProceedToCheckout={() => setIsCheckoutOpen(true)} />
       {isCheckoutOpen && (
