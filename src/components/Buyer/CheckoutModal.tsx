@@ -23,11 +23,12 @@ interface CheckoutModalProps {
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
   const { cart, cartCalculations, createOrder, user } = useApp();
+  const selectedAddress = user.savedAddresses?.find(address => address.isDefault) || user.savedAddresses?.[0];
 
   const [buyerName, setBuyerName] = useState(user.name || 'Simranjit Kaur');
   const [buyerPhone, setBuyerPhone] = useState(user.phone || '+91 98760 12345');
-  const [deliveryLocality, setDeliveryLocality] = useState(KURALI_LOCALITIES[1] || 'Main Bazaar');
-  const [streetAddress, setStreetAddress] = useState('House 42, Dashmesh Nagar, Near Gurudwara');
+  const [deliveryLocality, setDeliveryLocality] = useState(user.locality || KURALI_LOCALITIES[1] || 'Main Bazaar');
+  const [streetAddress, setStreetAddress] = useState(selectedAddress?.addressLine1 || user.addressLine1 || user.address || '');
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Card' | 'COD' | 'NetBanking'>('COD');
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -37,7 +38,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
 
     setIsProcessing(true);
     try {
-      const fullAddress = `${streetAddress}, ${deliveryLocality}, Kurali (Punjab)`;
+      const fullAddress = [streetAddress, selectedAddress?.landmark || user.landmark, selectedAddress?.formattedAddress || user.formattedAddress, deliveryLocality, 'Kurali (Punjab)'].filter((value, index, values) => value && values.indexOf(value) === index).join(', ');
       const created = await createOrder({
         buyerName,
         buyerPhone,
