@@ -209,25 +209,41 @@ public class DeliveryService {
             throw new ApiException(HttpStatus.FORBIDDEN, "This order is not assigned to your delivery profile");
         }
 
-        order.setStatus("DELIVERED");
-        order.setPaymentStatus("COD".equalsIgnoreCase(order.getPaymentMethod()) ? "PAID" : order.getPaymentStatus());
-        order.setUpdatedAt(LocalDateTime.now());
-        orderRepository.save(order);
-
-        if (agent != null) {
-            BigDecimal distance = order.getDistanceKm() == null ? BigDecimal.ZERO : order.getDistanceKm();
-            BigDecimal basePayout = jdbc.queryForObject("SELECT RIDER_BASE_PAYOUT FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", BigDecimal.class);
-            BigDecimal perKmPayout = jdbc.queryForObject("SELECT RIDER_PER_KM_PAYOUT FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", BigDecimal.class);
-            BigDecimal payout = (basePayout == null ? BigDecimal.valueOf(45) : basePayout)
-                    .add(distance.multiply(perKmPayout == null ? BigDecimal.valueOf(22) : perKmPayout))
-                    .setScale(2, java.math.RoundingMode.HALF_UP);
-            agent.setTotalTrips(agent.getTotalTrips() + 1);
-            agent.setTodayEarnings(agent.getTodayEarnings().add(payout));
-            agent.setTotalEarnings(agent.getTotalEarnings().add(payout));
-            agentRepository.save(agent);
+        List<OrderEntity> deliveryOrders = order.getCheckoutGroupId() == null
+                ? List.of(order)
+                : orderRepository.findByCheckoutGroupIdOrderByPlacedAtAsc(order.getCheckoutGroupId());
+        for (OrderEntity deliveryOrder : deliveryOrders) {
+            if (deliveryOrder.getDeliveryAgent() == null
+                    || !deliveryOrder.getDeliveryAgent().getAgentId().equals(authenticatedAgent.getAgentId())
+                    || !enteredOtp.equals(deliveryOrder.getDeliveryOtp())
+                    || (!"ASSIGNED_TO_DELIVERY".equals(deliveryOrder.getStatus())
+                        && !"PICKED_UP".equals(deliveryOrder.getStatus()))) {
+                throw new ApiException(HttpStatus.CONFLICT, "Every order in a combined delivery must belong to you and share the active delivery OTP");
+            }
         }
+        LocalDateTime deliveredAt = LocalDateTime.now();
+        for (OrderEntity deliveryOrder : deliveryOrders) {
+            deliveryOrder.setStatus("DELIVERED");
+            deliveryOrder.setPaymentStatus("COD".equalsIgnoreCase(deliveryOrder.getPaymentMethod())
+                    ? "PAID" : deliveryOrder.getPaymentStatus());
+            deliveryOrder.setUpdatedAt(deliveredAt);
+        }
+        orderRepository.saveAll(deliveryOrders);
 
-        return Map.of("success", true, "message", "Order delivered and payout credited!");
+        BigDecimal distance = deliveryOrders.stream().map(OrderEntity::getDistanceKm)
+                .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal basePayout = jdbc.queryForObject("SELECT RIDER_BASE_PAYOUT FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", BigDecimal.class);
+        BigDecimal perKmPayout = jdbc.queryForObject("SELECT RIDER_PER_KM_PAYOUT FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", BigDecimal.class);
+        BigDecimal payout = (basePayout == null ? BigDecimal.valueOf(45) : basePayout)
+                .add(distance.multiply(perKmPayout == null ? BigDecimal.valueOf(22) : perKmPayout))
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+        agent.setTotalTrips(agent.getTotalTrips() + 1);
+        agent.setTodayEarnings(agent.getTodayEarnings().add(payout));
+        agent.setTotalEarnings(agent.getTotalEarnings().add(payout));
+        agentRepository.save(agent);
+
+        return Map.of("success", true, "message", "Delivery completed and configured rider payout credited.",
+                "completedOrders", deliveryOrders.size());
     }
 
     private DeliveryAgentEntity findAgentForUser(com.kuraliupdates.bazaar.entity.UserEntity user) {
