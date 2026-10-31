@@ -128,7 +128,7 @@ export const Header: React.FC<HeaderProps> = () => {
   );
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs w-full max-w-full overflow-visible">
+    <header className="sticky top-0 z-[100] bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs w-full max-w-full overflow-visible">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3">
         <div className="flex items-center justify-between gap-2 sm:gap-3">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -204,7 +204,7 @@ export const Header: React.FC<HeaderProps> = () => {
                   <ChevronDown className="h-3 w-3 shrink-0 text-slate-400" />
                 </button>
                 {isAddressMenuOpen && (
-                  <div className="absolute right-0 top-full z-[60] mt-2 w-[min(88vw,340px)] rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl">
+                  <div className="fixed right-3 top-[68px] z-[200] max-h-[min(70dvh,480px)] w-[min(calc(100vw-1.5rem),340px)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl sm:absolute sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(70vh,480px)] sm:w-[min(88vw,340px)]">
                     <p className="px-2 pb-2 pt-1 text-xs font-black text-slate-900">Choose delivery address</p>
                     {savedAddresses.length ? savedAddresses.map(address => (
                       <button key={address.id} type="button" disabled={addressBusy || address.isDefault}
