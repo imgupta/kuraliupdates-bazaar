@@ -260,6 +260,33 @@ public class NegotiationChatService {
                 "msg-" + UUID.randomUUID(), chatId, role, name, text, offerPrice, status, Timestamp.valueOf(LocalDateTime.now()));
     }
 
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> notifications(UserEntity user, String requestedRole) {
+        String role = normalizeActiveRole(requestedRole);
+        String recipient = "SELLER".equals(role) ? sellerEmail(requireSellerId(user.getEmail())) : normalizeEmail(user.getEmail());
+        if (blank(recipient)) throw new ApiException(HttpStatus.UNAUTHORIZED, "A verified account is required");
+        return jdbc.query("SELECT NOTIFICATION_ID, CHAT_ID, EVENT_TYPE, MESSAGE_TEXT, CREATED_AT FROM BARGAIN_NOTIFICATIONS WHERE LOWER(RECIPIENT_EMAIL)=? AND RECIPIENT_ROLE=? AND IS_READ=0 ORDER BY CREATED_AT DESC",
+                (rs, row) -> {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("id", rs.getString("NOTIFICATION_ID"));
+                    item.put("chatId", rs.getString("CHAT_ID"));
+                    item.put("eventType", rs.getString("EVENT_TYPE"));
+                    item.put("message", rs.getString("MESSAGE_TEXT"));
+                    Timestamp created = rs.getTimestamp("CREATED_AT");
+                    item.put("createdAt", created == null ? "" : created.toLocalDateTime().toString());
+                    return item;
+                }, recipient, role);
+    }
+
+    @Transactional
+    public void markNotificationRead(UserEntity user, String requestedRole, String notificationId) {
+        String role = normalizeActiveRole(requestedRole);
+        String recipient = "SELLER".equals(role) ? sellerEmail(requireSellerId(user.getEmail())) : normalizeEmail(user.getEmail());
+        if (blank(recipient)) throw new ApiException(HttpStatus.UNAUTHORIZED, "A verified account is required");
+        jdbc.update("UPDATE BARGAIN_NOTIFICATIONS SET IS_READ=1, READ_AT=CURRENT_TIMESTAMP WHERE NOTIFICATION_ID=? AND LOWER(RECIPIENT_EMAIL)=? AND RECIPIENT_ROLE=?",
+                notificationId, recipient, role);
+    }
+
     private void notifyOtherParticipant(Map<String, Object> chat, String actingRole, String event, String message) {
         String recipient = "SELLER".equals(actingRole)
                 ? normalizeEmail(Objects.toString(chat.get("buyerEmail"), ""))
