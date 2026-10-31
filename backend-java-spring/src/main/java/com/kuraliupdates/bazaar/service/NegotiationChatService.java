@@ -110,10 +110,11 @@ public class NegotiationChatService {
         if ("CLOSED_PURCHASED".equalsIgnoreCase(lifecycle)) {
             throw new ApiException(HttpStatus.CONFLICT, "This bargain is closed because the item was already purchased.");
         }
-        if (expiry != null && expiry.toLocalDateTime().isBefore(LocalDateTime.now())) {
-            throw new ApiException(HttpStatus.CONFLICT, "This bargain has expired. The catalogue price applies.");
-        }
+        boolean expired = expiry != null && expiry.toLocalDateTime().isBefore(LocalDateTime.now());
         BigDecimal offerPrice = request.offerPrice();
+        if (expired && (offerPrice == null || !"EXPIRED".equalsIgnoreCase(lifecycle) && !"REJECTED".equalsIgnoreCase(lifecycle))) {
+            throw new ApiException(HttpStatus.CONFLICT, "This bargain has expired. Send a new offer to restart bargaining; the catalogue price remains available.");
+        }
         if (offerPrice != null && "ACCEPTED".equalsIgnoreCase(lifecycle)) {
             throw new ApiException(HttpStatus.CONFLICT, "This bargain has already been accepted. Start a new conversation for another negotiation.");
         }
