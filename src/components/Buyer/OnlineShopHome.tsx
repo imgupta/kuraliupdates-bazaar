@@ -119,8 +119,8 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
   }, [products, selectedCategory, selectedCityLocality, searchQuery, onlyInStock, maxPrice, sortBy]);
 
   // Count distinct sellers with an in-stock offer for the exact same product and pack.
-  const comparableSellerCountById = useMemo(() => new Map(
-    products.map(product => [product.id, getComparableSellerOffers(products, product).length])
+  const comparableSellerCountById = useMemo(() => new Map<string, number>(
+    products.map(product => [product.id, getComparableSellerOffers(products, product).length] as const)
   ), [products]);
 
   return (
