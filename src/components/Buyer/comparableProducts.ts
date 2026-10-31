@@ -16,7 +16,7 @@ export const getComparableSellerOffers = (products: Product[], reference: Produc
   const matching = products.filter(product =>
     product.stock > 0 && isComparableProduct(product, reference)
   );
-  if (reference.stock > 0 && !matching.some(product => product.id === reference.id)) matching.push(reference);
+  if (!matching.some(product => product.id === reference.id)) matching.push(reference);
 
   // A seller can publish duplicate catalogue rows; represent that store once,
   // preferring the lowest effective in-stock offer.
