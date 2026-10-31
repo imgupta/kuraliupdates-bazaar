@@ -5,15 +5,18 @@ import { negotiationChatApi } from '../services/domains/negotiationChatApi';
 type NegotiationUser = { name?: string; email?: string; phone?: string };
 type NegotiationChatOptions = {
   role: UserRole;
+  products: Product[];
+  upsertBargainCartItem: (product: Product, bargainId: string, status: 'PENDING_SELLER' | 'PENDING_BUYER' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CLOSED_PURCHASED', offerPrice?: number, negotiatedPrice?: number, acceptedOfferId?: string) => void;
   user: NegotiationUser;
   currentSeller?: Pick<Seller, 'name'>;
   showToast: (message: string, type?: 'success' | 'info' | 'error') => void;
 };
 
-export const useNegotiationChatState = ({ role, user, showToast }: NegotiationChatOptions) => {
+export const useNegotiationChatState = ({ role, user, products, upsertBargainCartItem, showToast }: NegotiationChatOptions) => {
   const [chats, setChats] = useState<NegotiationChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const showToastRef = useRef(showToast);
+  const lastSeenStatusRef = useRef(new Map<string, string>());
   useEffect(() => { showToastRef.current = showToast; }, [showToast]);
   const identity = `${role}:${(user.email || '').toLowerCase()}`;
 
@@ -26,8 +29,14 @@ export const useNegotiationChatState = ({ role, user, showToast }: NegotiationCh
       if (!['buyer', 'seller'].includes(role) || requestInFlight || !localStorage.getItem('kurali_auth_token')) return;
       requestInFlight = true;
       try {
-        const remote = await negotiationChatApi.list(role === 'seller' ? 'seller' : 'buyer');
+        const activeRole = role === 'seller' ? 'seller' : 'buyer';
+        const remote = await negotiationChatApi.list(activeRole);
+        const notifications = await negotiationChatApi.listUnreadNotifications(activeRole);
         if (!disposed) {
+          notifications.forEach(notification => {
+            showToastRef.current(notification.message, 'info');
+            void negotiationChatApi.markNotificationRead(notification.id, activeRole).catch(() => undefined);
+          });
           // Keep a newly opened local placeholder until the create response
           // replaces it; an older list response must not close the chat modal.
           setChats(previous => {
@@ -47,6 +56,29 @@ export const useNegotiationChatState = ({ role, user, showToast }: NegotiationCh
     return () => { disposed = true; window.clearInterval(timer); };
   }, [identity]);
 
+  useEffect(() => {
+    if (role !== 'buyer') return;
+    chats.forEach(chat => {
+      const status = chat.bargainStatus || (chat.currentAgreedPrice != null ? 'ACCEPTED' : 'PENDING_SELLER');
+      const previous = lastSeenStatusRef.current.get(chat.id);
+      if (previous && previous !== status) {
+        if (status === 'ACCEPTED') showToastRef.current('Seller accepted your bargain. Your cart price has been updated.', 'success');
+        if (status === 'REJECTED') showToastRef.current('Your bargain was declined. You can still order at the catalogue price.', 'info');
+        if (status === 'EXPIRED') showToastRef.current('Your bargain expired. The catalogue price remains available.', 'info');
+      }
+      lastSeenStatusRef.current.set(chat.id, status);
+    });
+  }, [chats, role]);
+  useEffect(() => {
+    if (role !== 'buyer') return;
+    chats.filter(chat => !chat.id.startsWith('pending-')).forEach(chat => {
+      const product = products.find(item => item.id === chat.productId);
+      if (!product) return;
+      const pendingOffer = [...chat.messages].reverse().find(message => message.offer?.status === 'pending')?.offer;
+      const status = chat.bargainStatus || (chat.currentAgreedPrice != null ? 'ACCEPTED' : 'PENDING_SELLER');
+      upsertBargainCartItem(product, chat.id, status, pendingOffer?.offeredPrice, status === 'ACCEPTED' ? chat.currentAgreedPrice : undefined, status === 'ACCEPTED' ? chat.currentAgreedOfferId : undefined);
+    });
+  }, [chats, products, role, upsertBargainCartItem]);
   const openChatForProduct = (product: Product, startingOfferPrice?: number): string => {
     if (role !== 'buyer') {
       showToast('Only a signed-in buyer can start a bargaining conversation.', 'error');
@@ -76,11 +108,13 @@ export const useNegotiationChatState = ({ role, user, showToast }: NegotiationCh
         timestamp: now, offer: tempOffer }],
     };
     setChats(prev => [temporary, ...prev]);
+    upsertBargainCartItem(product, tempId, 'PENDING_SELLER', price);
     setActiveChatId(tempId);
     void negotiationChatApi.open(product, startingOfferPrice).then(remote => {
       setChats(prev => [remote, ...prev.filter(chat => chat.id !== tempId && chat.id !== remote.id)]);
       setActiveChatId(current => current === tempId ? remote.id : current);
     }).catch(error => {
+      upsertBargainCartItem(product, tempId, 'EXPIRED', price);
       setChats(prev => prev.filter(chat => chat.id !== tempId));
       setActiveChatId(current => current === tempId ? null : current);
       showToast(error instanceof Error ? error.message : 'Could not start the conversation.', 'error');
@@ -115,7 +149,7 @@ export const useNegotiationChatState = ({ role, user, showToast }: NegotiationCh
     }
     void negotiationChatApi.respond(chatId, offerId, role === 'seller' ? 'seller' : 'buyer', action, counterPrice).then(remote => {
       setChats(prev => prev.map(item => item.id === remote.id ? remote : item));
-      if (action === 'accept') showToast('Offer accepted. The agreed price is available for this buyer’s cart item.', 'success');
+      if (action === 'accept') showToast("Offer accepted. The buyer's cart will reflect the agreed price automatically.", 'success');
       else if (action === 'reject') showToast('Offer declined. The catalogue price remains unchanged.', 'info');
       else showToast('Counter-offer sent. The other participant can now accept or decline it.', 'success');
     }).catch(error => showToast(error instanceof Error ? error.message : 'Could not update the offer.', 'error'));

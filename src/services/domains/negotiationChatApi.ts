@@ -49,6 +49,8 @@ const normalizeChat = (raw: any): NegotiationChat => ({
     } } : {}),
   })),
   lastUpdated: raw.lastUpdated || '',
+  ...(raw.bargainStatus ? { bargainStatus: String(raw.bargainStatus).toUpperCase() as NegotiationChat['bargainStatus'] } : {}),
+  ...(raw.expiresAt ? { expiresAt: String(raw.expiresAt) } : {}),
   ...(raw.originalPrice != null ? { originalPrice: Number(raw.originalPrice) } : {}),
   ...(raw.currentAgreedPrice != null ? { currentAgreedPrice: Number(raw.currentAgreedPrice) } : {}),
   ...(raw.currentAgreedOfferId ? { currentAgreedOfferId: String(raw.currentAgreedOfferId) } : {}),
@@ -58,6 +60,17 @@ export const negotiationChatApi = {
   async list(role: 'buyer' | 'seller'): Promise<NegotiationChat[]> {
     const rows = await request<any[]>(`/negotiations?role=${encodeURIComponent(role.toUpperCase())}`);
     return rows.map(normalizeChat);
+  },
+  async listUnreadNotifications(role: 'buyer' | 'seller'): Promise<Array<{ id: string; chatId: string; message: string }>> {
+    return request<Array<{ id: string; chatId: string; message: string }>>(
+      `/negotiations/notifications?role=${encodeURIComponent(role.toUpperCase())}`
+    );
+  },
+  async markNotificationRead(id: string, role: 'buyer' | 'seller'): Promise<void> {
+    await request<void>(`/negotiations/notifications/${encodeURIComponent(id)}/read`, {
+      method: 'POST',
+      headers: { 'X-Active-Role': role.toUpperCase() },
+    });
   },
   async open(product: Product, startingOfferPrice?: number): Promise<NegotiationChat> {
     const raw = await request<any>('/negotiations', {

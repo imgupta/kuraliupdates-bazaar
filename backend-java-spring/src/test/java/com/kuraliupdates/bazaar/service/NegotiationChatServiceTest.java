@@ -47,6 +47,22 @@ class NegotiationChatServiceTest {
     }
 
     @Test
+    void openingChatRejectsNonBuyerAccountsBeforeDatabaseAccess() {
+        UserEntity seller = UserEntity.builder()
+                .userId("seller-user-1")
+                .email("seller@example.test")
+                .name("Test Seller")
+                .role("SELLER")
+                .build();
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> service.open(seller, new OpenChatRequest("product-1", null, null)));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verifyNoInteractions(jdbc, sellerRepository);
+    }
+
+    @Test
     void openingChatRejectsOversizedOpeningMessageBeforeDatabaseAccess() {
         ApiException error = assertThrows(ApiException.class,
                 () -> service.open(buyer, new OpenChatRequest("product-1", null, "x".repeat(1001))));

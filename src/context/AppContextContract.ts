@@ -94,6 +94,7 @@ interface AppContextType {
   // Cart
   cart: CartItem[];
   addToCart: (product: Product, quantity?: number, negotiatedPrice?: number, acceptedOfferId?: string) => void;
+  upsertBargainCartItem: (product: Product, bargainId: string, status: 'PENDING_SELLER' | 'PENDING_BUYER' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CLOSED_PURCHASED', offerPrice?: number, negotiatedPrice?: number, acceptedOfferId?: string) => void;
   removeFromCart: (productId: string) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;

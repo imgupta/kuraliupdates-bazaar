@@ -183,11 +183,21 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onProceedToCheckout }) =
                           <span className="font-semibold text-emerald-700">₹{effectiveUnitPrice} each</span>
                         </div>
 
-                        {item.negotiatedPrice && (
-                          <span className="inline-block mt-1 text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded">
-                            💬 Bargain Negotiated
+                        {item.bargainStatus === 'PENDING_SELLER' || item.bargainStatus === 'PENDING_BUYER' ? (
+                          <div className="mt-1 text-[10px] font-bold text-amber-800">
+                            <span className="inline-block bg-amber-100 px-1.5 py-0.5 rounded">Bargain pending</span>
+                            {item.bargainOfferPrice != null && <span className="ml-1.5">Your offer: ₹{item.bargainOfferPrice}</span>}
+                            <p className="font-medium text-slate-500 mt-0.5">You can checkout now at the displayed catalogue price.</p>
+                          </div>
+                        ) : item.bargainStatus === 'ACCEPTED' && item.negotiatedPrice != null ? (
+                          <span className="inline-block mt-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
+                            Bargain accepted · ₹{item.negotiatedPrice}
                           </span>
-                        )}
+                        ) : item.bargainStatus === 'REJECTED' || item.bargainStatus === 'EXPIRED' || item.bargainStatus === 'CLOSED_PURCHASED' ? (
+                          <span className="inline-block mt-1 text-[10px] font-semibold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                            {item.bargainStatus === 'REJECTED' ? 'Bargain declined · catalogue price applies' : item.bargainStatus === 'EXPIRED' ? 'Bargain expired · catalogue price applies' : 'Bargain closed'}
+                          </span>
+                        ) : null}
 
                         <div className="flex items-center justify-between mt-2">
                           {/* Quantity selector */}

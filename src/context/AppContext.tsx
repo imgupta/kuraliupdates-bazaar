@@ -56,7 +56,7 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
 
   const buyerCommerce = useBuyerCommerceState(sellers, coupons, showToast);
   const {
-    cart, appliedCoupon, addToCart, removeFromCart,
+    cart, appliedCoupon, addToCart, upsertBargainCartItem, removeFromCart,
     updateCartQuantity, clearCart, applyCoupon, removeCoupon, cartCalculations,
   } = buyerCommerce;
 
@@ -119,7 +119,7 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
   } = marketplaceOperations;
 
   // Keep the public AppContext contract while delegating bargaining behavior to its domain hook.
-  const negotiationChat = useNegotiationChatState({ role, user, currentSeller, showToast });
+  const negotiationChat = useNegotiationChatState({ role, user, currentSeller, products, upsertBargainCartItem, showToast });
   const { chats, activeChatId, setActiveChatId, openChatForProduct, sendMessage, respondToOffer } = negotiationChat;
 
   // Current Agent
@@ -164,6 +164,7 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
         deleteCoupon,
         cart,
         addToCart,
+        upsertBargainCartItem,
         removeFromCart,
         updateCartQuantity,
         clearCart,
