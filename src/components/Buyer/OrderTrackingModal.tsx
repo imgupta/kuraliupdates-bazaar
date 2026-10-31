@@ -229,6 +229,24 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
             </div>
           </div>
 
+          {order.checkoutGroupOrders && order.checkoutGroupOrders.length > 1 && (
+            <section className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-blue-900">One combined order · {order.checkoutGroupOrders.length} stores</h4>
+                <span className="text-[10px] font-bold text-blue-700">Single delivery</span>
+              </div>
+              {order.checkoutGroupOrders.map((sellerOrder, index) => (
+                <div key={sellerOrder.id} className="flex items-start justify-between gap-2 rounded-lg bg-white/80 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800">Pickup {index + 1}: {sellerOrder.sellerName || sellerOrder.sellerId}</p>
+                    <p className="text-[11px] text-slate-500">{sellerOrder.sellerAddress || sellerOrder.sellerLocality}</p>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-bold capitalize text-blue-800">{String(sellerOrder.status).replace(/_/g, ' ')}</span>
+                </div>
+              ))}
+            </section>
+          )}
+
           {/* Items & Payment Breakdown */}
           <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
             <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center justify-between">
