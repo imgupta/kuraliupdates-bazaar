@@ -313,6 +313,56 @@ class DeliveryServiceTest {
     }
 
     @Test
+    void sameOtpOnSeparateSellerJobsDoesNotCompleteTheSiblingOrder() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity first = OrderEntity.builder().orderId("SEP-1").checkoutGroupId("CHK-SEP")
+                .status("ASSIGNED_TO_DELIVERY").deliveryAgent(agent).deliveryOtp("0042")
+                .riderPayoutSnapshot(new BigDecimal("67")).build();
+        OrderEntity second = OrderEntity.builder().orderId("SEP-2").checkoutGroupId("CHK-SEP")
+                .status("ASSIGNED_TO_DELIVERY").deliveryAgent(agent).deliveryOtp("0042")
+                .riderPayoutSnapshot(new BigDecimal("67")).build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findLockedForDeliveryVerification("SEP-1")).thenReturn(Optional.of(first));
+        when(orderRepository.findLockedByCheckoutGroupId("CHK-SEP")).thenReturn(java.util.List.of(first, second));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(agentRepository.save(any(DeliveryAgentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = deliveryService.verifyDeliveryOtp("SEP-1", "0042", user());
+
+        assertEquals(1, response.get("completedOrders"));
+        assertEquals("DELIVERED", first.getStatus());
+        assertEquals("ASSIGNED_TO_DELIVERY", second.getStatus());
+        assertEquals(0, new BigDecimal("67").compareTo(agent.getTotalEarnings()));
+        verify(orderRepository).save(first);
+        verify(orderRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void combinedBatchOtpCompletesAllSellerOrdersAndCreditsOnePayout() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity first = OrderEntity.builder().orderId("COMB-1").checkoutGroupId("CHK-COMB")
+                .combinedDeliveryBatchId("CHK-COMB").status("ASSIGNED_TO_DELIVERY")
+                .deliveryAgent(agent).deliveryOtp("0042").riderPayoutSnapshot(new BigDecimal("78")).build();
+        OrderEntity second = OrderEntity.builder().orderId("COMB-2").checkoutGroupId("CHK-COMB")
+                .combinedDeliveryBatchId("CHK-COMB").status("ASSIGNED_TO_DELIVERY")
+                .deliveryAgent(agent).deliveryOtp("0042").riderPayoutSnapshot(BigDecimal.ZERO).build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findLockedForDeliveryVerification("COMB-2")).thenReturn(Optional.of(second));
+        when(orderRepository.findLockedByCheckoutGroupId("CHK-COMB")).thenReturn(java.util.List.of(first, second));
+        when(orderRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(agentRepository.save(any(DeliveryAgentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = deliveryService.verifyDeliveryOtp("COMB-2", "0042", user());
+
+        assertEquals(2, response.get("completedOrders"));
+        assertEquals("DELIVERED", first.getStatus());
+        assertEquals("DELIVERED", second.getStatus());
+        assertEquals(0, new BigDecimal("78").compareTo(agent.getTotalEarnings()));
+        assertEquals(1, agent.getTotalTrips());
+        verify(orderRepository).saveAll(any());
+    }
+
+    @Test
     void incorrectOtpDoesNotChangeOrderOrCreditPayout() {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder()
