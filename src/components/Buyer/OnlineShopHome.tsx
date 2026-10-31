@@ -11,7 +11,7 @@ import { Product } from '../../types';
 import { CompareSellersModal } from './CompareSellersModal';
 import { ProductCard } from './ProductCard';
 import { ProductDetailsModal } from './ProductDetailsModal';
-import { getComparableSellerOffers } from './comparableProducts';
+import { getComparableSellerCounts } from './comparableProducts';
 
 interface BuyerHomeProps {
   searchQuery: string;
@@ -119,9 +119,10 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
   }, [products, selectedCategory, selectedCityLocality, searchQuery, onlyInStock, maxPrice, sortBy]);
 
   // Count distinct sellers with an in-stock offer for the exact same product and pack.
-  const comparableSellerCountById = useMemo(() => new Map<string, number>(
-    products.map(product => [product.id, getComparableSellerOffers(products, product).length] as const)
-  ), [products]);
+  const comparableSellerCountById = useMemo(
+    () => getComparableSellerCounts(products),
+    [products]
+  );
 
   return (
     <div className="space-y-4 sm:space-y-5 pb-12">
