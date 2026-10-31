@@ -20,6 +20,7 @@ export interface BackendOrder {
   sellerId?: string;
   checkoutGroupId?: string;
   fulfilmentStatus?: string;
+  fulfilmentMode?: 'DELIVERY' | 'STORE_PICKUP';
   deliveryAgent?: any;
   placedAt?: string;
   distanceKm?: number;
@@ -49,6 +50,7 @@ export const mapBackendOrder = (bo: BackendOrder): Order => ({
   placedAt: bo.placedAt || '',
   deliveryAgentId: bo.deliveryAgentId,
   deliveryOtp: bo.deliveryOtp || '',
+  fulfilmentMode: bo.fulfilmentMode || 'DELIVERY',
   distanceKm: Number(bo.distanceKm || 0),
   statusUpdates: [],
 });
