@@ -123,9 +123,11 @@ public class OrderService {
                 saved.setTotalAmount(saved.getSubtotal().subtract(discounts).add(allocatedFee).setScale(2, RoundingMode.HALF_UP));
             }
             orderRepository.saveAll(savedOrders);
+            List<OrderPlacementResponse> originalPlacements = new ArrayList<>(placed);
             placed.clear();
-            for (OrderEntity saved : savedOrders) {
-                OrderPlacementResponse previous = placedResponseFor(saved, placed);
+            for (int i = 0; i < savedOrders.size(); i++) {
+                placed.add(new OrderPlacementResponse(OrderResponse.from(savedOrders.get(i)),
+                        originalPlacements.get(i).deliveryOtp()));
             }
         }
         return new com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse(checkoutGroupId, List.copyOf(placed));
