@@ -91,7 +91,7 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-black uppercase tracking-wide text-slate-800">My Availability Slots</h2>
-            <p className="text-xs text-slate-500 mt-1">Add exact bookable timings. Customers will only see slots that match their requested duration.</p>
+            <p className="text-xs text-slate-500 mt-1">Add one continuous availability window. We automatically split it into one-hour booking slots for customers.</p>
           </div>
           <CalendarClock className="w-5 h-5 text-amber-600" />
         </div>
@@ -109,7 +109,7 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
         <button
           onClick={() => void createSlot()}
           className="mt-3 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black cursor-pointer"
-        >Add Availability Slot</button>
+        >Add Availability Window</button>
 
         <div className="mt-4 space-y-2">
           {mySlots.length === 0 ? (
