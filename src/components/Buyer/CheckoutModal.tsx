@@ -196,6 +196,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
           </div>
 
           {checkoutStep === 'payment' && (
+          <>
           {/* Section 2: Payment Method */}
           <div className="space-y-3">
             <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -284,6 +285,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
             )}
           </div>
 
+          </>
           )}
 
           {/* Section 3: Final Bill Breakdown */}
