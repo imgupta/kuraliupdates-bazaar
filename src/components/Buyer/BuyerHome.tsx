@@ -1,5 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { ShoppingBag, Home, Search, X, Package, ChevronRight, ChevronLeft } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ShoppingBag, Home, Search, X, Truck } from 'lucide-react';
 import { OnlineShopHome } from './OnlineShopHome';
 import { DailyHelpHome } from './DailyHelpHome';
 import { Product } from '../../types';
@@ -15,22 +15,8 @@ interface BuyerHomeProps {
   isCheckoutOpen?: boolean;
 }
 
-const ACTIVE_ORDER_STATUSES = new Set([
-  'placed',
-  'accepted_by_seller',
-  'ready_for_pickup',
-  'assigned_to_delivery',
-  'picked_up',
-  'out_for_delivery',
-]);
-
-const formatOrderStatus = (status: string) =>
-  status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-
 export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
   const [mode, setMode] = useState<'shop' | 'daily-help'>('shop');
-  const [ordersTrayOpen, setOrdersTrayOpen] = useState(true);
-  const touchStartX = useRef<number | null>(null);
   const { orders, user } = useApp();
   const activeOrders = useMemo(() => {
     const email = user.email?.trim().toLowerCase();
@@ -40,7 +26,9 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
         const emailMatches = Boolean(email && order.buyerEmail?.trim().toLowerCase() === email);
         const orderPhone = order.buyerPhone?.replace(/\D/g, '');
         const phoneMatches = Boolean(phone && orderPhone && orderPhone.slice(-10) === phone.slice(-10));
-        return (emailMatches || phoneMatches) && ACTIVE_ORDER_STATUSES.has(order.status);
+        const normalizedStatus = String(order.status || 'placed').trim().replace(/[\\s-]+/g, '_').toLowerCase();
+        const terminalStatuses = new Set(['delivered', 'completed', 'cancelled', 'canceled', 'rejected', 'failed', 'refunded', 'returned', 'closed']);
+        return (emailMatches || phoneMatches) && !terminalStatuses.has(normalizedStatus);
       })
       .sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime());
   }, [orders, user.email, user.phone]);
@@ -50,22 +38,8 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
     setMode(nextMode);
   };
 
-  const handleTouchStart = (event: React.TouchEvent<HTMLElement>) => {
-    touchStartX.current = event.changedTouches[0]?.clientX ?? null;
-  };
-
-  const handleTouchEnd = (event: React.TouchEvent<HTMLElement>) => {
-    const startX = touchStartX.current;
-    const endX = event.changedTouches[0]?.clientX;
-    touchStartX.current = null;
-    if (startX === null || endX === undefined) return;
-    const deltaX = endX - startX;
-    if (deltaX < -45) setOrdersTrayOpen(false);
-    if (deltaX > 45) setOrdersTrayOpen(true);
-  };
-
   return (
-    <div className={`space-y-4 sm:space-y-5 ${activeOrders.length && !props.isCheckoutOpen ? 'pb-36 sm:pb-32' : 'pb-12'}`}>
+    <div className="space-y-4 sm:space-y-5 pb-12">
       <div className="sticky top-[108px] sm:top-[68px] z-30 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-1.5 shadow-sm">
         <div className="grid grid-cols-2 gap-1">
           <button
@@ -104,48 +78,29 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
       {mode === 'shop' ? <OnlineShopHome {...props} /> : <DailyHelpHome searchQuery={props.searchQuery} />}
 
       {activeOrders.length > 0 && !props.isCheckoutOpen && (
-        <section
-          aria-label="Current orders"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          className={`fixed bottom-[calc(env(safe-area-inset-bottom)+12px)] left-3 z-[70] w-[min(390px,calc(100vw-24px))] overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-[0_-8px_28px_rgba(15,23,42,0.16)] backdrop-blur-xl transition-transform duration-300 ease-out ${ordersTrayOpen ? 'translate-x-0' : '-translate-x-[calc(100%-48px)]'}`}
-        >
-          <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
-            <div className="flex min-w-0 items-center gap-1.5 text-xs font-black text-slate-900">
-              <Package className="h-4 w-4 shrink-0 text-amber-600" />
-              <span>Your current orders</span>
-              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-800">{activeOrders.length}</span>
+        <section className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm" aria-label="Your current orders">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-xs font-extrabold text-slate-900">Your orders</h2>
+              <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">{activeOrders.length} active</span>
             </div>
-            <button
-              type="button"
-              onClick={() => setOrdersTrayOpen(open => !open)}
-              aria-label={ordersTrayOpen ? 'Hide current orders' : 'Show current orders'}
-              aria-expanded={ordersTrayOpen}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700 transition hover:bg-amber-100 hover:text-amber-800"
-            >
-              {ordersTrayOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </button>
+            {activeOrders.length > 1 && <span className="text-[9px] text-slate-400">Swipe to switch</span>}
           </div>
-          <div className="flex gap-2 overflow-x-auto p-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {activeOrders.map(order => (
-              <button
-                key={order.id}
-                type="button"
-                onClick={() => props.onOpenTracking(order.id)}
-                className="flex min-w-[230px] max-w-[290px] flex-1 items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-left transition hover:border-amber-400 hover:bg-amber-50"
-                aria-label={`Track order ${order.id}, ${formatOrderStatus(order.status)}`}
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-amber-700 shadow-sm"><Package className="h-4 w-4" /></span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[11px] font-extrabold text-slate-900">{order.sellerName || 'KuraliUpdates order'}</span>
-                  <span className="mt-0.5 block truncate text-[10px] font-semibold text-amber-800">{formatOrderStatus(order.status)} · #{order.id.slice(-6)}</span>
-                </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-amber-700" />
-              </button>
-            ))}
-          </div>
-          <div className="px-3 pb-2 text-center text-[10px] font-medium text-slate-400">
-            Swipe left to tuck away · Swipe right or tap the arrow to reopen
+          <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 scrollbar-none" aria-label="Active orders, swipe horizontally">
+            {activeOrders.map(order => {
+              const status = String(order.status || 'placed').replace(/_/g, ' ').toLowerCase();
+              return (
+                <button key={order.id} type="button" onClick={() => props.onOpenTracking(order.id)}
+                  className="flex min-w-[190px] max-w-[220px] snap-start items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Truck className="h-4 w-4" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[10px] font-extrabold text-slate-800">Order #{order.id}</span>
+                    <span className="mt-0.5 block truncate text-[10px] capitalize text-slate-500">{status}</span>
+                  </span>
+                  <span className="shrink-0 text-[10px] font-bold text-emerald-700">Track ›</span>
+                </button>
+              );
+            })}
           </div>
         </section>
       )}
