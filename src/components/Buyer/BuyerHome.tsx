@@ -22,7 +22,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
 
   return (
     <div className="space-y-4 sm:space-y-5 pb-12">
-      <div className="sticky top-[96px] sm:top-[68px] z-40 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-1.5 shadow-sm">
+      <div className="sticky top-[108px] sm:top-[68px] z-30 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-1.5 shadow-sm">
         <div className="grid grid-cols-2 gap-1">
           <button
             onClick={() => switchMode('shop')}
@@ -45,7 +45,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
         </div>
       </div>
 
-      <div className="sticky top-[151px] sm:top-[123px] z-30 bg-slate-50/95 py-2 backdrop-blur-sm">
+      <div className="sticky top-[160px] sm:top-[123px] z-20 bg-slate-50/95 py-2 backdrop-blur-sm">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input type="search" value={props.searchQuery}
