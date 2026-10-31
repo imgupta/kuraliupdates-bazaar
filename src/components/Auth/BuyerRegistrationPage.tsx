@@ -35,7 +35,7 @@ export const BuyerRegistrationPage: React.FC = () => {
     const normalizedLandmark = landmark.trim();
     const normalizedWard = wardNumber.trim();
     const normalizedLocality = locality.trim();
-    const normalizedPinCode = pinCode.replace(/\\D/g, '');
+    const normalizedPinCode = pinCode.replace(/\D/g, '');
 
     if (!normalizedName) return setError('Please enter your full name.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) return setError('Please enter a valid email address.');
@@ -43,7 +43,7 @@ export const BuyerRegistrationPage: React.FC = () => {
     if (!normalizedAddressLine) return setError('Please enter your house / flat / building number or name.');
     if (!normalizedWard) return setError('Please enter your ward number.');
     if (!normalizedLocality) return setError('Please enter your street, mohalla or locality.');
-    if (!/^\\d{6}$/.test(normalizedPinCode)) return setError('Please enter a valid 6-digit PIN code.');
+    if (!/^\d{6}$/.test(normalizedPinCode)) return setError('Please enter a valid 6-digit PIN code.');
 
     setLoading(true);
     try {
@@ -77,7 +77,7 @@ export const BuyerRegistrationPage: React.FC = () => {
     const normalizedLandmark = landmark.trim();
     const normalizedWard = wardNumber.trim();
     const normalizedLocality = locality.trim();
-    const normalizedPinCode = pinCode.replace(/\\D/g, '');
+    const normalizedPinCode = pinCode.replace(/\D/g, '');
     const fullAddress = [normalizedAddressLine, `Ward ${normalizedWard}`, normalizedLocality, `Kurali, Punjab - ${normalizedPinCode}`, normalizedLandmark].filter(Boolean).join(', ');
     setLoading(true);
     const response = await bazaarApi.verifyOtp({
@@ -142,7 +142,7 @@ export const BuyerRegistrationPage: React.FC = () => {
             <div className="rounded-2xl border border-slate-200 p-4 space-y-4">
               <div><h2 className="text-sm font-black text-slate-900">Delivery address</h2><p className="mt-1 text-[11px] text-slate-500">Enter the address where your orders should be delivered.</p></div>
               <div className="grid sm:grid-cols-2 gap-4">
-                <Field icon={<MapPin />} label="PIN code" value={pinCode} onChange={e => setPinCode(e.target.value.replace(/\\D/g, '').slice(0, 6))} placeholder="6-digit PIN code" inputMode="numeric" maxLength={6} />
+                <Field icon={<MapPin />} label="PIN code" value={pinCode} onChange={e => setPinCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit PIN code" inputMode="numeric" maxLength={6} />
                 <Field icon={<MapPin />} label="Ward number" value={wardNumber} onChange={e => setWardNumber(e.target.value)} placeholder="Your ward number" />
               </div>
               <Field icon={<MapPin />} label="House / Flat / Building number or name" value={addressLine} onChange={e => setAddressLine(e.target.value)} placeholder="House 24, Flat 201 or building name" />
