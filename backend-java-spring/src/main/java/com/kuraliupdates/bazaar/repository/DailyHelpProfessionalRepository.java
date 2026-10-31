@@ -12,6 +12,8 @@ public interface DailyHelpProfessionalRepository extends JpaRepository<DailyHelp
     Optional<DailyHelpProfessionalEntity> findFirstByStatusAndVerifiedAndCurrentLocalityIgnoreCaseOrderByRatingDesc(
             String status, Integer verified, String currentLocality);
 
+    Optional<DailyHelpProfessionalEntity> findByUserId(String userId);
+
     Optional<DailyHelpProfessionalEntity> findByPhone(String phone);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
