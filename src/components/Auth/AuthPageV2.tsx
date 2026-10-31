@@ -95,6 +95,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
     setLoading(true);
 
     try {
+      let resendAfterSeconds = 20;
       if (authMode === 'register') {
         const email = (emailRef.current?.value || '').trim().toLowerCase();
         const phone = (phoneRef.current?.value || '').replace(/\D/g, '');
@@ -121,6 +122,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
         if (!response.success) {
           throw new Error(response.message);
         }
+        resendAfterSeconds = Number(response.resendAfterSeconds) || 20;
         setPendingRegistration({
           name,
           email,
@@ -134,7 +136,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
           licenseNumber: licenseNumberRef.current?.value.trim(),
         });
         setPendingIdentifier(email);
-        setCountdown(60);
+        setCountdown(resendAfterSeconds);
         setOtp('');
         setStep('otp');
         showToast('Verification code sent to your email', 'info');
@@ -154,8 +156,9 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
       const response = await bazaarApi.sendOtp(identifier, contactMethod === 'email' ? 'EMAIL' : 'PHONE', 'LOGIN');
       if (!response.success) throw new Error(response.message);
 
+      resendAfterSeconds = Number(response.resendAfterSeconds) || 20;
       setPendingIdentifier(identifier);
-      setCountdown(60);
+      setCountdown(resendAfterSeconds);
       setOtp('');
       setStep('otp');
       showToast('Verification code sent successfully', 'info');

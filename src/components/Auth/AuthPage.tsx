@@ -138,19 +138,22 @@ export const AuthPage: React.FC = () => {
     setIsLoading(true);
     setValidationError(null);
     try {
+      let resendAfterSeconds = 20;
       if (authMode === 'register') {
         const email = (emailRef.current?.value || authDetails.email).trim().toLowerCase();
         const emailRes = await bazaarApi.sendOtp(email, 'EMAIL', 'REGISTER');
         if (!emailRes.success) throw new Error(emailRes.message);
+        resendAfterSeconds = Number(emailRes.resendAfterSeconds) || 20;
       } else {
         const id = (identifier || '').trim();
         const type = id.includes('@') ? 'EMAIL' : 'PHONE';
         const res = await bazaarApi.sendOtp(id, type, 'LOGIN');
         if (!res.success) throw new Error(res.message);
+        resendAfterSeconds = Number(res.resendAfterSeconds) || 20;
         setActiveIdentifier(id);
       }
 
-      setCountdown(60);
+      setCountdown(resendAfterSeconds);
       setCanResend(false);
       setOtpValues(['', '', '', '', '', '']);
       setEmailOtpValues(['', '', '', '', '', '']);

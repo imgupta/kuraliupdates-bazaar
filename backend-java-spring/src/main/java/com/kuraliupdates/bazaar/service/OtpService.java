@@ -6,6 +6,7 @@ import com.kuraliupdates.bazaar.repository.AuthOtpRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
@@ -22,16 +23,30 @@ public class OtpService {
     private final AuthOtpRepository repository;
     private final OtpDeliveryService deliveryService;
     private final E2eOtpCaptureService e2eOtpCaptureService;
+    private final JdbcTemplate jdbcTemplate;
     private final SecureRandom secureRandom = new SecureRandom();
+
+    public int getResendCooldownSeconds() {
+        try {
+            Integer configured = jdbcTemplate.queryForObject(
+                    "SELECT OTP_RESEND_TIMEOUT_SECONDS FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1",
+                    Integer.class);
+            return configured == null ? 20 : Math.max(5, Math.min(300, configured));
+        } catch (Exception ignored) {
+            // Keep authentication available during a rolling migration; V21 seeds 20 seconds.
+            return 20;
+        }
+    }
 
     @Transactional
     public void send(String identifier, String type) {
         LocalDateTime now = LocalDateTime.now();
+        int cooldownSeconds = getResendCooldownSeconds();
         // Only allowlisted identities in explicitly enabled staging E2E may skip cooldown.
-        // Normal users and production keep the standard 60-second rate limit.
         if (!e2eOtpCaptureService.mayBypassCooldown(identifier)
-                && repository.existsRecentOtp(identifier, type, now.minusSeconds(60))) {
-            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Please wait 60 seconds before requesting another OTP");
+                && repository.existsRecentOtp(identifier, type, now.minusSeconds(cooldownSeconds))) {
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                    "Please wait " + cooldownSeconds + " seconds before requesting another OTP");
         }
 
         String otp = String.format("%06d", 100000 + secureRandom.nextInt(900000));
