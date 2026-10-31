@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
   Search,
-  Truck,
   Sparkles,
   ShoppingBag,
   SlidersHorizontal,
@@ -34,7 +33,6 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
     products,
     addToCart,
     openChatForProduct,
-    orders,
     selectedCityLocality,
     comparingProduct,
     setComparingProduct,
@@ -145,59 +143,8 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
     );
   }, [products]);
 
-  // The Buyer home screen is for current orders only; terminal orders belong in order history.
-  const currentOrders = useMemo(() => {
-    const terminalStatuses = new Set([
-      'delivered', 'completed', 'cancelled', 'canceled', 'rejected',
-      'failed', 'refunded', 'returned', 'closed',
-    ]);
-    const distinct = orders.filter((order, index, all) =>
-      Boolean(order.id) && all.findIndex(candidate => candidate.id === order.id) === index
-    );
-    return distinct
-      .filter(order => {
-        const normalizedStatus = String(order.status || 'placed')
-          .trim()
-          .replace(/[\\s-]+/g, '_')
-          .toLowerCase();
-        return !terminalStatuses.has(normalizedStatus);
-      })
-      .sort((a, b) =>
-        new Date(b.placedAt || 0).getTime() - new Date(a.placedAt || 0).getTime()
-      );
-  }, [orders]);
-
   return (
     <div className="space-y-4 sm:space-y-5 pb-12">
-      {/* Swiggy-style compact active-order rail: one slim row, swipe to switch orders. */}
-      {currentOrders.length > 0 && (
-        <section className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-          <div className="mb-1.5 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <h2 className="text-xs font-extrabold text-slate-900">Your orders</h2>
-              <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">{currentOrders.length} active</span>
-            </div>
-            {currentOrders.length > 1 && <span className="text-[9px] text-slate-400">Swipe to switch</span>}
-          </div>
-          <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 scrollbar-none" aria-label="Active orders, swipe horizontally">
-            {currentOrders.map(order => {
-              const status = String(order.status || 'placed').replace(/_/g, ' ').toLowerCase();
-              return (
-                <button key={order.id} type="button" onClick={() => onOpenTracking(order.id)}
-                  className="flex min-w-[190px] max-w-[220px] snap-start items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Truck className="h-4 w-4" /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[10px] font-extrabold text-slate-800">Order #{order.id}</span>
-                    <span className="mt-0.5 block truncate text-[10px] capitalize text-slate-500">{status}</span>
-                  </span>
-                  <span className="shrink-0 text-[10px] font-bold text-emerald-700">Track ›</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       {/* Category + Filter Controls */}
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0">
