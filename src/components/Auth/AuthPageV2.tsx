@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { KURALI_LOCALITIES } from '../../data/initialData';
 import { UserRole } from '../../types';
 import { bazaarApi } from '../../services/api';
+import { LocationPicker, DeliveryLocation } from './LocationPicker';
 
 type AuthMode = 'signin' | 'register';
 type ContactMethod = 'email' | 'phone';
@@ -28,6 +29,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
   const [onboardingStatus, setOnboardingStatus] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [pendingToken, setPendingToken] = useState('');
   const [pendingIdentifier, setPendingIdentifier] = useState('');
+  const [shopLocation, setShopLocation] = useState<DeliveryLocation | null>(null);
   const [pendingRegistration, setPendingRegistration] = useState<{
     name: string;
     email: string;
@@ -43,6 +45,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
     streetLocality?: string; pinCode?: string; gstNumber?: string; fssaiNumber?: string;
     fssaiLicenseType?: string; openingTime?: string; closingTime?: string; weeklyClosedDay?: string;
     agreementAccepted?: boolean; agreementVersion?: string;
+    latitude?: number; longitude?: number; formattedAddress?: string; placeId?: string;
   } | null>(null);
 
   const nameRef = useRef<HTMLInputElement>(null);
@@ -130,6 +133,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
           if (!(streetLocalityRef.current?.value || '').trim()) throw new Error('Please enter the street or locality');
           if (!/^\\d{6}$/.test(pinCodeRef.current?.value || '')) throw new Error('Please enter a valid 6-digit shop PIN code');
           if (!agreementRef.current?.checked) throw new Error('Please accept the Seller Agreement and Terms');
+          if (!shopLocation) throw new Error('Please set your shop location on the map');
         }
         if (registrationRole === 'delivery') {
           if (!(vehicleNumberRef.current?.value || '').trim()) throw new Error('Please enter your vehicle number');
@@ -168,6 +172,8 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
           weeklyClosedDay: weeklyClosedDayRef.current?.value,
           agreementAccepted: agreementRef.current?.checked,
           agreementVersion: 'seller-terms-2026-11-01',
+          latitude: shopLocation?.latitude, longitude: shopLocation?.longitude,
+          formattedAddress: shopLocation?.formattedAddress, placeId: shopLocation?.placeId,
           vehicleType: vehicleTypeRef.current?.value,
           vehicleNumber: vehicleNumberRef.current?.value.trim(),
           licenseNumber: licenseNumberRef.current?.value.trim(),
@@ -234,7 +240,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
           category,
           businessType, registeredBusinessName, shopNumber, wardNumber, streetLocality, pinCode,
           gstNumber, fssaiNumber, fssaiLicenseType, openingTime, closingTime, weeklyClosedDay,
-          agreementAccepted, agreementVersion,
+          agreementAccepted, agreementVersion, latitude, longitude, formattedAddress, placeId,
           vehicleType,
           vehicleNumber,
           licenseNumber,
@@ -471,6 +477,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
                           <div><label className="block mb-1 text-xs font-bold text-slate-700">Street / locality *</label><input ref={streetLocalityRef} type="text" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
                           <div><label className="block mb-1 text-xs font-bold text-slate-700">PIN code *</label><input ref={pinCodeRef} type="text" inputMode="numeric" maxLength={6} className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
                         </div>
+                        <div className="sm:col-span-2"><p className="mb-2 text-xs font-bold text-slate-700">Pin your shop location <span className="text-rose-500">*</span></p><LocationPicker value={shopLocation} onChange={setShopLocation} /></div>
                         <div><label className="block mb-1 text-xs font-bold text-slate-700">GSTIN <span className="font-normal text-slate-400">(if registered / applicable)</span></label><input ref={gstNumberRef} type="text" placeholder="15-character GSTIN" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm uppercase" /></div>
                         <div><label className="block mb-1 text-xs font-bold text-slate-700">FSSAI number <span className="font-normal text-slate-400">(required for applicable food businesses)</span></label><input ref={fssaiNumberRef} type="text" maxLength={14} placeholder="14-digit FSSAI number" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
                         <div><label className="block mb-1 text-xs font-bold text-slate-700">FSSAI licence type</label><select ref={fssaiLicenseTypeRef} defaultValue="" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm"><option value="">Select if applicable</option><option>Basic Registration</option><option>State Licence</option><option>Central Licence</option></select></div>
