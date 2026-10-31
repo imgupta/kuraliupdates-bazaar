@@ -126,6 +126,7 @@ interface AppContextType {
     deliveryPhone?: string;
     customerNotes?: string;
     paymentMethod: 'COD' | 'UPI' | 'StorePay' | 'Card' | 'NetBanking';
+    fulfilmentMode?: 'DELIVERY' | 'STORE_PICKUP';
   }) => Promise<Order | null>;
   updateOrderStatus: (orderId: string, status: OrderStatus, note?: string) => void;
 
