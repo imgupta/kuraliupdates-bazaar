@@ -318,6 +318,53 @@ class DeliveryServiceTest {
         verify(agentRepository, never()).save(any());
     }
 
+    @Test
+    void offlineAgentSeesNoNewPickupJobs() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        agent.setAvailableForJobs(false);
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+
+        assertTrue(deliveryService.availableJobs(user()).isEmpty());
+        verify(orderRepository, never()).findByStatus(any());
+    }
+
+    @Test
+    void offlineAgentCannotClaimNewPickupJob() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        agent.setAvailableForJobs(false);
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.claim("ORD-OFFLINE", "AGENT-1", user()));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        verify(orderRepository, never()).findLockedByOrderId(any());
+    }
+
+    @Test
+    void offlineAgentCanStillCompleteAnAlreadyAssignedDelivery() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        agent.setAvailableForJobs(false);
+        OrderEntity order = OrderEntity.builder()
+                .orderId("ORD-OFFLINE-ACTIVE")
+                .status("ASSIGNED_TO_DELIVERY")
+                .deliveryAgent(agent)
+                .deliveryOtp("0042")
+                .paymentMethod("COD")
+                .paymentStatus("PENDING_COD")
+                .distanceKm(BigDecimal.ONE)
+                .build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findLockedForDeliveryVerification("ORD-OFFLINE-ACTIVE")).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(agentRepository.save(any(DeliveryAgentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = deliveryService.verifyDeliveryOtp("ORD-OFFLINE-ACTIVE", "0042", user());
+
+        assertEquals(Boolean.TRUE, response.get("success"));
+        assertEquals("DELIVERED", order.getStatus());
+    }
+
     private UserEntity user() {
         return UserEntity.builder().email("rider@example.com").phone("9876543210").name("Rider").role("DELIVERY").build();
     }
