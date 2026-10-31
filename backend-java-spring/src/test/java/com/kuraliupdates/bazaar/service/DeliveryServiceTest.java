@@ -91,6 +91,8 @@ class DeliveryServiceTest {
                 .paymentMethod("COD")
                 .paymentStatus("PENDING_COD")
                 .distanceKm(new BigDecimal("1.5"))
+                .riderPayoutSnapshot(new BigDecimal("78.00"))
+                .riderPayoutSnapshottedAt(java.time.LocalDateTime.now().minusDays(1))
                 .build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedForDeliveryVerification("SYNTH-OTP-VERIFY-1")).thenReturn(Optional.of(order));
@@ -107,6 +109,22 @@ class DeliveryServiceTest {
         assertEquals(0, new BigDecimal("78").compareTo(agent.getTotalEarnings()));
         verify(orderRepository, times(1)).save(order);
         verify(agentRepository, times(1)).save(agent);
+    }
+
+    @Test
+    void storePickupOrdersAreNeverOfferedAsRiderJobs() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity delivery = OrderEntity.builder().orderId("DELIVERY-1").status("READY_FOR_PICKUP")
+                .fulfilmentMode("DELIVERY").build();
+        OrderEntity pickup = OrderEntity.builder().orderId("PICKUP-1").status("READY_FOR_PICKUP")
+                .fulfilmentMode("STORE_PICKUP").build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findByStatus("READY_FOR_PICKUP")).thenReturn(java.util.List.of(delivery, pickup));
+
+        var jobs = deliveryService.availableJobs(user());
+
+        assertEquals(1, jobs.size());
+        assertEquals("DELIVERY-1", jobs.get(0).getOrderId());
     }
 
     @Test
