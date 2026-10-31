@@ -48,7 +48,6 @@ const uniqueOrdersById = (items: Order[]): Order[] => {
 export const DeliveryDashboard: React.FC = () => {
   const {
     currentAgent,
-    deliveryAgents,
     orders,
     claimDeliveryJob,
     completeDelivery,
@@ -119,7 +118,7 @@ export const DeliveryDashboard: React.FC = () => {
         totalEarnings: Number(backendAgent.totalEarnings || 0),
         currentLocality: backendAgent.currentLocality,
       }
-    : currentAgent || deliveryAgents[0];
+    : currentAgent;
 
   useEffect(() => {
     if (!agent?.id || !navigator.geolocation) return;
@@ -198,7 +197,7 @@ export const DeliveryDashboard: React.FC = () => {
     ...uniqueOrders.filter(
       o => o.deliveryAgentId === agent?.id && (o.status === 'picked_up' || o.status === 'assigned_to_delivery')
     ),
-  ]).filter(o => !o.deliveryAgentId || o.deliveryAgentId === agent?.id);
+  ]);
   const activeOrderIds = new Set(myActiveOrders.map(order => order.id));
 
   // Available jobs come from the live dispatch endpoint. Never fall back to stale
