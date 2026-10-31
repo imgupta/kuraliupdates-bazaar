@@ -16,6 +16,7 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
   const [chats, setChats] = useState<NegotiationChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const showToastRef = useRef(showToast);
+  const lastSeenStatusRef = useRef(new Map<string, string>());
   useEffect(() => { showToastRef.current = showToast; }, [showToast]);
   const identity = `${role}:${(user.email || '').toLowerCase()}`;
 
@@ -49,6 +50,19 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
     return () => { disposed = true; window.clearInterval(timer); };
   }, [identity]);
 
+  useEffect(() => {
+    if (role !== 'buyer') return;
+    chats.forEach(chat => {
+      const status = chat.bargainStatus || (chat.currentAgreedPrice != null ? 'ACCEPTED' : 'PENDING_SELLER');
+      const previous = lastSeenStatusRef.current.get(chat.id);
+      if (previous && previous !== status) {
+        if (status === 'ACCEPTED') showToastRef.current('Seller accepted your bargain. Your cart price has been updated.', 'success');
+        if (status === 'REJECTED') showToastRef.current('Your bargain was declined. You can still order at the catalogue price.', 'info');
+        if (status === 'EXPIRED') showToastRef.current('Your bargain expired. The catalogue price remains available.', 'info');
+      }
+      lastSeenStatusRef.current.set(chat.id, status);
+    });
+  }, [chats, role]);
   useEffect(() => {
     if (role !== 'buyer') return;
     chats.filter(chat => !chat.id.startsWith('pending-')).forEach(chat => {
@@ -94,6 +108,7 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
       setChats(prev => [remote, ...prev.filter(chat => chat.id !== tempId && chat.id !== remote.id)]);
       setActiveChatId(current => current === tempId ? remote.id : current);
     }).catch(error => {
+      upsertBargainCartItem(product, tempId, 'EXPIRED', price);
       setChats(prev => prev.filter(chat => chat.id !== tempId));
       setActiveChatId(current => current === tempId ? null : current);
       showToast(error instanceof Error ? error.message : 'Could not start the conversation.', 'error');
