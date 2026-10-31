@@ -14,6 +14,7 @@ public record MultiSellerCheckoutRequest(
         @NotBlank @Size(max = 500) String deliveryAddress,
         @NotBlank @Size(max = 150) String deliveryLocality,
         @NotBlank String paymentMethod,
+        @jakarta.validation.constraints.Pattern(regexp = "DELIVERY|STORE_PICKUP") String fulfilmentMode,
         @DecimalMin(value = "0.0") BigDecimal distanceKm,
         @DecimalMin(value = "-90.0") @DecimalMax(value = "90.0") Double deliveryLatitude,
         @DecimalMin(value = "-180.0") @DecimalMax(value = "180.0") Double deliveryLongitude,
