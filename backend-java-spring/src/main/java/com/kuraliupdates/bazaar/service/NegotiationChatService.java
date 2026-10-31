@@ -104,10 +104,19 @@ public class NegotiationChatService {
         }
         String role = normalizeActiveRole(requestedRole);
         Map<String, Object> chat = requireChatParticipant(user, role, chatId);
-        if ("CLOSED_PURCHASED".equalsIgnoreCase(Objects.toString(chat.get("bargainStatus"), ""))) {
+        Map<String, Object> lockedLifecycle = jdbc.queryForMap("SELECT BARGAIN_STATUS, EXPIRES_AT FROM NEGOTIATION_CHATS WHERE CHAT_ID=? FOR UPDATE", chatId);
+        String lifecycle = Objects.toString(lockedLifecycle.get("BARGAIN_STATUS"), "");
+        Timestamp expiry = (Timestamp) lockedLifecycle.get("EXPIRES_AT");
+        if ("CLOSED_PURCHASED".equalsIgnoreCase(lifecycle)) {
             throw new ApiException(HttpStatus.CONFLICT, "This bargain is closed because the item was already purchased.");
         }
+        if (expiry != null && expiry.toLocalDateTime().isBefore(LocalDateTime.now())) {
+            throw new ApiException(HttpStatus.CONFLICT, "This bargain has expired. The catalogue price applies.");
+        }
         BigDecimal offerPrice = request.offerPrice();
+        if (offerPrice != null && "ACCEPTED".equalsIgnoreCase(lifecycle)) {
+            throw new ApiException(HttpStatus.CONFLICT, "This bargain has already been accepted. Start a new conversation for another negotiation.");
+        }
         if (offerPrice != null) {
             BigDecimal original = (BigDecimal) chat.get("originalPrice");
             validatePrice(offerPrice, original);
