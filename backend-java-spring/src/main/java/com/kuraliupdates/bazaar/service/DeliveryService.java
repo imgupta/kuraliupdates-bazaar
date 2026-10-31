@@ -76,9 +76,22 @@ public class DeliveryService {
         DeliveryAgentEntity agent = findAgentForUser(user);
         requireActive(agent);
         if (Boolean.FALSE.equals(agent.getAvailableForJobs())) return List.of();
-        return orderRepository.findByStatus("READY_FOR_PICKUP").stream()
+        List<OrderEntity> readyOrders = orderRepository.findByStatus("READY_FOR_PICKUP").stream()
                 .filter(order -> !"STORE_PICKUP".equalsIgnoreCase(order.getFulfilmentMode()))
+                .filter(order -> order.getDeliveryAgent() == null)
                 .toList();
+        Set<String> checkoutGroups = readyOrders.stream()
+                .map(OrderEntity::getCheckoutGroupId).filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        Set<String> completeGroupIds = checkoutGroups.stream().filter(groupId -> {
+            List<OrderEntity> group = orderRepository.findByCheckoutGroupIdOrderByPlacedAtAsc(groupId);
+            return group.size() >= 2 && group.stream().allMatch(order ->
+                    "READY_FOR_PICKUP".equals(order.getStatus())
+                    && order.getDeliveryAgent() == null
+                    && !"STORE_PICKUP".equalsIgnoreCase(order.getFulfilmentMode()));
+        }).collect(java.util.stream.Collectors.toSet());
+        return readyOrders.stream().filter(order -> order.getCheckoutGroupId() == null
+                || completeGroupIds.contains(order.getCheckoutGroupId())).toList();
     }
 
     @Transactional(readOnly = true)
