@@ -331,7 +331,7 @@ class DeliveryServiceTest {
 
         assertEquals(1, response.get("completedOrders"));
         assertEquals("DELIVERED", first.getStatus());
-        assertEquals("ASSIGNED_TO_DELIVERY", second.getStatus());
+        assertEquals("PICKED_UP", second.getStatus());
         assertEquals(0, new BigDecimal("67").compareTo(agent.getTotalEarnings()));
         verify(orderRepository).save(first);
         verify(orderRepository, never()).saveAll(any());
