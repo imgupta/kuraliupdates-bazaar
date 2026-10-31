@@ -29,6 +29,35 @@ export const useBuyerCommerceState = (
     showToast(`Added "${product.title}" to cart`, 'success');
   };
 
+  const upsertBargainCartItem = (
+    product: Product,
+    bargainId: string,
+    bargainStatus: NonNullable<CartItem['bargainStatus']>,
+    bargainOfferPrice?: number,
+    negotiatedPrice?: number,
+    acceptedOfferId?: string,
+  ) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.product.id === product.id);
+      const bargainFields = {
+        bargainId,
+        bargainStatus,
+        bargainOfferPrice,
+        negotiatedPrice: bargainStatus === 'ACCEPTED' ? negotiatedPrice : undefined,
+        acceptedOfferId: bargainStatus === 'ACCEPTED' ? acceptedOfferId : undefined,
+      };
+      if (existing) {
+        return prev.map(item => item.product.id === product.id
+          ? { ...item, ...bargainFields }
+          : item);
+      }
+      return [...prev, { product, quantity: 1, ...bargainFields }];
+    });
+  };
+
+  const effectivePrice = (item: CartItem) => item.negotiatedPrice
+    ?? Number((item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100)).toFixed(2));
+
   const removeFromCart = (productId: string) => setCart(prev => prev.filter(item => item.product.id !== productId));
 
   const updateCartQuantity = (productId: string, quantity: number) => {
@@ -48,7 +77,7 @@ export const useBuyerCommerceState = (
     const trimmed = code.trim().toUpperCase();
     const found = coupons.find(c => c.code.toUpperCase() === trimmed);
     if (!found) return { success: false, message: 'Invalid coupon code for Kurali Bazaar.' };
-    const currentSubtotal = cart.reduce((sum, item) => sum + (item.negotiatedPrice || item.product.sellerPrice) * item.quantity, 0);
+    const currentSubtotal = cart.reduce((sum, item) => sum + effectivePrice(item) * item.quantity, 0);
     if (found.minOrderValue && currentSubtotal < found.minOrderValue) {
       return { success: false, message: `Min order value for ${found.code} is ₹${found.minOrderValue}. Add items worth ₹${found.minOrderValue - currentSubtotal} more.` };
     }
@@ -67,7 +96,7 @@ export const useBuyerCommerceState = (
     const sellerSpend: Record<string, { sellerName: string; amount: number; seller: Seller | undefined }> = {};
     cart.forEach(item => {
       const sellerId = item.product.sellerId;
-      const price = item.negotiatedPrice || item.product.sellerPrice;
+      const price = effectivePrice(item);
       if (!sellerSpend[sellerId]) sellerSpend[sellerId] = { sellerName: item.product.sellerName, amount: 0, seller: sellers.find(s => s.id === sellerId) };
       sellerSpend[sellerId].amount += price * item.quantity;
     });
@@ -112,5 +141,5 @@ export const useBuyerCommerceState = (
     };
   }, [cart, sellers, appliedCoupon]);
 
-  return { cart, setCart, appliedCoupon, setAppliedCoupon, addToCart, removeFromCart, updateCartQuantity, clearCart, applyCoupon, removeCoupon, cartCalculations };
+  return { cart, setCart, appliedCoupon, setAppliedCoupon, addToCart, upsertBargainCartItem, removeFromCart, updateCartQuantity, clearCart, applyCoupon, removeCoupon, cartCalculations };
 };
