@@ -39,6 +39,13 @@ public class SellerService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Seller store profile not found"));
     }
 
+    @Transactional
+    public SellerEntity updateStoreAvailability(String token, boolean open) {
+        SellerEntity seller = requireApprovedSeller(token);
+        seller.setStoreOpen(open);
+        return sellerRepository.save(seller);
+    }
+
     @Transactional(readOnly = true)
     public List<ProductResponse> getProducts(String token) {
         SellerEntity seller = getCurrentSeller(token);
