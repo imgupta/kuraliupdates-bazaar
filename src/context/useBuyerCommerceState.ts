@@ -57,6 +57,29 @@ export const useBuyerCommerceState = (
     });
   }, []);
 
+  // Update only a cart line that already represents a bargain. Unlike upsertBargainCartItem,
+  // this never recreates a line the buyer deliberately removed while waiting for a response.
+  const updateExistingBargainCartItem = useCallback((
+    product: Product,
+    bargainId: string,
+    bargainStatus: NonNullable<CartItem['bargainStatus']>,
+    bargainOfferPrice?: number,
+    negotiatedPrice?: number,
+    acceptedOfferId?: string,
+  ) => {
+    setCart(prev => prev.map(item => {
+      if (item.product.id !== product.id || (!item.bargainId && !item.bargainStatus)) return item;
+      const bargainFields = {
+        bargainId,
+        bargainStatus,
+        bargainOfferPrice,
+        negotiatedPrice: bargainStatus === 'ACCEPTED' ? negotiatedPrice : undefined,
+        acceptedOfferId: bargainStatus === 'ACCEPTED' ? acceptedOfferId : undefined,
+      };
+      return { ...item, ...bargainFields };
+    }));
+  }, []);
+
   const effectivePrice = (item: CartItem) => item.negotiatedPrice
     ?? Number((item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100)).toFixed(2));
 
@@ -143,5 +166,5 @@ export const useBuyerCommerceState = (
     };
   }, [cart, sellers, appliedCoupon]);
 
-  return { cart, setCart, appliedCoupon, setAppliedCoupon, addToCart, upsertBargainCartItem, removeFromCart, updateCartQuantity, clearCart, applyCoupon, removeCoupon, cartCalculations };
+  return { cart, setCart, appliedCoupon, setAppliedCoupon, addToCart, upsertBargainCartItem, updateExistingBargainCartItem, removeFromCart, updateCartQuantity, clearCart, applyCoupon, removeCoupon, cartCalculations };
 };
