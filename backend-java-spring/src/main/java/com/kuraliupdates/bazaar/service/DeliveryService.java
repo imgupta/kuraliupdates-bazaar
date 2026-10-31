@@ -209,18 +209,17 @@ public class DeliveryService {
             throw new ApiException(HttpStatus.FORBIDDEN, "This order is not assigned to your delivery profile");
         }
 
-        List<OrderEntity> deliveryOrders = order.getCheckoutGroupId() == null
+        List<OrderEntity> checkoutOrders = order.getCheckoutGroupId() == null
                 ? List.of(order)
                 : orderRepository.findLockedByCheckoutGroupId(order.getCheckoutGroupId());
-        for (OrderEntity deliveryOrder : deliveryOrders) {
-            if (deliveryOrder.getDeliveryAgent() == null
-                    || !deliveryOrder.getDeliveryAgent().getAgentId().equals(authenticatedAgent.getAgentId())
-                    || !enteredOtp.equals(deliveryOrder.getDeliveryOtp())
-                    || (!"ASSIGNED_TO_DELIVERY".equals(deliveryOrder.getStatus())
-                        && !"PICKED_UP".equals(deliveryOrder.getStatus()))) {
-                throw new ApiException(HttpStatus.CONFLICT, "Every order in a combined delivery must belong to you and share the active delivery OTP");
-            }
-        }
+        boolean combinedClaim = checkoutOrders.size() > 1 && checkoutOrders.stream().allMatch(deliveryOrder ->
+                deliveryOrder.getDeliveryAgent() != null
+                && deliveryOrder.getDeliveryAgent().getAgentId().equals(authenticatedAgent.getAgentId())
+                && enteredOtp.equals(deliveryOrder.getDeliveryOtp())
+                && ("ASSIGNED_TO_DELIVERY".equals(deliveryOrder.getStatus())
+                    || "PICKED_UP".equals(deliveryOrder.getStatus())));
+        // Separate-job fallback remains valid: only complete the individually assigned order.
+        List<OrderEntity> deliveryOrders = combinedClaim ? checkoutOrders : List.of(order);
         LocalDateTime deliveredAt = LocalDateTime.now();
         for (OrderEntity deliveryOrder : deliveryOrders) {
             deliveryOrder.setStatus("DELIVERED");
