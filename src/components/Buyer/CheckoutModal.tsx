@@ -89,7 +89,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
           <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between text-xs">
             <span className="flex items-center gap-2 text-amber-900 font-bold">
               <Truck className="w-4 h-4 text-amber-600" />
-              {cartCalculations.isFreeDelivery
+              {fulfilmentMode === 'STORE_PICKUP' ? 'Store pickup selected — no delivery charge' : cartCalculations.isFreeDelivery
                 ? 'FREE Delivery Qualified (Order > Min Threshold)'
                 : `Standard Delivery Fee: ₹${cartCalculations.deliveryFee}`}
             </span>
@@ -120,7 +120,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
           <div className="space-y-3">
             <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-amber-600" />
-              1. Delivery Address in Kurali
+              {fulfilmentMode === 'STORE_PICKUP' ? '1. Your pickup locality in Kurali' : '1. Delivery Address in Kurali'}
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
