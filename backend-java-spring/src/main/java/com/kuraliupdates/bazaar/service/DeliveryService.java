@@ -90,8 +90,14 @@ public class DeliveryService {
                     && order.getDeliveryAgent() == null
                     && !"STORE_PICKUP".equalsIgnoreCase(order.getFulfilmentMode()));
         }).collect(java.util.stream.Collectors.toSet());
-        return readyOrders.stream().filter(order -> order.getCheckoutGroupId() == null
-                || completeGroupIds.contains(order.getCheckoutGroupId())).toList();
+        // A checkoutGroupId is also assigned to single-seller checkouts. Those
+        // must remain claimable as ordinary single-order jobs; only true
+        // multi-seller groups wait until every seller order is ready.
+        return readyOrders.stream().filter(order -> {
+            if (order.getCheckoutGroupId() == null) return true;
+            List<OrderEntity> group = orderRepository.findByCheckoutGroupIdOrderByPlacedAtAsc(order.getCheckoutGroupId());
+            return group.size() == 1 || completeGroupIds.contains(order.getCheckoutGroupId());
+        }).toList();
     }
 
     @Transactional(readOnly = true)
