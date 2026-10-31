@@ -11,6 +11,9 @@ export const BuyerRegistrationPage: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [addressLine, setAddressLine] = useState('');
   const [landmark, setLandmark] = useState('');
+  const [wardNumber, setWardNumber] = useState('');
+  const [locality, setLocality] = useState('');
+  const [pinCode, setPinCode] = useState('');
   const [location, setLocation] = useState<DeliveryLocation | null>(null);
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'form' | 'otp' | 'done'>('form');
@@ -31,12 +34,18 @@ export const BuyerRegistrationPage: React.FC = () => {
     const normalizedPhone = phone.replace(/\D/g, '');
     const normalizedAddressLine = addressLine.trim();
     const normalizedLandmark = landmark.trim();
+    const normalizedWard = wardNumber.trim();
+    const normalizedLocality = locality.trim();
+    const normalizedPinCode = pinCode.replace(/\D/g, '');
 
     if (!normalizedName) return setError('Please enter your full name.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) return setError('Please enter a valid email address.');
     if (!/^\d{10}$/.test(normalizedPhone)) return setError('Please enter a valid 10-digit mobile number.');
-    if (!normalizedAddressLine) return setError('Please enter your house / flat / building details.');
-    if (!normalizedLandmark) return setError('Please enter a nearby landmark so our rider can find you easily.');
+    if (!normalizedAddressLine) return setError('Please enter your house / flat / building number or name.');
+    if (!normalizedWard) return setError('Please enter your ward number.');
+    if (!normalizedLocality) return setError('Please enter your street, mohalla or locality.');
+    if (!/^\d{6}$/.test(normalizedPinCode)) return setError('Please enter a valid 6-digit PIN code.');
+    if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) return setError('Please select your exact delivery location on the map or use Locate me.');
 
     setLoading(true);
     try {
@@ -68,6 +77,10 @@ export const BuyerRegistrationPage: React.FC = () => {
     const normalizedPhone = phone.replace(/\D/g, '');
     const normalizedAddressLine = addressLine.trim();
     const normalizedLandmark = landmark.trim();
+    const normalizedWard = wardNumber.trim();
+    const normalizedLocality = locality.trim();
+    const normalizedPinCode = pinCode.replace(/\D/g, '');
+    const fullAddress = [normalizedAddressLine, `Ward ${normalizedWard}`, normalizedLocality, `Kurali, Punjab - ${normalizedPinCode}`, normalizedLandmark, location?.formattedAddress].filter(Boolean).join(', ');
     setLoading(true);
     const response = await bazaarApi.verifyOtp({
       mode: 'REGISTER',
@@ -75,9 +88,9 @@ export const BuyerRegistrationPage: React.FC = () => {
       name: normalizedName,
       email: normalizedEmail,
       phone: normalizedPhone,
-      locality: 'Kurali',
-      address: [normalizedAddressLine, normalizedLandmark, location?.formattedAddress].filter(Boolean).join(', '),
-      addressLine1: normalizedAddressLine,
+      locality: normalizedLocality,
+      address: fullAddress,
+      addressLine1: [normalizedAddressLine, `Ward ${normalizedWard}`, normalizedLocality, `PIN ${normalizedPinCode}`].join(', '),
       landmark: normalizedLandmark,
       formattedAddress: location?.formattedAddress,
       placeId: location?.placeId,
@@ -97,18 +110,18 @@ export const BuyerRegistrationPage: React.FC = () => {
       identifier: normalizedEmail,
       email: normalizedEmail,
       phone: normalizedPhone,
-      locality: 'Kurali',
+      locality: normalizedLocality,
       role: 'buyer',
-      address: [addressLine, landmark, location?.formattedAddress].filter(Boolean).join(', '),
+      address: fullAddress,
       token: response.token,
       serverUser: response.user,
     });
-    showToast(location ? 'Buyer account created. Delivery location saved.' : 'Buyer account created. You can add a delivery location anytime from My Account.', 'success');
+    showToast('Buyer account created. Your delivery address has been saved.', 'success');
     setStep('done');
   };
 
   if (step === 'done') {
-    return <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 flex items-center justify-center p-4"><div className="w-full max-w-xl rounded-3xl bg-white p-8 text-center shadow-2xl"><CheckCircle2 className="w-14 h-14 mx-auto text-emerald-600" /><h1 className="mt-4 text-2xl font-black text-slate-900">Welcome to KuraliUpdates Bazaar</h1><p className="mt-2 text-sm text-slate-600">Your buyer account is ready. You can add a precise delivery location anytime from My Account.</p><a href="/" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-xs font-black text-white"><ArrowLeft className="w-4 h-4" /> Continue to Bazaar</a></div></div>;
+    return <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 flex items-center justify-center p-4"><div className="w-full max-w-xl rounded-3xl bg-white p-8 text-center shadow-2xl"><CheckCircle2 className="w-14 h-14 mx-auto text-emerald-600" /><h1 className="mt-4 text-2xl font-black text-slate-900">Welcome to KuraliUpdates Bazaar</h1><p className="mt-2 text-sm text-slate-600">Your buyer account, delivery address and precise map location are saved. You can update them anytime from My Account.</p><a href="/" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-xs font-black text-white"><ArrowLeft className="w-4 h-4" /> Continue to Bazaar</a></div></div>;
   }
 
   return (
@@ -117,7 +130,7 @@ export const BuyerRegistrationPage: React.FC = () => {
         <div className="bg-gradient-to-r from-amber-600 to-orange-600 p-6 sm:p-8 text-white">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-black"><Sparkles className="w-3.5 h-3.5" /> Kurali Express Delivery</div>
           <h1 className="mt-4 text-2xl sm:text-3xl font-black">Set up your doorstep delivery</h1>
-          <p className="mt-2 text-sm text-amber-50 max-w-2xl">Add your delivery location now or skip it and add it later from My Account.</p>
+          <p className="mt-2 text-sm text-amber-50 max-w-2xl">Create your account with a complete delivery address and a precise map pin. You can update both later from My Account.</p>
         </div>
         <div className="p-5 sm:p-8 space-y-6">
           <div className="flex justify-end">
@@ -132,15 +145,18 @@ export const BuyerRegistrationPage: React.FC = () => {
               <Field icon={<Mail />} label="Email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@example.com" type="email" />
               <Field icon={<Phone />} label="Mobile" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="10-digit mobile" inputMode="numeric" />
             </div>
-            <div><LocationPicker value={location} onChange={setLocation} /><p className="mt-2 text-[11px] text-slate-500">Optional during registration. You can add or change your delivery location later from My Account.</p></div>
-            <div className="grid md:grid-cols-2 gap-4">
-              <Field icon={<MapPin />} label="House / Flat / Building" value={addressLine} onChange={e => setAddressLine(e.target.value)} placeholder="Flat 201, House 14, Building name" />
-              <Field icon={<MapPin />} label="Nearby landmark" value={landmark} onChange={e => setLandmark(e.target.value)} placeholder="Near Gurudwara / school / market" />
+            <div className="rounded-2xl border border-slate-200 p-4 space-y-4">
+              <div><h2 className="text-sm font-black text-slate-900">Delivery address</h2><p className="mt-1 text-[11px] text-slate-500">Enter the address where your orders should be delivered.</p></div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field icon={<MapPin />} label="PIN code" value={pinCode} onChange={e => setPinCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit PIN code" inputMode="numeric" maxLength={6} />
+                <Field icon={<MapPin />} label="Ward number" value={wardNumber} onChange={e => setWardNumber(e.target.value)} placeholder="Your ward number" />
+              </div>
+              <Field icon={<MapPin />} label="House / Flat / Building number or name" value={addressLine} onChange={e => setAddressLine(e.target.value)} placeholder="House 24, Flat 201 or building name" />
+              <Field icon={<MapPin />} label="Street / Mohalla / Locality" value={locality} onChange={e => setLocality(e.target.value)} placeholder="Street, colony or mohalla" />
+              <label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-700">Nearby landmark <span className="font-medium text-slate-400">(Optional)</span></span><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"><MapPin /></span><input value={landmark} onChange={e => setLandmark(e.target.value)} placeholder="Near school, gurudwara or market" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-amber-500 focus:bg-white" /></div></label>
+              <div className="pt-1"><div className="mb-2"><h3 className="text-sm font-black text-slate-900">Pin your exact delivery location <span className="text-rose-500">*</span></h3><p className="mt-1 text-[11px] text-slate-500">Use Locate me or search and select your home on the map. You can adjust this later from My Account.</p></div><LocationPicker value={location} onChange={setLocation} />{location && <p className="mt-2 text-[11px] font-semibold text-emerald-700">Precise location selected: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}</p>}</div>
             </div>
-            <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 flex gap-3">
-              <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-              <div><p className="text-xs font-black text-emerald-900">Why we need precise location</p><p className="text-[11px] text-emerald-800 mt-1">Your address pin helps us show nearby stores, calculate delivery distance and give riders a reliable doorstep destination. We only use it for marketplace and delivery services.</p></div>
-            </div>
+            <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3 flex gap-2"><ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" /><p className="text-[11px] text-emerald-800">Your address is used to confirm service availability and help delivery partners find you. You can update your saved map pin later from My Account.</p></div>
             <button type="button" onClick={sendOtp} disabled={loading} className="w-full rounded-2xl bg-slate-950 py-3.5 text-sm font-black text-white hover:bg-black disabled:opacity-50"><ShoppingBag className="inline w-4 h-4 mr-2" /> {loading ? 'Sending verification code…' : 'Continue & send email OTP'}</button>
           </> : <div className="max-w-md mx-auto text-center py-8">
             <div className="mx-auto w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center"><Mail className="w-7 h-7 text-amber-700" /></div>
