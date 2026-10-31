@@ -30,6 +30,7 @@ public class DeliveryService {
     private final DeliveryAgentRepository agentRepository;
     private final OrderRepository orderRepository;
     private final JdbcTemplate jdbc;
+    private final GoogleRoutesService googleRoutesService;
     private final ConcurrentMap<String, LocalDateTime> deliveryOtpResendAt = new ConcurrentHashMap<>();
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -98,6 +99,55 @@ public class DeliveryService {
         order.setStatus("ASSIGNED_TO_DELIVERY");
         order.setUpdatedAt(LocalDateTime.now());
         return orderRepository.save(order);
+    }
+
+    @Transactional
+    public List<OrderEntity> claimCheckoutGroup(String checkoutGroupId, String agentId,
+            com.kuraliupdates.bazaar.entity.UserEntity user) {
+        DeliveryAgentEntity agent = findAgentForUser(user);
+        requireActive(agent);
+        requireAvailable(agent);
+        if (!agent.getAgentId().equals(agentId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You can only claim jobs for your own delivery profile");
+        }
+        Integer batchEnabled = jdbc.queryForObject(
+                "SELECT BATCH_ENABLED FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
+        if (!Integer.valueOf(1).equals(batchEnabled)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Combined delivery is currently disabled");
+        }
+        List<OrderEntity> orders = orderRepository.findByCheckoutGroupIdOrderByPlacedAtAsc(checkoutGroupId);
+        if (orders.size() < 2) throw new ApiException(HttpStatus.NOT_FOUND, "Combined checkout was not found");
+        Integer maxSellers = jdbc.queryForObject(
+                "SELECT MAX_SELLERS_PER_BATCH FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
+        if (maxSellers != null && orders.size() > maxSellers) {
+            throw new ApiException(HttpStatus.CONFLICT, "This checkout exceeds the configured combined-delivery seller limit");
+        }
+        if (orders.stream().anyMatch(o -> !"READY_FOR_PICKUP".equals(o.getStatus()) || o.getDeliveryAgent() != null)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Every seller order must be ready and unassigned before a combined claim");
+        }
+        BigDecimal routeKm = googleRoutesService.calculateCombinedRouteKm(orders);
+        if (routeKm == null) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "A verified Google Maps road route is unavailable. Claim these seller orders as separate delivery jobs.");
+        }
+        BigDecimal maxRouteKm = jdbc.queryForObject(
+                "SELECT MAX_ROUTE_KM FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", BigDecimal.class);
+        if (maxRouteKm != null && routeKm.compareTo(maxRouteKm) > 0) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Combined road route exceeds the configured limit. Claim these seller orders as separate delivery jobs.");
+        }
+        String sharedOtp = String.format("%04d", secureRandom.nextInt(10_000));
+        LocalDateTime now = LocalDateTime.now();
+        for (int i = 0; i < orders.size(); i++) {
+            OrderEntity order = orders.get(i);
+            order.setDeliveryAgent(agent);
+            order.setStatus("ASSIGNED_TO_DELIVERY");
+            order.setDeliveryOtp(sharedOtp);
+            // Store route distance once so the group payout is not multiplied by the number of sellers.
+            order.setDistanceKm(i == 0 ? routeKm : BigDecimal.ZERO);
+            order.setUpdatedAt(now);
+        }
+        return orderRepository.saveAll(orders);
     }
 
     @Transactional
