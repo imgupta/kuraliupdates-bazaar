@@ -70,7 +70,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onProceedToCheckout }) =
   );
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden animate-in fade-in">
+    <div className="fixed inset-0 z-[300] overflow-hidden animate-in fade-in">
       <div
         onClick={() => setIsCartOpen(false)}
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"

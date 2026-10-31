@@ -39,7 +39,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-5 pb-12">
+    <div className="space-y-4 sm:space-y-5 pb-36">
       <div className="sticky top-[108px] sm:top-[68px] z-30 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-1.5 shadow-sm">
         <div className="grid grid-cols-2 gap-1">
           <button
@@ -78,29 +78,31 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
       {mode === 'shop' ? <OnlineShopHome {...props} /> : <DailyHelpHome searchQuery={props.searchQuery} />}
 
       {activeOrders.length > 0 && !props.isCheckoutOpen && (
-        <section className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm" aria-label="Your current orders">
-          <div className="mb-1.5 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <h2 className="text-xs font-extrabold text-slate-900">Your orders</h2>
-              <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">{activeOrders.length} active</span>
+        <section className="fixed inset-x-0 bottom-0 z-40 border-t border-emerald-200 bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.10)] backdrop-blur-md pb-[env(safe-area-inset-bottom)]" aria-label="Your current orders">
+          <div className="mx-auto max-w-screen-xl px-3 py-2 sm:px-6">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-xs font-extrabold text-slate-900">Your orders</h2>
+                <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">{activeOrders.length} active</span>
+              </div>
+              {activeOrders.length > 1 && <span className="text-[9px] text-slate-400">Swipe left for more orders</span>}
             </div>
-            {activeOrders.length > 1 && <span className="text-[9px] text-slate-400">Swipe to switch</span>}
-          </div>
-          <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 scrollbar-none" aria-label="Active orders, swipe horizontally">
-            {activeOrders.map(order => {
-              const status = String(order.status || 'placed').replace(/_/g, ' ').toLowerCase();
-              return (
-                <button key={order.id} type="button" onClick={() => props.onOpenTracking(order.id)}
-                  className="flex min-w-[190px] max-w-[220px] snap-start items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Truck className="h-4 w-4" /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[10px] font-extrabold text-slate-800">Order #{order.id}</span>
-                    <span className="mt-0.5 block truncate text-[10px] capitalize text-slate-500">{status}</span>
-                  </span>
-                  <span className="shrink-0 text-[10px] font-bold text-emerald-700">Track ›</span>
-                </button>
-              );
-            })}
+            <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 scrollbar-none" aria-label="Active orders, swipe left and right">
+              {activeOrders.map(order => {
+                const status = String(order.status || 'placed').replace(/_/g, ' ').toLowerCase();
+                return (
+                  <button key={order.id} type="button" onClick={() => props.onOpenTracking(order.id)}
+                    className="flex min-w-[190px] max-w-[220px] snap-start items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Truck className="h-4 w-4" /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[10px] font-extrabold text-slate-800">Order #{order.id}</span>
+                      <span className="mt-0.5 block truncate text-[10px] capitalize text-slate-500">{status}</span>
+                    </span>
+                    <span className="shrink-0 text-[10px] font-bold text-emerald-700">Track ›</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </section>
       )}
