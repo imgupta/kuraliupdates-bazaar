@@ -140,21 +140,6 @@ export const DailyHelpHome: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      <section className="bg-gradient-to-br from-amber-50 via-white to-orange-50 border border-amber-100 rounded-2xl p-5 sm:p-7">
-        <div className="max-w-2xl">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase tracking-wide">
-            <ShieldCheck className="w-3.5 h-3.5" /> Trusted local professionals
-          </div>
-          <h1 className="mt-3 text-2xl sm:text-3xl font-black text-slate-900">Daily Help, whenever you need it</h1>
-          <p className="mt-2 text-sm text-slate-600">Book a verified local helper by the hour. Choose a date and duration to see every maid with a matching available slot.</p>
-          <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold text-slate-600">
-            <span className="bg-white border border-slate-200 rounded-full px-3 py-1.5">Verified maids</span>
-            <span className="bg-white border border-slate-200 rounded-full px-3 py-1.5">Live slot availability</span>
-            <span className="bg-white border border-slate-200 rounded-full px-3 py-1.5">OTP start verification</span>
-          </div>
-        </div>
-      </section>
-
       {booking && (
         <section className="bg-white border border-emerald-200 rounded-2xl p-4 sm:p-5 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -281,6 +266,21 @@ export const DailyHelpHome: React.FC = () => {
           </div>
         </div>
       )}
+
+      <section className="mt-6 rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-4 sm:px-5">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><ShieldCheck className="h-5 w-5" /></div>
+          <div className="min-w-0">
+            <h2 className="text-sm font-black text-slate-900">Daily Help, whenever you need it</h2>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">Book a trusted local professional by the hour. Choose a service, date and duration to see available slots. Your service timer starts only after OTP verification.</p>
+            <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold text-slate-600">
+              <span className="rounded-full border border-amber-100 bg-white px-2.5 py-1">Verified professionals</span>
+              <span className="rounded-full border border-amber-100 bg-white px-2.5 py-1">Live availability</span>
+              <span className="rounded-full border border-amber-100 bg-white px-2.5 py-1">OTP-secured start</span>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };
