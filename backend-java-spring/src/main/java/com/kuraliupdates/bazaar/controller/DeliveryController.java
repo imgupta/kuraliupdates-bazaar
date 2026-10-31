@@ -57,14 +57,6 @@ public class DeliveryController {
         return ResponseEntity.ok(deliveryService.updateAvailability(requireUser(authentication), available));
     }
 
-    @PutMapping("/me/availability")
-    public ResponseEntity<DeliveryAgentEntity> updateAvailability(
-            @RequestBody Map<String, Boolean> payload, Authentication authentication) {
-        Boolean available = payload == null ? null : payload.get("available");
-        if (available == null) throw new ApiException(HttpStatus.BAD_REQUEST, "The available flag is required");
-        return ResponseEntity.ok(deliveryService.updateAvailability(requireUser(authentication), available));
-    }
-
     @GetMapping("/jobs/available")
     @Transactional(readOnly = true)
     public ResponseEntity<List<OrderResponse>> getAvailableJobs(Authentication authentication) {
