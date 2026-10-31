@@ -93,10 +93,6 @@ public class DailyHelpService {
                 .filter(s -> Integer.valueOf(1).equals(s.getActive()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help service not found"));
 
-        if (request.requestedHours().compareTo(BigDecimal.valueOf(service.getMinHours())) < 0) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Minimum booking is " + service.getMinHours() + " hours");
-        }
-
         if (request.slotId() == null || request.slotId().isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Please select an available maid slot");
         }
