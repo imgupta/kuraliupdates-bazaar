@@ -7,12 +7,13 @@ type NegotiationChatOptions = {
   role: UserRole;
   products: Product[];
   upsertBargainCartItem: (product: Product, bargainId: string, status: 'PENDING_SELLER' | 'PENDING_BUYER' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CLOSED_PURCHASED', offerPrice?: number, negotiatedPrice?: number, acceptedOfferId?: string) => void;
+  updateExistingBargainCartItem: (product: Product, bargainId: string, status: 'PENDING_SELLER' | 'PENDING_BUYER' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CLOSED_PURCHASED', offerPrice?: number, negotiatedPrice?: number, acceptedOfferId?: string) => void;
   user: NegotiationUser;
   currentSeller?: Pick<Seller, 'name'>;
   showToast: (message: string, type?: 'success' | 'info' | 'error') => void;
 };
 
-export const useNegotiationChatState = ({ role, user, products, upsertBargainCartItem, showToast }: NegotiationChatOptions) => {
+export const useNegotiationChatState = ({ role, user, products, upsertBargainCartItem, updateExistingBargainCartItem, showToast }: NegotiationChatOptions) => {
   const [chats, setChats] = useState<NegotiationChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const showToastRef = useRef(showToast);
@@ -61,6 +62,16 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
     chats.forEach(chat => {
       const status = chat.bargainStatus || (chat.currentAgreedPrice != null ? 'ACCEPTED' : 'PENDING_SELLER');
       const previous = lastSeenStatusRef.current.get(chat.id);
+      const product = products.find(item => item.id === chat.productId);
+      const pendingOffer = [...chat.messages].reverse().find(message => message.offer?.status === 'pending')?.offer;
+      // Reconcile only an existing bargain cart line. This handles both seller-accepted
+      // offers arriving through polling and the chat ID changing from its local placeholder
+      // to the persisted server ID, without resurrecting a line the buyer removed.
+      if (product && status !== 'CLOSED_PURCHASED') {
+        updateExistingBargainCartItem(product, chat.id, status as 'PENDING_SELLER' | 'PENDING_BUYER' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED',
+          pendingOffer?.offeredPrice, status === 'ACCEPTED' ? chat.currentAgreedPrice : undefined,
+          status === 'ACCEPTED' ? chat.currentAgreedOfferId : undefined);
+      }
       if (previous && previous !== status) {
         if (status === 'ACCEPTED') showToastRef.current('Seller accepted your bargain. Your cart price has been updated.', 'success');
         if (status === 'REJECTED') showToastRef.current('Your bargain was declined. You can still order at the catalogue price.', 'info');
@@ -68,7 +79,7 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
       }
       lastSeenStatusRef.current.set(chat.id, status);
     });
-  }, [chats, role]);
+  }, [chats, products, role, updateExistingBargainCartItem]);
   const openChatForProduct = (product: Product, startingOfferPrice?: number): string => {
     if (role !== 'buyer') {
       showToast('Only a signed-in buyer can start a bargaining conversation.', 'error');
@@ -139,10 +150,6 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
     }
     void negotiationChatApi.respond(chatId, offerId, role === 'seller' ? 'seller' : 'buyer', action, counterPrice).then(remote => {
       setChats(prev => prev.map(item => item.id === remote.id ? remote : item));
-      if (action === 'accept' && role === 'buyer') {
-        const product = products.find(item => item.id === remote.productId);
-        if (product) upsertBargainCartItem(product, remote.id, 'ACCEPTED', undefined, remote.currentAgreedPrice, remote.currentAgreedOfferId);
-      }
       if (action === 'accept') showToast("Offer accepted. The buyer's cart will reflect the agreed price automatically.", 'success');
       else if (action === 'reject') showToast('Offer declined. The catalogue price remains unchanged.', 'info');
       else showToast('Counter-offer sent. The other participant can now accept or decline it.', 'success');
