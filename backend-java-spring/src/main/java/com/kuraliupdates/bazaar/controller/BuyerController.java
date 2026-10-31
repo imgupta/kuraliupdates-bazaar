@@ -3,6 +3,7 @@ package com.kuraliupdates.bazaar.controller;
 import com.kuraliupdates.bazaar.dto.order.OrderResponse;
 import com.kuraliupdates.bazaar.dto.order.OrderPlacementResponse;
 import com.kuraliupdates.bazaar.dto.order.PlaceOrderRequest;
+import com.kuraliupdates.bazaar.dto.order.MultiSellerCheckoutRequest;
 import com.kuraliupdates.bazaar.dto.product.ProductResponse;
 import com.kuraliupdates.bazaar.service.OrderService;
 import com.kuraliupdates.bazaar.service.ProductService;
@@ -56,7 +57,7 @@ public class BuyerController {
     @PostMapping("/orders/checkout")
     @Operation(summary = "Place an atomic multi-seller COD checkout")
     public ResponseEntity<com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse> placeMultiSellerOrder(
-            @Valid @RequestBody PlaceOrderRequest request,
+            @Valid @RequestBody MultiSellerCheckoutRequest request,
             @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
             @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
             Authentication authentication) {
