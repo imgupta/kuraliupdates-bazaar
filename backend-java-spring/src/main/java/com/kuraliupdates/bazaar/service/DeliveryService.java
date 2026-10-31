@@ -55,6 +55,14 @@ public class DeliveryService {
         return agentRepository.save(request);
     }
 
+    @Transactional
+    public DeliveryAgentEntity updateAvailability(com.kuraliupdates.bazaar.entity.UserEntity user, boolean available) {
+        DeliveryAgentEntity agent = findAgentForUser(user);
+        requireActive(agent);
+        agent.setAvailableForJobs(available);
+        return agentRepository.save(agent);
+    }
+
     @Transactional(readOnly = true)
     public DeliveryAgentEntity currentAgent(com.kuraliupdates.bazaar.entity.UserEntity user) {
         return findAgentForUser(user);
@@ -64,6 +72,7 @@ public class DeliveryService {
     public List<OrderEntity> availableJobs(com.kuraliupdates.bazaar.entity.UserEntity user) {
         DeliveryAgentEntity agent = findAgentForUser(user);
         requireActive(agent);
+        requireAvailable(agent);
         return orderRepository.findByStatus("READY_FOR_PICKUP");
     }
 
@@ -71,6 +80,7 @@ public class DeliveryService {
     public OrderEntity claim(String orderId, String agentId, com.kuraliupdates.bazaar.entity.UserEntity user) {
         DeliveryAgentEntity authenticatedAgent = findAgentForUser(user);
         requireActive(authenticatedAgent);
+        requireAvailable(authenticatedAgent);
         if (!authenticatedAgent.getAgentId().equals(agentId)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You can only claim orders for your own delivery profile");
         }
@@ -175,6 +185,12 @@ public class DeliveryService {
             agent = agentRepository.findByPhone(user.getPhone().trim().replaceAll("\\D", ""));
         }
         return agent.orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "No delivery profile is linked to this account"));
+    }
+
+    private void requireAvailable(DeliveryAgentEntity agent) {
+        if (Boolean.FALSE.equals(agent.getAvailableForJobs())) {
+            throw new ApiException(HttpStatus.CONFLICT, "You are offline. Switch to Online to accept new delivery jobs.");
+        }
     }
 
     private void requireActive(DeliveryAgentEntity agent) {
