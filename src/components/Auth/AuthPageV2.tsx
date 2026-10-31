@@ -46,6 +46,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
     fssaiLicenseType?: string; openingTime?: string; closingTime?: string; weeklyClosedDay?: string;
     agreementAccepted?: boolean; agreementVersion?: string;
     latitude?: number; longitude?: number; formattedAddress?: string; placeId?: string;
+    shopFrontPhoto?: File; gstCertificate?: File; fssaiCertificate?: File;
   } | null>(null);
 
   const nameRef = useRef<HTMLInputElement>(null);
@@ -68,6 +69,9 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
   const closingTimeRef = useRef<HTMLInputElement>(null);
   const weeklyClosedDayRef = useRef<HTMLSelectElement>(null);
   const agreementRef = useRef<HTMLInputElement>(null);
+  const shopFrontPhotoRef = useRef<HTMLInputElement>(null);
+  const gstCertificateRef = useRef<HTMLInputElement>(null);
+  const fssaiCertificateRef = useRef<HTMLInputElement>(null);
   const vehicleNumberRef = useRef<HTMLInputElement>(null);
   const licenseNumberRef = useRef<HTMLInputElement>(null);
   const vehicleTypeRef = useRef<HTMLSelectElement>(null);
@@ -134,6 +138,10 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
           if (!/^\\d{6}$/.test(pinCodeRef.current?.value || '')) throw new Error('Please enter a valid 6-digit shop PIN code');
           if (!agreementRef.current?.checked) throw new Error('Please accept the Seller Agreement and Terms');
           if (!shopLocation) throw new Error('Please set your shop location on the map');
+          if (!shopFrontPhotoRef.current?.files?.[0]) throw new Error('Please upload a shop-front photo');
+          if (gstNumberRef.current?.value.trim() && !gstCertificateRef.current?.files?.[0]) throw new Error('Please upload the GST certificate for the supplied GSTIN');
+          const foodCategory = (categoryRef.current?.value || '').toLowerCase();
+          if (/(grocery|food|bakery|restaurant|dairy|meat)/.test(foodCategory) && !fssaiCertificateRef.current?.files?.[0]) throw new Error('Please upload the FSSAI certificate for this food business');
         }
         if (registrationRole === 'delivery') {
           if (!(vehicleNumberRef.current?.value || '').trim()) throw new Error('Please enter your vehicle number');
@@ -174,6 +182,9 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
           agreementVersion: 'seller-terms-2026-11-01',
           latitude: shopLocation?.latitude, longitude: shopLocation?.longitude,
           formattedAddress: shopLocation?.formattedAddress, placeId: shopLocation?.placeId,
+          shopFrontPhoto: shopFrontPhotoRef.current?.files?.[0],
+          gstCertificate: gstCertificateRef.current?.files?.[0],
+          fssaiCertificate: fssaiCertificateRef.current?.files?.[0],
           vehicleType: vehicleTypeRef.current?.value,
           vehicleNumber: vehicleNumberRef.current?.value.trim(),
           licenseNumber: licenseNumberRef.current?.value.trim(),
@@ -251,6 +262,17 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
 
         if (!response.success || !response.token || !response.user) {
           throw new Error(response.message || 'Registration verification failed');
+        }
+
+        if (registrationRole === 'seller') {
+          const uploads = [
+            shopFrontPhoto ? bazaarApi.uploadSellerDocument(response.token, 'SHOP_FRONT_PHOTO', shopFrontPhoto) : Promise.resolve({success:false,message:'Shop-front photo is missing'}),
+            gstCertificate ? bazaarApi.uploadSellerDocument(response.token, 'GST_CERTIFICATE', gstCertificate) : Promise.resolve({success:true}),
+            fssaiCertificate ? bazaarApi.uploadSellerDocument(response.token, 'FSSAI_CERTIFICATE', fssaiCertificate) : Promise.resolve({success:true}),
+          ];
+          const uploadResults = await Promise.all(uploads);
+          const failedUpload = uploadResults.find(result => !result.success);
+          if (failedUpload) throw new Error(failedUpload.message || 'Seller document upload failed. Sign in and contact support to complete document submission.');
         }
 
         const result = registerUserWithOtp({
@@ -486,6 +508,12 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
                           <div><label className="block mb-1 text-xs font-bold text-slate-700">Closing time</label><input ref={closingTimeRef} type="time" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
                         </div>
                         <div><label className="block mb-1 text-xs font-bold text-slate-700">Weekly closing day</label><select ref={weeklyClosedDayRef} defaultValue="" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm"><option value="">No fixed weekly closure</option>{['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day => <option key={day}>{day}</option>)}</select></div>
+                        <div className="space-y-3 rounded-xl border border-slate-200 p-3">
+                          <p className="text-xs font-black text-slate-800">Business documents <span className="text-rose-500">*</span></p>
+                          <div><label className="block mb-1 text-xs font-bold text-slate-700">Shop-front photo *</label><input ref={shopFrontPhotoRef} type="file" accept="image/jpeg,image/png,application/pdf" className="w-full text-xs" /><p className="text-[10px] text-slate-500">PDF, JPG or PNG; maximum 5 MB.</p></div>
+                          <div><label className="block mb-1 text-xs font-bold text-slate-700">GST certificate <span className="font-normal text-slate-400">(required when GSTIN is supplied)</span></label><input ref={gstCertificateRef} type="file" accept="image/jpeg,image/png,application/pdf" className="w-full text-xs" /></div>
+                          <div><label className="block mb-1 text-xs font-bold text-slate-700">FSSAI certificate <span className="font-normal text-slate-400">(required for applicable food businesses)</span></label><input ref={fssaiCertificateRef} type="file" accept="image/jpeg,image/png,application/pdf" className="w-full text-xs" /></div>
+                        </div>
                         <label className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[11px] text-slate-600"><input ref={agreementRef} type="checkbox" className="mt-0.5" /><span>I confirm that the information is accurate and accept the <a href="/seller-agreement" target="_blank" rel="noreferrer" className="font-bold text-blue-700 underline">Seller Agreement</a>, marketplace terms and privacy notice. I understand approval is subject to document and compliance review. <b className="text-rose-600">*</b></span></label>
                       </>
                     )}
