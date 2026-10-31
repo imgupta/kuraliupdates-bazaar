@@ -120,6 +120,10 @@ export interface Order {
   deliveryPlaceId?: string;
   items: CartItem[];
   checkoutGroupId?: string;
+  trackingOrderId?: string;
+  checkoutGroupOrderIds?: string[];
+  checkoutGroupOrders?: Order[];
+  sellerAddress?: string;
   fulfilmentMode?: 'DELIVERY' | 'STORE_PICKUP';
   sellerId: string;
   sellerName: string;
