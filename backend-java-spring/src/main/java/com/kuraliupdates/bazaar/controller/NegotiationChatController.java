@@ -35,6 +35,21 @@ public class NegotiationChatController {
         return ResponseEntity.ok(negotiationChatService.open(requireUser(authentication), request, e2eRunId));
     }
 
+    @GetMapping("/notifications")
+    public ResponseEntity<List<Map<String, Object>>> notifications(
+            @RequestParam(defaultValue = "BUYER") String role, Authentication authentication) {
+        return ResponseEntity.ok(negotiationChatService.notifications(requireUser(authentication), role));
+    }
+
+    @PostMapping("/notifications/{notificationId}/read")
+    public ResponseEntity<Void> markNotificationRead(
+            @PathVariable String notificationId,
+            @RequestHeader(value = "X-Active-Role", defaultValue = "BUYER") String role,
+            Authentication authentication) {
+        negotiationChatService.markNotificationRead(requireUser(authentication), role, notificationId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{chatId}/messages")
     public ResponseEntity<Map<String, Object>> send(@PathVariable String chatId, @RequestHeader(value = "X-Active-Role", defaultValue = "BUYER") String role, @RequestBody SendMessageRequest request, Authentication authentication) {
         return ResponseEntity.ok(negotiationChatService.send(requireUser(authentication), role, chatId, request));
