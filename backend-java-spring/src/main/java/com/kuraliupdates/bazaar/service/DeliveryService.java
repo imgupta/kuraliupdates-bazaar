@@ -277,6 +277,10 @@ public class DeliveryService {
         OrderEntity order = orderRepository.findLockedForDeliveryVerification(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
 
+        DeliveryAgentEntity agent = order.getDeliveryAgent();
+        if (agent == null || !agent.getAgentId().equals(authenticatedAgent.getAgentId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This order is not assigned to your delivery profile");
+        }
         if ("DELIVERED".equals(order.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "Order has already been delivered");
         }
@@ -285,11 +289,6 @@ public class DeliveryService {
         }
         if (!enteredOtp.equals(order.getDeliveryOtp())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid Delivery OTP");
-        }
-
-        DeliveryAgentEntity agent = order.getDeliveryAgent();
-        if (agent == null || !agent.getAgentId().equals(authenticatedAgent.getAgentId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "This order is not assigned to your delivery profile");
         }
 
         List<OrderEntity> checkoutOrders = order.getCheckoutGroupId() == null
