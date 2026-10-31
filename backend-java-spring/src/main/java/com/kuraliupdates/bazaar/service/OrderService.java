@@ -253,6 +253,35 @@ public class OrderService {
         return new OrderPlacementResponse(OrderResponse.from(saved), saved.getDeliveryOtp());
     }
 
+    @Transactional
+    public OrderResponse confirmStorePickup(String orderId, String otp, UserEntity buyer) {
+        if (buyer == null || !"BUYER".equalsIgnoreCase(buyer.getRole()) || buyer.getEmail() == null) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only the owning buyer can confirm store pickup");
+        }
+        if (otp == null || !otp.matches("\\d{4}")) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Pickup OTP must be 4 digits");
+        }
+        OrderEntity order = orderRepository.findLockedByOrderId(orderId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
+        if (order.getBuyerEmail() == null || !order.getBuyerEmail().equalsIgnoreCase(buyer.getEmail().trim())) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
+        }
+        if (!"STORE_PICKUP".equalsIgnoreCase(order.getFulfilmentMode())) {
+            throw new ApiException(HttpStatus.CONFLICT, "This order is not configured for store pickup");
+        }
+        if (!"READY_FOR_PICKUP".equals(order.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "The seller has not marked this order ready for pickup");
+        }
+        if (!otp.equals(order.getDeliveryOtp())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid pickup OTP");
+        }
+        order.setStatus("DELIVERED");
+        order.setFulfilmentStatus("PICKED_UP_BY_BUYER");
+        order.setPaymentStatus("PAID");
+        order.setUpdatedAt(LocalDateTime.now());
+        return OrderResponse.from(orderRepository.save(order));
+    }
+
     @Transactional(readOnly = true)
     public List<OrderResponse> history(String buyerEmail) {
         if (buyerEmail == null || buyerEmail.isBlank()) {
