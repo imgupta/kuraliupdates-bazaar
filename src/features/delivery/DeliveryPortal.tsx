@@ -62,6 +62,7 @@ export const DeliveryDashboard: React.FC = () => {
   const [backendAgent, setBackendAgent] = useState<any | null>(null);
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [liveAvailableOrders, setLiveAvailableOrders] = useState<Order[]>([]);
+  const [myAssignedOrders, setMyAssignedOrders] = useState<Order[]>([]);
   const [resendingOtp, setResendingOtp] = useState<Record<string, boolean>>({});
   const [otpCooldowns, setOtpCooldowns] = useState<Record<string, number>>({});
   const [, setCooldownTick] = useState(0);
@@ -77,12 +78,14 @@ export const DeliveryDashboard: React.FC = () => {
       if (!active) return;
       setDeliveryJobsLoading(true);
       try {
-        const [remoteAgent, remoteJobs] = await Promise.all([
+        const [remoteAgent, remoteJobs, assignedJobs] = await Promise.all([
           deliveryApi.getCurrentDeliveryAgent(),
           deliveryApi.getDeliveryAvailableJobs(),
+          deliveryApi.getMyAssignedJobs(),
         ]);
         setBackendAgent(remoteAgent);
         setLiveAvailableOrders(remoteJobs as Order[]);
+        setMyAssignedOrders(assignedJobs as Order[]);
         await syncWithBackend();
       } finally {
         if (active) setDeliveryJobsLoading(false);
@@ -190,9 +193,12 @@ export const DeliveryDashboard: React.FC = () => {
   const uniqueOrders = uniqueOrdersById(orders);
 
   // Active deliveries assigned to this rider.
-  const myActiveOrders = uniqueOrders.filter(
-    o => o.deliveryAgentId === agent?.id && (o.status === 'picked_up' || o.status === 'assigned_to_delivery')
-  );
+  const myActiveOrders = uniqueOrdersById([
+    ...myAssignedOrders,
+    ...uniqueOrders.filter(
+      o => o.deliveryAgentId === agent?.id && (o.status === 'picked_up' || o.status === 'assigned_to_delivery')
+    ),
+  ]).filter(o => !o.deliveryAgentId || o.deliveryAgentId === agent?.id);
   const activeOrderIds = new Set(myActiveOrders.map(order => order.id));
 
   // Available jobs come from the live dispatch endpoint. Never fall back to stale
