@@ -37,6 +37,24 @@ public class SellerEntity {
     @Lob @Column(name = "DESCRIPTION") private String description;
     @Column(name = "REGISTERED_AT") private LocalDateTime registeredAt;
     @Column(name = "APPROVED_AT") private LocalDateTime approvedAt;
+    @Column(name = "BUSINESS_TYPE", length = 30) private String businessType;
+    @Column(name = "REGISTERED_BUSINESS_NAME", length = 255) private String registeredBusinessName;
+    @Column(name = "SHOP_NUMBER", length = 80) private String shopNumber;
+    @Column(name = "WARD_NUMBER", length = 40) private String wardNumber;
+    @Column(name = "STREET_LOCALITY", length = 255) private String streetLocality;
+    @Column(name = "PIN_CODE", length = 6) private String pinCode;
+    @Column(name = "LANDMARK", length = 255) private String landmark;
+    @Column(name = "GST_VERIFICATION_STATUS", length = 20) private String gstVerificationStatus;
+    @Column(name = "FSSAI_VERIFICATION_STATUS", length = 20) private String fssaiVerificationStatus;
+    @Column(name = "FSSAI_LICENSE_TYPE", length = 40) private String fssaiLicenseType;
+    @Column(name = "FSSAI_EXPIRY_DATE") private java.time.LocalDate fssaiExpiryDate;
+    @Column(name = "OPENING_TIME", length = 5) private String openingTime;
+    @Column(name = "CLOSING_TIME", length = 5) private String closingTime;
+    @Column(name = "WEEKLY_CLOSED_DAY", length = 20) private String weeklyClosedDay;
+    @Column(name = "PREPARATION_MINUTES") private Integer preparationMinutes;
+    @Column(name = "AGREEMENT_VERSION", length = 40) private String agreementVersion;
+    @Column(name = "AGREEMENT_ACCEPTED_AT") private LocalDateTime agreementAcceptedAt;
+    @Column(name = "AGREEMENT_ACCEPTED_IP", length = 64) private String agreementAcceptedIp;
 
     @JsonIgnore
     @OneToMany(mappedBy = "seller", cascade = CascadeType.ALL, orphanRemoval = true)
