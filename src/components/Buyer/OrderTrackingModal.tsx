@@ -159,7 +159,6 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
             </div>
 
             {!isStorePickup && (
-            {/* Delivery Agent Card */}
             <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold">
