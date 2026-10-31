@@ -18,6 +18,7 @@ import { useApp } from '../../context/AppContext';
 import { Order } from '../../types';
 import { deliveryApi } from '../../services/domains/deliveryApi';
 import { LiveOrderMap } from '../../components/shared/LiveOrderMap';
+import { groupCheckoutOrders } from '../../entities/orderGrouping';
 
 
 const uniqueOrdersById = (items: Order[]): Order[] => {
@@ -64,6 +65,7 @@ export const DeliveryDashboard: React.FC = () => {
   const [myAssignedOrders, setMyAssignedOrders] = useState<Order[]>([]);
   const [resendingOtp, setResendingOtp] = useState<Record<string, boolean>>({});
   const [otpCooldowns, setOtpCooldowns] = useState<Record<string, number>>({});
+  const [pickupSaving, setPickupSaving] = useState<Record<string, boolean>>({});
   const [, setCooldownTick] = useState(0);
 
   useEffect(() => {
@@ -192,47 +194,67 @@ export const DeliveryDashboard: React.FC = () => {
   const uniqueOrders = uniqueOrdersById(orders);
 
   // Active deliveries assigned to this rider.
-  const myActiveOrders = uniqueOrdersById([
+  const myActiveOrders = groupCheckoutOrders(uniqueOrdersById([
     ...myAssignedOrders,
     ...uniqueOrders.filter(
       o => o.deliveryAgentId === agent?.id && (o.status === 'picked_up' || o.status === 'assigned_to_delivery')
     ),
-  ]);
+  ]));
   const activeOrderIds = new Set(myActiveOrders.map(order => order.id));
 
   // Available jobs come from the live dispatch endpoint. Never fall back to stale
   // local READY_FOR_PICKUP records when the server currently returns no jobs.
   const availableOrders = agent?.status === 'active' && backendAgent?.availableForJobs !== false
-    ? uniqueOrdersById(liveAvailableOrders).filter(
+    ? groupCheckoutOrders(uniqueOrdersById(liveAvailableOrders).filter(
         o => o.status === 'ready_for_pickup'
-          && !activeOrderIds.has(o.id)
-          && (!o.deliveryAgentId || o.deliveryAgentId !== agent.id)
-      )
+          && !o.deliveryAgentId
+      )).filter(o => !activeOrderIds.has(o.id))
     : [];
 
   // Delivered completed orders
-  const completedOrders = uniqueOrdersById(uniqueOrders.filter(
+  const completedOrders = groupCheckoutOrders(uniqueOrdersById(uniqueOrders.filter(
     o => o.deliveryAgentId === agent?.id && o.status === 'delivered'
-  ));
+  )));
 
   const [claimingOrderIds, setClaimingOrderIds] = useState<Record<string, boolean>>({});
 
-  const handleClaim = async (orderId: string) => {
+  const handleClaim = async (job: Order) => {
     if (!agent) {
       setIsDeliveryRegisterOpen(true);
       return;
     }
-    if (claimingOrderIds[orderId]) return;
-    setClaimingOrderIds(prev => ({ ...prev, [orderId]: true }));
+    const claimKey = job.checkoutGroupId || job.id;
+    if (claimingOrderIds[claimKey]) return;
+    setClaimingOrderIds(prev => ({ ...prev, [claimKey]: true }));
     try {
-      const claimed = await claimDeliveryJob(orderId, agent.id);
+      const claimed = job.checkoutGroupId
+        ? await deliveryApi.claimDeliveryCheckoutGroup(job.checkoutGroupId, agent.id)
+        : await claimDeliveryJob(job.id, agent.id);
       if (claimed) {
-        // Remove the claimed job immediately; a background refresh may still be
-        // holding an older READY_FOR_PICKUP response for a short time.
-        setLiveAvailableOrders(prev => prev.filter(order => order.id !== orderId));
+        const childIds = new Set(job.checkoutGroupOrderIds || [job.id]);
+        setLiveAvailableOrders(prev => prev.filter(order => !childIds.has(order.id)));
+        await syncWithBackend();
+      } else {
+        showToast('Unable to claim this delivery job. Refresh the pickup list and try again.', 'error');
       }
     } finally {
-      setClaimingOrderIds(prev => ({ ...prev, [orderId]: false }));
+      setClaimingOrderIds(prev => ({ ...prev, [claimKey]: false }));
+    }
+  };
+
+  const handleConfirmSellerPickup = async (orderId: string) => {
+    if (pickupSaving[orderId]) return;
+    setPickupSaving(prev => ({ ...prev, [orderId]: true }));
+    try {
+      await deliveryApi.confirmSellerPickup(orderId);
+      showToast('Seller pickup confirmed. Continue to the next stop.', 'success');
+      const assigned = await deliveryApi.getMyAssignedJobs();
+      setMyAssignedOrders(assigned as Order[]);
+      await syncWithBackend();
+    } catch (error: any) {
+      showToast(error?.message || 'Unable to confirm this seller pickup.', 'error');
+    } finally {
+      setPickupSaving(prev => ({ ...prev, [orderId]: false }));
     }
   };
 
@@ -360,13 +382,26 @@ export const DeliveryDashboard: React.FC = () => {
 
                   {/* Route Steps */}
                   <div className="space-y-2 text-xs">
-                    <div className="flex items-start gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                      <MapPin className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-bold text-slate-800 block">Pickup: {ord.sellerName}</span>
-                        <span className="text-[11px] text-slate-500">{ord.sellerLocality}</span>
+                    {(ord.checkoutGroupOrders || [ord]).map((stop, index) => (
+                      <div key={stop.id} className="flex items-start justify-between gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <MapPin className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                          <div className="min-w-0">
+                            <span className="font-bold text-slate-800 block">Stop {index + 1}: {stop.sellerName || stop.sellerId}</span>
+                            <span className="text-[11px] text-slate-500">{stop.sellerAddress || stop.sellerLocality}</span>
+                          </div>
+                        </div>
+                        {stop.status === 'picked_up' ? (
+                          <span className="shrink-0 text-[10px] font-bold text-emerald-700">Collected</span>
+                        ) : (
+                          <button type="button" onClick={() => void handleConfirmSellerPickup(stop.id)}
+                            disabled={!!pickupSaving[stop.id]}
+                            className="shrink-0 rounded-lg bg-blue-700 px-2.5 py-1.5 text-[10px] font-bold text-white disabled:opacity-50">
+                            {pickupSaving[stop.id] ? 'Saving…' : 'Mark collected'}
+                          </button>
+                        )}
                       </div>
-                    </div>
+                    ))}
 
                     <div className="flex items-start gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
                       <Navigation className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -385,7 +420,7 @@ export const DeliveryDashboard: React.FC = () => {
                         <p className="text-[10px] text-slate-500">Rider location refreshes automatically</p>
                       </div>
                       <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(ord.deliveryAddress || ord.deliveryLocality || 'Kurali, Punjab')}`}
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(ord.deliveryAddress || ord.deliveryLocality || 'Kurali, Punjab')}&waypoints=${encodeURIComponent((ord.checkoutGroupOrders || []).map(stop => stop.sellerAddress || stop.sellerLocality).filter(Boolean).join('|'))}`}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-emerald-700 px-3 py-2 text-[11px] font-bold text-white hover:bg-emerald-800"
@@ -393,7 +428,7 @@ export const DeliveryDashboard: React.FC = () => {
                         <Navigation className="h-3.5 w-3.5" /> Navigate
                       </a>
                     </div>
-                    <LiveOrderMap orderId={ord.id} sellerAddress={ord.sellerLocality} destinationAddress={ord.deliveryAddress} orderStatus={ord.status} />
+                    <LiveOrderMap orderId={ord.trackingOrderId || ord.id} sellerAddress={(ord.checkoutGroupOrders || [ord]).map(stop => stop.sellerAddress || stop.sellerLocality).join(' · ')} destinationAddress={ord.deliveryAddress} orderStatus={ord.status} />
                   </div>
 
                   {/* Customer Handover OTP input */}
@@ -416,7 +451,8 @@ export const DeliveryDashboard: React.FC = () => {
                         />
                       </div>
                       <button
-                        onClick={() => handleVerifyDeliveryOtp(ord.id)}
+                        onClick={() => handleVerifyDeliveryOtp(ord.trackingOrderId || ord.id)}
+                        disabled={(ord.checkoutGroupOrders || [ord]).some(stop => stop.status !== 'picked_up')}
                         className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
                       >
                         <CheckCircle2 className="w-4 h-4" />
@@ -427,12 +463,12 @@ export const DeliveryDashboard: React.FC = () => {
                       <p className="text-[10px] text-slate-500">A new code appears in the customer's app. Ask them to open order tracking.</p>
                       <button
                         type="button"
-                        disabled={!!resendingOtp[ord.id] || (otpCooldowns[ord.id] || 0) > Date.now()}
-                        onClick={() => void handleResendDeliveryOtp(ord.id)}
+                        disabled={(ord.checkoutGroupOrders || [ord]).some(stop => stop.status !== 'picked_up') || !!resendingOtp[ord.trackingOrderId || ord.id] || (otpCooldowns[ord.trackingOrderId || ord.id] || 0) > Date.now()}
+                        onClick={() => void handleResendDeliveryOtp(ord.trackingOrderId || ord.id)}
                         className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-emerald-200 px-3 py-2 text-[11px] font-bold text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <RefreshCw className={`h-3.5 w-3.5 ${resendingOtp[ord.id] ? 'animate-spin' : ''}`} />
-                        {resendingOtp[ord.id] ? 'Sending…' : (otpCooldowns[ord.id] || 0) > Date.now() ? `New OTP in ${Math.ceil(((otpCooldowns[ord.id] || 0) - Date.now()) / 1000)}s` : 'Generate new app OTP'}
+                        {resendingOtp[ord.trackingOrderId || ord.id] ? 'Sending…' : (otpCooldowns[ord.trackingOrderId || ord.id] || 0) > Date.now() ? `New OTP in ${Math.ceil(((otpCooldowns[ord.trackingOrderId || ord.id] || 0) - Date.now()) / 1000)}s` : 'Generate new app OTP'}
                       </button>
                     </div>
                   </div>
@@ -472,8 +508,8 @@ export const DeliveryDashboard: React.FC = () => {
                   <div className="flex items-start justify-between">
                     <div>
                       <span className="font-mono font-bold text-xs text-slate-700">#{ord.id}</span>
-                      <h4 className="font-bold text-xs text-slate-900 mt-0.5">Pickup from: {ord.sellerName}</h4>
-                      <p className="text-[11px] text-slate-500">{ord.sellerLocality}</p>
+                      <h4 className="font-bold text-xs text-slate-900 mt-0.5">{ord.checkoutGroupOrders?.length ? `Collect from ${ord.checkoutGroupOrders.length} stores` : `Pickup from: ${ord.sellerName}`}</h4>
+                      {(ord.checkoutGroupOrders || [ord]).map(stop => <p key={stop.id} className="text-[11px] text-slate-500">{stop.sellerName || stop.sellerId} · {stop.sellerAddress || stop.sellerLocality}</p>)}
                     </div>
 
                     <div className="text-right">
@@ -488,12 +524,12 @@ export const DeliveryDashboard: React.FC = () => {
                   </div>
 
                   <button
-                    onClick={() => void handleClaim(ord.id)}
-                    disabled={!!claimingOrderIds[ord.id]}
+                    onClick={() => void handleClaim(ord)}
+                    disabled={!!claimingOrderIds[ord.checkoutGroupId || ord.id]}
                     className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold rounded-xl text-xs transition-all shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                   >
                     <Truck className="w-4 h-4" />
-                    <span>{claimingOrderIds[ord.id] ? 'Claiming…' : `Claim Order (Earn ₹${payout})`}</span>
+                    <span>{claimingOrderIds[ord.checkoutGroupId || ord.id] ? 'Claiming…' : `Claim ${ord.checkoutGroupOrders?.length || 1} pickup${(ord.checkoutGroupOrders?.length || 1) > 1 ? 's' : ''} (Earn ₹${payout})`}</span>
                   </button>
                 </div>
               );
