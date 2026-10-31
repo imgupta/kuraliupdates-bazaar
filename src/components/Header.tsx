@@ -33,6 +33,7 @@ export const Header: React.FC<HeaderProps> = () => {
     logout,
     cart,
     setIsCartOpen,
+    isCartOpen,
     sellers,
     currentSeller,
     orders,
@@ -150,7 +151,7 @@ export const Header: React.FC<HeaderProps> = () => {
 
 
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {user.isSignedIn && roleConfigs.length > 0 ? (
+            {!isCartOpen && user.isSignedIn && roleConfigs.length > 0 ? (
               <div className="hidden sm:flex bg-slate-100 p-1 rounded-xl items-center gap-1 border border-slate-200/80">
                 {roleConfigs.map(item => {
                   const Icon = item.icon;
@@ -175,7 +176,7 @@ export const Header: React.FC<HeaderProps> = () => {
                   );
                 })}
               </div>
-            ) : user.role === 'seller' ? (
+            ) : !isCartOpen && user.role === 'seller' ? (
               <div className="hidden sm:flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-200">
                 <Store className="w-4 h-4 text-blue-600" />
                 <span className="text-xs font-bold text-blue-900">Merchant Portal</span>
@@ -183,7 +184,7 @@ export const Header: React.FC<HeaderProps> = () => {
                   {role === 'seller' ? 'View Storefront' : 'Back to Dashboard'}
                 </button>
               </div>
-            ) : user.role === 'delivery' ? (
+            ) : !isCartOpen && user.role === 'delivery' ? (
               <div className="hidden sm:flex items-center gap-1.5 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
                 <Bike className="w-4 h-4 text-emerald-600" />
                 <span className="text-xs font-bold text-emerald-900">Delivery Fleet</span>
@@ -299,7 +300,7 @@ export const Header: React.FC<HeaderProps> = () => {
       </div>
 
       <div className="sm:hidden px-3 pb-2 pt-0.5 border-t border-slate-100 bg-white">
-        {user.isSignedIn && roleConfigs.length > 0 ? (
+        {!isCartOpen && user.isSignedIn && roleConfigs.length > 0 ? (
           <div className={`grid ${roleConfigs.length === 5 ? 'grid-cols-5' : roleConfigs.length === 4 ? 'grid-cols-4' : 'grid-cols-3'} gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80`}>
             {roleConfigs.map(item => {
               const Icon = item.icon;
@@ -319,14 +320,14 @@ export const Header: React.FC<HeaderProps> = () => {
               );
             })}
           </div>
-        ) : user.role === 'seller' ? (
+        ) : !isCartOpen && user.role === 'seller' ? (
           <div className="flex items-center justify-between p-1.5 bg-blue-50 rounded-xl border border-blue-200 text-xs">
             <span className="font-bold text-blue-900 flex items-center gap-1.5"><Store className="w-3.5 h-3.5 text-blue-600" /> Merchant Portal</span>
             <button onClick={() => selectRole(role === 'seller' ? 'buyer' : 'seller')} className="px-2 py-1 bg-white text-blue-700 font-bold rounded-lg border border-blue-200 text-[11px] cursor-pointer">
               {role === 'seller' ? 'View Storefront' : 'Back to Dashboard'}
             </button>
           </div>
-        ) : user.role === 'delivery' ? (
+        ) : !isCartOpen && user.role === 'delivery' ? (
           <div className="flex items-center justify-between p-1.5 bg-emerald-50 rounded-xl border border-emerald-200 text-xs">
             <span className="font-bold text-emerald-900 flex items-center gap-1.5"><Bike className="w-3.5 h-3.5 text-emerald-600" /> Delivery Fleet Partner</span>
             {availableJobsCount > 0 && <span className="px-2 py-0.5 bg-emerald-600 text-white font-bold rounded-full text-[10px]">{availableJobsCount} Jobs Active</span>}
