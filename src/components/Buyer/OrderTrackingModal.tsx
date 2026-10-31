@@ -73,6 +73,9 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
   };
 
   const currentStepIdx = getStepIndex(order.status);
+  const visibleTimeline = statusUpdates.length > 0
+    ? statusUpdates
+    : statusSteps.slice(0, Math.max(1, currentStepIdx + 1)).map(step => ({ status: step.key, timestamp: '', note: step.desc }));
 
   // Map progress % for simulation
   const progressPercent = Math.min(
@@ -86,21 +89,15 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 text-slate-900 sm:px-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white">
-              <Bike className="w-5 h-5 animate-pulse" />
-            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><Bike className="h-5 w-5" /></div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-extrabold text-base tracking-tight">
-                  Live Kurali Express Tracker
-                </h3>
-                <span className="bg-emerald-400 text-emerald-950 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">
+                <h3 className="text-sm font-extrabold tracking-tight">Track your order</h3>
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold uppercase text-emerald-700">
                   {orderStatus.replace(/_/g, ' ')}
                 </span>
               </div>
-              <p className="text-xs text-amber-100">
-                Order ID: <strong className="text-white font-mono">{order.id}</strong> &bull; {order.sellerLocality}
-              </p>
+              <p className="text-[11px] text-slate-500">Order #{order.id} · {order.sellerLocality || 'Seller location pending'}</p>
             </div>
           </div>
 
@@ -148,16 +145,15 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
                   <p className="text-[11px] text-slate-500">
                     {order.deliveryAgentVehicle || 'Vehicle details will appear here'}
                   </p>
-                  <span className="inline-block mt-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded">
-                    ★ 4.9 Verified Kurali Partner
-                  </span>
+                  
                 </div>
               </div>
 
               <a
                 href={order.deliveryAgentPhone ? `tel:${order.deliveryAgentPhone}` : undefined}
-                className="p-2.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors"
-                title="Call Delivery Partner"
+                className={`rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 transition-colors ${order.deliveryAgentPhone ? 'hover:bg-slate-100' : 'cursor-not-allowed opacity-40'}`}
+                title={order.deliveryAgentPhone ? "Call Delivery Partner" : "Phone number unavailable"}
+                aria-disabled={!order.deliveryAgentPhone}
               >
                 <Phone className="w-4 h-4 text-emerald-600" />
               </a>
@@ -170,7 +166,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
               Order Timeline &amp; Journey
             </h4>
             <div className="relative space-y-2 before:absolute before:bottom-2 before:left-3 before:top-2 before:w-0.5 before:bg-slate-200">
-              {statusUpdates.map((update, idx) => (
+              {visibleTimeline.map((update, idx) => (
                 <div key={idx} className="relative flex items-start gap-4">
                   <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 z-10 shadow-xs">
                     <CheckCircle2 className="w-4 h-4" />
