@@ -66,6 +66,7 @@ export const useOrderDeliveryOperations = ({
       isFreeDelivery: cartCalculations.isFreeDelivery,
       totalAmount: cartCalculations.finalTotal,
       paymentMethod: orderData.paymentMethod,
+      fulfilmentMode: orderData.fulfilmentMode || 'DELIVERY',
       paymentStatus: 'pending',
       status: 'placed',
       deliveryOtp: '',
@@ -99,6 +100,8 @@ export const useOrderDeliveryOperations = ({
       totalAmount: Number(serverOrder.totalAmount ?? newOrder.totalAmount),
       paymentStatus: String(serverOrder.paymentStatus || 'PENDING_COD').toLowerCase() as Order['paymentStatus'],
       status: String(serverOrder.status || 'PLACED').toLowerCase() as OrderStatus,
+      fulfilmentMode: serverOrder.fulfilmentMode || orderData.fulfilmentMode || 'DELIVERY',
+      deliveryOtp: serverOrder.deliveryOtp || '',
     };
     const confirmedOrders: Order[] = serverOrders.length > 0
       ? serverOrders.map((entry: any) => ({
@@ -109,6 +112,8 @@ export const useOrderDeliveryOperations = ({
           itemSubtotal: Number(entry.subtotal ?? 0),
           deliveryFee: Number(entry.deliveryFee ?? 0),
           totalAmount: Number(entry.totalAmount ?? 0),
+          fulfilmentMode: entry.fulfilmentMode || orderData.fulfilmentMode || 'DELIVERY',
+          deliveryOtp: entry.deliveryOtp || '',
           items: (entry.items || []).map((line: any) => ({ ...line })),
         }))
       : [confirmed];
