@@ -45,6 +45,10 @@ public class DeliveryAgentEntity {
     @Column(name = "STATUS", length = 20)
     private String status;
 
+    @Column(name = "AVAILABLE_FOR_JOBS", nullable = false)
+    @Builder.Default
+    private Boolean availableForJobs = true;
+
     @Column(name = "RATING", precision = 3, scale = 2)
     private BigDecimal rating;
 
