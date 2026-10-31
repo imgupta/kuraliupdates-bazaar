@@ -72,7 +72,7 @@ public class DeliveryService {
     public List<OrderEntity> availableJobs(com.kuraliupdates.bazaar.entity.UserEntity user) {
         DeliveryAgentEntity agent = findAgentForUser(user);
         requireActive(agent);
-        requireAvailable(agent);
+        if (Boolean.FALSE.equals(agent.getAvailableForJobs())) return List.of();
         return orderRepository.findByStatus("READY_FOR_PICKUP");
     }
 
