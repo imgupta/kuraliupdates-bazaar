@@ -89,8 +89,6 @@ public class DeliveryService {
                 .filter(order -> "ASSIGNED_TO_DELIVERY".equalsIgnoreCase(order.getStatus())
                         || "PICKED_UP".equalsIgnoreCase(order.getStatus()))
                 .filter(order -> !"STORE_PICKUP".equalsIgnoreCase(order.getFulfilmentMode()))
-                .sorted(java.util.Comparator.comparing(OrderEntity::getUpdatedAt,
-                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
                 .toList();
     }
 
