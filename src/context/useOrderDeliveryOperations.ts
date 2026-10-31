@@ -39,6 +39,7 @@ export const useOrderDeliveryOperations = ({
     deliveryPhone?: string;
     customerNotes?: string;
     paymentMethod: 'COD' | 'UPI' | 'StorePay' | 'Card' | 'NetBanking';
+    fulfilmentMode?: 'DELIVERY' | 'STORE_PICKUP';
   }): Promise<Order | null> => {
     if (cart.length === 0) return null;
     const sellerIds = Array.from(new Set(cart.map(item => item.product.sellerId)));
