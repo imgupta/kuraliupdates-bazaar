@@ -11,6 +11,7 @@ import { Product } from '../../types';
 import { CompareSellersModal } from './CompareSellersModal';
 import { ProductCard } from './ProductCard';
 import { ProductDetailsModal } from './ProductDetailsModal';
+import { getComparableSellerOffers } from './comparableProducts';
 
 interface BuyerHomeProps {
   searchQuery: string;
@@ -117,28 +118,10 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
       });
   }, [products, selectedCategory, selectedCityLocality, searchQuery, onlyInStock, maxPrice, sortBy]);
 
-  // Precompute related-product counts once instead of filtering the full catalog inside every card render.
-  const relatedProductCountById = useMemo(() => {
-    const titleCounts = new Map<string, number>();
-    const categoryCounts = new Map<string, number>();
-
-    products.forEach(product => {
-      titleCounts.set(product.title, (titleCounts.get(product.title) || 0) + 1);
-      categoryCounts.set(product.category, (categoryCounts.get(product.category) || 0) + 1);
-    });
-
-    return new Map(
-      products.map(product => [
-        product.id,
-        Math.max(
-          0,
-          (titleCounts.get(product.title) || 0) +
-            (categoryCounts.get(product.category) || 0) -
-            2
-        ),
-      ])
-    );
-  }, [products]);
+  // Count distinct sellers with an in-stock offer for the exact same product and pack.
+  const comparableSellerCountById = useMemo(() => new Map(
+    products.map(product => [product.id, getComparableSellerOffers(products, product).length])
+  ), [products]);
 
   return (
     <div className="space-y-4 sm:space-y-5 pb-12">
@@ -262,7 +245,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
           {filteredProducts.map(product => (
             <ProductCard key={product.id} product={product}
-              relatedSellerCount={relatedProductCountById.get(product.id) || 0}
+              relatedSellerCount={comparableSellerCountById.get(product.id) || 1}
               onCompare={setComparingProduct} onBargain={openChatForProduct}
               onAddToCart={(item) => { addToCart(item, 1); }}
               onBuyNow={onBuyNow} onViewDetails={setSelectedProduct}
