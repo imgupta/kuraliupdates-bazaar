@@ -2,6 +2,7 @@
 import type { Order } from '../../types';
 import { mapBackendOrder, type BackendOrder } from '../../entities/orderMapping';
 import { API_BASE_URL } from '../http/apiConfig';
+import { groupCheckoutOrders } from '../../entities/orderGrouping';
 
 export const buyerOrdersApi = {
   async placeOrder(order: Partial<Order>): Promise<any> {
@@ -65,7 +66,7 @@ export const buyerOrdersApi = {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: BackendOrder[] = await res.json();
-      return data.map(order => mapBackendOrder(order));
+      return groupCheckoutOrders(data.map(order => mapBackendOrder(order)));
     } catch (err) {
       console.warn('Backend getMyOrders request failed:', err);
       return null;
