@@ -17,6 +17,7 @@ interface BuyerHomeProps {
 
 export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
   const [mode, setMode] = useState<'shop' | 'daily-help'>('shop');
+  const [showAllActiveOrders, setShowAllActiveOrders] = useState(false);
   const { orders, user } = useApp();
   const activeOrders = useMemo(() => {
     const email = user.email?.trim().toLowerCase();
@@ -85,14 +86,19 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
                 <h2 className="text-xs font-extrabold text-slate-900">Your orders</h2>
                 <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">{activeOrders.length} active</span>
               </div>
-              {activeOrders.length > 1 && <span className="text-[9px] text-slate-400">Swipe left for more orders</span>}
+              {activeOrders.length > 1 && (
+                <button type="button" onClick={() => setShowAllActiveOrders(value => !value)}
+                  className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800">
+                  {showAllActiveOrders ? 'Show latest' : `View all (${activeOrders.length})`}
+                </button>
+              )}
             </div>
             <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 scrollbar-none" aria-label="Active orders, swipe left and right">
-              {activeOrders.map(order => {
+              {activeOrders.slice(0, showAllActiveOrders ? activeOrders.length : 1).map(order => {
                 const status = String(order.status || 'placed').replace(/_/g, ' ').toLowerCase();
                 return (
                   <button key={order.id} type="button" onClick={() => props.onOpenTracking(order.id)}
-                    className="flex min-w-[190px] max-w-[220px] snap-start items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    className="flex min-w-[min(100%,280px)] max-w-[340px] snap-start items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Truck className="h-4 w-4" /></span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[10px] font-extrabold text-slate-800">Order #{order.id}</span>
