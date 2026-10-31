@@ -91,6 +91,9 @@ public class DeliveryService {
         // Serialize competing claims so only one active agent can win a READY_FOR_PICKUP order.
         OrderEntity order = orderRepository.findLockedByOrderId(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
+        if ("STORE_PICKUP".equalsIgnoreCase(order.getFulfilmentMode())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Store-pickup orders are collected by the buyer and cannot be claimed by a rider");
+        }
         if (!"READY_FOR_PICKUP".equals(order.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "Order is not available for pickup");
         }
@@ -128,6 +131,9 @@ public class DeliveryService {
                 "SELECT MAX_SELLERS_PER_BATCH FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
         if (maxSellers != null && orders.size() > maxSellers) {
             throw new ApiException(HttpStatus.CONFLICT, "This checkout exceeds the configured combined-delivery seller limit");
+        }
+        if (orders.stream().anyMatch(o -> "STORE_PICKUP".equalsIgnoreCase(o.getFulfilmentMode()))) {
+            throw new ApiException(HttpStatus.CONFLICT, "Store-pickup checkout cannot be claimed by a rider");
         }
         if (orders.stream().anyMatch(o -> !"READY_FOR_PICKUP".equals(o.getStatus()) || o.getDeliveryAgent() != null)) {
             throw new ApiException(HttpStatus.CONFLICT, "Every seller order must be ready and unassigned before a combined claim");
