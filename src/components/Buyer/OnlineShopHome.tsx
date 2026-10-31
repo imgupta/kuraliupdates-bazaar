@@ -34,7 +34,6 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
     selectedCityLocality,
     comparingProduct,
     setComparingProduct,
-    setIsCartOpen
   } = useApp();
 
   const [sortBy, setSortBy] = useState<'price_asc' | 'distance_asc' | 'discount_desc' | 'featured'>('featured');
@@ -265,7 +264,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
             <ProductCard key={product.id} product={product}
               relatedSellerCount={relatedProductCountById.get(product.id) || 0}
               onCompare={setComparingProduct} onBargain={openChatForProduct}
-              onAddToCart={(item) => { addToCart(item, 1); setIsCartOpen(true); }}
+              onAddToCart={(item) => { addToCart(item, 1); }}
               onBuyNow={onBuyNow} onViewDetails={setSelectedProduct}
             />
           ))}
@@ -274,7 +273,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
 
       {selectedProduct && (
         <ProductDetailsModal product={selectedProduct} onClose={() => setSelectedProduct(null)}
-          onAddToCart={(item) => { addToCart(item, 1); setSelectedProduct(null); setIsCartOpen(true); }}
+          onAddToCart={(item) => { addToCart(item, 1); setSelectedProduct(null); }}
           onBuyNow={(item) => { setSelectedProduct(null); onBuyNow(item); }}
           onBargain={(item) => { setSelectedProduct(null); openChatForProduct(item); }}
           onCompare={(item) => { setSelectedProduct(null); setComparingProduct(item); }}
