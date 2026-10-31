@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Send, Tag, CheckCircle2, XCircle, ArrowRight, MessageSquare, AlertCircle, ShoppingBag } from 'lucide-react';
+import { X, Send, Tag, CheckCircle2, XCircle, ArrowRight, MessageSquare, AlertCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 export const NegotiationChatModal: React.FC = () => {
@@ -10,8 +10,6 @@ export const NegotiationChatModal: React.FC = () => {
     sendMessage,
     respondToOffer,
     products,
-    addToCart,
-    setIsCartOpen,
     role,
     user,
     showToast,
@@ -135,18 +133,10 @@ export const NegotiationChatModal: React.FC = () => {
             </div>
           </div>
 
-          {role !== 'seller' && currentChat.currentAgreedPrice != null && targetProduct && (
-            <button
-              onClick={() => {
-                addToCart(targetProduct, 1, currentChat.currentAgreedPrice, currentChat.currentAgreedOfferId);
-                setIsCartOpen(true);
-                setActiveChatId(null);
-              }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 shrink-0 cursor-pointer"
-            >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              Add at ₹{currentChat.currentAgreedPrice}
-            </button>
+          {role !== 'seller' && currentChat.currentAgreedPrice != null && (
+            <span className="shrink-0 rounded-lg bg-emerald-100 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800">
+              Accepted · added to cart automatically
+            </span>
           )}
         </div>
 
