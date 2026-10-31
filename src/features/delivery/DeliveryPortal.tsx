@@ -79,15 +79,27 @@ export const DeliveryDashboard: React.FC = () => {
       if (!active) return;
       setDeliveryJobsLoading(true);
       try {
-        const [remoteAgent, remoteJobs, assignedJobs] = await Promise.all([
+        // Keep the three live reads independent: a failure in the assigned-jobs
+        // endpoint must never suppress otherwise valid available pickup jobs.
+        const [agentResult, jobsResult, assignedResult] = await Promise.allSettled([
           deliveryApi.getCurrentDeliveryAgent(),
           deliveryApi.getDeliveryAvailableJobs(),
           deliveryApi.getMyAssignedJobs(),
         ]);
-        setBackendAgent(remoteAgent);
-        setLiveAvailableOrders(remoteJobs as Order[]);
-        setMyAssignedOrders(assignedJobs as Order[]);
-        await syncWithBackend();
+        if (agentResult.status === 'fulfilled') setBackendAgent(agentResult.value);
+        else console.warn('Unable to refresh delivery-agent profile:', agentResult.reason);
+
+        if (jobsResult.status === 'fulfilled') setLiveAvailableOrders(jobsResult.value as Order[]);
+        else console.warn('Unable to refresh available pickup jobs:', jobsResult.reason);
+
+        if (assignedResult.status === 'fulfilled') setMyAssignedOrders(assignedResult.value as Order[]);
+        else console.warn('Unable to refresh assigned delivery jobs:', assignedResult.reason);
+
+        try {
+          await syncWithBackend();
+        } catch (error) {
+          console.warn('Unable to refresh cached portal data:', error);
+        }
       } finally {
         if (active) setDeliveryJobsLoading(false);
       }
