@@ -19,7 +19,7 @@ export const groupCheckoutOrders = (orders: Order[]): Order[] => {
   }
 
   const grouped: Order[] = [...groups.entries()].map(([checkoutGroupId, children]) => {
-    const sorted = [...children].sort((a,b) => a.id.localeCompare(b.id));
+    const sorted = [...children].sort((a,b) => new Date(a.placedAt || 0).getTime() - new Date(b.placedAt || 0).getTime() || a.id.localeCompare(b.id));
     const first = sorted[0];
     const status = sorted.reduce((least, current) =>
       STATUS_RANK[current.status] < STATUS_RANK[least] ? current.status : least, first.status);
