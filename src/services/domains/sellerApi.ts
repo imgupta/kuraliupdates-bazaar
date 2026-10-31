@@ -72,6 +72,15 @@ export const sellerApi = {
       } catch (err) { console.warn('Backend getCurrentSeller failed:', err); return null; }
     },
 
+  async setStoreAvailability(open: boolean): Promise<any> {
+      const token = localStorage.getItem('kurali_auth_token');
+      if (!token) throw new Error('Your seller session has expired. Please sign in again.');
+      const res = await fetch(`${API_BASE_URL}/sellers/me/availability`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ open }) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+      return data;
+    },
+
   async getSellerProducts(): Promise<any[]> {
       const token = localStorage.getItem('kurali_auth_token');
       if (!token) return [];
