@@ -278,7 +278,10 @@ public class DeliveryService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
 
         DeliveryAgentEntity agent = order.getDeliveryAgent();
-        if (agent == null || !agent.getAgentId().equals(authenticatedAgent.getAgentId())) {
+        if (agent == null) {
+            throw new ApiException(HttpStatus.CONFLICT, "Order has not been assigned to a delivery partner");
+        }
+        if (!agent.getAgentId().equals(authenticatedAgent.getAgentId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "This order is not assigned to your delivery profile");
         }
         if ("DELIVERED".equals(order.getStatus())) {
