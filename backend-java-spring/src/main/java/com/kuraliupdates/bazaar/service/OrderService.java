@@ -61,7 +61,9 @@ public class OrderService {
             if (item.productId() == null || item.productId().isBlank() || item.quantity() == null || item.quantity() <= 0) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "Each order item needs a product and positive quantity");
             }
-            ProductEntity product = productRepository.findLockedByProductId(item.productId().trim())
+            // Resolve seller grouping without acquiring row locks in cart order. The authoritative
+            // stock/price pass below locks every product in deterministic product-ID order.
+            ProductEntity product = productRepository.findById(item.productId().trim())
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Product not found: " + item.productId()));
             if (product.getSeller() == null || !"APPROVED".equalsIgnoreCase(product.getSeller().getStatus())) {
                 throw new ApiException(HttpStatus.CONFLICT, "Product seller is not approved");
