@@ -288,6 +288,10 @@ public class DeliveryService {
                 && deliveryOrder.getDeliveryAgent().getAgentId().equals(authenticatedAgent.getAgentId())
                 && enteredOtp.equals(deliveryOrder.getDeliveryOtp())
                 && "PICKED_UP".equals(deliveryOrder.getStatus()));
+        if (order.getCombinedDeliveryBatchId() != null && !combinedClaim) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Collect every seller order in this combined route before completing the customer delivery");
+        }
         // Separate-job fallback remains valid: only complete the individually assigned order.
         List<OrderEntity> deliveryOrders = combinedClaim ? checkoutOrders : List.of(order);
         LocalDateTime deliveredAt = LocalDateTime.now();
