@@ -18,7 +18,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
 
   return (
     <div className="space-y-4 sm:space-y-5 pb-12">
-      <div className="bg-white border border-slate-200 rounded-2xl p-1.5 shadow-sm">
+      <div className="sticky top-[60px] sm:top-[68px] z-30 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-1.5 shadow-sm">
         <div className="grid grid-cols-2 gap-1">
           <button
             onClick={() => setMode('shop')}
