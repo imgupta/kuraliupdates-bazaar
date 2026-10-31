@@ -97,6 +97,13 @@ public class DeliveryService {
 
         order.setDeliveryAgent(authenticatedAgent);
         order.setStatus("ASSIGNED_TO_DELIVERY");
+        if (order.getRiderPayoutSnapshot() == null) {
+            BigDecimal base = configuredPayout("RIDER_BASE_PAYOUT", BigDecimal.valueOf(45));
+            BigDecimal perKm = configuredPayout("RIDER_PER_KM_PAYOUT", BigDecimal.valueOf(22));
+            BigDecimal distance = order.getDistanceKm() == null ? BigDecimal.ZERO : order.getDistanceKm();
+            order.setRiderPayoutSnapshot(base.add(distance.multiply(perKm)).setScale(2, java.math.RoundingMode.HALF_UP));
+            order.setRiderPayoutSnapshottedAt(LocalDateTime.now());
+        }
         order.setUpdatedAt(LocalDateTime.now());
         return orderRepository.save(order);
     }
@@ -138,13 +145,17 @@ public class DeliveryService {
         }
         String sharedOtp = String.format("%04d", secureRandom.nextInt(10_000));
         LocalDateTime now = LocalDateTime.now();
+        BigDecimal groupPayout = configuredPayout("RIDER_BASE_PAYOUT", BigDecimal.valueOf(45))
+                .add(routeKm.multiply(configuredPayout("RIDER_PER_KM_PAYOUT", BigDecimal.valueOf(22))))
+                .setScale(2, java.math.RoundingMode.HALF_UP);
         for (int i = 0; i < orders.size(); i++) {
             OrderEntity order = orders.get(i);
             order.setDeliveryAgent(agent);
             order.setStatus("ASSIGNED_TO_DELIVERY");
             order.setDeliveryOtp(sharedOtp);
-            // Store route distance once so the group payout is not multiplied by the number of sellers.
             order.setDistanceKm(i == 0 ? routeKm : BigDecimal.ZERO);
+            order.setRiderPayoutSnapshot(i == 0 ? groupPayout : BigDecimal.ZERO);
+            order.setRiderPayoutSnapshottedAt(now);
             order.setUpdatedAt(now);
         }
         return orderRepository.saveAll(orders);
@@ -230,13 +241,11 @@ public class DeliveryService {
         if (combinedClaim) orderRepository.saveAll(deliveryOrders);
         else orderRepository.save(order);
 
-        BigDecimal distance = deliveryOrders.stream().map(OrderEntity::getDistanceKm)
+        BigDecimal payout = deliveryOrders.stream().map(OrderEntity::getRiderPayoutSnapshot)
                 .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal basePayout = jdbc.queryForObject("SELECT RIDER_BASE_PAYOUT FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", BigDecimal.class);
-        BigDecimal perKmPayout = jdbc.queryForObject("SELECT RIDER_PER_KM_PAYOUT FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", BigDecimal.class);
-        BigDecimal payout = (basePayout == null ? BigDecimal.valueOf(45) : basePayout)
-                .add(distance.multiply(perKmPayout == null ? BigDecimal.valueOf(22) : perKmPayout))
-                .setScale(2, java.math.RoundingMode.HALF_UP);
+        if (deliveryOrders.stream().anyMatch(deliveryOrder -> deliveryOrder.getRiderPayoutSnapshot() == null)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Rider payout snapshot is missing; contact support before completing this delivery");
+        }
         agent.setTotalTrips(agent.getTotalTrips() + 1);
         agent.setTodayEarnings(agent.getTodayEarnings().add(payout));
         agent.setTotalEarnings(agent.getTotalEarnings().add(payout));
@@ -244,6 +253,11 @@ public class DeliveryService {
 
         return Map.of("success", true, "message", "Delivery completed and configured rider payout credited.",
                 "completedOrders", deliveryOrders.size());
+    }
+
+    private BigDecimal configuredPayout(String column, BigDecimal fallback) {
+        BigDecimal value = jdbc.queryForObject("SELECT " + column + " FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", BigDecimal.class);
+        return value == null ? fallback : value;
     }
 
     private DeliveryAgentEntity findAgentForUser(com.kuraliupdates.bazaar.entity.UserEntity user) {
