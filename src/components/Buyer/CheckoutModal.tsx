@@ -32,6 +32,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
   const [streetAddress, setStreetAddress] = useState(selectedAddress?.addressLine1 || user.addressLine1 || user.address || '');
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Card' | 'COD' | 'NetBanking'>('COD');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [checkoutStep, setCheckoutStep] = useState<'review' | 'payment'>('review');
   const [fulfilmentMode, setFulfilmentMode] = useState<'DELIVERY' | 'STORE_PICKUP'>('DELIVERY');
   const multiSellerCart = new Set(cart.map(item => item.product.sellerId)).size > 1;
   const pickupTotal = Math.max(0, cartCalculations.subtotal - cartCalculations.billDiscount - cartCalculations.couponDiscount);
@@ -39,6 +40,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0 || isProcessing) return;
+    if (checkoutStep === 'review') { setCheckoutStep('payment'); return; }
 
     setIsProcessing(true);
     try {
@@ -193,6 +195,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
             </div>
           </div>
 
+          {checkoutStep === 'payment' && (
           {/* Section 2: Payment Method */}
           <div className="space-y-3">
             <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -281,6 +284,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
             )}
           </div>
 
+          )}
+
           {/* Section 3: Final Bill Breakdown */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
             <h4 className="font-bold text-slate-800">Payment Breakdown</h4>
@@ -319,6 +324,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
           >
             {isProcessing ? (
               <span>Confirming Order with Kurali Store...</span>
+            ) : checkoutStep === 'review' ? (
+              <span>Continue to Payment &bull; ₹{fulfilmentMode === 'STORE_PICKUP' ? pickupTotal : cartCalculations.finalTotal}</span>
             ) : (
               <span>
                 {paymentMethod === 'COD' ? (fulfilmentMode === 'STORE_PICKUP' ? 'Place Store Pickup Order' : 'Place COD Order') : 'Online payment unavailable'} &bull; ₹{fulfilmentMode === 'STORE_PICKUP' ? pickupTotal : cartCalculations.finalTotal}

@@ -69,16 +69,6 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
       lastSeenStatusRef.current.set(chat.id, status);
     });
   }, [chats, role]);
-  useEffect(() => {
-    if (role !== 'buyer') return;
-    chats.filter(chat => !chat.id.startsWith('pending-')).forEach(chat => {
-      const product = products.find(item => item.id === chat.productId);
-      if (!product) return;
-      const pendingOffer = [...chat.messages].reverse().find(message => message.offer?.status === 'pending')?.offer;
-      const status = chat.bargainStatus || (chat.currentAgreedPrice != null ? 'ACCEPTED' : 'PENDING_SELLER');
-      upsertBargainCartItem(product, chat.id, status, pendingOffer?.offeredPrice, status === 'ACCEPTED' ? chat.currentAgreedPrice : undefined, status === 'ACCEPTED' ? chat.currentAgreedOfferId : undefined);
-    });
-  }, [chats, products, role, upsertBargainCartItem]);
   const openChatForProduct = (product: Product, startingOfferPrice?: number): string => {
     if (role !== 'buyer') {
       showToast('Only a signed-in buyer can start a bargaining conversation.', 'error');
@@ -149,6 +139,10 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
     }
     void negotiationChatApi.respond(chatId, offerId, role === 'seller' ? 'seller' : 'buyer', action, counterPrice).then(remote => {
       setChats(prev => prev.map(item => item.id === remote.id ? remote : item));
+      if (action === 'accept' && role === 'buyer') {
+        const product = products.find(item => item.id === remote.productId);
+        if (product) upsertBargainCartItem(product, remote.id, 'ACCEPTED', undefined, remote.currentAgreedPrice, remote.currentAgreedOfferId);
+      }
       if (action === 'accept') showToast("Offer accepted. The buyer's cart will reflect the agreed price automatically.", 'success');
       else if (action === 'reject') showToast('Offer declined. The catalogue price remains unchanged.', 'info');
       else showToast('Counter-offer sent. The other participant can now accept or decline it.', 'success');

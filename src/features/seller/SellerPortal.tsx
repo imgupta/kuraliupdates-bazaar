@@ -174,7 +174,8 @@ export const SellerDashboard: React.FC = () => {
     () => orders.filter(o => ['DELIVERED', 'COMPLETED'].includes(String(o.status || '').toUpperCase())),
     [orders]
   );
-  const sellerChats = useMemo(() => chats.filter(chat => chat.sellerId === (seller?.sellerId || seller?.id || user.sellerId)), [chats, seller?.sellerId, seller?.id, user.sellerId]);
+  const sellerChats = useMemo(() => chats.filter(chat => chat.sellerId === (seller?.sellerId || seller?.id || user.sellerId)
+    && ['PENDING_SELLER', 'PENDING_BUYER', 'ACCEPTED'].includes(String(chat.bargainStatus || (chat.currentAgreedPrice != null ? 'ACCEPTED' : 'PENDING_SELLER')).toUpperCase())), [chats, seller?.sellerId, seller?.id, user.sellerId]);
   const pendingOffers = useMemo(() => sellerChats.reduce((count, chat) => count + chat.messages.filter(message => message.offer?.status === 'pending' && message.offer.senderRole === 'buyer').length, 0), [sellerChats]);
   const incomingOrders = useMemo(
     () => orders.filter(o => !['DELIVERED', 'COMPLETED', 'CANCELLED'].includes(String(o.status || '').toUpperCase())),
