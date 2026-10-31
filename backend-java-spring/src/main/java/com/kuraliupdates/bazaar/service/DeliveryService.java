@@ -227,7 +227,8 @@ public class DeliveryService {
                     ? "PAID" : deliveryOrder.getPaymentStatus());
             deliveryOrder.setUpdatedAt(deliveredAt);
         }
-        orderRepository.saveAll(deliveryOrders);
+        if (combinedClaim) orderRepository.saveAll(deliveryOrders);
+        else orderRepository.save(order);
 
         BigDecimal distance = deliveryOrders.stream().map(OrderEntity::getDistanceKm)
                 .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
