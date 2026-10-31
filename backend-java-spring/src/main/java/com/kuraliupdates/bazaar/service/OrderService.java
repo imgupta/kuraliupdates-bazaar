@@ -80,6 +80,9 @@ public class OrderService {
             if (productSeller == null || !"APPROVED".equalsIgnoreCase(productSeller.getStatus())) {
                 throw new ApiException(HttpStatus.CONFLICT, "Product seller is not approved");
             }
+            if (Boolean.FALSE.equals(productSeller.getStoreOpen())) {
+                throw new ApiException(HttpStatus.CONFLICT, "This store is currently closed and is not accepting new orders");
+            }
             if (sellerId == null) sellerId = productSeller.getSellerId();
             if (!sellerId.equals(productSeller.getSellerId())) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "A single order can contain products from one seller only");
