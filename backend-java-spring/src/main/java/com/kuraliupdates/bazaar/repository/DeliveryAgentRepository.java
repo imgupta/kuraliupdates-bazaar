@@ -9,9 +9,13 @@ import java.util.Optional;
 @Repository
 public interface DeliveryAgentRepository extends JpaRepository<DeliveryAgentEntity, String> {
 
+    Optional<DeliveryAgentEntity> findByUserId(String userId);
+
     Optional<DeliveryAgentEntity> findByPhone(String phone);
 
     Optional<DeliveryAgentEntity> findByEmail(String email);
+
+    Optional<DeliveryAgentEntity> findByEmailIgnoreCase(String email);
 
     List<DeliveryAgentEntity> findByStatus(String status);
 }
