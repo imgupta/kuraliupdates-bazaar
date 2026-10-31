@@ -69,7 +69,7 @@ class DeliveryServiceTest {
     @Test
     void agentCannotClaimOrderAlreadyClaimedOrNotReady() {
         DeliveryAgentEntity agent = agent("ACTIVE");
-        OrderEntity order = OrderEntity.builder().orderId("ORD-1").status("ASSIGNED_TO_DELIVERY").build();
+        OrderEntity order = OrderEntity.builder().orderId("ORD-1").status("PICKED_UP").build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedByOrderId("ORD-1")).thenReturn(Optional.of(order));
 
@@ -465,6 +465,22 @@ class DeliveryServiceTest {
 
         assertEquals(Boolean.TRUE, response.get("success"));
         assertEquals("DELIVERED", order.getStatus());
+    }
+
+    @Test
+    void riderConfirmsEachSellerPickupIndependently() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity order = OrderEntity.builder().orderId("PICKUP-1")
+                .status("ASSIGNED_TO_DELIVERY").deliveryAgent(agent).build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findLockedByOrderId("PICKUP-1")).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderEntity picked = deliveryService.confirmSellerPickup("PICKUP-1", user());
+
+        assertEquals("PICKED_UP", picked.getStatus());
+        assertEquals("PICKED_UP_BY_RIDER", picked.getFulfilmentStatus());
+        verify(orderRepository).save(order);
     }
 
     private UserEntity user() {
