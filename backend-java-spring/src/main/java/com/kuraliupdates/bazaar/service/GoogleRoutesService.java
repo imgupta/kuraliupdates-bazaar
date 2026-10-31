@@ -20,7 +20,7 @@ public class GoogleRoutesService {
             .baseUrl("https://routes.googleapis.com")
             .build();
 
-    @Value("${google.maps.routes.api-key:}")
+    @Value("${google.maps.routes.api-key:${google.maps.api-key:}}")
     private String apiKey;
 
     public BigDecimal calculateCombinedRouteKm(List<OrderEntity> orders) {
