@@ -3,6 +3,7 @@ package com.kuraliupdates.bazaar.service;
 import com.kuraliupdates.bazaar.dto.order.OrderPlacementResponse;
 import com.kuraliupdates.bazaar.dto.order.OrderResponse;
 import com.kuraliupdates.bazaar.dto.order.PlaceOrderRequest;
+import com.kuraliupdates.bazaar.dto.order.MultiSellerCheckoutRequest;
 import com.kuraliupdates.bazaar.dto.order.OrderItemRequest;
 import com.kuraliupdates.bazaar.entity.OrderEntity;
 import com.kuraliupdates.bazaar.entity.OrderItemEntity;
@@ -37,7 +38,7 @@ public class OrderService {
     /** Creates seller-owned suborders under one transaction; any seller failure rolls back the entire checkout. */
     @Transactional
     public com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse placeMultiSellerOrder(
-            PlaceOrderRequest request, UserEntity buyer, String e2eRunId) {
+            MultiSellerCheckoutRequest request, UserEntity buyer, String e2eRunId) {
         if (!"COD".equalsIgnoreCase(request.paymentMethod())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Online payment is not enabled yet. Please select Cash on Delivery.");
         }
@@ -56,14 +57,16 @@ public class OrderService {
             }
             bySeller.computeIfAbsent(product.getSeller().getSellerId(), ignored -> new ArrayList<>()).add(item);
         }
-        if (bySeller.size() > 10) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "A checkout can contain products from at most 10 stores");
+        Integer configuredMax = jdbc.queryForObject("SELECT MAX_SELLERS_PER_BATCH FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
+        int maxSellers = configuredMax == null ? 3 : Math.min(configuredMax, 10);
+        if (bySeller.size() > maxSellers) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A checkout can contain products from at most " + maxSellers + " stores");
         }
         String checkoutGroupId = "CHK-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT);
         List<OrderPlacementResponse> placed = new ArrayList<>();
         for (Map.Entry<String, List<OrderItemRequest>> group : bySeller.entrySet()) {
             PlaceOrderRequest sellerRequest = new PlaceOrderRequest(
-                    request.buyerName(), request.buyerPhone(), request.buyerEmail(), request.deliveryAddress(),
+                    buyer.getName(), buyer.getPhone(), buyer.getEmail(), request.deliveryAddress(),
                     request.deliveryLocality(), group.getKey(), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                     BigDecimal.ZERO, request.paymentMethod(), request.distanceKm(), request.deliveryLatitude(),
                     request.deliveryLongitude(), request.deliveryPlaceId(), group.getValue());
