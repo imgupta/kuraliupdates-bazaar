@@ -424,111 +424,67 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto">
-        <button
-          onClick={() => setActiveAdminTab('daily-helpers')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeAdminTab === 'daily-helpers' ? 'bg-purple-700 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
-        >
-          <UserRoundCheck className="w-4 h-4" /> Daily Help / Helpers ({dailyHelpHelpers.length})
-        </button>
-        <button
-          onClick={() => setActiveAdminTab('fleet')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeAdminTab === 'fleet'
-              ? 'bg-purple-700 text-white shadow-md'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Bike className="w-4 h-4" /> Delivery Fleet ({adminDeliveryAgents.length})
-        </button>
-        <button
-          onClick={() => setActiveAdminTab('delivery-config')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeAdminTab === 'delivery-config' ? 'bg-purple-700 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
-        >
-          <Settings2 className="w-4 h-4" /> Delivery Charges & Payouts
-        </button>
-
-        <button
-          onClick={() => setActiveAdminTab('trends')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeAdminTab === 'trends'
-              ? 'bg-purple-700 text-white shadow-md'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <BarChart3 className="w-4 h-4" /> Market Demand & Search Trends
-        </button>
-
-        <button
-          onClick={() => setActiveAdminTab('approvals')}
-          className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeAdminTab === 'approvals'
-              ? 'bg-purple-700 text-white shadow-md'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Store className="w-4 h-4" /> Pending Merchant Approvals
-          {pendingSellers.length > 0 && (
-            <span className="px-1.5 py-0.5 bg-rose-500 text-white text-[10px] rounded-full">
-              {pendingSellers.length}
+      {/* Grouped admin navigation */}
+      <nav aria-label="Admin sections" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+        <details open={['approvals', 'stores', 'buyers'].includes(activeAdminTab)} className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3.5 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700"><Store className="h-5 w-5" /></span>
+              <span><span className="block text-sm font-extrabold text-slate-900">Marketplace & Merchants</span><span className="mt-0.5 block text-[11px] text-slate-500">Approvals, stores and buyers</span></span>
             </span>
-          )}
-        </button>
+            <span className="flex items-center gap-2"><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">{pendingSellers.length} pending</span><span className="text-slate-400 transition-transform group-open:rotate-180">⌄</span></span>
+          </summary>
+          <div className="space-y-1 border-t border-slate-100 p-2">
+            <button onClick={() => setActiveAdminTab('approvals')} className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'approvals' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}><span>Pending merchant approvals</span>{pendingSellers.length > 0 && <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] text-white">{pendingSellers.length}</span>}</button>
+            <button onClick={() => setActiveAdminTab('stores')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'stores' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>All active stores <span className="ml-1 text-slate-400">({approvedSellers.length})</span></button>
+            <button onClick={() => setActiveAdminTab('buyers')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'buyers' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Buyers <span className="ml-1 text-slate-400">({buyers.length})</span></button>
+          </div>
+        </details>
 
-        <button
-          onClick={() => setActiveAdminTab('stores')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeAdminTab === 'stores'
-              ? 'bg-purple-700 text-white shadow-md'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Layers className="w-4 h-4" /> All Active Stores ({approvedSellers.length})
-        </button>
+        <details open={['fleet', 'delivery-config'].includes(activeAdminTab)} className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3.5 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+            <span className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><Bike className="h-5 w-5" /></span><span><span className="block text-sm font-extrabold text-slate-900">Delivery & Fulfilment</span><span className="mt-0.5 block text-[11px] text-slate-500">Fleet, live operations and payouts</span></span></span>
+            <span className="text-slate-400 transition-transform group-open:rotate-180">⌄</span>
+          </summary>
+          <div className="space-y-1 border-t border-slate-100 p-2">
+            <button onClick={() => setActiveAdminTab('fleet')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'fleet' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Delivery fleet <span className="ml-1 text-slate-400">({adminDeliveryAgents.length})</span></button>
+            <button onClick={() => setActiveAdminTab('delivery-config')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'delivery-config' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Delivery charges & payouts</button>
+          </div>
+        </details>
 
-        <button
-          onClick={() => setActiveAdminTab('buyers')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeAdminTab === 'buyers'
-              ? 'bg-purple-700 text-white shadow-md'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Users className="w-4 h-4" /> Buyers ({buyers.length})
-        </button>
+        <details open={['daily-help', 'daily-helpers'].includes(activeAdminTab)} className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3.5 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+            <span className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700"><Sparkles className="h-5 w-5" /></span><span><span className="block text-sm font-extrabold text-slate-900">Daily Help Operations</span><span className="mt-0.5 block text-[11px] text-slate-500">Providers and service catalogue</span></span></span>
+            <span className="text-slate-400 transition-transform group-open:rotate-180">⌄</span>
+          </summary>
+          <div className="space-y-1 border-t border-slate-100 p-2">
+            <button onClick={() => setActiveAdminTab('daily-helpers')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'daily-helpers' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Daily Help helpers <span className="ml-1 text-slate-400">({dailyHelpHelpers.length})</span></button>
+            <button onClick={() => setActiveAdminTab('daily-help')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'daily-help' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Daily Help services <span className="ml-1 text-slate-400">({dailyHelpServices.length})</span></button>
+          </div>
+        </details>
 
+        <details open={activeAdminTab === 'trends'} className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3.5 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+            <span className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-700"><TrendingUp className="h-5 w-5" /></span><span><span className="block text-sm font-extrabold text-slate-900">Business Intelligence</span><span className="mt-0.5 block text-[11px] text-slate-500">Demand signals and search trends</span></span></span>
+            <span className="text-slate-400 transition-transform group-open:rotate-180">⌄</span>
+          </summary>
+          <div className="border-t border-slate-100 p-2">
+            <button onClick={() => setActiveAdminTab('trends')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'trends' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Market demand & search trends</button>
+          </div>
+        </details>
 
-        <button
-          onClick={() => setActiveAdminTab('accounts')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeAdminTab === 'accounts' ? 'bg-purple-700 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
-        >
-          <ShieldCheck className="w-4 h-4" /> Account & Permissions ({adminAccounts.length})
-        </button>
-
-        <button
-          onClick={() => setActiveAdminTab('directory')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeAdminTab === 'directory' ? 'bg-purple-700 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
-        >
-          <Users className="w-4 h-4" /> User & Role IDs ({directoryRows.length})
-        </button>
-
-        <button
-          onClick={() => setActiveAdminTab('daily-help')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeAdminTab === 'daily-help' ? 'bg-purple-700 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
-        >
-          <Sparkles className="w-4 h-4" /> Daily Help Services ({dailyHelpServices.length})
-        </button>
-
-
-
-        <button
-          onClick={() => setActiveAdminTab('diagnostics')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeAdminTab === 'diagnostics' ? 'bg-purple-700 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
-        >
-          <Database className="w-4 h-4" /> Diagnostics
-        </button>
-      </div>
+        <details open={['accounts', 'directory', 'diagnostics'].includes(activeAdminTab)} className="group rounded-2xl border border-slate-200 bg-white shadow-sm sm:col-span-2 xl:col-span-1">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3.5 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+            <span className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><ShieldCheck className="h-5 w-5" /></span><span><span className="block text-sm font-extrabold text-slate-900">Administration & System</span><span className="mt-0.5 block text-[11px] text-slate-500">Access control, identity and health</span></span></span>
+            <span className="text-slate-400 transition-transform group-open:rotate-180">⌄</span>
+          </summary>
+          <div className="space-y-1 border-t border-slate-100 p-2">
+            <button onClick={() => setActiveAdminTab('accounts')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'accounts' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Accounts & permissions <span className="ml-1 text-slate-400">({adminAccounts.length})</span></button>
+            <button onClick={() => setActiveAdminTab('directory')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'directory' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>User & role IDs <span className="ml-1 text-slate-400">({directoryRows.length})</span></button>
+            <button onClick={() => setActiveAdminTab('diagnostics')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'diagnostics' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Diagnostics</button>
+          </div>
+        </details>
+      </nav>
 
       {activeAdminTab === 'directory' && (
         <div className="space-y-4">
