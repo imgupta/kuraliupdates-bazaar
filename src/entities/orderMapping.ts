@@ -20,7 +20,6 @@ export interface BackendOrder {
   sellerId?: string;
   checkoutGroupId?: string;
   fulfilmentStatus?: string;
-  checkoutGroupId?: string;
   fulfilmentMode?: 'DELIVERY' | 'STORE_PICKUP';
   deliveryAgent?: any;
   placedAt?: string;
