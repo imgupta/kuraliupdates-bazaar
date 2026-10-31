@@ -301,7 +301,7 @@ jobs:
     needs: e2e
     # Never publish artifacts produced by pull-request code. This runs only for trusted
     # main-branch push, schedule, or manual runs, and only after Access protection is confirmed.
-    if: ${{ always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.CLOUDFLARE_REPORT_ACCESS_CONFIGURED == 'true' }}
+    if: ${{ success() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.CLOUDFLARE_REPORT_ACCESS_CONFIGURED == 'true' }}
     env:
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
@@ -320,20 +320,24 @@ jobs:
         with:
           name: playwright-e2e-report
           path: downloaded-artifact
+          if-no-artifact-found: ignore
       - name: Prepare report-only site
+        id: prepare
         shell: bash
         run: |
           set -euo pipefail
-          test -s downloaded-artifact/playwright-report/index.html || {
-            echo "The artifact does not contain playwright-report/index.html."
-            echo "Check the E2E job's Upload Playwright report and traces step."
-            exit 1
-          }
+          if [ ! -s downloaded-artifact/playwright-report/index.html ]; then
+            echo "No Playwright HTML report artifact was produced; skipping report publication."
+            echo "report_available=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           mkdir -p site
           cp -a downloaded-artifact/playwright-report/. site/
           test -s site/index.html
+          echo "report_available=true" >> "$GITHUB_OUTPUT"
           echo "Prepared the HTML report and its supporting assets. test-results and traces are not published."
       - name: Deploy report to Cloudflare Pages
+        if: steps.prepare.outputs.report_available == 'true'
         shell: bash
         run: |
           set -euo pipefail
