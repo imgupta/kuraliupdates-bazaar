@@ -25,7 +25,8 @@ interface OrderTrackingModalProps {
 
 export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId, onClose }) => {
   const { orders, syncWithBackend, showToast } = useApp();
-  const order = orders.find(o => o.id === orderId);
+  const order = orders.find(o => o.id === orderId || o.checkoutGroupId === orderId);
+  const trackingOrderId = order?.trackingOrderId || orderId;
   const orderItems = Array.isArray(order?.items) ? order.items : [];
   const statusUpdates = Array.isArray(order?.statusUpdates) ? order.statusUpdates : [];
   const orderStatus = String(order?.status || 'placed').toLowerCase();
@@ -39,7 +40,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
     setPickupSubmitting(true);
     try {
       const token = localStorage.getItem('kurali_auth_token');
-      const response = await fetch(`${API_BASE_URL}/buyers/orders/${encodeURIComponent(orderId)}/confirm-pickup`, {
+      const response = await fetch(`${API_BASE_URL}/buyers/orders/${encodeURIComponent(trackingOrderId)}/confirm-pickup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ otp: pickupOtp }),
@@ -61,7 +62,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
     setAuthorizedDeliveryOtp(null);
     const refreshOtp = async () => {
       try {
-        const tracking = await buyerApi.getLiveTracking(orderId);
+        const tracking = await buyerApi.getLiveTracking(trackingOrderId);
         if (active && typeof tracking?.deliveryOtp === 'string' && /^\d{4}$/.test(tracking.deliveryOtp)) {
           setAuthorizedDeliveryOtp(tracking.deliveryOtp);
         }
@@ -72,7 +73,7 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
     void refreshOtp();
     const timer = window.setInterval(refreshOtp, 5000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [orderId]);
+  }, [trackingOrderId]);
 
   if (!order) return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
