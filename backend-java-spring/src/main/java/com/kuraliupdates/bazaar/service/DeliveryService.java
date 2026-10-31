@@ -81,6 +81,19 @@ public class DeliveryService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<OrderEntity> assignedJobs(com.kuraliupdates.bazaar.entity.UserEntity user) {
+        DeliveryAgentEntity agent = findAgentForUser(user);
+        requireActive(agent);
+        return orderRepository.findByDeliveryAgent_AgentId(agent.getAgentId()).stream()
+                .filter(order -> "ASSIGNED_TO_DELIVERY".equalsIgnoreCase(order.getStatus())
+                        || "PICKED_UP".equalsIgnoreCase(order.getStatus()))
+                .filter(order -> !"STORE_PICKUP".equalsIgnoreCase(order.getFulfilmentMode()))
+                .sorted(java.util.Comparator.comparing(OrderEntity::getUpdatedAt,
+                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                .toList();
+    }
+
     @Transactional
     public OrderEntity claim(String orderId, String agentId, com.kuraliupdates.bazaar.entity.UserEntity user) {
         DeliveryAgentEntity authenticatedAgent = findAgentForUser(user);
