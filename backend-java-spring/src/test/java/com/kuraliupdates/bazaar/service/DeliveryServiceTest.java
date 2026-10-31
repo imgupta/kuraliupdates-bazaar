@@ -208,6 +208,28 @@ class DeliveryServiceTest {
     }
 
     @Test
+    void resendOnCombinedDeliveryRotatesOtpForEverySellerOrder() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity first = OrderEntity.builder().orderId("BATCH-1").checkoutGroupId("CHK-1")
+                .combinedDeliveryBatchId("CHK-1").status("ASSIGNED_TO_DELIVERY")
+                .deliveryAgent(agent).deliveryOtp("1111").build();
+        OrderEntity second = OrderEntity.builder().orderId("BATCH-2").checkoutGroupId("CHK-1")
+                .combinedDeliveryBatchId("CHK-1").status("ASSIGNED_TO_DELIVERY")
+                .deliveryAgent(agent).deliveryOtp("1111").build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findLockedByOrderId("BATCH-1")).thenReturn(Optional.of(first));
+        when(orderRepository.findLockedByCheckoutGroupId("CHK-1")).thenReturn(java.util.List.of(first, second));
+
+        var response = deliveryService.resendDeliveryOtp("BATCH-1", user());
+
+        assertEquals(Boolean.TRUE, response.get("success"));
+        assertTrue(first.getDeliveryOtp().matches("\\d{4}"));
+        assertEquals(first.getDeliveryOtp(), second.getDeliveryOtp());
+        assertNotEquals("1111", first.getDeliveryOtp());
+        verify(orderRepository).saveAll(java.util.List.of(first, second));
+    }
+
+    @Test
     void resendOtpRejectsOrderAssignedToAnotherAgent() {
         DeliveryAgentEntity authenticatedAgent = agent("ACTIVE");
         DeliveryAgentEntity otherAgent = DeliveryAgentEntity.builder()
