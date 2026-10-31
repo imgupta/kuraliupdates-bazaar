@@ -103,6 +103,7 @@ export const useOrderDeliveryOperations = ({
       paymentStatus: String(serverOrder.paymentStatus || 'PENDING_COD').toLowerCase() as Order['paymentStatus'],
       status: String(serverOrder.status || 'PLACED').toLowerCase() as OrderStatus,
       fulfilmentMode: serverOrder.fulfilmentMode || orderData.fulfilmentMode || 'DELIVERY',
+      checkoutGroupId: serverOrder.checkoutGroupId,
       deliveryOtp: response?.deliveryOtp || serverOrder.deliveryOtp || '',
     };
     const confirmedOrders: Order[] = serverOrders.length > 0
@@ -117,6 +118,7 @@ export const useOrderDeliveryOperations = ({
           deliveryFee: Number(placement.order.deliveryFee ?? 0),
           totalAmount: Number(placement.order.totalAmount ?? 0),
           fulfilmentMode: placement.order.fulfilmentMode || orderData.fulfilmentMode || 'DELIVERY',
+          checkoutGroupId: placement.order.checkoutGroupId,
           items: (placement.order.items || []).map((line: any) => ({ ...line })),
         }))
       : [confirmed];
