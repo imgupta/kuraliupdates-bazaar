@@ -79,7 +79,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <button onClick={() => onCompare(product)} className="flex items-center gap-1 font-bold text-amber-700 hover:text-amber-800">
               <TrendingDown className="h-3 w-3" />Compare {relatedSellerCount} stores
             </button>
-          ) : <span className="text-slate-400">Single store offer</span>}
+          ) : <span className="text-slate-400">{product.stock > 0 ? 'Single store offer' : 'Unavailable'}</span>}
           <button onClick={() => onBargain(product)} className="flex items-center gap-1 font-semibold text-slate-500 hover:text-slate-800">
             <MessageSquare className="h-3 w-3" />Bargain
           </button>
