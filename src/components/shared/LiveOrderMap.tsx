@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MapPin, Navigation, RefreshCw, Route } from 'lucide-react';
+import { MapPin, Route } from 'lucide-react';
 import { trackingApi } from '../../services/domains/trackingApi';
 
 interface LiveOrderMapProps {
@@ -51,8 +51,6 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
   const [mapReady, setMapReady] = useState(false);
   const [routeDistance, setRouteDistance] = useState<string | null>(null);
   const [routeDuration, setRouteDuration] = useState<string | null>(null);
-  const [sellerCustomerDistance, setSellerCustomerDistance] = useState<string | null>(null);
-  const [routeError, setRouteError] = useState(false);
 
   const fallbackBuyerPoint = useMemo(() => toPoint(fallbackBuyer?.latitude, fallbackBuyer?.longitude), [fallbackBuyer?.latitude, fallbackBuyer?.longitude]);
   const buyerPoint = useMemo(() => toPoint(tracking?.buyerLatitude, tracking?.buyerLongitude) || fallbackBuyerPoint, [tracking?.buyerLatitude, tracking?.buyerLongitude, fallbackBuyerPoint]);
@@ -192,7 +190,6 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
       });
     }
     if (riderPoint && routeDestination && window.google.maps.DirectionsService && directionsRenderer.current) {
-      setRouteError(false);
       const directions = new window.google.maps.DirectionsService();
       directions.route({
         origin: riderPoint || (typeof routeOrigin === 'object' ? routeOrigin : String(routeOrigin)),
@@ -205,46 +202,25 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
           const leg = result.routes[0].legs[0];
           setRouteDistance(leg.distance?.text || null);
           setRouteDuration(leg.duration?.text || null);
-          setRouteError(false);
         } else {
           directionsRenderer.current?.set('directions', null);
           setRouteDistance(riderPoint && buyerPoint ? `~${distanceKm(riderPoint, buyerPoint).toFixed(1)} km straight-line` : null);
           setRouteDuration(null);
-          setRouteError(true);
         }
       });
     }
   }, [mapReady, buyerPoint?.lat, buyerPoint?.lng, riderPoint?.lat, riderPoint?.lng, pickupAddress, buyerAddress, routeDestination, routeOrigin]);
 
-  useEffect(() => {
-    if (!mapReady || !window.google?.maps || !pickupAddress || !(buyerPoint || buyerAddress)) return;
-    const directions = new window.google.maps.DirectionsService();
-    directions.route({
-      origin: pickupAddress,
-      destination: buyerPoint || buyerAddress,
-      travelMode: window.google.maps.TravelMode.DRIVING,
-    }, (result: any, routeStatus: string) => {
-      if (routeStatus === 'OK' && result?.routes?.[0]?.legs?.[0]) {
-        setSellerCustomerDistance(result.routes[0].legs[0].distance?.text || null);
-      } else {
-        setSellerCustomerDistance(null);
-      }
-    });
-  }, [mapReady, pickupAddress, buyerAddress, buyerPoint?.lat, buyerPoint?.lng]);
 
-  const navigationUrl = useMemo(() => {
-    const destination = enRouteToCustomer ? buyerAddress : pickupAddress;
-    const origin = riderPoint ? `${riderPoint.lat},${riderPoint.lng}` : undefined;
-    if (!destination) return 'https://www.google.com/maps';
-    return `https://www.google.com/maps/dir/?api=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
-  }, [enRouteToCustomer, buyerAddress, pickupAddress, riderPoint?.lat, riderPoint?.lng]);
+
+
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-      <div className="relative h-56 sm:h-72 bg-slate-100">
+      <div className="relative h-44 sm:h-56 bg-slate-100">
         {useOpenStreetMap ? (
           <iframe title="Delivery route map" className="absolute inset-0 h-full w-full border-0" loading="lazy" referrerPolicy="no-referrer"
-            src={`https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${fallbackPoint.lat}%2C${fallbackPoint.lng}`} />
+            src={`https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik${riderPoint ? `&marker=${riderPoint.lat}%2C${riderPoint.lng}` : buyerPoint ? `&marker=${buyerPoint.lat}%2C${buyerPoint.lng}` : ""}`} />
         ) : (
           <>
             <div ref={mapRef} className="absolute inset-0" />
@@ -252,23 +228,20 @@ export const LiveOrderMap: React.FC<LiveOrderMapProps> = ({
           </>
         )}
         <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-          <span className="inline-flex items-center gap-1 rounded-lg bg-white/95 px-2.5 py-1.5 text-[10px] font-extrabold shadow"><Navigation className="h-3.5 w-3.5 text-amber-600" /> Rider current location</span>
+          {riderPoint && <span className="inline-flex items-center gap-1 rounded-lg bg-white/95 px-2.5 py-1.5 text-[10px] font-extrabold shadow">Delivery partner</span>}
           <span className="inline-flex items-center gap-1 rounded-lg bg-white/95 px-2.5 py-1.5 text-[10px] font-extrabold shadow"><MapPin className="h-3.5 w-3.5 text-emerald-700" /> Customer</span>
           {pickupAddress && <span className="inline-flex items-center gap-1 rounded-lg bg-white/95 px-2.5 py-1.5 text-[10px] font-extrabold shadow"><MapPin className="h-3.5 w-3.5 text-blue-700" /> Seller pickup</span>}
         </div>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-3 py-3">
-        <div className="min-w-0 space-y-1">
-          <p className="flex items-center gap-1.5 text-xs font-extrabold text-slate-800"><Route className="h-4 w-4 text-emerald-700" /> {enRouteToCustomer ? 'Route to customer' : 'Route to seller pickup'}</p>
-          <p className="text-[11px] text-slate-600">{routeDistance ? `Rider route: ${routeDistance}${routeDuration ? ` · ETA ${routeDuration}` : ''}` : riderPoint && buyerPoint ? `Approx. ${distanceKm(riderPoint, buyerPoint).toFixed(1)} km straight-line to customer` : 'Waiting for GPS and route details…'}</p>
-          {sellerCustomerDistance && <p className="text-[11px] text-slate-600">Seller → customer: {sellerCustomerDistance} by road</p>}
-          {routeError && <p className="text-[10px] text-amber-700">Road route unavailable here; open navigation for turn-by-turn directions.</p>}
-          {!riderPoint && <p className="text-[10px] text-slate-500">Rider GPS is not available yet. Allow location access on the delivery device.</p>}
-        </div>
-        <a href={navigationUrl} target="_blank" rel="noreferrer" className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-emerald-700 px-3 py-2.5 text-xs font-extrabold text-white hover:bg-emerald-800">
-          <Navigation className="h-4 w-4" /> Start navigation
-        </a>
-        <span className="flex w-full items-center gap-1 text-[10px] font-semibold text-slate-500"><RefreshCw className="h-3 w-3" /> GPS refreshes every 5 seconds while the delivery app is active</span>
+      <div className="border-t border-slate-200 bg-white px-3 py-2.5">
+        <p className="flex items-center gap-1.5 text-xs font-extrabold text-slate-800"><Route className="h-4 w-4 text-emerald-700" /> {enRouteToCustomer ? 'Your order is heading to you' : 'Your delivery partner is heading to the store'}</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+          {riderPoint && routeDistance
+            ? `Delivery partner is approximately ${routeDistance}${routeDuration ? ` away · ${routeDuration} estimated` : ' from the next stop'}.`
+            : riderPoint && buyerPoint
+              ? `Delivery partner is approximately ${distanceKm(riderPoint, buyerPoint).toFixed(1)} km from your address.`
+              : 'The delivery partner’s location will appear here when it becomes available.'}
+        </p>
       </div>
     </div>
   );
