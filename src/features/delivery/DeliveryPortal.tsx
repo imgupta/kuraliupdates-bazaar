@@ -239,9 +239,11 @@ export const DeliveryDashboard: React.FC = () => {
     if (claimingOrderIds[claimKey]) return;
     setClaimingOrderIds(prev => ({ ...prev, [claimKey]: true }));
     try {
-      const claimed = job.checkoutGroupId
-        ? await deliveryApi.claimDeliveryCheckoutGroup(job.checkoutGroupId, agent.id)
-        : await claimDeliveryJob(job.id, agent.id);
+      const childOrderIds = job.checkoutGroupOrderIds || [job.id];
+      const isMultiSellerCheckout = Boolean(job.checkoutGroupId && childOrderIds.length > 1);
+      const claimed = isMultiSellerCheckout
+        ? await deliveryApi.claimDeliveryCheckoutGroup(job.checkoutGroupId!, agent.id)
+        : await claimDeliveryJob(childOrderIds[0] || job.id, agent.id);
       if (claimed) {
         const childIds = new Set(job.checkoutGroupOrderIds || [job.id]);
         setLiveAvailableOrders(prev => prev.filter(order => !childIds.has(order.id)));
