@@ -85,7 +85,7 @@ class DeliveryServiceTest {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder()
                 .orderId("SYNTH-OTP-VERIFY-1")
-                .status("ASSIGNED_TO_DELIVERY")
+                .status("PICKED_UP")
                 .deliveryAgent(agent)
                 .deliveryOtp("0042")
                 .paymentMethod("COD")
@@ -192,7 +192,7 @@ class DeliveryServiceTest {
     void assignedActiveAgentRegeneratesFourDigitOtpWithoutReturningIt() {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder()
-                .orderId("ORD-OTP-1").status("ASSIGNED_TO_DELIVERY")
+                .orderId("ORD-OTP-1").status("PICKED_UP")
                 .deliveryAgent(agent).deliveryOtp("1234").build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedByOrderId("ORD-OTP-1")).thenReturn(Optional.of(order));
@@ -211,10 +211,10 @@ class DeliveryServiceTest {
     void resendOnCombinedDeliveryRotatesOtpForEverySellerOrder() {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity first = OrderEntity.builder().orderId("BATCH-1").checkoutGroupId("CHK-1")
-                .combinedDeliveryBatchId("CHK-1").status("ASSIGNED_TO_DELIVERY")
+                .combinedDeliveryBatchId("CHK-1").status("PICKED_UP")
                 .deliveryAgent(agent).deliveryOtp("1111").build();
         OrderEntity second = OrderEntity.builder().orderId("BATCH-2").checkoutGroupId("CHK-1")
-                .combinedDeliveryBatchId("CHK-1").status("ASSIGNED_TO_DELIVERY")
+                .combinedDeliveryBatchId("CHK-1").status("PICKED_UP")
                 .deliveryAgent(agent).deliveryOtp("1111").build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedByOrderId("BATCH-1")).thenReturn(Optional.of(first));
@@ -235,7 +235,7 @@ class DeliveryServiceTest {
         DeliveryAgentEntity otherAgent = DeliveryAgentEntity.builder()
                 .agentId("AGENT-OTHER").status("ACTIVE").build();
         OrderEntity order = OrderEntity.builder()
-                .orderId("ORD-OTP-2").status("ASSIGNED_TO_DELIVERY")
+                .orderId("ORD-OTP-2").status("PICKED_UP")
                 .deliveryAgent(otherAgent).deliveryOtp("1234").build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(authenticatedAgent));
         when(orderRepository.findLockedByOrderId("ORD-OTP-2")).thenReturn(Optional.of(order));
@@ -288,7 +288,7 @@ class DeliveryServiceTest {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder()
                 .orderId("SYNTH-OTP-VERIFY-1")
-                .status("ASSIGNED_TO_DELIVERY")
+                .status("PICKED_UP")
                 .deliveryAgent(agent)
                 .deliveryOtp("0042")
                 .paymentMethod("COD")
@@ -316,10 +316,10 @@ class DeliveryServiceTest {
     void sameOtpOnSeparateSellerJobsDoesNotCompleteTheSiblingOrder() {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity first = OrderEntity.builder().orderId("SEP-1").checkoutGroupId("CHK-SEP")
-                .status("ASSIGNED_TO_DELIVERY").deliveryAgent(agent).deliveryOtp("0042")
+                .status("PICKED_UP").deliveryAgent(agent).deliveryOtp("0042")
                 .riderPayoutSnapshot(new BigDecimal("67")).build();
         OrderEntity second = OrderEntity.builder().orderId("SEP-2").checkoutGroupId("CHK-SEP")
-                .status("ASSIGNED_TO_DELIVERY").deliveryAgent(agent).deliveryOtp("0042")
+                .status("PICKED_UP").deliveryAgent(agent).deliveryOtp("0042")
                 .riderPayoutSnapshot(new BigDecimal("67")).build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedForDeliveryVerification("SEP-1")).thenReturn(Optional.of(first));
@@ -341,10 +341,10 @@ class DeliveryServiceTest {
     void combinedBatchOtpCompletesAllSellerOrdersAndCreditsOnePayout() {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity first = OrderEntity.builder().orderId("COMB-1").checkoutGroupId("CHK-COMB")
-                .combinedDeliveryBatchId("CHK-COMB").status("ASSIGNED_TO_DELIVERY")
+                .combinedDeliveryBatchId("CHK-COMB").status("PICKED_UP")
                 .deliveryAgent(agent).deliveryOtp("0042").riderPayoutSnapshot(new BigDecimal("78")).build();
         OrderEntity second = OrderEntity.builder().orderId("COMB-2").checkoutGroupId("CHK-COMB")
-                .combinedDeliveryBatchId("CHK-COMB").status("ASSIGNED_TO_DELIVERY")
+                .combinedDeliveryBatchId("CHK-COMB").status("PICKED_UP")
                 .deliveryAgent(agent).deliveryOtp("0042").riderPayoutSnapshot(BigDecimal.ZERO).build();
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedForDeliveryVerification("COMB-2")).thenReturn(Optional.of(second));
@@ -367,7 +367,7 @@ class DeliveryServiceTest {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder()
                 .orderId("SYNTH-OTP-VERIFY-2")
-                .status("ASSIGNED_TO_DELIVERY")
+                .status("PICKED_UP")
                 .deliveryAgent(agent)
                 .deliveryOtp("1234")
                 .paymentMethod("COD")
@@ -381,7 +381,7 @@ class DeliveryServiceTest {
                 () -> deliveryService.verifyDeliveryOtp("SYNTH-OTP-VERIFY-2", "9999", user()));
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
-        assertEquals("ASSIGNED_TO_DELIVERY", order.getStatus());
+        assertEquals("PICKED_UP", order.getStatus());
         assertEquals(0, agent.getTotalTrips());
         assertEquals(BigDecimal.ZERO, agent.getTotalEarnings());
         verify(orderRepository, never()).save(any());
@@ -402,7 +402,7 @@ class DeliveryServiceTest {
                 .build();
         OrderEntity order = OrderEntity.builder()
                 .orderId("SYNTH-OTP-VERIFY-3")
-                .status("ASSIGNED_TO_DELIVERY")
+                .status("PICKED_UP")
                 .deliveryAgent(assignedAgent)
                 .deliveryOtp("0042")
                 .paymentMethod("COD")
@@ -415,7 +415,7 @@ class DeliveryServiceTest {
                 () -> deliveryService.verifyDeliveryOtp("SYNTH-OTP-VERIFY-3", "0042", user()));
 
         assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
-        assertEquals("ASSIGNED_TO_DELIVERY", order.getStatus());
+        assertEquals("PICKED_UP", order.getStatus());
         verify(orderRepository, never()).save(any());
         verify(agentRepository, never()).save(any());
     }
@@ -449,7 +449,7 @@ class DeliveryServiceTest {
         agent.setAvailableForJobs(false);
         OrderEntity order = OrderEntity.builder()
                 .orderId("ORD-OFFLINE-ACTIVE")
-                .status("ASSIGNED_TO_DELIVERY")
+                .status("PICKED_UP")
                 .deliveryAgent(agent)
                 .deliveryOtp("0042")
                 .paymentMethod("COD")
