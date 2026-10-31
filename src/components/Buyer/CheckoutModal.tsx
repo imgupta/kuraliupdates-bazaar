@@ -288,6 +288,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
           </>
           )}
 
+          {/* Review the exact items before proceeding to payment. */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Order review · {cart.length} item{cart.length === 1 ? '' : 's'}</h3>
+            {cart.map(item => (
+              <div key={item.product.id} className="flex items-center justify-between gap-3 text-xs">
+                <div className="min-w-0">
+                  <p className="truncate font-bold text-slate-800">{item.product.title}</p>
+                  <p className="text-slate-500">Qty {item.quantity} · {item.product.sellerName}</p>
+                </div>
+                <span className="shrink-0 font-extrabold text-slate-900">₹{((item.negotiatedPrice ?? item.product.sellerPrice) * item.quantity).toFixed(2)}</span>
+              </div>
+            ))}
+          </section>
+
           {/* Section 3: Final Bill Breakdown */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
             <h4 className="font-bold text-slate-800">Payment Breakdown</h4>
