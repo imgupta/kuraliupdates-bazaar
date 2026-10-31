@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import type { CartItem, Coupon, Product, Seller } from '../types';
 import { safeStorageJson } from '../shared/storage/safeStorage';
 import { usePersistedValue } from './usePersistedValue';
@@ -29,7 +29,7 @@ export const useBuyerCommerceState = (
     showToast(`Added "${product.title}" to cart`, 'success');
   };
 
-  const upsertBargainCartItem = (
+  const upsertBargainCartItem = useCallback((
     product: Product,
     bargainId: string,
     bargainStatus: NonNullable<CartItem['bargainStatus']>,
@@ -47,13 +47,15 @@ export const useBuyerCommerceState = (
         acceptedOfferId: bargainStatus === 'ACCEPTED' ? acceptedOfferId : undefined,
       };
       if (existing) {
-        return prev.map(item => item.product.id === product.id
-          ? { ...item, ...bargainFields }
-          : item);
+        if (existing.bargainId === bargainId && existing.bargainStatus === bargainStatus
+          && existing.bargainOfferPrice === bargainOfferPrice
+          && existing.negotiatedPrice === bargainFields.negotiatedPrice
+          && existing.acceptedOfferId === bargainFields.acceptedOfferId) return prev;
+        return prev.map(item => item.product.id === product.id ? { ...item, ...bargainFields } : item);
       }
       return [...prev, { product, quantity: 1, ...bargainFields }];
     });
-  };
+  }, []);
 
   const effectivePrice = (item: CartItem) => item.negotiatedPrice
     ?? Number((item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100)).toFixed(2));
