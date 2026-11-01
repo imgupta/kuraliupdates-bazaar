@@ -35,7 +35,6 @@ public record VerifyOtpRequest(
         String wardNumber,
         String streetLocality,
         String pinCode,
-        String landmark,
         String gstNumber,
         String fssaiNumber,
         String fssaiLicenseType,
