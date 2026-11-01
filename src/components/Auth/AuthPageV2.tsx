@@ -239,7 +239,8 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
         if (!registration) throw new Error('Registration details are missing. Please start registration again.');
         const { name, email, phone, locality, address, storeName, category, vehicleType, vehicleNumber, licenseNumber,
           businessType, registeredBusinessName, shopNumber, wardNumber, streetLocality, pinCode, gstNumber,
-          fssaiNumber, fssaiLicenseType, openingTime, closingTime, weeklyClosedDay, agreementAccepted, agreementVersion } = registration;
+          fssaiNumber, fssaiLicenseType, openingTime, closingTime, weeklyClosedDay, agreementAccepted, agreementVersion,
+          latitude, longitude, formattedAddress, placeId, shopFrontPhoto, gstCertificate, fssaiCertificate } = registration;
 
         const response = await bazaarApi.verifyOtp({
           mode: 'REGISTER',
@@ -265,10 +266,16 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
         }
 
         if (registrationRole === 'seller') {
-          const uploads = [
-            shopFrontPhoto ? bazaarApi.uploadSellerDocument(response.token, 'SHOP_FRONT_PHOTO', shopFrontPhoto) : Promise.resolve({success:false,message:'Shop-front photo is missing'}),
-            gstCertificate ? bazaarApi.uploadSellerDocument(response.token, 'GST_CERTIFICATE', gstCertificate) : Promise.resolve({success:true}),
-            fssaiCertificate ? bazaarApi.uploadSellerDocument(response.token, 'FSSAI_CERTIFICATE', fssaiCertificate) : Promise.resolve({success:true}),
+          const uploads: Array<Promise<{ success: boolean; documentId?: string; message?: string }>> = [
+            shopFrontPhoto
+              ? bazaarApi.uploadSellerDocument(response.token, 'SHOP_FRONT_PHOTO', shopFrontPhoto)
+              : Promise.resolve({ success: false, message: 'Shop-front photo is missing' }),
+            gstCertificate
+              ? bazaarApi.uploadSellerDocument(response.token, 'GST_CERTIFICATE', gstCertificate)
+              : Promise.resolve({ success: true }),
+            fssaiCertificate
+              ? bazaarApi.uploadSellerDocument(response.token, 'FSSAI_CERTIFICATE', fssaiCertificate)
+              : Promise.resolve({ success: true }),
           ];
           const uploadResults = await Promise.all(uploads);
           const failedUpload = uploadResults.find(result => !result.success);
