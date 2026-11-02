@@ -62,6 +62,31 @@ export const sellerApi = {
       }
     },
 
+  async getSellerRegistrationDraft(): Promise<any> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) throw new Error('Sign in to resume your seller registration.');
+    const res = await fetch(`${API_BASE_URL}/sellers/me/draft`, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` }, cache: 'no-store' });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to load saved seller draft (HTTP ${res.status})`);
+    return data;
+  },
+
+  async saveSellerRegistrationDraft(draft: Record<string, unknown>): Promise<any> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) throw new Error('Sign in to save your seller registration.');
+    const res = await fetch(`${API_BASE_URL}/sellers/me/draft`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(draft) });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to save seller draft (HTTP ${res.status})`);
+    return data;
+  },
+
+  async deleteSellerRegistrationDraft(): Promise<void> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) throw new Error('Sign in to manage your seller registration.');
+    const res = await fetch(`${API_BASE_URL}/sellers/me/draft`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error(`Unable to delete saved seller draft (HTTP ${res.status})`);
+  },
+
   async getMySellerDocuments(): Promise<any[]> {
     const token = localStorage.getItem('kurali_auth_token');
     if (!token) return [];
