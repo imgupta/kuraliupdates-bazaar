@@ -123,3 +123,44 @@ The source tree contains backend tests for Auth registration checks/roles, addre
 ## Updated Phase 0 gate
 
 Phase 0 remains open. The next evidence tranche must enumerate every SQL statement and repository call site, inspect every migration source file, inspect full security/filter/controller method bodies, enumerate asynchronous and WebSocket wiring, and map each test to endpoint/workflow and authorization scenario. Oracle migration history and schema constraints require separately approved read-only access.
+
+
+## Security and endpoint audit tranche — controller/config source review
+
+**Baseline:** main `4f6d919779454d41d592d01051da5189a9b60b43`. The findings below are source observations, not proof of exploitability or a substitute for negative runtime tests.
+
+### Security filter and public-route policy
+
+- `SecurityConfig.securityFilterChain` disables CSRF, installs `SessionAuthenticationFilter`, explicitly requires `ROLE_ADMIN` for `/admin/**`, but also permits `/buyers/**`, `/sellers/**`, and `/delivery/**`, followed by a catch-all `/**.permitAll()` (source lines 26–53).
+- `SessionAuthenticationFilter` calls `AuthService.requireUser(token)` and attaches a `ROLE_<role>` authority when a bearer token is supplied. The filter does not make the catch-all routes authenticated by default.
+- Consequence: every non-admin endpoint must enforce authentication, role, and record ownership itself (or be intentionally public). A newly added controller method can silently inherit public access if it omits its own guard. This is a **High-priority architecture/security control gap**; it is not, by itself, proof that every existing endpoint is exploitable.
+- Required durable control: replace broad catch-all permit-all with explicit public route allowlist and authenticated default; add endpoint security tests for anonymous, invalid, expired, revoked, wrong-role, wrong-owner, and correct-owner cases. Keep intentional public registration/catalogue endpoints explicit and rate-limited.
+
+### Confirmed endpoint-level observations
+
+| Area | Source observation | Risk / required verification |
+|---|---|---|
+| Delivery registration | `POST /delivery/register` in `DeliveryController` accepts registration DTO without an `Authentication` parameter or controller-level session check. The route is under `/delivery/**`, which is permit-all. | Intentional public lead/registration may be acceptable, but verify OTP/email/phone ownership, abuse/rate limits, duplicate identity handling, consent/privacy notice, retention and admin review. Treat as **High** until those controls are demonstrated. |
+| Daily Help profile | `DailyHelpController` checks authenticated user and phone match for professional registration and `by-phone`; professional mutations call `requireOwnProfessional`, which resolves the profile by authenticated phone and compares professional ID. | Positive source-level ownership controls observed. Still test wrong phone, duplicate phone, multiple profiles, deleted/disabled profile, race conditions and role combinations. |
+| Daily Help booking | Create booking requires authenticated user phone match; latest booking requires BUYER role and phone match; individual booking uses `getBookingForUser`. | Verify service query binds booking to buyer identity and that provider/admin access paths are deliberate; test IDOR and status transition abuse. |
+| Delivery tracking | Location updates require an unexpired session whose linked user's email matches the delivery agent email. Order tracking authorizes buyer email or assigned delivery-agent email and returns buyer delivery address/coordinates and assigned-agent location; delivery OTP is returned only when authenticated email matches buyer email. | Source-level checks exist. Verify account suspension/revocation propagation, email uniqueness/normalization, role/profile linkage, location freshness/retention, access logging, OTP exposure policy and that unassigned riders/other buyers receive 403. |
+| Seller documents | Seller upload/list resolves authenticated bearer session then seller by `userId`. Admin list/download/rescan/verification separately checks `ROLE_ADMIN`. Upload validates document type, size <=5 MB, MIME allowlist and basic file signature; data starts quarantined; download/verification requires CLEAN scan status. | Good controls observed. Further verify MIME sniffing/parser safety, polyglot/decompression attacks, ClamAV outage handling, DB BLOB encryption/backup/retention, admin audit, scan bypass/race, and seller access after profile transfer/deactivation. |
+| Admin APIs | `/admin/**` is role-gated at filter chain. `AdminController` returns full `SellerEntity` and `DeliveryAgentEntity` objects on list endpoints and buyer directory includes contact/address fields. | Review response DTO minimization and field serialization to avoid leaking internal fields; apply pagination and least-privilege admin scopes. Audit access to bulk PII and analytics. |
+| Account status administration | `AdminController.updateAccountStatus` hard-codes three root-admin email addresses in source, prevents self-change and protects those addresses; it updates account status and deletes sessions for non-ACTIVE states using JdbcTemplate. | **High maintainability/security risk:** root-admin identity policy is hard-coded and email-based. Move to managed immutable principal/permission policy, audit changes, validate actor privilege server-side and test transaction atomicity between user status, session deletion and audit insert. Never rely on email alone as a durable root-admin control. |
+
+### Transaction and persistence observations from reviewed controller
+
+- `AdminController` directly injects `JdbcTemplate` and owns account-status/session-revocation, account-audit and delivery-configuration SQL in addition to direct access to User, Seller, Product, Order, Delivery and Daily Help repositories.
+- `updateAccountStatus`, `revokeAccountSessions`, delivery-configuration update and seller-location verification have controller-level `@Transactional` annotations. Their SQL statements, audit writes, row locking and failure rollback still need method-by-method mapping and tests.
+- This makes `AdminController` a cross-domain orchestration/persistence hotspot. Move application commands to domain-owned services behind admin facade only after Phase 0 call graph and transaction mapping is complete.
+
+### Repository governance evidence
+
+- The GitHub API response for the audit baseline's `main` branch reports `protected=false` and branch protection `enabled=false`. This is a repository-control observation at the time checked, not a claim about organization rules outside the returned endpoint.
+- Before production, configure required PR review, required CI/status checks, stale approval dismissal, restricted direct pushes, and a documented emergency bypass with audit. This change requires repository-owner approval; no settings were changed during this audit.
+
+### Security tranche disposition
+
+- No application code or security configuration was changed.
+- Do not classify the whole API as public or vulnerable based only on the broad matcher: controller/service guards exist in reviewed paths. Equally, do not infer safety for unreviewed endpoints.
+- Remaining: inspect every other controller method, `AuthService` session/account-state semantics, entity serialization, rate-limit configuration, file storage, all SQL statements, and add/run negative endpoint tests in approved synthetic staging.
