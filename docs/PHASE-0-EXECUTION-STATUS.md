@@ -153,3 +153,6 @@ Correction committed on this branch:
 - Added `/health/live` to the explicit public security allowlist.
 
 This removes the accidental database dependency from the non-database smoke readiness gate. It does not bypass Flyway or make a backend that fails application startup reachable. If the Render process still cannot start due to its existing migration validation error, liveness will correctly remain unavailable; that is a deployment/startup blocker, not a smoke-script false negative. No DB migration, schema change, repair, or database health claim was made.
+
+
+The smoke runner also handles the current deployment topology: Render still deploys `main` and PR previews are disabled, so the newly added `/health/live` route is not present on the shared service until a reviewed deployment occurs. If the shared service returns 404 for `/health/live`, the runner falls back to the existing public `/v3/api-docs` endpoint as an HTTP/application response probe. This fallback is database-independent. Database-backed public catalogue and availability reads are excluded from this tranche; anonymous-access guard probes remain. The runner follows normal HTTP redirects, records recent retry diagnostics, and does not print secrets or personal data.
