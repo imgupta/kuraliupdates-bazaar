@@ -7,7 +7,8 @@ Start with these maintained sources:
 | [README](../README.md) | Product, stack, repository map and local setup |
 | [Architecture](../ARCHITECTURE.md) | Runtime, boundaries, invariants and security principles |
 | [Current state](CURRENT-STATE.md) | Latest implementation status, release caveats and prioritized backlog |
-| [Seller onboarding](SELLER-ONBOARDING.md) | Seller registration, document storage, admin approval and compliance gaps |
+| [Seller registration redesign](SELLER-REGISTRATION-REDESIGN.md) | Approved target UX, radius, multilingual, compliance, APIs, backlog and release gates |
+| [Seller onboarding](SELLER-ONBOARDING.md) | Current seller registration, document storage, admin approval and compliance workflow |
 | [Deployment](../DEPLOYMENT.md) | Vercel/Render release, environment and rollback gates |
 | [API](API.md) | Domain API index and contract maintenance |
 | [Database](DATABASE.md) | Flyway migration facts and Oracle operational safety |

@@ -1,5 +1,7 @@
 # Seller onboarding and compliance workflow
 
+> **Target redesign:** The approved future-state registration experience, 5 km proposed configurable seller radius, English/Punjabi/Hindi support, conditional document rules, API proposal, 86-ticket backlog and release gates are documented in [SELLER-REGISTRATION-REDESIGN.md](SELLER-REGISTRATION-REDESIGN.md). That document is a target specification, not a statement that the redesign is implemented.
+
 ## Lifecycle
 
 1. Seller submits OTP-verified identity and shop/business profile.
