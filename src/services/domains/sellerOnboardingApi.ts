@@ -14,6 +14,8 @@ async function request<T>(path: string, method: string, body?: unknown): Promise
 export const sellerOnboardingApi = {
   start: (ownerName: string, email: string, phone: string) =>
     request<{ success: boolean; leadId: string; status: string }>('/seller-registration/leads', 'POST', { ownerName, email, phone }),
+  sendContactOtps: (leadId: string) =>
+    request<{ success: boolean; expiresInSeconds: number; resendAfterSeconds: number }>(`/seller-registration/leads/${encodeURIComponent(leadId)}/send-contact-otps`, 'POST'),
   verifyContact: (leadId: string, emailOtp: string, phoneOtp: string) =>
     request<{ success: boolean; leadId: string; status: string }>(`/seller-registration/leads/${encodeURIComponent(leadId)}/verify-contact`, 'POST', { emailOtp, phoneOtp }),
   requestCallback: (leadId: string, consent: boolean, preferredTime?: string) =>
