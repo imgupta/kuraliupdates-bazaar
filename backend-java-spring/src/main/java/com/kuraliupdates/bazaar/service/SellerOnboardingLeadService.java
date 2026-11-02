@@ -42,12 +42,20 @@ public class SellerOnboardingLeadService {
     }
 
     @Transactional
+    public Map<String, Object> sendContactOtps(String leadId) {
+        Map<String,Object> lead = getLead(leadId);
+        otpService.send(String.valueOf(lead.get("email")), "SELLER_EMAIL");
+        otpService.send(String.valueOf(lead.get("phone")), "SELLER_PHONE");
+        return Map.of("success", true, "expiresInSeconds", 600, "resendAfterSeconds", otpService.getResendCooldownSeconds());
+    }
+
+    @Transactional
     public Map<String, Object> verifyContact(String leadId, String emailOtp, String phoneOtp) {
         Map<String, Object> lead = getLead(leadId);
         String email = String.valueOf(lead.get("email"));
         String phone = String.valueOf(lead.get("phone"));
-        otpService.verify(email, "EMAIL", emailOtp);
-        otpService.verify(phone, "PHONE", phoneOtp);
+        otpService.verify(email, "SELLER_EMAIL", emailOtp);
+        otpService.verify(phone, "SELLER_PHONE", phoneOtp);
         LocalDateTime now = LocalDateTime.now();
         jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET EMAIL_VERIFIED=1, PHONE_VERIFIED=1, STATUS='CONTACT_VERIFIED', UPDATED_AT=? WHERE LEAD_ID=?",
                 now, leadId);
@@ -80,6 +88,9 @@ public class SellerOnboardingLeadService {
         }
         if (!Boolean.TRUE.equals(lead.get("emailVerified")) || !Boolean.TRUE.equals(lead.get("phoneVerified"))) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Verify both email and mobile before submitting seller details");
+        }
+        if (!List.of("CONTACT_VERIFIED", "CALLBACK_REQUESTED").contains(String.valueOf(lead.get("status")))) {
+            throw new ApiException(HttpStatus.CONFLICT, "This registration lead has already been submitted or closed");
         }
         jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET STATUS='APPLICATION_SUBMITTED', APPLICATION_ID=?, UPDATED_AT=? WHERE LEAD_ID=?",
                 applicationId, LocalDateTime.now(), leadId);
