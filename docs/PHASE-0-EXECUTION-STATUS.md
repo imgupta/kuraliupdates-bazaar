@@ -44,6 +44,23 @@ This proves the deployed `main` instance was failing Flyway validation at the ti
 
 The Render service has no configured PR preview deployment. No deployment was triggered from this PR because the service tracks `main`; changing service configuration or deploying unreviewed PR code to the shared service would be unsafe.
 
+
+## Isolated Oracle preflight runner
+
+A one-shot GitHub Actions workflow, `.github/workflows/phase0-oracle-preflight.yml`, has been added to the Phase 0 branch. It runs in an ephemeral GitHub-hosted runner, checks out this branch, extracts the supplied wallet into a restricted temporary directory, builds the backend and activates only `phase0-diagnostics`. It does not deploy to or alter the shared Render API service. The runner is read-only at the SQL level and uploads its sanitized log as a short-retention artifact.
+
+Before it can connect, configure these repository Actions secrets under **Settings → Secrets and variables → Actions**:
+
+- `ORACLE_WALLET_BASE64`: base64-encoded contents of the existing wallet ZIP.
+- `ORACLE_WALLET_PASSWORD`: password used to open that wallet ZIP.
+- `ORACLE_TNS_ALIAS`: service alias from the wallet's `tnsnames.ora` (for example, the `..._high` alias).
+- `ORACLE_USERNAME`: existing staging database account name.
+- `ORACLE_PASSWORD`: password for that staging account.
+
+Use a dedicated read-only Oracle account if one already exists. The diagnostic SQL is SELECT-only; it never invokes DDL/DML or Flyway repair. If only the application's existing ADMIN account is available, the workflow still executes only the read-only preflight queries, but that is a temporary least-privilege exception and must not become a permanent integration. Do not put secret values in commits, issues, PR comments or chat.
+
+**Execution status:** workflow committed on the Phase 0 branch; execution is pending the five repository secrets above. No Oracle report has been generated yet. The shared Render service has not been modified.
+
 ## Oracle recovery safety
 
 Do not run `flyway repair`, delete/insert history rows, drop/recreate constraints, or rerun V30 until all of the following are recorded:
