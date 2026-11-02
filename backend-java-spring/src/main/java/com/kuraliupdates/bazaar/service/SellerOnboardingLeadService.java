@@ -91,33 +91,36 @@ public class SellerOnboardingLeadService {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(100, size));
         String normalizedStatus = status == null ? "" : status.trim().toUpperCase();
-        String term = search == null ? "" : "%" + search.trim().toLowerCase() + "%";
-        return jdbc.query(
-                "SELECT LEAD_ID,OWNER_NAME,EMAIL,PHONE,SOURCE,STATUS,EMAIL_VERIFIED,PHONE_VERIFIED,CONTACT_CONSENT,CALLBACK_REQUESTED,ASSIGNED_TO,CALLBACK_AT,LAST_CONTACTED_AT,APPLICATION_ID,CREATED_AT,UPDATED_AT FROM SELLER_ONBOARDING_LEADS WHERE (? IS NULL OR STATUS=?) AND (? IS NULL OR LOWER(OWNER_NAME) LIKE ? OR LOWER(EMAIL) LIKE ? OR PHONE LIKE ?) ORDER BY CASE WHEN STATUS='CALLBACK_REQUESTED' THEN 0 ELSE 1 END, CREATED_AT DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY",
-                (rs, row) -> {
-                    Map<String,Object> m = new LinkedHashMap<>();
-                    m.put("leadId", rs.getString("LEAD_ID")); m.put("ownerName", rs.getString("OWNER_NAME"));
-                    m.put("email", rs.getString("EMAIL")); m.put("phone", rs.getString("PHONE"));
-                    m.put("source", rs.getString("SOURCE")); m.put("status", rs.getString("STATUS"));
-                    m.put("emailVerified", rs.getInt("EMAIL_VERIFIED") == 1); m.put("phoneVerified", rs.getInt("PHONE_VERIFIED") == 1);
-                    m.put("contactConsent", rs.getInt("CONTACT_CONSENT") == 1); m.put("callbackRequested", rs.getInt("CALLBACK_REQUESTED") == 1);
-                    m.put("assignedTo", rs.getString("ASSIGNED_TO")); m.put("callbackAt", rs.getTimestamp("CALLBACK_AT"));
-                    m.put("lastContactedAt", rs.getTimestamp("LAST_CONTACTED_AT")); m.put("applicationId", rs.getString("APPLICATION_ID"));
-                    m.put("createdAt", rs.getTimestamp("CREATED_AT")); m.put("updatedAt", rs.getTimestamp("UPDATED_AT"));
-                    return m;
-                },
-                normalizedStatus.isBlank() ? null : normalizedStatus,
-                normalizedStatus.isBlank() ? null : normalizedStatus,
-                term.equals("%%") ? null : term, term.equals("%%") ? null : term,
-                term.equals("%%") ? null : term, term.equals("%%") ? null : term,
-                safePage * safeSize, safeSize);
+        String term = search == null ? "" : search.trim().toLowerCase();
+        StringBuilder sql = new StringBuilder("SELECT LEAD_ID,OWNER_NAME,EMAIL,PHONE,SOURCE,STATUS,EMAIL_VERIFIED,PHONE_VERIFIED,CONTACT_CONSENT,CALLBACK_REQUESTED,ASSIGNED_TO,CALLBACK_AT,LAST_CONTACTED_AT,APPLICATION_ID,CREATED_AT,UPDATED_AT FROM SELLER_ONBOARDING_LEADS WHERE 1=1");
+        java.util.List<Object> params = new java.util.ArrayList<>();
+        if (!normalizedStatus.isBlank()) { sql.append(" AND STATUS=?"); params.add(normalizedStatus); }
+        if (!term.isBlank()) {
+            sql.append(" AND (LOWER(OWNER_NAME) LIKE ? OR LOWER(EMAIL) LIKE ? OR PHONE LIKE ?)");
+            String pattern = "%" + term + "%";
+            params.add(pattern); params.add(pattern); params.add(pattern);
+        }
+        sql.append(" ORDER BY CASE WHEN STATUS='CALLBACK_REQUESTED' THEN 0 ELSE 1 END, CREATED_AT DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
+        params.add(safePage * safeSize); params.add(safeSize);
+        return jdbc.query(sql.toString(), (rs, row) -> {
+            Map<String,Object> m = new LinkedHashMap<>();
+            m.put("leadId", rs.getString("LEAD_ID")); m.put("ownerName", rs.getString("OWNER_NAME"));
+            m.put("email", rs.getString("EMAIL")); m.put("phone", rs.getString("PHONE"));
+            m.put("source", rs.getString("SOURCE")); m.put("status", rs.getString("STATUS"));
+            m.put("emailVerified", rs.getInt("EMAIL_VERIFIED") == 1); m.put("phoneVerified", rs.getInt("PHONE_VERIFIED") == 1);
+            m.put("contactConsent", rs.getInt("CONTACT_CONSENT") == 1); m.put("callbackRequested", rs.getInt("CALLBACK_REQUESTED") == 1);
+            m.put("assignedTo", rs.getString("ASSIGNED_TO")); m.put("callbackAt", rs.getTimestamp("CALLBACK_AT"));
+            m.put("lastContactedAt", rs.getTimestamp("LAST_CONTACTED_AT")); m.put("applicationId", rs.getString("APPLICATION_ID"));
+            m.put("createdAt", rs.getTimestamp("CREATED_AT")); m.put("updatedAt", rs.getTimestamp("UPDATED_AT"));
+            return m;
+        }, params.toArray());
     }
 
     @Transactional
     public Map<String, Object> update(String leadId, String actor, String assignee, String status, String followUpAt, String outcome) {
         getLead(leadId);
         String nextStatus = status == null || status.isBlank() ? null : status.trim().toUpperCase();
-        if (nextStatus != null && !List.of("CONTACT_VERIFIED","CALLBACK_REQUESTED","IN_PROGRESS","APPLICATION_SUBMITTED","CONVERTED","NOT_INTERESTED","UNREACHABLE").contains(nextStatus)) {
+        if (nextStatus != null && !List.of("STARTED","CONTACT_VERIFIED","CALLBACK_REQUESTED","IN_PROGRESS","APPLICATION_SUBMITTED","CONVERTED","NOT_INTERESTED","UNREACHABLE").contains(nextStatus)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported lead status");
         }
         LocalDateTime followUp = null;
@@ -125,8 +128,16 @@ public class SellerOnboardingLeadService {
             try { followUp = LocalDateTime.parse(followUpAt); }
             catch (Exception ex) { throw new ApiException(HttpStatus.BAD_REQUEST, "Follow-up time must use ISO local date-time format"); }
         }
-        jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET ASSIGNED_TO=COALESCE(?,ASSIGNED_TO), STATUS=COALESCE(?,STATUS), CALLBACK_AT=COALESCE(?,CALLBACK_AT), LAST_CONTACTED_AT=?, UPDATED_AT=? WHERE LEAD_ID=?",
-                blankToNull(assignee), nextStatus, followUp, LocalDateTime.now(), LocalDateTime.now(), leadId);
+        java.util.List<String> assignments = new java.util.ArrayList<>();
+        java.util.List<Object> params = new java.util.ArrayList<>();
+        if (assignee != null && !assignee.isBlank()) { assignments.add("ASSIGNED_TO=?"); params.add(clean(assignee,150)); }
+        if (nextStatus != null) { assignments.add("STATUS=?"); params.add(nextStatus); }
+        if (followUp != null) { assignments.add("CALLBACK_AT=?"); params.add(followUp); }
+        if (outcome != null && !outcome.isBlank()) { assignments.add("LAST_CONTACTED_AT=?"); params.add(LocalDateTime.now()); }
+        if (!assignments.isEmpty()) {
+            assignments.add("UPDATED_AT=?"); params.add(LocalDateTime.now()); params.add(leadId);
+            jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET " + String.join(",", assignments) + " WHERE LEAD_ID=?", params.toArray());
+        }
         if (outcome != null && !outcome.isBlank()) addNote(leadId, actor, outcome, nextStatus, followUpAt);
         audit(leadId, actor, "LEAD_UPDATED", "status=" + nextStatus + "; assignee=" + assignee + "; followUp=" + followUpAt);
         return getLead(leadId);
