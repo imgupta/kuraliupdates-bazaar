@@ -16,6 +16,9 @@ export const BuyerRegistrationPage: React.FC = () => {
   const [pinCode, setPinCode] = useState('');
   const [location, setLocation] = useState<DeliveryLocation | null>(null);
   const [otp, setOtp] = useState('');
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [emailOtpRequired, setEmailOtpRequired] = useState(true);
+  const [mobileOtpRequired, setMobileOtpRequired] = useState(false);
   const [step, setStep] = useState<'form' | 'otp' | 'done'>('form');
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -54,14 +57,30 @@ export const BuyerRegistrationPage: React.FC = () => {
         setError(identityCheck.message);
         return;
       }
-      const response = await bazaarApi.sendOtp(normalizedEmail, 'EMAIL', 'REGISTER');
-      if (!response.success) {
-        setError(response.message);
+      const settings = await bazaarApi.getRegistrationOtpSettings();
+      if (!settings.success) {
+        setError(settings.message || 'Unable to load registration verification settings.');
+        return;
+      }
+      if (settings.emailOtpRequired) {
+        const emailResponse = await bazaarApi.sendOtp(normalizedEmail, 'EMAIL', 'REGISTER');
+        if (!emailResponse.success) { setError(emailResponse.message); return; }
+      }
+      if (settings.mobileOtpRequired) {
+        const mobileResponse = await bazaarApi.sendOtp(normalizedPhone, 'PHONE', 'REGISTER');
+        if (!mobileResponse.success) { setError(mobileResponse.message); return; }
+      }
+      setEmailOtpRequired(settings.emailOtpRequired);
+      setMobileOtpRequired(settings.mobileOtpRequired);
+      if (!settings.emailOtpRequired && !settings.mobileOtpRequired) {
+        showToast('Contact details saved. OTP verification is currently disabled by KuraliUpdates.', 'info');
+        await verify(false, false);
         return;
       }
       setCountdown(60);
       setStep('otp');
-      showToast('Verification code sent to your email', 'info');
+      const channels = [settings.emailOtpRequired ? 'email' : '', settings.mobileOtpRequired ? 'mobile' : ''].filter(Boolean).join(' and ');
+      showToast(`Verification code sent to your ${channels}`, 'info');
     } catch (err: any) {
       setError(err?.message || 'Unable to start registration. Please try again.');
     } finally {
@@ -69,9 +88,11 @@ export const BuyerRegistrationPage: React.FC = () => {
     }
   };
 
-  const verify = async () => {
-    const code = otp.replace(/\D/g, '');
-    if (code.length !== 6) return setError('Enter the complete 6-digit OTP.');
+  const verify = async (requireEmailOtp = emailOtpRequired, requireMobileOtp = mobileOtpRequired) => {
+    const emailCode = otp.replace(/\D/g, '');
+    const mobileCode = phoneOtp.replace(/\D/g, '');
+    if (requireEmailOtp && emailCode.length !== 6) return setError('Enter the complete 6-digit email OTP.');
+    if (requireMobileOtp && mobileCode.length !== 6) return setError('Enter the complete 6-digit mobile OTP.');
     const normalizedName = name.trim();
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedPhone = phone.replace(/\D/g, '');
@@ -96,7 +117,8 @@ export const BuyerRegistrationPage: React.FC = () => {
       placeId: location?.placeId,
       latitude: location?.latitude,
       longitude: location?.longitude,
-      emailOtp: code,
+      emailOtp: requireEmailOtp ? emailCode : '',
+      phoneOtp: requireMobileOtp ? mobileCode : '',
     } as any);
     setLoading(false);
 
@@ -160,9 +182,10 @@ export const BuyerRegistrationPage: React.FC = () => {
             <button type="button" onClick={sendOtp} disabled={loading} className="w-full rounded-2xl bg-slate-950 py-3.5 text-sm font-black text-white hover:bg-black disabled:opacity-50"><ShoppingBag className="inline w-4 h-4 mr-2" /> {loading ? 'Sending verification code…' : 'Continue & send email OTP'}</button>
           </> : <div className="max-w-md mx-auto text-center py-8">
             <div className="mx-auto w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center"><Mail className="w-7 h-7 text-amber-700" /></div>
-            <h2 className="mt-4 text-xl font-black text-slate-900">Verify your email</h2>
-            <p className="mt-2 text-xs text-slate-500">Enter the 6-digit code sent to your email.</p>
-            <input value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" className="mt-5 w-full rounded-2xl border-2 border-slate-300 bg-slate-50 px-4 py-4 text-center text-2xl font-black tracking-[0.5em] outline-none focus:border-amber-500" placeholder="000000" />
+            <h2 className="mt-4 text-xl font-black text-slate-900">Verify your contact details</h2>
+            <p className="mt-2 text-xs text-slate-500">Enter the code for each enabled verification channel.</p>
+            {emailOtpRequired && <label className="mt-5 block text-left text-xs font-bold text-slate-700">Email OTP<input value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" className="mt-2 w-full rounded-2xl border-2 border-slate-300 bg-slate-50 px-4 py-4 text-center text-2xl font-black tracking-[0.5em] outline-none focus:border-amber-500" placeholder="000000" /></label>}
+            {mobileOtpRequired && <label className="mt-4 block text-left text-xs font-bold text-slate-700">Mobile OTP<input value={phoneOtp} onChange={e => setPhoneOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" className="mt-2 w-full rounded-2xl border-2 border-slate-300 bg-slate-50 px-4 py-4 text-center text-2xl font-black tracking-[0.5em] outline-none focus:border-amber-500" placeholder="000000" /></label>}
             <button type="button" onClick={verify} disabled={loading} className="mt-4 w-full rounded-2xl bg-slate-950 py-3.5 text-sm font-black text-white disabled:opacity-50">{loading ? 'Creating account…' : 'Verify & create buyer account'}</button>
             <button type="button" onClick={sendOtp} disabled={countdown > 0 || loading} className="mt-3 text-xs font-bold text-amber-700 disabled:text-slate-400">{countdown ? `Resend in ${countdown}s` : 'Resend OTP'}</button>
           </div>}
