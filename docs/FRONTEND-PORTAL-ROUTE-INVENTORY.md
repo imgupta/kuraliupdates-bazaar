@@ -95,3 +95,8 @@ Important observed behavior:
 ## Confirmed backend API families
 
 The route registry above is frontend-only. The inspected backend controllers expose corresponding API families under `/auth`, `/buyers`, `/sellers`, `/delivery`, `/daily-help`, `/negotiations`, `/tracking` and `/admin`, plus seller-registration lead/draft/OTP settings and seller-document endpoints. Full method/path/authz mapping remains in progress; do not treat these API paths as browser routes.
+
+
+## Mandatory implementation standard
+
+All future frontend route, shell, authentication, UI and portal work must follow [ENGINEERING-OPERATING-STANDARD.md](ENGINEERING-OPERATING-STANDARD.md). Do not change cross-origin portal handoff or route fallback behavior without route/session regression tests.

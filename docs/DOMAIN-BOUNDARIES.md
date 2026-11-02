@@ -118,3 +118,16 @@ This is a controller-family summary, not a complete endpoint/authz table. E2E-on
 - `OrderService` checkout currently rejects online payment and accepts COD only in the inspected method. Do not describe online payment as live based on frontend UI or planning documents.
 
 These are discovery findings, not code changes or a security sign-off.
+
+
+## Security and admin boundary source inspection
+
+Inspected SecurityConfig.java, SessionAuthenticationFilter.java, AdminController.java and E2eOtpController.java at the PR #223 merge baseline.
+
+- Spring Security explicitly applies hasRole(ADMIN) to /admin/**. Health, Swagger, /buyers/**, /sellers/**, /delivery/** and the final /** matcher are configured permitAll(). The custom session filter is inserted before username/password authentication.
+- @EnableMethodSecurity is not present in the inspected SecurityConfig, and inspected controllers did not show @PreAuthorize. Admin authorization therefore depends heavily on URL matcher coverage and filter principal construction; method-level authorization is not an independent visible defense.
+- AdminController directly injects repositories for Users, Sellers, SellerDocuments, Products, Orders, DeliveryAgents, SearchTrends and DailyHelpProfessionals, plus JdbcTemplate and DailyHelpService. This is a cross-domain admin facade, not a domain-owned application service. Split operations into owner-domain contracts while preserving the /admin API facade and ADMIN role gate.
+- E2eOtpController fails closed unless environment is staging, token length is at least 32, capture service is safely configured and constant-time token comparison succeeds. Keep this staging-only.
+- Do not infer all non-admin routes are safe merely because the session filter exists. Complete endpoint-by-endpoint authn/authz and ownership tests, especially for buyer/seller/delivery endpoints under permitAll matchers.
+
+These are source observations, not a penetration test or security approval.

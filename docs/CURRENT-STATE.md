@@ -146,3 +146,10 @@ Important coupling requiring BE-1 design before package moves:
 - The tracked source tree contains an Oracle wallet ZIP and the inspected Dockerfile copies Wallet*.zip into the image; review the open security PR #84 and current secret-handling state before touching this.
 
 This remains a partial source audit. Method-level repository read/write classification, every controller's full authz table, all migration DDL, Oracle FK/trigger metadata, frontend route consumer map and runtime migration evidence are not yet complete. No application code or runtime configuration was changed.
+
+
+## Security and admin boundary audit checkpoint
+
+Source inspection found SecurityConfig gates /admin/** with ADMIN role, while /buyers/**, /sellers/**, /delivery/** and the catch-all are configured permitAll and rely on the session filter plus endpoint/service checks. No @EnableMethodSecurity or controller @PreAuthorize was found in the inspected configuration/controllers; complete endpoint authz testing is a priority. AdminController directly accesses repositories across Identity, Marketplace, Orders, Delivery, Daily Help and analytics. Preserve the admin API but delegate operations to owner-domain contracts during modularization. E2E OTP capture is designed to fail closed outside correctly configured staging.
+
+Open PR #84 explicitly says not to merge/deploy its wallet-removal change until replacement Oracle wallet secret files and required environment variables are configured and validated. Treat the committed wallet and hard-coded credentials as potentially exposed and rotate them. This is a security/release blocker, not a docs-only fix. See DOMAIN-BOUNDARIES.md and SERVICE-DEPENDENCY-MAP.md. This source inspection is not a penetration test.

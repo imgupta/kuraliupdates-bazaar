@@ -105,3 +105,20 @@ The table reports constructor/field dependencies observed, not every method-leve
 6. Separate E2E and operational endpoints from customer-facing API contracts.
 
 No package move should start until method-level writes and transaction boundaries are enumerated.
+
+
+## Additional security/admin dependencies
+
+- SecurityConfig has an explicit ADMIN role matcher for /admin/**; the final catch-all matcher is permitAll. SessionAuthenticationFilter is inserted into the chain. Test the effective principal and role mapping for every endpoint.
+- No @EnableMethodSecurity was found in the inspected SecurityConfig, and inspected AdminController has no method-level @PreAuthorize. URL-level ADMIN gating is the primary visible admin gate.
+- AdminController directly injects repositories for Identity (User), Marketplace (Seller, SellerDocument, Product), Orders (Order), Delivery (DeliveryAgent), analytics (SearchTrend), and Daily Help (DailyHelpProfessional), plus JdbcTemplate. Keep the controller as a thin compatibility facade; route operations to owning domain application interfaces.
+- E2E OTP capture is fail-closed based on staging environment, strong token length, safe capture configuration and constant-time token validation. Keep E2E support out of normal production workflows.
+
+## Security verification tasks before FE-1/BE-1
+
+1. Enumerate all controller methods and match them to SecurityConfig patterns.
+2. Test anonymous, authenticated wrong-role, correct-role and wrong-record-owner access for every mutation and sensitive read.
+3. Verify the custom session filter rejects expired/revoked/malformed sessions and never trusts client-selected role.
+4. Check whether public /buyers/**, /sellers/** and /delivery/** endpoints have explicit service-level identity/ownership checks.
+5. Ensure admin actions are auditable and every admin operation uses the owning domain contract.
+6. Verify E2E OTP capture remains disabled/not-found outside a correctly configured staging environment.
