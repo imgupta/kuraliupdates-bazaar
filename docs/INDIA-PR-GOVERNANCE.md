@@ -20,7 +20,7 @@ A reviewer should return a PR for completion if material applicable sections are
 
 ## 2. Hosting and data residency decision
 
-**Production target: India.** The production hosting architecture is intended to place application compute, primary databases and production data storage in India, subject to provider capabilities, contractual terms, legal review and verified configuration.
+**Production target: India.** Production application compute, primary databases and production data storage must be hosted in India before launch, subject to provider capabilities, contractual terms, legal review and verified configuration. **Development/staging may continue using the currently configured regions** (including Singapore) when clearly identified, access-controlled, documented and populated only with synthetic/minimized or otherwise specifically approved data.
 
 This is a target decision, not evidence of current residency. Read-only Render service inspection on 3 Nov 2026 verified the backend web service region as **Singapore**. The frontend is a Render static site served through a CDN; its service details expose no single deployment region, so treat delivery as globally distributed and verify cache/data-flow behavior. Oracle database, replicas, backups and other vendors remain **unknown/unverified**. The current backend is therefore not India-hosted. Never claim that staging, current production, backups, logs, object storage, email/SMS vendors, support tooling, telemetry or disaster-recovery copies are India-hosted based only on an account setting or marketing statement.
 
@@ -34,7 +34,7 @@ For every environment and vendor, record:
 
 **India production gate:** Before production launch, move production application compute and primary data storage to verified India locations or select a provider that supports the target. The current Render backend is Singapore; the Render region options inspected did not include India. Do not assume a simple in-place region change is available. Verify all production resource locations and data flows against the approved India target. Any unavoidable non-India processing, support access, CDN/logging/backup flow or vendor transfer must be explicitly documented, legally assessed, risk-accepted by the owner and supported by appropriate safeguards. Do not assume India region alone satisfies every legal obligation or that all data must be localized under every law.
 
-Staging may use a different region only if explicitly approved and documented, synthetic/minimized data is used, and cross-border/data protection risks are assessed. Never copy real customer/seller/worker data into a non-approved staging environment.
+Development/staging may use a different region from production and may retain the existing provider region configuration; do not migrate it to India solely to satisfy the production target. Record region, purpose, access and vendors. Use synthetic/minimized data by default; never copy real customer/seller/worker data into a non-approved environment. Before production launch, independently verify India residency for all production resources and assess any CDN, support, telemetry or subprocessor flows.
 
 ## 3. Indian legal and regulatory assessment
 
@@ -128,7 +128,7 @@ Every PR description must include:
 - Customer/seller/provider impact:
 - Fees, payment/refund, grievance and transparency impact:
 - Accessibility/local-language/low-bandwidth review:
-- Product or operational improvement considered:
+- Product or operational improvement considered:\n\n### Documentation and developer handoff\n- Canonical docs updated (paths):\n- UI labels/routes/components/states documented (if applicable):\n- API/data/architecture/integration diagrams updated (if applicable):\n- Implemented vs planned vs unverified clearly distinguished:
 
 ### Verification
 - Tests executed and exact commands/results:
@@ -142,7 +142,7 @@ Every PR description must include:
 - Required approvals and evidence:
 - Rollback or forward-fix plan:
 
-## 8. Review and merge gate
+## 8. Documentation and developer handoff gate\n\nEvery code-changing PR must update the relevant canonical documentation in the same PR, following [Codebase Documentation Standard](CODEBASE-DOCUMENTATION-STANDARD.md). UI changes must record exact screen/route/component, labels, layout, field rules, interactions and responsive/accessibility states. API changes must record method/path, DTO, authorization/ownership, service flow, persistence, transaction and error contract. Data/integration/architecture changes must update ownership, ERD/flow/deployment/security views as relevant. Distinguish implemented, test-verified, runtime-verified, planned and unknown. Markdown in Git is canonical; Word/PDF/PPT are generated on demand from the current source and must include commit/date/evidence.\n\n## 9. Review and merge gate
 
 Reviewers must check that the PR template is complete and consistent with the diff. Block merge for:
 - Unresolved Critical/High security or privacy risk without approved containment and owner.
