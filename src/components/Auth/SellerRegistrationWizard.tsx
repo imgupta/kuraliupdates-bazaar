@@ -89,6 +89,7 @@ export const SellerRegistrationWizard: React.FC = () => {
   const [otp, setOtp] = useState('');
   const [token, setToken] = useState('');
   const [applicationCreated, setApplicationCreated] = useState(false);
+  const [submissionComplete, setSubmissionComplete] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -205,7 +206,7 @@ export const SellerRegistrationWizard: React.FC = () => {
     });
     await uploadDocuments(response.token);
     showToast('Seller application submitted. It will be reviewed by the Kurali admin team.', 'success');
-    window.location.href = '/';
+    setSubmissionComplete(true);
   };
 
   const handleContinue = async () => {
@@ -232,7 +233,7 @@ export const SellerRegistrationWizard: React.FC = () => {
     try {
       await uploadDocuments(token);
       showToast('Documents uploaded successfully. Your seller application is submitted for review.', 'success');
-      window.location.href = '/';
+      setSubmissionComplete(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Document upload failed');
     } finally {
@@ -243,6 +244,10 @@ export const SellerRegistrationWizard: React.FC = () => {
   const control = (value: string, onChange: (value: string) => void, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <input {...props} value={value} onChange={event => onChange(event.target.value)} className={inputClass} />
   );
+
+  if (submissionComplete) {
+    return <main className="min-h-screen bg-slate-950 flex items-center justify-center p-4"><section className="w-full max-w-lg rounded-3xl bg-white p-8 text-center shadow-2xl"><CheckCircle2 className="mx-auto h-14 w-14 text-emerald-600"/><h1 className="mt-4 text-2xl font-black text-slate-900">Application submitted</h1><p className="mt-3 text-sm leading-relaxed text-slate-600">Your seller profile and uploaded documents have been received. Your shop will remain pending until the KuraliUpdates admin team reviews the profile, shop-front photo and all applicable compliance evidence.</p><p className="mt-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-900">You cannot publish products or accept orders until approval is granted.</p><button type="button" onClick={() => { window.location.href = '/'; }} className="mt-5 w-full rounded-xl bg-slate-900 p-3 text-sm font-bold text-white">Continue to KuraliUpdates</button></section></main>;
+  }
 
   if (applicationCreated && token && error) {
     return <main className="min-h-screen bg-slate-950 flex items-center justify-center p-4"><section className="w-full max-w-lg rounded-3xl bg-white p-7 shadow-2xl"><h1 className="text-xl font-black text-slate-900">Your seller account is created</h1><p className="mt-2 text-sm text-slate-600">Your account is safe. One or more documents still need to upload. Replace a rejected local file if needed, then retry; successfully uploaded documents will not be duplicated.</p><p role="alert" className="mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p><div className="mt-4 space-y-3"><label className="block text-xs font-bold text-slate-700">Shop-front photograph<input type="file" accept="image/jpeg,image/png" capture="environment" onChange={event=>setShopFrontPhoto(event.target.files?.[0]||null)} className="mt-1 w-full rounded-xl border p-2"/></label><label className="block text-xs font-bold text-slate-700">GST certificate<input type="file" accept="application/pdf,image/jpeg,image/png" onChange={event=>setGstCertificate(event.target.files?.[0]||null)} className="mt-1 w-full rounded-xl border p-2"/></label><label className="block text-xs font-bold text-slate-700">FSSAI certificate<input type="file" accept="application/pdf,image/jpeg,image/png" onChange={event=>setFssaiCertificate(event.target.files?.[0]||null)} className="mt-1 w-full rounded-xl border p-2"/></label></div><button type="button" onClick={retryDocuments} disabled={loading} className="mt-4 w-full rounded-xl bg-amber-600 p-3 text-sm font-bold text-white">{loading ? 'Uploading…' : 'Retry document upload'}</button></section></main>;
