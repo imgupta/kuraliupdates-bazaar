@@ -22,7 +22,7 @@ A reviewer should return a PR for completion if material applicable sections are
 
 **Production target: India.** The production hosting architecture is intended to place application compute, primary databases and production data storage in India, subject to provider capabilities, contractual terms, legal review and verified configuration.
 
-This is a target decision, not evidence of current residency. Until verified, current provider regions are **unknown/unverified**. Never claim that staging, current production, backups, logs, object storage, email/SMS vendors, support tooling, telemetry or disaster-recovery copies are India-hosted based only on an account setting or marketing statement.
+This is a target decision, not evidence of current residency. Read-only Render service inspection on 3 Nov 2026 verified the backend web service region as **Singapore**. The frontend is a Render static site served through a CDN; its service details expose no single deployment region, so treat delivery as globally distributed and verify cache/data-flow behavior. Oracle database, replicas, backups and other vendors remain **unknown/unverified**. The current backend is therefore not India-hosted. Never claim that staging, current production, backups, logs, object storage, email/SMS vendors, support tooling, telemetry or disaster-recovery copies are India-hosted based only on an account setting or marketing statement.
 
 For every environment and vendor, record:
 - Provider, service, account/project, environment and resource.
@@ -32,7 +32,7 @@ For every environment and vendor, record:
 - Encryption in transit/at rest, key ownership/rotation, access model, audit logging, deletion and backup expiry.
 - Evidence: provider console/export, contract/DPA, official provider documentation or support confirmation, timestamp and verifier.
 
-**India production gate:** Before production launch, verify all production resource locations and data flows against the approved India target. Any unavoidable non-India processing, support access, CDN/logging/backup flow or vendor transfer must be explicitly documented, legally assessed, risk-accepted by the owner and supported by appropriate safeguards. Do not assume India region alone satisfies every legal obligation or that all data must be localized under every law.
+**India production gate:** Before production launch, move production application compute and primary data storage to verified India locations or select a provider that supports the target. The current Render backend is Singapore; the Render region options inspected did not include India. Do not assume a simple in-place region change is available. Verify all production resource locations and data flows against the approved India target. Any unavoidable non-India processing, support access, CDN/logging/backup flow or vendor transfer must be explicitly documented, legally assessed, risk-accepted by the owner and supported by appropriate safeguards. Do not assume India region alone satisfies every legal obligation or that all data must be localized under every law.
 
 Staging may use a different region only if explicitly approved and documented, synthetic/minimized data is used, and cross-border/data protection risks are assessed. Never copy real customer/seller/worker data into a non-approved staging environment.
 
