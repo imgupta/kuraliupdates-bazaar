@@ -18,10 +18,10 @@ Every PR, including documentation-only, dependency, configuration, infrastructur
 - Use Flyway for schema changes; never revive retired V1/V2/V3/V4 address migration compatibility logic.
 - Enforce domain ownership; no cross-domain repository/entity writes.
 - Do not change payment/refund, authentication, hosting, production data residency or runtime topology without explicit approval.
-- Production hosting target is India. Do not claim current regions or all data flows are India-hosted until each provider/resource is verified and recorded.
+- Production hosting must be India-only before launch. Development/staging may continue in existing regions (including Singapore); document them and use synthetic/minimized data by default. Do not claim current regions or all data flows are India-hosted until verified.
 - Prefer small, focused changes. Avoid blind bulk moves and unrelated cleanup.
 - Inspect exact current branch/SHA, PRs, CI, code/tests and user journey before coding.
-- Define acceptance criteria, security/privacy/legal review, tests and rollback before material changes.
+- Define acceptance criteria, security/privacy/legal review, tests, documentation updates and rollback before material changes.\n- Follow docs/CODEBASE-DOCUMENTATION-STANDARD.md: keep source-backed UI labels/routes/components, API/service/data flows, architecture diagrams and operations docs current; generate Word/PDF/PPT on demand from the current source.
 - Never expose secrets, OTPs, tokens, Oracle wallet contents or private documents.
 - Never run mutating E2E against real/shared business data; use verified isolated synthetic data.
 - Run relevant frontend/backend quality gates and inspect actual results before declaring completion.
