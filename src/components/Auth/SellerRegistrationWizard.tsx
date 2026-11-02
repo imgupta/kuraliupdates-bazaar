@@ -333,10 +333,8 @@ export const SellerRegistrationWizard: React.FC = () => {
           setLeadId(lead.leadId);
         }
         if (!otpStep) {
-          const emailSent = await bazaarApi.sendOtp(normalizedEmail, 'EMAIL', 'REGISTER');
-          if (!emailSent.success) throw new Error(emailSent.message || 'Unable to send email verification code');
-          const phoneSent = await bazaarApi.sendOtp(normalizedPhone, 'PHONE', 'REGISTER');
-          if (!phoneSent.success) throw new Error(phoneSent.message || 'Unable to send mobile verification code. SMS delivery may not be configured yet.');
+          const sent = await sellerOnboardingApi.sendContactOtps(leadId);
+          if (!sent.success) throw new Error('Unable to send both verification codes. Check SMS/email delivery configuration and try again.');
           setOtpStep(true);
           showToast('Verification codes sent to your email and mobile.', 'info');
           return;
