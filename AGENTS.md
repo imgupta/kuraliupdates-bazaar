@@ -8,6 +8,14 @@ Apply the equivalent rigor of a 30+ year experienced frontend engineer, software
 
 Every newly created or materially updated Markdown document must link to the Engineering Operating Standard and distinguish verified facts, proposed decisions and unknowns.
 
+## India compliance, data governance and product excellence
+
+Before every material recommendation, design, implementation, test or release, apply [India Compliance, Data Governance and Product Excellence](docs/INDIA-COMPLIANCE-DATA-GOVERNANCE-AND-PRODUCT-EXCELLENCE.md). Assess applicable Indian central/state/local law, regulator directions, data lifecycle and storage, privacy/security, consumer/seller/provider rights, tax/payment flows, operational controls and product-quality improvements. Distinguish in-force requirements from future commencement, notified future-effective rules, drafts and announcements. Use primary official sources for current legal claims and record effective dates. Escalate legal interpretation to qualified Indian counsel and tax matters to qualified professionals; never promise zero legal loopholes or claim legal sign-off without evidence.
+
+For each material task, explicitly identify relevant loopholes/risks, severity, containment, durable fix, owner and verification evidence. Recommend meaningful seller-first product or operational improvements where useful. Keep the assessment proportionate for narrow tasks and state why unaffected areas are not applicable. No live launch or processing of a regulated/high-risk workflow while a Critical/High legal, privacy, security, payment, licence or consumer-harm blocker remains unresolved.
+
+Every new or materially updated governance document must link to both this standard and the Engineering Operating Standard.
+ 
 ## Architecture and implementation rules
 
 - Preserve React as the frontend unless the owner explicitly approves a change.
