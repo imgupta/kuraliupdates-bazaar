@@ -326,3 +326,42 @@ This is a source-confirmed finding at the inspected commit. No secret material w
 7. Ensure synthetic-only E2E, strict staging target allowlist, restricted artifact retention and no secrets/PII in traces.
 
 **Status:** Source structure and key state/effect risks are documented. Full consumer map, complete API endpoint/component call graph, standalone bundle dependency isolation, and actual hosting rewrite behavior remain unverified.
+
+
+## Java Flyway migrations V14–V22 — DDL and upgrade-risk review
+
+| Version | Source-observed purpose and schema impact | Key upgrade verification |
+|---|---|---|
+| V14 | Creates `NEGOTIATION_CHATS` and `CHAT_MESSAGES`, with product/seller/chat foreign keys and buyer/seller/time indexes. | Existing PRODUCTS/SELLERS schema must match expected key names/types; verify chat buyer identity normalization, cascade retention and duplicate-safe migration. |
+| V15 | Adds `E2E_RUN_ID` to ORDERS, DAILY_HELP_BOOKINGS, NEGOTIATION_CHATS and USER_SESSIONS, with indexes. | E2E tagging must be staging-only; production rows must never be tagged/cleaned by broad run IDs. |
+| V16 | Adds USER_ID to SELLERS, DELIVERY_AGENTS and DAILY_HELP_PROFESSIONALS; backfills by matching existing email/phone identity and adds indexes/FKs to USERS. | **High data-integrity risk:** verify deterministic matching, duplicate email/phone cases, collisions, unmatched profile rows, case/phone normalization and FK validation before applying to production. Capture pre/post unmatched and duplicate counts. |
+| V17 | Adds account status/reason/timestamps to USERS; creates ADMIN_ACCOUNT_AUDIT and actor/target indexes. | Verify status constraints/transitions, immutable audit and session invalidation. |
+| V18 | Adds STORE_OPEN to SELLERS and AVAILABLE_FOR_JOBS to DELIVERY_AGENTS with enabled defaults. | Confirm default availability does not unintentionally publish inactive/unapproved actors. |
+| V19 | Adds seller coordinates/location verification, checkout group and fulfilment status to ORDERS; creates DELIVERY_CONFIGURATION and seeds config. | Verify singleton config key, default radius/route constraints, config audit/versioning, coordinates privacy and migration seed compatibility. |
+| V20 | Adds fulfilment mode, rider payout snapshot/timestamp and combined delivery batch fields; backfills fulfilment mode. | Payout snapshot must be immutable after completion, explain calculation/version and reconcile with seller-direct payment/COD cash handling. |
+| V21 | Adds OTP resend timeout to DELIVERY_CONFIGURATION, defaulting and repairing out-of-range values. | Ensure database constraints and service-level config validation agree; distributed rate limiting is still needed. |
+| V22 | Adds bargain lifecycle/expiry fields and BARGAIN_NOTIFICATIONS; backfills accepted/pending status and one-day expiry for unaccepted chats. | Verify expiry semantics/time zone, scheduled expiry mechanism, notification idempotency, cascade retention and no stale bargain price at checkout. |
+
+Java migration helpers use Oracle metadata checks for some columns/tables/indexes/FKs, but idempotent helper code does not guarantee atomicity or compatibility with every partially migrated schema. Oracle DDL implicit commits and partial-failure recovery need to be tested with disposable schemas and a documented restore/retry procedure.
+
+### Specific data integrity risks
+
+- V16 role-profile backfill is a critical migration: matching by email/phone can associate the wrong person if contact values are duplicated, recycled or inconsistently normalized. Before live apply, run read-only duplicate/unmatched reports and require explicit remediation; do not allow an automated ambiguous match to link accounts.
+- V18 defaults seller store and delivery availability to enabled. Ensure approval/account status is independently enforced by all catalogue/dispatch queries.
+- V20 rider payout snapshots must preserve the exact basis (distance/route/commission/config version) and never recalculate historical completed jobs using new settings.
+- V22 bargain expiry must be enforced at every read/accept/checkout transition, not only by a background job. No scheduler was established in the targeted source review.
+- V15 E2E run identifiers are powerful cleanup selectors. Cleanup service must validate a staging-only environment and exact run ownership; production route exposure must be impossible even if a secret is accidentally configured.
+
+## Flyway diagnostics endpoint caveat
+
+The current diagnostic SQL queries the Flyway history table using the quoted lowercase identifier `"flyway_schema_history"`. Oracle stores unquoted identifiers in uppercase; unless the table was created as a quoted lowercase name, this query can fail with table-not-found even when the standard Flyway table exists. Verify actual identifier/case and fix the query to use the database's actual name. The controller catches the exception and returns `historyStatus=ERROR`, so a failure must not be interpreted as absence of migrations. The same diagnostic currently checks V13 but does not verify all V14–V30 success rows or checksums.
+
+## Background processing and timers — evidence boundary
+
+Source review has positively identified:
+- frontend backend synchronization every 45 seconds;
+- frontend negotiation/notification polling every 4 seconds with interval cleanup;
+- process-local portal handoff map with 60-second expiry/removal;
+- process-local delivery resend throttle map (from earlier service scan).
+
+No complete Spring `@Scheduled`, `@Async`, event-listener, WebSocket handler, executor, cache or message-broker inventory has yet been established. Do not infer bargain expiry, notification delivery, OTP throttling or cleanup is durable/distributed from frontend polling or process-local maps. The remaining source scan must verify actual scheduler registration, all expiry enforcement paths and restart/multi-instance behavior.
