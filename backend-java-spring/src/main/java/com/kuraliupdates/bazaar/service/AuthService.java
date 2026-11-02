@@ -238,8 +238,9 @@ public class AuthService {
 
         String role = normalizeRole(req.role());
         if ("BUYER".equals(role)) {
-            if (registrationOtpConfig.emailEnabled()) otpService.verify(email, "EMAIL", req.emailOtp());
-            if (registrationOtpConfig.mobileEnabled()) otpService.verify(phone, "PHONE", req.phoneOtp());
+            java.util.Map<String, Object> otpSettings = registrationOtpConfig.get();
+            if (Boolean.TRUE.equals(otpSettings.get("emailOtpEnabled"))) otpService.verify(email, "EMAIL", req.emailOtp());
+            if (Boolean.TRUE.equals(otpSettings.get("mobileOtpEnabled"))) otpService.verify(phone, "PHONE", req.phoneOtp());
         } else if (!"SELLER".equals(role)) {
             otpService.verify(email, "EMAIL", req.emailOtp());
         }
