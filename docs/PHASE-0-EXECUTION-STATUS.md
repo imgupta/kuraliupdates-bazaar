@@ -81,6 +81,10 @@ The owner has explicitly instructed the team to ignore Oracle/database connectiv
 - Keep Oracle schema/history, database-backed runtime readiness, migration recovery and database-dependent E2E marked **deferred/unverified**.
 - Continue closing all non-database audit items with source evidence and automated tests. Phase 0 overall cannot be certified fully complete while deferred runtime/database gates remain open.
 
+## Non-database security fix — default-deny authorization
+
+Source review of `SecurityConfig` found that unclassified API routes inherited `permitAll()`. This meant a newly introduced controller route could become anonymous by default unless separately guarded. The Phase 0 branch now changes the fallback rule to `anyRequest().authenticated()`. Explicitly configured public route groups remain unchanged for compatibility; their controller/service-level authentication and ownership checks still require method-level audit and negative tests. This is a targeted hardening improvement, not a claim that the full endpoint authorization matrix is complete.
+
 ## Remaining Phase 0 exit criteria
 
 ### Backend and security
