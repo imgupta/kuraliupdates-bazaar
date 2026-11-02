@@ -43,6 +43,7 @@ public class AuthService {
     private final DailyHelpProfessionalRepository dailyHelpProfessionalRepository;
     private final OtpService otpService;
     private final BuyerAddressService addressService;
+    private final SellerServiceAreaService sellerServiceAreaService;
 
     @Transactional
     public OtpSendResult sendOtp(String rawIdentifier, String requestedType, String mode) {
@@ -298,10 +299,11 @@ public class AuthService {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "Select a valid business type");
             }
             requireSellerValue(req.storeName(), "Shop name is required");
-            requireSellerValue(req.registeredBusinessName(), "Registered business name is required");
+            if (!"INDIVIDUAL".equalsIgnoreCase(req.businessType().trim())
+                    && (req.registeredBusinessName() == null || req.registeredBusinessName().isBlank())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Registered business name is required for this business constitution");
+            }
             requireSellerValue(req.category(), "Business category is required");
-            requireSellerValue(req.shopNumber(), "Shop number is required");
-            requireSellerValue(req.wardNumber(), "Ward number is required");
             requireSellerValue(req.streetLocality(), "Street or locality is required");
             if (req.pinCode() == null || !req.pinCode().matches("\\d{6}")) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "Enter a valid 6-digit shop PIN code");
@@ -311,19 +313,13 @@ public class AuthService {
                     || req.longitude() < -180 || req.longitude() > 180) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "A valid shop map location is required");
             }
+            sellerServiceAreaService.validateSellerLocation(req.latitude(), req.longitude());
             if (!Boolean.TRUE.equals(req.agreementAccepted()) || req.agreementVersion() == null || req.agreementVersion().isBlank()) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "You must accept the current seller agreement to continue");
             }
             if (req.gstNumber() != null && !req.gstNumber().isBlank()
                     && !req.gstNumber().trim().toUpperCase().matches("\\d{2}[A-Z]{5}\\d{4}[A-Z][A-Z0-9]Z[A-Z0-9]")) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "Enter a valid GSTIN format");
-            }
-            String category = req.category().toLowerCase();
-            boolean foodBusiness = category.contains("grocery") || category.contains("food")
-                    || category.contains("bakery") || category.contains("restaurant")
-                    || category.contains("dairy") || category.contains("meat");
-            if (foodBusiness && (req.fssaiNumber() == null || req.fssaiNumber().isBlank())) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "FSSAI registration/licence details are required for food businesses");
             }
             if (req.fssaiNumber() != null && !req.fssaiNumber().isBlank()
                     && !req.fssaiNumber().trim().matches("\\d{14}")) {
@@ -427,8 +423,8 @@ public class AuthService {
                     .address(String.join(", ", List.of(defaultString(req.shopNumber()), defaultString(req.wardNumber()), defaultString(req.streetLocality()), defaultString(req.pinCode()))))
                     .locality(req.streetLocality().trim()).latitude(toDecimal(req.latitude())).longitude(toDecimal(req.longitude()))
                     .businessType(req.businessType().trim().toUpperCase())
-                    .registeredBusinessName(req.registeredBusinessName().trim())
-                    .shopNumber(req.shopNumber().trim()).wardNumber(req.wardNumber().trim())
+                    .registeredBusinessName(defaultString(req.registeredBusinessName()).isBlank() ? user.getName() : req.registeredBusinessName().trim())
+                    .shopNumber(defaultString(req.shopNumber())).wardNumber(defaultString(req.wardNumber()))
                     .streetLocality(req.streetLocality().trim()).pinCode(req.pinCode().trim())
                     .landmark(defaultString(req.landmark()))
                     .gstNumber(defaultString(req.gstNumber()).trim().toUpperCase())
@@ -440,7 +436,7 @@ public class AuthService {
                     .openingTime(defaultString(req.openingTime())).closingTime(defaultString(req.closingTime()))
                     .weeklyClosedDay(defaultString(req.weeklyClosedDay())).preparationMinutes(req.preparationMinutes())
                     .agreementVersion(req.agreementVersion()).agreementAcceptedAt(now)
-                    .distanceKm(BigDecimal.ONE).rating(BigDecimal.ZERO).reviewCount(0)
+                    .distanceKm(BigDecimal.valueOf(sellerServiceAreaService.validateSellerLocation(req.latitude(), req.longitude()).distanceKm())).rating(BigDecimal.ZERO).reviewCount(0)
                     .status("PENDING").registeredAt(now)
                     .minOrderForFreeDelivery(BigDecimal.valueOf(499)).baseDeliveryFee(BigDecimal.valueOf(35))
                     .description("Merchant application awaiting Kurali admin approval.").build());
