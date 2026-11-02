@@ -106,3 +106,20 @@ This is a planning baseline only. No application code, schema, hosting configura
 - Google Maps road routing is not available merely because an OpenStreetMap fallback exists.
 - Transactional five-role E2E is not passed merely because browser smoke or CI passes.
 - A Vercel READY deployment does not prove the backend or end-to-end user journey is healthy.
+
+
+## Architecture discovery baseline — 3 November 2026
+
+The approved target remains five frontend portals and one Spring Boot JVM containing five enforced domain modules (Identity, Marketplace, Orders, Delivery, Daily Help). This is a modular monolith, not five independently deployed microservices.
+
+New discovery and governance documents:
+- [Engineering operating standard](ENGINEERING-OPERATING-STANDARD.md) — mandatory for every coding/review/test/release task.
+- [Domain boundaries](DOMAIN-BOUNDARIES.md) — verified current state vs approved target and open discovery items.
+- [Frontend portal/route inventory](FRONTEND-PORTAL-ROUTE-INVENTORY.md) — verified entry/build facts; route enumeration remains open.
+- [Backend service dependency map](SERVICE-DEPENDENCY-MAP.md) — target contracts; source call graph remains open.
+- [Data ownership matrix](DATA-OWNERSHIP-MATRIX.md) — proposed ownership; exact table/read/write mapping remains open.
+- [Low-cost implementation plan](LOW-COST-MICROFRONTEND-MICROSERVICES-IMPLEMENTATION-PLAN.md).
+
+The Phase 0 inspection was partial because repository code search returned no indexed matches and directory fetch is unsupported in the connected GitHub interface. Do not claim exhaustive route, endpoint, entity, repository, migration or transaction mapping. No application code, schema, secret, hosting or runtime behavior was changed in this documentation work. Complete the open inventories against an exact main SHA before FE-1/BE-1.
+
+**Mandatory coding rule:** Every future implementation must follow ENGINEERING-OPERATING-STANDARD.md, applying the equivalent rigor of a 30+ year experienced frontend engineer, architect, designer, analyst, security consultant and management consultant. This describes the required operating perspective, not a literal experience claim.
