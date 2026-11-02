@@ -2,6 +2,26 @@ import { API_BASE_URL, adminAuthHeaders } from '../http/apiConfig';
 
 /** Domain-owned API operations; endpoint and fallback behavior retained from the legacy client. */
 export const adminApi = {
+  async getSellerServiceArea(): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/seller-service-area`, {
+      headers: adminAuthHeaders(),
+      cache: 'no-store',
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.message || `Unable to load seller service area (HTTP ${response.status})`);
+    return data;
+  },
+
+  async updateSellerServiceArea(payload: { centerLatitude: number; centerLongitude: number; radiusKm: number; enabled: boolean }): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/seller-service-area`, {
+      method: 'PUT',
+      headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.message || `Unable to save seller service area (HTTP ${response.status})`);
+    return data;
+  },
   async getAdminDiagnostics(): Promise<any> {
       const res = await fetch(`${API_BASE_URL}/admin/diagnostics`, {
         headers: adminAuthHeaders(),
