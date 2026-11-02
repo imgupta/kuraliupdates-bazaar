@@ -590,3 +590,60 @@ PR #229 was opened prematurely with proposed Daily Help pessimistic locking and 
 ### Current Phase 0 decision
 
 **OPEN — analysis incomplete.** The source audit has substantial findings, but the exhaustive EDA scan, all SQL/writer call sites, full route authorization matrix, frontend screen/API mapping, Oracle schema/history evidence, provider/data-residency map and legal applicability evidence are not yet complete. No implementation should begin until the Phase 0 deliverables above are reviewed and the user explicitly authorizes the next phase.
+
+
+## Final repository-source verification tranche — 2026-11-03
+
+### Baseline and scope verified
+
+- Re-enumerated the current `main` Git tree: 339 tracked blobs; tree SHA equals main commit `4f6d919779454d41d592d01051da5189a9b60b43`.
+- Tree includes 147 Java source files under backend main, 12 SQL/resource schema files, 107 TypeScript/JavaScript frontend files and four GitHub Actions workflow YAML files. These are file counts, not proof that every behavior has been semantically reviewed.
+- Backend source paths include one Spring Boot application entry point, security configuration/filter, controllers, services, repositories, entities, DTOs, Java Flyway migrations V14–V22 and SQL migrations V22_1–V30.
+- The tree contains no independently deployed backend service definitions in the application source inventory. Architecture remains one Spring Boot modular monolith; frontend has five portal entry points/build targets.
+- The previous GitHub code-search attempts returned zero indexed results for annotation searches. Zero search hits are **not** evidence of absence; tree/blob inspection and local build/runtime inspection are needed for exhaustive negative claims.
+
+### E2E cleanup guard — source-confirmed controls and residual risk
+
+- `E2eRunCleanupController` calls `E2eRunTagging.requireAuthorized(runId, token)` before invoking cleanup.
+- `E2eRunTagging` fails closed unless environment equals `staging`, configured shared token is at least 32 characters and matches using `MessageDigest.isEqual`; run ID must match `E2E-[A-Za-z0-9_-]{3,80}`.
+- `E2eRunCleanupService` runs transactionally, pre-validates tagged orders/bookings/chats as synthetic before first write, restores synthetic product stock and deletes run-scoped rows.
+- This is positive source evidence, not a proof of production configuration. Required runtime evidence: production env value is not staging; E2E secrets absent in production; negative tests against production-like configuration; staging test proves unsafe/mixed records abort without writes; rollback/foreign-key behavior verified on Oracle.
+- E2E OTP capture is in-memory, allowlisted and enabled only when explicit flag + `staging` environment + nonempty allowlist are configured; captured OTP TTL is 180 seconds and consume removes it. Multi-instance/restart behavior is not durable by design; verify disabled in production and synthetic-only identities.
+
+### Security and CORS source recheck
+
+- `SecurityConfig` explicitly protects `/admin/**` with ROLE_ADMIN, but permits `/buyers/**`, `/sellers/**`, `/delivery/**` and then the catch-all `/**`. Session filter only establishes authentication when a bearer token is supplied; it does not reject missing/invalid credentials itself. Existing controller/service guards therefore remain a critical part of the effective policy. The authenticated-default route matrix and anonymous/wrong-role/wrong-owner tests remain an implementation gate.
+- CORS is configured in two places: Spring Security's `CorsConfigurationSource` and an additional MVC `WebMvcConfigurer` bean in the application class. The allowed-origin sets differ (security includes multiple portal origins and localhost ports; MVC allows only the main site and localhost:4200). Effective preflight/credential behavior can depend on filter and MVC configuration order. Treat as **High configuration ambiguity** until one canonical policy is identified and tested for every portal origin, disallowed origin, credentialed request and OPTIONS preflight.
+- `SecurityConfig` disables CSRF while CORS allows credentials. Current frontend bearer-token behavior may mitigate classic cookie CSRF, but if cookie authentication is adopted this combination must be revisited with explicit CSRF protection. Do not infer safe cookie auth from current configuration.
+- `HealthController` returns only service/database UP/DEGRADED and avoids leaking exception/connection details; it proves connection validity only, not schema/migration correctness.
+
+### Flyway diagnostics recheck — finding remains open
+
+- Current `main` source still queries the quoted lowercase identifier `"flyway_schema_history"` in both latest-history and V13 checks. The proposed identifier correction was only in closed, unmerged PR #229; it is not in main.
+- On standard Oracle Flyway installations using an unquoted object name, this quoted lowercase identifier will not resolve to the uppercase object. Diagnostic result may therefore show `historyStatus=ERROR`, `v13Status=UNKNOWN` even when history exists.
+- Diagnostics covers a fixed table-count list and V13 only; it does not validate all V14–V30 versions/checksums, schema drift, indexes, constraints or migration repair state. It must not be represented as complete migration validation.
+
+### Portal handoff and ephemeral state
+
+- Authenticated portal handoff verifies that requested role is among the account's registered roles, creates a random UUID-derived code, expires after 60 seconds and removes the code on redemption; redemption rechecks role registration.
+- Handoff map is process-local. A restart loses outstanding codes; multiple backend instances may create on one instance and redeem on another. Redeem response returns the bearer token to the target portal, so frontend URL/history/referrer cleanup, no-store headers, origin binding, rate limits, CSP and XSS protections remain important verification items.
+- Delivery OTP resend throttle is also process-local `ConcurrentHashMap`; this is not a distributed rate limit and may reset on restart/replica. It must be included in future deployment topology and abuse-control design.
+
+### Repository-only Phase 0 disposition
+
+**Repository source discovery: substantially complete at inventory level; method-level evidence is not yet exhaustive.** The 339-blob tree is enumerated and the major backend/frontend/migration/test/workflow surfaces are identified. Focused source review confirms the high-risk areas in this report, including permissive catch-all authorization, duplicate CORS configuration, checked-in secret material, process-local coordination, and Oracle diagnostics identifier mismatch.
+
+**Phase 0 overall: NOT CLOSED.** The following cannot honestly be marked complete from GitHub source alone:
+1. Full method-by-method review of all 147 Java files and 107 frontend files, including every repository/SQL writer, DTO field, authorization branch and UI-to-API call.
+2. Exhaustive negative proof for absence of scheduled tasks, event listeners, async executors, WebSocket/STOMP endpoints, hidden polling and callback wiring. GitHub code search returned no usable indexed results; no local checkout scan or runtime bean inventory was executed.
+3. Oracle current schema, migration history/checksums, constraints/indexes, clean-database bootstrap and transaction/locking behavior.
+4. Secret/wallet rotation and history cleanup evidence. Current main still tracks the wallet archive and configuration fallback material; treat exposed values as compromised. Do not reproduce secrets or alter them without an approved rotation path.
+5. Provider/subprocessor contract, region, backups, log/telemetry, support access and data-transfer map needed to prove India-only production residency.
+6. Executed end-to-end negative security, concurrency, restore/DR, incident response and real staging workflow evidence.
+7. Formal Indian legal, tax, labour and food/payment regulatory applicability review by qualified professionals.
+
+### Phase 0 exit decision
+
+**NO-GO for implementation-phase start and production launch.** This is a completed decision based on current evidence, not a claim that every source method has been exhaustively audited. The audit has identified the architecture and principal Critical/High gates, but the remaining evidence items above are not waived.
+
+Repository analysis may be called *source-inventory substantially complete*; Phase 0 as a whole remains **OPEN / evidence-gated** until the external and exhaustive verification items are either supplied or explicitly accepted as residual risks by the user with named owners. No application-code changes, schema changes or deployments are authorized by this audit update.
