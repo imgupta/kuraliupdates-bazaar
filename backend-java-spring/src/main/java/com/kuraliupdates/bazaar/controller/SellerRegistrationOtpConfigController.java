@@ -13,7 +13,7 @@ import java.util.Map;
 public class SellerRegistrationOtpConfigController {
     private final SellerRegistrationOtpConfigService config;
 
-    @GetMapping("/seller-registration/otp-settings")
+    @GetMapping({"/seller-registration/otp-settings", "/registration/otp-settings"})
     public Map<String, Object> publicSettings() {
         Map<String, Object> current = config.get();
         return Map.of("emailOtpRequired", current.get("emailOtpEnabled"),
