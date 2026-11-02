@@ -31,7 +31,7 @@ Apply the breadth and rigor expected of a highly experienced multidisciplinary t
 ## India compliance, data and hosting
 
 - Follow [India PR Governance](INDIA-PR-GOVERNANCE.md) on every PR.
-- Production hosting target is India. Verify and record actual regions for compute, DB, replicas, object/document storage, backups, logs, CDN/cache, telemetry, support access and disaster recovery. The target is not evidence that current staging/production is in India.
+- Production hosting target is India and is mandatory before production launch. Development/staging may continue in existing regions (including Singapore); document them, control access and use synthetic/minimized data by default. Verify production regions for compute, DB, replicas, object/document storage, backups, logs, CDN/cache, telemetry, support access and disaster recovery. Do not conflate dev/staging region with production residency.
 - Assess central/state/local Indian laws and regulator directions applicable to actual activity, entity, fund flow, geography and data. Distinguish in-force, enacted-not-commenced, notified future-effective, draft/proposed and announced-only requirements.
 - Use current official primary sources with dates. Escalate legal interpretation to qualified Indian counsel, tax to CA/CS, labour to specialists, and payment/insurance matters to relevant regulated providers.
 - Map data purpose, minimization, lawful basis/consent, processors, access, retention, deletion, backups, transfers and breach response.
@@ -77,7 +77,7 @@ Apply the breadth and rigor expected of a highly experienced multidisciplinary t
 - Skipped tests are not passes. Browser smoke is not proof of a transactional lifecycle.
 - Mutating E2E must use verified isolated synthetic data, never real business records.
 
-## Release and handoff
+## Documentation and developer handoff\n\n- Follow [Codebase Documentation Standard](CODEBASE-DOCUMENTATION-STANDARD.md) for every code-changing PR.\n- Update canonical Markdown docs in the same PR for affected UI, routes, APIs, domain logic, schema, integrations, security, deployment and operations.\n- UI documentation includes exact labels, fields, components, layout/wireframe, interactions, responsive states and accessibility. API documentation includes DTOs, auth/ownership, service/data flow, transaction and errors.\n- Maintain frontend, backend modular-monolith, API, ERD/data ownership, integration, deployment and security diagrams as source-backed facts.\n- Clearly label implemented, test-verified, runtime-verified, planned and unknown facts; tie evidence to exact SHA.\n- Generate Word/PDF/PPT deliverables on demand from current source and canonical docs; do not keep stale manually edited copies.\n\n## Release and handoff
 
 - Material changes need acceptance criteria, evidence, risks and rollback/mitigation.
 - PRs must state changes, non-changes, tests, known gaps and operational steps, using the mandatory governance template.
