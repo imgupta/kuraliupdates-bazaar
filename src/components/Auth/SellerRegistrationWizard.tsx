@@ -114,6 +114,7 @@ export const SellerRegistrationWizard: React.FC = () => {
   const [gstCertificate, setGstCertificate] = useState<File | null>(null);
   const [fssaiCertificate, setFssaiCertificate] = useState<File | null>(null);
   const [serviceArea, setServiceArea] = useState<{ radiusKm: number; enabled: boolean } | null>(null);
+  const [uploadedDocumentTypes, setUploadedDocumentTypes] = useState<string[]>([]);
 
   const isFood = FOOD_CATEGORIES.has(category);
 
@@ -156,13 +157,19 @@ export const SellerRegistrationWizard: React.FC = () => {
   };
 
   const uploadDocuments = async (authToken: string) => {
-    const uploads: Array<Promise<{ success: boolean; message?: string }>> = [];
-    if (shopFrontPhoto) uploads.push(bazaarApi.uploadSellerDocument(authToken, 'SHOP_FRONT_PHOTO', shopFrontPhoto));
-    if (gstCertificate) uploads.push(bazaarApi.uploadSellerDocument(authToken, 'GST_CERTIFICATE', gstCertificate));
-    if (fssaiCertificate) uploads.push(bazaarApi.uploadSellerDocument(authToken, 'FSSAI_CERTIFICATE', fssaiCertificate));
-    const results = await Promise.all(uploads);
-    const failed = results.find(result => !result.success);
-    if (failed) throw new Error(failed.message || 'One or more documents could not be uploaded. Retry the upload.');
+    const pending = [
+      ['SHOP_FRONT_PHOTO', shopFrontPhoto],
+      ['GST_CERTIFICATE', gstCertificate],
+      ['FSSAI_CERTIFICATE', fssaiCertificate],
+    ] as const;
+    const uploaded = new Set(uploadedDocumentTypes);
+    for (const [documentType, file] of pending) {
+      if (!file || uploaded.has(documentType)) continue;
+      const result = await bazaarApi.uploadSellerDocument(authToken, documentType, file);
+      if (!result.success) throw new Error(result.message || `Unable to upload ${documentType}. Retry the upload.`);
+      uploaded.add(documentType);
+      setUploadedDocumentTypes([...uploaded]);
+    }
   };
 
   const submitRegistration = async () => {
