@@ -139,3 +139,17 @@ The current controller source was inspected for the major role domains. This is 
 - The seller registration lead endpoints are intentionally public for assisted onboarding. Their rate limits, OTP attempt limits, lead ID entropy, PII response shape and duplicate/enumeration behavior are still open review items.
 
 This evidence advances the source audit only. No database access, database-backed execution, shared Render deployment or live endpoint test was performed under the owner's current scope instruction.
+
+
+## CI smoke readiness correction — database-independent liveness (2026-11-03)
+
+The repeated API smoke gate was incorrectly using `GET /api/v1/health` as its startup/readiness probe. That endpoint opens a datasource connection and intentionally returns 503 when Oracle is unavailable. This coupled the non-database CI smoke gate to the database work the owner explicitly deferred.
+
+Correction committed on this branch:
+- Added public `GET /api/v1/health/live`, which returns process liveness without acquiring a database connection.
+- Kept `GET /api/v1/health` unchanged as the database-backed readiness probe; it still reports database state and was not weakened.
+- Added a unit test proving the liveness endpoint does not interact with the DataSource.
+- Changed `scripts/production-smoke.mjs` to wait on `/health/live`, explicitly report `databaseHealthChecked: false`, retain bounded retries and include recent sanitized probe diagnostics on timeout.
+- Added `/health/live` to the explicit public security allowlist.
+
+This removes the accidental database dependency from the non-database smoke readiness gate. It does not bypass Flyway or make a backend that fails application startup reachable. If the Render process still cannot start due to its existing migration validation error, liveness will correctly remain unavailable; that is a deployment/startup blocker, not a smoke-script false negative. No DB migration, schema change, repair, or database health claim was made.
