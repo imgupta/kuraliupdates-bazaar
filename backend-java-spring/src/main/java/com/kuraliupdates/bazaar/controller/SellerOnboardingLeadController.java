@@ -19,6 +19,11 @@ public class SellerOnboardingLeadController {
         return leads.start(body.get("ownerName"), body.get("email"), body.get("phone"));
     }
 
+    @PostMapping("/{leadId}/send-contact-otps")
+    public Map<String,Object> sendContactOtps(@PathVariable String leadId) {
+        return leads.sendContactOtps(leadId);
+    }
+
     @PostMapping("/{leadId}/verify-contact")
     public Map<String,Object> verifyContact(@PathVariable String leadId, @RequestBody Map<String,String> body) {
         return leads.verifyContact(leadId, body.get("emailOtp"), body.get("phoneOtp"));
