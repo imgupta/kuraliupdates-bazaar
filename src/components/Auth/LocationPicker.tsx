@@ -11,6 +11,7 @@ export interface DeliveryLocation {
 interface LocationPickerProps {
   value: DeliveryLocation | null;
   onChange: (location: DeliveryLocation) => void;
+  purpose?: 'delivery' | 'shop';
 }
 
 declare global {
@@ -21,7 +22,8 @@ declare global {
 }
 
 type Point = { lat: number; lng: number };
-const DEFAULT_CENTER: Point = { lat: 30.903, lng: 76.426 };
+// Kurali town-centre reference point; the backend service-area configuration is authoritative.
+const DEFAULT_CENTER: Point = { lat: 30.83145, lng: 76.57848 };
 
 const validPoint = (latitude: unknown, longitude: unknown): Point | null => {
   if (latitude === null || latitude === undefined || latitude === '' ||
@@ -54,7 +56,7 @@ const reverseGeocodeOsm = async (latitude: number, longitude: number): Promise<D
   };
 };
 
-export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange }) => {
+export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, purpose = 'delivery' }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const mapInstance = useRef<any>(null);
@@ -160,7 +162,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange 
       map: mapInstance.current,
       position: center,
       draggable: true,
-      title: 'Delivery location',
+      title: purpose === 'shop' ? 'Shop location' : 'Delivery location',
     });
     marker.current.addListener('dragend', async () => {
       const position = marker.current.getPosition();
@@ -305,8 +307,8 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange 
       <div className="p-4 border-b border-slate-200">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-black text-slate-900">Set your delivery location</p>
-            <p className="text-[11px] text-slate-500 mt-1">Search your address, use your location, then adjust the pin exactly where the rider should arrive.</p>
+            <p className="text-sm font-black text-slate-900">{purpose === 'shop' ? 'Set your shop location' : 'Set your delivery location'}</p>
+            <p className="text-[11px] text-slate-500 mt-1">Search the address, then adjust the pin to the exact shop entrance.</p>
           </div>
           <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
         </div>
@@ -334,7 +336,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange 
       </div>
       {fallbackMode ? (
         <iframe
-          title="Delivery location map"
+          title={purpose === 'shop' ? 'Shop location map' : 'Delivery location map'}
           className="h-56 w-full border-0 bg-slate-100 sm:h-64"
           loading="lazy"
           referrerPolicy="no-referrer"
