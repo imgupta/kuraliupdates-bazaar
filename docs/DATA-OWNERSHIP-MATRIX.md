@@ -104,3 +104,8 @@ The actual V1–V13 baseline and any out-of-band schema changes must be checked 
 - These are priority BE-0 call sites. Determine exact read/write methods and transaction scopes before creating packages or ArchUnit rules.
 
 This is not a complete reader/writer matrix. Repository method usage, native SQL/JdbcTemplate, Flyway DDL, Oracle FK/trigger metadata, transaction propagation and data classification remain open.
+
+
+## Admin controller cross-domain access observed
+
+The inspected AdminController directly uses Identity (UserRepository), Marketplace (SellerRepository, SellerDocumentRepository, ProductRepository), Orders (OrderRepository), Delivery (DeliveryAgentRepository), analytics (SearchTrendRepository), Daily Help (DailyHelpProfessionalRepository) and JdbcTemplate. This is an admin read/command surface in the current monolith, but must not become shared domain persistence in the target architecture. Preserve the admin API while delegating each operation to an owning domain application service/query contract. The domain performing a business mutation should emit its audit event.
