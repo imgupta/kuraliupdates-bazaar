@@ -62,6 +62,36 @@ export const sellerApi = {
       }
     },
 
+  async getMySellerDocuments(): Promise<any[]> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) return [];
+    const res = await fetch(`${API_BASE_URL}/sellers/me/documents`, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` }, cache: 'no-store' });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to load seller documents (HTTP ${res.status})`);
+    return Array.isArray(data) ? data : [];
+  },
+
+  async getSellerOnboardingStatus(): Promise<any> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) throw new Error('Your seller session has expired.');
+    const res = await fetch(`${API_BASE_URL}/auth/onboarding-status?role=SELLER`, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` }, cache: 'no-store' });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to load seller application status (HTTP ${res.status})`);
+    return data;
+  },
+
+  async uploadMySellerDocument(documentType: string, file: File): Promise<any> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) throw new Error('Your seller session has expired.');
+    const form = new FormData();
+    form.append('documentType', documentType);
+    form.append('file', file);
+    const res = await fetch(`${API_BASE_URL}/sellers/me/documents`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to upload document (HTTP ${res.status})`);
+    return data;
+  },
+
   async getCurrentSeller(): Promise<any | null> {
       const token = localStorage.getItem('kurali_auth_token');
       if (!token) return null;
