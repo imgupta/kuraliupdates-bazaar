@@ -18,6 +18,7 @@ import java.util.UUID;
 public class SellerOnboardingLeadService {
     private final JdbcTemplate jdbc;
     private final OtpService otpService;
+    private final SellerRegistrationOtpConfigService otpConfig;
 
     @Transactional
     public Map<String, Object> start(String ownerName, String rawEmail, String rawPhone) {
@@ -35,8 +36,12 @@ public class SellerOnboardingLeadService {
         }
         String id = UUID.randomUUID().toString();
         LocalDateTime now = LocalDateTime.now();
-        jdbc.update("INSERT INTO SELLER_ONBOARDING_LEADS (LEAD_ID,OWNER_NAME,EMAIL,PHONE,SOURCE,STATUS,EMAIL_VERIFIED,PHONE_VERIFIED,CONTACT_CONSENT,CALLBACK_REQUESTED,CREATED_AT,UPDATED_AT) VALUES (?,?,?,?,?,'STARTED',0,0,0,0,?,?)",
-                id, name, email, phone, "SELLER_REGISTRATION", now, now);
+        boolean emailRequired = otpConfig.emailEnabled();
+        boolean phoneRequired = otpConfig.mobileEnabled();
+        jdbc.update("INSERT INTO SELLER_ONBOARDING_LEADS (LEAD_ID,OWNER_NAME,EMAIL,PHONE,SOURCE,STATUS,EMAIL_VERIFIED,PHONE_VERIFIED,CONTACT_CONSENT,CALLBACK_REQUESTED,EMAIL_OTP_REQUIRED,PHONE_OTP_REQUIRED,EMAIL_OTP_SKIPPED,PHONE_OTP_SKIPPED,CREATED_AT,UPDATED_AT) VALUES (?,?,?,?,?,'STARTED',0,0,0,0,?,?,?,?,?,?)",
+                id, name, email, phone, "SELLER_REGISTRATION",
+                emailRequired ? 1 : 0, phoneRequired ? 1 : 0,
+                emailRequired ? 0 : 1, phoneRequired ? 0 : 1, now, now);
         audit(id, "APPLICANT", "LEAD_CREATED", "Registration contact details captured");
         return Map.of("success", true, "leadId", id, "status", "STARTED");
     }
@@ -44,9 +49,12 @@ public class SellerOnboardingLeadService {
     @Transactional
     public Map<String, Object> sendContactOtps(String leadId) {
         Map<String,Object> lead = getLead(leadId);
-        otpService.send(String.valueOf(lead.get("email")), "SELLER_EMAIL");
-        otpService.send(String.valueOf(lead.get("phone")), "SELLER_PHONE");
-        return Map.of("success", true, "expiresInSeconds", 600, "resendAfterSeconds", otpService.getResendCooldownSeconds());
+        boolean emailRequired = Boolean.TRUE.equals(lead.get("emailOtpRequired"));
+        boolean phoneRequired = Boolean.TRUE.equals(lead.get("phoneOtpRequired"));
+        if (emailRequired) otpService.send(String.valueOf(lead.get("email")), "SELLER_EMAIL");
+        if (phoneRequired) otpService.send(String.valueOf(lead.get("phone")), "SELLER_PHONE");
+        return Map.of("success", true, "emailOtpRequired", emailRequired, "mobileOtpRequired", phoneRequired,
+                "expiresInSeconds", 600, "resendAfterSeconds", otpService.getResendCooldownSeconds());
     }
 
     @Transactional
@@ -54,12 +62,16 @@ public class SellerOnboardingLeadService {
         Map<String, Object> lead = getLead(leadId);
         String email = String.valueOf(lead.get("email"));
         String phone = String.valueOf(lead.get("phone"));
-        otpService.verify(email, "SELLER_EMAIL", emailOtp);
-        otpService.verify(phone, "SELLER_PHONE", phoneOtp);
+        boolean emailRequired = Boolean.TRUE.equals(lead.get("emailOtpRequired"));
+        boolean phoneRequired = Boolean.TRUE.equals(lead.get("phoneOtpRequired"));
+        if (emailRequired) otpService.verify(email, "SELLER_EMAIL", emailOtp);
+        if (phoneRequired) otpService.verify(phone, "SELLER_PHONE", phoneOtp);
         LocalDateTime now = LocalDateTime.now();
-        jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET EMAIL_VERIFIED=1, PHONE_VERIFIED=1, STATUS='CONTACT_VERIFIED', UPDATED_AT=? WHERE LEAD_ID=?",
-                now, leadId);
-        audit(leadId, "APPLICANT", "CONTACT_VERIFIED", "Email and mobile OTP verified");
+        jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET EMAIL_VERIFIED=?, PHONE_VERIFIED=?, EMAIL_OTP_SKIPPED=?, PHONE_OTP_SKIPPED=?, STATUS='CONTACT_VERIFIED', UPDATED_AT=? WHERE LEAD_ID=?",
+                emailRequired ? 1 : 0, phoneRequired ? 1 : 0,
+                emailRequired ? 0 : 1, phoneRequired ? 0 : 1, now, leadId);
+        audit(leadId, "APPLICANT", "CONTACT_VERIFICATION_COMPLETED",
+                "email=" + (emailRequired ? "VERIFIED" : "OTP_NOT_REQUIRED") + "; mobile=" + (phoneRequired ? "VERIFIED" : "OTP_NOT_REQUIRED"));
         return Map.of("success", true, "leadId", leadId, "status", "CONTACT_VERIFIED");
     }
 
@@ -67,8 +79,8 @@ public class SellerOnboardingLeadService {
     public Map<String, Object> requestCallback(String leadId, boolean consent, String preferredTime) {
         if (!consent) throw new ApiException(HttpStatus.BAD_REQUEST, "Please provide consent before requesting a callback");
         Map<String, Object> lead = getLead(leadId);
-        if (!Boolean.TRUE.equals(lead.get("emailVerified")) || !Boolean.TRUE.equals(lead.get("phoneVerified"))) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Verify your email and mobile before requesting a callback");
+        if (!contactRequirementSatisfied(lead, "email") || !contactRequirementSatisfied(lead, "phone")) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Complete the enabled contact verification steps before requesting a callback");
         }
         LocalDateTime now = LocalDateTime.now();
         jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET CONTACT_CONSENT=1, CONTACT_CONSENT_AT=?, CONTACT_CONSENT_VERSION='SELLER-CALLBACK-2026-11', CALLBACK_REQUESTED=1, STATUS='CALLBACK_REQUESTED', UPDATED_AT=? WHERE LEAD_ID=?",
@@ -86,8 +98,8 @@ public class SellerOnboardingLeadService {
         if (!email.equalsIgnoreCase(String.valueOf(lead.get("email"))) || !phone.equals(String.valueOf(lead.get("phone")))) {
             throw new ApiException(HttpStatus.CONFLICT, "Registration reference does not match the verified contact details");
         }
-        if (!Boolean.TRUE.equals(lead.get("emailVerified")) || !Boolean.TRUE.equals(lead.get("phoneVerified"))) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Verify both email and mobile before submitting seller details");
+        if (!contactRequirementSatisfied(lead, "email") || !contactRequirementSatisfied(lead, "phone")) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Complete the enabled contact verification steps before submitting seller details");
         }
         if (!List.of("CONTACT_VERIFIED", "CALLBACK_REQUESTED").contains(String.valueOf(lead.get("status")))) {
             throw new ApiException(HttpStatus.CONFLICT, "This registration lead has already been submitted or closed");
@@ -182,10 +194,12 @@ public class SellerOnboardingLeadService {
 
     private Map<String,Object> getLead(String id) {
         if (id == null || id.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "Lead reference is required");
-        List<Map<String,Object>> rows = jdbc.query("SELECT LEAD_ID,OWNER_NAME,EMAIL,PHONE,EMAIL_VERIFIED,PHONE_VERIFIED,CONTACT_CONSENT,STATUS,ASSIGNED_TO,CALLBACK_AT FROM SELLER_ONBOARDING_LEADS WHERE LEAD_ID=?",
+        List<Map<String,Object>> rows = jdbc.query("SELECT LEAD_ID,OWNER_NAME,EMAIL,PHONE,EMAIL_VERIFIED,PHONE_VERIFIED,EMAIL_OTP_REQUIRED,PHONE_OTP_REQUIRED,EMAIL_OTP_SKIPPED,PHONE_OTP_SKIPPED,CONTACT_CONSENT,STATUS,ASSIGNED_TO,CALLBACK_AT FROM SELLER_ONBOARDING_LEADS WHERE LEAD_ID=?",
                 (rs,row)->Map.of("leadId",rs.getString("LEAD_ID"),"ownerName",rs.getString("OWNER_NAME"),
                         "email",rs.getString("EMAIL"),"phone",rs.getString("PHONE"),
                         "emailVerified",rs.getInt("EMAIL_VERIFIED")==1,"phoneVerified",rs.getInt("PHONE_VERIFIED")==1,
+                        "emailOtpRequired",rs.getInt("EMAIL_OTP_REQUIRED")==1,"phoneOtpRequired",rs.getInt("PHONE_OTP_REQUIRED")==1,
+                        "emailOtpSkipped",rs.getInt("EMAIL_OTP_SKIPPED")==1,"phoneOtpSkipped",rs.getInt("PHONE_OTP_SKIPPED")==1,
                         "contactConsent",rs.getInt("CONTACT_CONSENT")==1,"status",rs.getString("STATUS"),"assignedTo",rs.getString("ASSIGNED_TO")==null?"":rs.getString("ASSIGNED_TO"),"callbackAt",rs.getTimestamp("CALLBACK_AT")==null?"":rs.getTimestamp("CALLBACK_AT").toString()), id);
         if (rows.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "Seller registration lead was not found");
         return rows.get(0);
@@ -194,6 +208,10 @@ public class SellerOnboardingLeadService {
     private void audit(String leadId, String actor, String action, String details) {
         jdbc.update("INSERT INTO SELLER_ONBOARDING_LEAD_AUDIT (AUDIT_ID,LEAD_ID,ACTOR,ACTION,DETAILS,CREATED_AT) VALUES (?,?,?,?,?,?)",
                 UUID.randomUUID().toString(), leadId, clean(actor,150), action, clean(details,2000), LocalDateTime.now());
+    }
+
+    private boolean contactRequirementSatisfied(Map<String,Object> lead, String channel) {
+        return Boolean.TRUE.equals(lead.get(channel + "Verified")) || Boolean.TRUE.equals(lead.get(channel + "OtpSkipped"));
     }
 
     private void validate(String name, String email, String phone) {
