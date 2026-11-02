@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * One-shot, read-only Oracle metadata preflight for Phase 0.
+ * Read-only Oracle metadata preflight for Phase 0; runs only when the diagnostic profile is explicitly active.
  * Activate only with the phase0-diagnostics Spring profile. That profile
  * disables Flyway so a failed migration cannot prevent metadata inspection.
  * This runner never reads business rows or changes schema/history.
@@ -47,12 +47,12 @@ public class PhaseZeroOraclePreflight implements ApplicationRunner {
                 if (owner == null || !owner.matches("[A-Z][A-Z0-9_$#]*")) {
                     continue;
                 }
-                capture(report, "flywayHistory_" + owner, () -> jdbcTemplate.queryForList(
-                        "SELECT INSTALLED_RANK, VERSION, DESCRIPTION, TYPE, SUCCESS, INSTALLED_ON, CHECKSUM " +
-                        "FROM " + owner + ".FLYWAY_SCHEMA_HISTORY WHERE VERSION = '30' ORDER BY INSTALLED_RANK"));
-                Object rows = report.get("flywayHistory_" + owner);
-                if (rows instanceof List<?> list) {
-                    histories.addAll((List<Map<String, Object>>) list);
+                List<Map<String, Object>> rows = capture(report, "flywayHistory_" + owner,
+                        () -> jdbcTemplate.queryForList(
+                                "SELECT INSTALLED_RANK, VERSION, DESCRIPTION, TYPE, SUCCESS, INSTALLED_ON, CHECKSUM " +
+                                "FROM " + owner + ".FLYWAY_SCHEMA_HISTORY WHERE VERSION = '30' ORDER BY INSTALLED_RANK"));
+                if (rows != null) {
+                    histories.addAll(rows);
                 }
             }
             report.put("migrationV30RowsAcrossVisibleOwners", histories);
