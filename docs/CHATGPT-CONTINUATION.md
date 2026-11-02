@@ -26,7 +26,7 @@ Before every coding, refactoring, review, test or release task, read [ENGINEERIN
 
 ## Production hosting and data residency
 
-Production target is India for application compute, primary database and production data storage. This is a target, not verified current state. Before production approval, inventory actual regions for app, DB/replicas, documents/object storage, backups, logs, CDN/cache, analytics, email/SMS, support access and disaster recovery; assess subprocessors and transfers. No real customer/seller/worker data in non-approved staging. See INDIA-PR-GOVERNANCE.md.
+Production target is India for application compute, primary database and production data storage. Read-only Render service inspection on 3 Nov 2026 verified the backend service region as Singapore; the static frontend is CDN-served with no single region exposed in its service details. Oracle DB, backups and other vendor regions remain unknown. This target is not current state; current backend is not India-hosted. Before production approval, inventory actual regions for app, DB/replicas, documents/object storage, backups, logs, CDN/cache, analytics, email/SMS, support access and disaster recovery; assess subprocessors and transfers. No real customer/seller/worker data in non-approved staging. See INDIA-PR-GOVERNANCE.md.
 
 ## Discovery documents
 
