@@ -161,6 +161,20 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  const scanSellerDocument = async (documentId: string) => {
+    if (!documentSellerId) return;
+    setSellerDocumentAction(documentId);
+    setSellerDocumentError(null);
+    try {
+      const result = await adminApi.scanSellerDocument(documentSellerId, documentId);
+      await loadSellerDocuments(documentSellerId);
+      showToast(result.scanStatus === 'CLEAN' ? 'Document passed malware scanning.' : 'Document remains quarantined.', result.scanStatus === 'CLEAN' ? 'success' : 'error');
+    } catch (error: any) {
+      setSellerDocumentError(error?.message || 'Unable to scan document.');
+    } finally {
+      setSellerDocumentAction(null);
+    }
+  };
   const reviewSellerDocument = async (documentId: string, status: 'VERIFIED' | 'REJECTED') => {
     if (!documentSellerId) return;
     const reason = (documentRejectionReasons[documentId] || '').trim();
@@ -698,13 +712,14 @@ export const AdminDashboard: React.FC = () => {
                 {sellerDocuments.map((doc:any)=>(
                   <div key={doc.documentId} className="rounded-xl border border-slate-200 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div><p className="text-sm font-bold text-slate-900">{String(doc.documentType || '').replaceAll('_',' ')}</p><p className="mt-1 text-xs text-slate-500">{doc.fileName} · {Math.ceil(Number(doc.fileSize || 0)/1024)} KB</p><p className="mt-1 text-[10px] text-slate-400">Uploaded: {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString() : '—'}</p></div>
+                      <div><p className="text-sm font-bold text-slate-900">{String(doc.documentType || '').replaceAll('_',' ')}</p><p className="mt-1 text-xs text-slate-500">{doc.fileName} · {Math.ceil(Number(doc.fileSize || 0)/1024)} KB</p><p className="mt-1 text-[10px] text-slate-400">Uploaded: {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString() : '—'}</p><p className="mt-1 text-[10px] font-bold">Malware scan: {doc.scanStatus || 'QUARANTINED'}</p></div>
                       <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${doc.verificationStatus === 'VERIFIED' ? 'bg-emerald-100 text-emerald-800' : doc.verificationStatus === 'REJECTED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'}`}>{doc.verificationStatus || 'PENDING'}</span>
                     </div>
                     {doc.rejectionReason && <p className="mt-2 rounded-lg bg-rose-50 p-2 text-xs text-rose-800">Correction reason: {doc.rejectionReason}</p>}
+                    {doc.scanStatus !== 'CLEAN' && <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-amber-50 p-2"><p className="text-xs text-amber-900">Document is quarantined until a clean scan result is recorded.</p><button type="button" onClick={()=>void scanSellerDocument(doc.documentId)} disabled={sellerDocumentAction===doc.documentId} className="min-h-9 rounded-lg bg-amber-700 px-3 text-xs font-bold text-white disabled:opacity-50">{sellerDocumentAction===doc.documentId?'Scanning…':'Retry scan'}</button></div>}
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <button type="button" onClick={()=>void openSellerDocument(doc.documentId)} disabled={sellerDocumentAction===doc.documentId} className="min-h-10 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-700 disabled:opacity-50">{sellerDocumentAction===doc.documentId?'Opening…':'View / download'}</button>
-                      <button type="button" onClick={()=>void reviewSellerDocument(doc.documentId,'VERIFIED')} disabled={sellerDocumentAction===doc.documentId || doc.verificationStatus==='VERIFIED'} className="min-h-10 rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white disabled:opacity-40">Verify</button>
+                      <button type="button" onClick={()=>void openSellerDocument(doc.documentId)} disabled={sellerDocumentAction===doc.documentId || doc.scanStatus!=='CLEAN'} className="min-h-10 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-700 disabled:opacity-50">{sellerDocumentAction===doc.documentId?'Opening…':'View / download'}</button>
+                      <button type="button" onClick={()=>void reviewSellerDocument(doc.documentId,'VERIFIED')} disabled={sellerDocumentAction===doc.documentId || doc.verificationStatus==='VERIFIED' || doc.scanStatus!=='CLEAN'} className="min-h-10 rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white disabled:opacity-40">Verify</button>
                     </div>
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                       <input value={documentRejectionReasons[doc.documentId] || ''} onChange={event=>setDocumentRejectionReasons(current=>({...current,[doc.documentId]:event.target.value}))} placeholder="Specific correction reason (required to reject)" className="min-h-10 min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-xs"/>

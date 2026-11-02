@@ -15,6 +15,13 @@ export const adminApi = {
     return res.blob();
   },
 
+  async scanSellerDocument(sellerId: string, documentId: string): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/sellers/${encodeURIComponent(sellerId)}/documents/${encodeURIComponent(documentId)}/scan`, { method: 'POST', headers: adminAuthHeaders() });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to scan seller document (HTTP ${res.status})`);
+    return data;
+  },
+
   async verifySellerDocument(sellerId: string, documentId: string, status: 'VERIFIED' | 'REJECTED', reason?: string): Promise<any> {
     const params = new URLSearchParams({ status });
     if (reason) params.set('reason', reason);

@@ -61,6 +61,11 @@ spring:
     baseline-version: 13
     ignore-migration-patterns: "*:missing"
 app:
+  document-scanner:
+    clamav:
+      host: ${CLAMAV_HOST:}
+      port: ${CLAMAV_PORT:3310}
+      timeout-ms: ${CLAMAV_TIMEOUT_MS:5000}
   otp:
     email:
       from: ${OTP_EMAIL_FROM:}
