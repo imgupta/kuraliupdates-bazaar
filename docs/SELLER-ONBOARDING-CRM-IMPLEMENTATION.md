@@ -20,14 +20,14 @@
 | Method | Endpoint | Purpose |
 |---|---|---|
 | POST | `/seller-registration/leads` | Create or resume a contact lead |
-| POST | `/seller-registration/leads/{leadId}/verify-contact` | Verify email and mobile OTPs |
+| POST | `/seller-registration/leads/{leadId}/send-contact-otps` | Send registration-purpose email and mobile OTPs |\n| POST | `/seller-registration/leads/{leadId}/verify-contact` | Verify email and mobile OTPs |
 | POST | `/seller-registration/leads/{leadId}/callback` | Record explicit callback consent |
 | GET | `/admin/seller-leads` | Admin CRM queue with status/search/page/size |
 | PATCH | `/admin/seller-leads/{leadId}` | Assignment, status and follow-up |
 | GET | `/admin/seller-leads/{leadId}/notes` | Read internal notes |
 | POST | `/admin/seller-leads/{leadId}/notes` | Add internal call note/outcome |
 
-The existing `/auth/send-otp` API remains the delivery path. Seller registration now uses the new lead verification endpoint before business details. The final `/auth/verify-otp` request includes `leadId`; the backend validates that the lead is verified and matches the email/mobile before completing seller provisioning.
+Seller registration sends OTPs through the existing OTP delivery service using dedicated `SELLER_EMAIL` and `SELLER_PHONE` OTP purposes. This prevents ordinary login OTPs from satisfying seller-registration verification. The verified lead endpoint is called before business details. The final `/auth/verify-otp` request includes `leadId`; the backend validates that the lead is verified and matches the email/mobile before completing seller provisioning.
 
 ## Security and data handling
 
