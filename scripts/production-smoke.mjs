@@ -32,7 +32,7 @@ async function request(path, expected, label, requestTimeoutMs = timeoutMs) {
       method: "GET",
       headers: { Accept: "application/json" },
       signal: controller.signal,
-      redirect: "manual",
+      redirect: "follow",
     });
     const body = await response.text();
     const ok = expected(response.status, body);
@@ -120,16 +120,16 @@ async function waitForApiLiveness() {
 
 const apiLive = await waitForApiLiveness();
 if (apiLive) {
+  // Only probe endpoints that reject anonymous requests before touching repositories.
+  // Public catalog/availability reads are intentionally excluded because they require
+  // database access, which is outside this Phase 0 tranche.
   const checks = [
-    ["/buyers/products/search?query=&page=0&size=1", success, "Buyer product search (one-row probe)"],
-    ["/daily-help/services", success, "Daily Help service catalogue"],
-    ["/daily-help/availability?date=2099-01-01&requestedHours=1", success, "Daily Help availability query"],
-    ["/delivery/me", protectedRoute, "Delivery profile requires authentication"],
-    ["/delivery/jobs/available", protectedRoute, "Pickup jobs require authentication"],
-    ["/sellers/me/orders", protectedRoute, "Seller orders require authentication"],
-    ["/daily-help/bookings/latest?buyerPhone=0000000000", protectedRoute, "Daily Help booking data requires authentication"],
-    ["/daily-help/professionals/by-phone/0000000000", protectedRoute, "Professional profile requires authentication"],
-    ["/buyers/orders/__smoke_test_missing_order__/track", protectedRoute, "Buyer order tracking requires authentication"],
+    ["/delivery/me", protectedRoute, "Delivery profile rejects anonymous access"],
+    ["/delivery/jobs/available", protectedRoute, "Delivery jobs reject anonymous access"],
+    ["/sellers/me/orders", protectedRoute, "Seller orders reject anonymous access"],
+    ["/daily-help/bookings/latest?buyerPhone=0000000000", protectedRoute, "Daily Help booking data rejects anonymous access"],
+    ["/daily-help/professionals/by-phone/0000000000", protectedRoute, "Professional profile rejects anonymous access"],
+    ["/buyers/orders/__smoke_test_missing_order__/track", protectedRoute, "Buyer order tracking rejects anonymous access"],
   ];
 
   for (const [path, expected, label] of checks) {
@@ -144,6 +144,7 @@ const report = {
   checkedAt: new Date().toISOString(),
   apiLive,
   databaseHealthChecked: false,
+  checkScope: "API process liveness and pre-service anonymous-access guards only; database-backed catalogue and availability probes are intentionally skipped",
   readinessTimeoutMs,
   timeoutMs,
   passed: results.filter((result) => result.ok).length,
