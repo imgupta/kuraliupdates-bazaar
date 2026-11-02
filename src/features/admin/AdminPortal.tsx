@@ -576,7 +576,7 @@ export const AdminDashboard: React.FC = () => {
             <button onClick={() => setActiveAdminTab('seller-area-config')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-area-config' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Seller registration radius</button>
             <button onClick={() => setActiveAdminTab('seller-documents')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-documents' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Seller document review</button>
             <button onClick={() => setActiveAdminTab('seller-leads')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-leads' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Merchant onboarding CRM</button>
-            <button onClick={() => setActiveAdminTab('registration-otp-config')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'registration-otp-config' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Registration OTP controls</button>
+            <button onClick={() => setActiveAdminTab('registration-otp-config')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'registration-otp-config' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Customer & seller OTP controls</button>
           </div>
         </details>
 
