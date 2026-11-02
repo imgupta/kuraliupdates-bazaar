@@ -88,3 +88,38 @@ The controller mapping is source-verified only. Authentication, role, phone look
 ## Exit decision
 
 **Phase 0 remains open.** Do not start broad backend package movement, frontend portal extraction, persistence refactoring or service extraction. Complete the inventories and negative tests, assign owners to Critical/High risks, and attach evidence before authorizing FE-1/BE-1.
+
+
+## Expanded backend scan: remaining application services
+
+The following source files were inspected at the same main baseline. Transaction counts below are annotation occurrences; they do not substitute for method-level call graphs or database evidence.
+
+| Service | `@Transactional` occurrences | Additional direct mechanism observed |
+|---|---:|---|
+| `NegotiationChatService.java` | 7 | `JdbcTemplate` |
+| `OtpService.java` | 2 | `JdbcTemplate` |
+| `SellerOnboardingLeadService.java` | 7 | `JdbcTemplate` |
+| `SellerRegistrationDraftService.java` | 3 | None observed in targeted scan |
+| `SellerRegistrationOtpConfigService.java` | 3 | `JdbcTemplate` |
+| `SellerServiceAreaService.java` | 3 | None observed in targeted scan |
+| `OtpDeliveryService.java` | 0 | Java `HttpClient`; request timeout declarations of 10 seconds at three call sites |
+| `GoogleRoutesService.java` | 0 | No transaction/HTTP client signal in targeted annotation scan; inspect full source and configuration to identify effective transport, timeout and fallback |
+
+**Direct SQL inventory is still incomplete.** At least OrderService, DeliveryService, NegotiationChatService, OtpService, SellerOnboardingLeadService and SellerRegistrationOtpConfigService inject JdbcTemplate. Each SQL statement must be classified by table, operation, caller, transaction, ownership and bind parameter safety before domain boundaries can be considered complete.
+
+## Migration and test inventory — source tree only
+
+The current repository tree contains Java Flyway migrations V14–V22 and SQL migrations V22_1–V30. No V1–V13 migration source files were present in the inspected tree paths. This is a material baseline gap: establish whether V1–V13 were historical Java/SQL migrations removed from source, are embedded in an external baseline, or are part of an existing database baseline. Do not invent or recreate them without Oracle schema/history evidence.
+
+The source tree contains backend tests for Auth registration checks/roles, address service, malware scanning, Daily Help, Delivery, tracking, E2E OTP capture/cleanup/tagging, negotiation chat, Orders, Products, seller registration drafts and SellerService, plus selected controller tests for diagnostics, health, seller documents and seller OTP configuration. This list does not prove endpoint coverage, authorization matrix coverage, integration/database transaction behavior or successful execution in the target environment.
+
+## Integration and asynchronous inventory limitations
+
+- `OtpDeliveryService` uses Java `HttpClient` and explicit 10-second request timeouts at the inspected call sites. Retry/backoff, provider response handling, idempotency, credential rotation and data processor/region assessment remain to be completed.
+- `JdbcTemplate` use is spread across business services; SQL-level ownership and transaction participation remain open.
+- The targeted service scan did not establish a complete scheduler, executor, event-listener, WebSocket, cache or polling inventory. A repository-wide annotation/configuration search and runtime registration review are still required.
+- No endpoint-level negative authorization matrix was found in the inspected test path list. Existing service/controller tests are not a substitute for anonymous/wrong-role/wrong-owner/session-revocation tests.
+
+## Updated Phase 0 gate
+
+Phase 0 remains open. The next evidence tranche must enumerate every SQL statement and repository call site, inspect every migration source file, inspect full security/filter/controller method bodies, enumerate asynchronous and WebSocket wiring, and map each test to endpoint/workflow and authorization scenario. Oracle migration history and schema constraints require separately approved read-only access.
