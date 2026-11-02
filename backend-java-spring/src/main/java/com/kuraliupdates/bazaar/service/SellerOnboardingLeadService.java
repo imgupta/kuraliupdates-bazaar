@@ -63,8 +63,8 @@ public class SellerOnboardingLeadService {
             throw new ApiException(HttpStatus.FORBIDDEN, "Verify your email and mobile before requesting a callback");
         }
         LocalDateTime now = LocalDateTime.now();
-        jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET CONTACT_CONSENT=1, CALLBACK_REQUESTED=1, STATUS='CALLBACK_REQUESTED', UPDATED_AT=? WHERE LEAD_ID=?",
-                now, leadId);
+        jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET CONTACT_CONSENT=1, CONTACT_CONSENT_AT=?, CONTACT_CONSENT_VERSION='SELLER-CALLBACK-2026-11', CALLBACK_REQUESTED=1, STATUS='CALLBACK_REQUESTED', UPDATED_AT=? WHERE LEAD_ID=?",
+                now, now, leadId);
         audit(leadId, "APPLICANT", "CALLBACK_REQUESTED", clean(preferredTime, 120));
         return Map.of("success", true, "message", "KuraliUpdates will contact you during the requested time");
     }
@@ -160,11 +160,11 @@ public class SellerOnboardingLeadService {
 
     private Map<String,Object> getLead(String id) {
         if (id == null || id.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "Lead reference is required");
-        List<Map<String,Object>> rows = jdbc.query("SELECT LEAD_ID,OWNER_NAME,EMAIL,PHONE,EMAIL_VERIFIED,PHONE_VERIFIED,CONTACT_CONSENT,STATUS FROM SELLER_ONBOARDING_LEADS WHERE LEAD_ID=?",
+        List<Map<String,Object>> rows = jdbc.query("SELECT LEAD_ID,OWNER_NAME,EMAIL,PHONE,EMAIL_VERIFIED,PHONE_VERIFIED,CONTACT_CONSENT,STATUS,ASSIGNED_TO,CALLBACK_AT FROM SELLER_ONBOARDING_LEADS WHERE LEAD_ID=?",
                 (rs,row)->Map.of("leadId",rs.getString("LEAD_ID"),"ownerName",rs.getString("OWNER_NAME"),
                         "email",rs.getString("EMAIL"),"phone",rs.getString("PHONE"),
                         "emailVerified",rs.getInt("EMAIL_VERIFIED")==1,"phoneVerified",rs.getInt("PHONE_VERIFIED")==1,
-                        "contactConsent",rs.getInt("CONTACT_CONSENT")==1,"status",rs.getString("STATUS")), id);
+                        "contactConsent",rs.getInt("CONTACT_CONSENT")==1,"status",rs.getString("STATUS"),"assignedTo",rs.getString("ASSIGNED_TO")==null?"":rs.getString("ASSIGNED_TO"),"callbackAt",rs.getTimestamp("CALLBACK_AT")==null?"":rs.getTimestamp("CALLBACK_AT").toString()), id);
         if (rows.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "Seller registration lead was not found");
         return rows.get(0);
     }
