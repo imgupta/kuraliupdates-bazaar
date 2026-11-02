@@ -212,6 +212,7 @@ export const SellerRegistrationWizard: React.FC = () => {
       token: response.token, serverUser: response.user
     });
     await uploadDocuments(response.token);
+    try { await sellerApi.deleteSellerRegistrationDraft(); } catch (draftCleanupError) { console.warn('Seller draft cleanup skipped:', draftCleanupError); }
     showToast('Seller application submitted. It will be reviewed by the Kurali admin team.', 'success');
     setSubmissionComplete(true);
   };
