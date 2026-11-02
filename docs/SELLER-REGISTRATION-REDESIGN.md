@@ -717,3 +717,39 @@ Use Oracle-compatible types, constraints and indexes. Avoid storing redundant co
 - New Oracle migrations are additive, reviewed and applied only to verified isolated staging after backup confirmation.
 - Staging UI/API/database behavior is independently verified; a green build alone is not sufficient.
 - Rollout, monitoring, retention and support runbooks are documented.
+
+
+## 17.13 Phase 0 discovery findings (repository inspection, 2 November 2026)
+
+These findings are from the current \`main\` source at \`9a27338b17d0e3c63df3368466de5600f85312a8\`; they are not runtime/provider verification.
+
+### Confirmed existing building blocks
+- Canonical combined-app routes in \`src/app/routing/routeConfig.ts\`: home \`/\`, seller registration \`/register/seller\`, buyer registration \`/register/buyer\`, seller dashboard \`/seller\`, buyer dashboard \`/buyer\`. The exact buyer-login entry point still needs tracing through the home/auth UI before adding links.
+- \`AuthController\` exposes \`POST /auth/send-otp\`, \`POST /auth/registration-check\`, and \`POST /auth/verify-otp\`.
+- \`SendOtpRequest\` accepts an identifier and type. \`OtpService\` normalizes cooldown, hashes OTPs, stores expiry/attempt state, enforces five failed attempts and a resend cooldown.
+- \`OtpDeliveryService\` has Resend email and MSG91 SMS paths. SMS requires both MSG91 auth key and template ID; country code defaults to 91.
+- \`VerifyOtpRequest\` already includes \`emailOtp\` and \`phoneOtp\` fields.
+- \`AuthService.register\` currently verifies the email OTP only; it does not verify \`phoneOtp\`. Therefore the DTO field is not evidence that dual-channel verification is implemented.
+- Existing registration checks detect when email and mobile resolve to different user accounts and allow a new role to be attached to an existing user, avoiding duplicate user records in the normal path.
+- \`SellerRegistrationDraftController\` is authenticated and delegates to \`SellerRegistrationDraftService\`; draft sanitization removes OTP/token/file-like keys recursively.
+- Current seller wizard sends email OTP at the final submission step, creates the seller profile through OTP registration, then uploads documents. Draft resume requires the applicant to sign in first.
+- The current wizard has no callback lead or Merchant Onboarding CRM route evidenced in the inspected files.
+- Seller registration radius is enforced server-side during registration; preserve that rule.
+
+### Confirmed gaps / decisions before implementation
+1. Add server-side mobile OTP verification to the seller registration flow; do not merely add a second UI input. Verify both proofs against the exact normalized email/mobile and prevent reuse across purposes or identifiers.
+2. Verify the live Render staging environment has the required MSG91 variables and a valid approved template before enabling the SMS step. Source code alone cannot establish that provider credentials or delivery are configured. Do not print or copy secrets into GitHub.
+3. Add a safe application/lead record before the merchant completes business details; the existing seller draft is tied to an authenticated user and is not a public pre-verification lead.
+4. Trace the home-page auth controls and role-portal routing to determine the correct Buyer Login URL. Do not invent a route.
+5. Implement callback consent and CRM permissions as separate features; do not reuse seller approval permissions for onboarding agents.
+6. Keep document scan state independent from human review state. Existing V26 scanner gate remains a prerequisite for document lifecycle E2E.
+
+### Phase 0 exit status
+- [x] Canonical route map (registration/dashboard paths) identified.
+- [x] OTP controller, DTO, service and delivery-provider code inspected.
+- [x] Existing seller draft API and sanitization inspected.
+- [x] Existing seller registration wizard flow inspected.
+- [ ] Confirm live staging MSG91 configuration and test delivery without exposing secrets.
+- [ ] Trace Buyer Login entry point in home/auth UI.
+- [ ] Complete CRM permission matrix and data-retention decision.
+- [ ] Confirm exact database backup/restore evidence before any new migration.
