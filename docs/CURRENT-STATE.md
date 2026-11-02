@@ -15,6 +15,20 @@ This page distinguishes merged source from deployed/runtime verification. Rechec
 - Seller compliance onboarding fields, map location, shop-front photo, agreement acceptance and applicable GST/FSSAI document integration.
 - Oracle BLOB seller document storage and authenticated seller/admin document API; Flyway V14 source migration.
 
+## Approved seller registration redesign — implementation not started
+
+The approved target specification and complete 86-ticket backlog are documented in [SELLER-REGISTRATION-REDESIGN.md](SELLER-REGISTRATION-REDESIGN.md).
+
+Locked decisions:
+- Five-step mobile-first registration wizard.
+- Admin-configurable seller radius, initially proposed at 5 km around verified Kurali town-centre coordinates.
+- English, Punjabi and Hindi.
+- Conditional compliance/document collection.
+- Persistent drafts, safe buyer-to-seller account linking, backend geofence validation, manual admin review and seller status tracking.
+- Seller eligibility radius remains independent of grocery delivery radius.
+
+This is a planning baseline only. No application code, schema, hosting configuration or deployment is changed by the specification. The proposed API routes and data entities are not yet implemented contracts.
+
 ## Last deployment observation (2 Nov 2026)
 
 - Six Vercel project deployment records were READY on commit `1a44fb45da9f0061d8e9c902c825770662b9fd11`.
@@ -32,6 +46,7 @@ This page distinguishes merged source from deployed/runtime verification. Rechec
 
 ## Priority 1 — seller onboarding completion
 
+- [ ] Implement the approved redesign in [SELLER-REGISTRATION-REDESIGN.md](SELLER-REGISTRATION-REDESIGN.md), beginning with Phase 0 discovery.
 - [ ] Admin frontend for seller profile/document review, preview/download, verify/reject with reason and audit history.
 - [ ] FSSAI expiry capture/validation where applicable.
 - [ ] Replace free-text food-category keyword heuristic with explicit centrally maintained compliance applicability mapping.
