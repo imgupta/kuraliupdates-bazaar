@@ -63,3 +63,14 @@ Phase 0 is not complete: the route registry, frontend import graph, endpoint/con
 ## Safety and evidence
 
 Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller documents. Do not enable mutating E2E until the database target, synthetic identities/data and cleanup are verified. Do not routinely run destructive reset migrations. Claim completion only when source, tests, CI and runtime evidence agree.
+
+
+## Latest architecture discovery checkpoint
+
+- PR #222 merged to main as `560a34a4a94241e007a396a2ad4cbc8e2e67e428`.
+- The next source audit baseline contains 147 Java files and 96 frontend src files.
+- Exact browser route registry is in `src/app/routing/routeConfig.ts`: /, /register/buyer, /register/seller, /register/delivery, /register/daily-help, /account, /buyer, /seller, /delivery, /daily-help and /admin.
+- Key backend boundary leaks found: OrderService -> SellerRepository/ProductRepository; SellerService -> OrderRepository; DeliveryService -> OrderRepository; AuthService -> Seller/DeliveryAgent/DailyHelpProfessional repositories.
+- The tree contains a tracked Oracle wallet ZIP and Dockerfile copies Wallet*.zip into the image. Review PR #84 before any wallet/Docker changes. Do not expose wallet material.
+- See DOMAIN-BOUNDARIES.md, FRONTEND-PORTAL-ROUTE-INVENTORY.md, SERVICE-DEPENDENCY-MAP.md and DATA-OWNERSHIP-MATRIX.md for source findings and remaining gaps.
+- Phase 0 remains in progress. Do not start broad code movement until method-level data access, transaction, migration and workflow inventories are complete.
