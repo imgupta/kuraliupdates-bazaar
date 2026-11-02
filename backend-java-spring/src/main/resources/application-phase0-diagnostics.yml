@@ -1,0 +1,11 @@
+# Temporary, explicitly activated profile used only to inspect Oracle metadata
+# while a failed Flyway migration prevents normal startup. No schema changes.
+spring:
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: none
+  sql:
+    init:
+      mode: never
