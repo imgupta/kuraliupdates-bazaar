@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { writeFile } from "node:fs/promises";
 /**
  * Read-only staging API smoke checks.
  *
@@ -96,6 +97,7 @@ async function waitForApiLiveness() {
         Math.min(timeoutMs, 15000),
       );
       if (fallback.ok) lastResult = fallback;
+      else lastResult.fallbackProbe = { path: fallback.path, status: fallback.status, detail: fallback.detail };
     }
 
     if (lastResult.ok) {
@@ -164,6 +166,8 @@ const report = {
   failed: failures.length,
   results,
 };
-console.log(JSON.stringify(report, null, 2));
+const serializedReport = JSON.stringify(report, null, 2);
+console.log(serializedReport);
+await writeFile(process.env.SMOKE_REPORT_PATH || "smoke-report.json", serializedReport + "\n", "utf8");
 
 if (failures.length) process.exit(1);
