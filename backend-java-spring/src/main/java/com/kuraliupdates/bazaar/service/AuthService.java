@@ -44,6 +44,7 @@ public class AuthService {
     private final OtpService otpService;
     private final BuyerAddressService addressService;
     private final SellerServiceAreaService sellerServiceAreaService;
+    private final SellerOnboardingLeadService sellerOnboardingLeadService;
 
     @Transactional
     public OtpSendResult sendOtp(String rawIdentifier, String requestedType, String mode) {
@@ -234,9 +235,10 @@ public class AuthService {
             throw new ApiException(HttpStatus.CONFLICT, "This email and mobile number belong to different accounts.");
         }
 
-        otpService.verify(email, "EMAIL", req.emailOtp());
-
         String role = normalizeRole(req.role());
+        if (!"SELLER".equals(role)) {
+            otpService.verify(email, "EMAIL", req.emailOtp());
+        }
 
         if (existingUser != null) {
             if (hasRole(existingUser, role)) {
@@ -260,6 +262,9 @@ public class AuthService {
             }
             userRepository.save(existingUser);
             provisionRole(existingUser, role, req, locality, now);
+            if ("SELLER".equals(role)) {
+                sellerOnboardingLeadService.markApplicationSubmitted(req.leadId(), email, phone, existingUser.getUserId());
+            }
 
             return new AuthResult(createSession(existingUser),
                     UserResponse.from(existingUser, addressService.findByUserId(existingUser.getUserId())),
@@ -286,6 +291,9 @@ public class AuthService {
         userRepository.save(user);
 
         provisionRole(user, role, req, locality, now);
+        if ("SELLER".equals(role)) {
+            sellerOnboardingLeadService.markApplicationSubmitted(req.leadId(), email, phone, user.getUserId());
+        }
         return new AuthResult(createSession(user), UserResponse.from(user, addressService.findByUserId(user.getUserId())), "Welcome, " + user.getName() + "!");
     }
 
