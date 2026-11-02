@@ -7,6 +7,10 @@ server:
 spring:
   application:
     name: kuraliupdates-bazaar-service
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
   main:
     # Defer non-essential bean creation so the HTTP server can bind within Render's startup window.
     lazy-initialization: true

@@ -11,6 +11,7 @@ import com.kuraliupdates.bazaar.repository.OrderRepository;
 import com.kuraliupdates.bazaar.repository.UserRepository;
 import com.kuraliupdates.bazaar.repository.ProductRepository;
 import com.kuraliupdates.bazaar.repository.SellerRepository;
+import com.kuraliupdates.bazaar.repository.SellerDocumentRepository;
 import com.kuraliupdates.bazaar.repository.DeliveryAgentRepository;
 import com.kuraliupdates.bazaar.repository.SearchTrendRepository;
 import com.kuraliupdates.bazaar.dto.admin.AdminSearchTrendResponse;
@@ -46,6 +47,7 @@ import java.util.UUID;
 public class AdminController {
 
     private final SellerRepository sellerRepository;
+    private final SellerDocumentRepository sellerDocumentRepository;
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
     private final DeliveryAgentRepository deliveryAgentRepository;
@@ -158,6 +160,33 @@ public class AdminController {
     @Operation(summary = "Admin approves Kurali store to publish inventory & start selling")
     public ResponseEntity<SellerEntity> approveSeller(@PathVariable String sellerId) {
         return sellerRepository.findById(sellerId).map(seller -> {
+            List<com.kuraliupdates.bazaar.entity.SellerDocumentEntity> documents =
+                    sellerDocumentRepository.findBySellerIdOrderByUploadedAtDesc(sellerId);
+            boolean shopPhotoVerified = documents.stream().anyMatch(d ->
+                    "SHOP_FRONT_PHOTO".equals(d.getDocumentType()) && "VERIFIED".equals(d.getVerificationStatus()));
+            if (!shopPhotoVerified) {
+                throw new com.kuraliupdates.bazaar.exception.ApiException(
+                        org.springframework.http.HttpStatus.CONFLICT,
+                        "Verify the shop-front photo before approving this seller");
+            }
+            if (seller.getGstNumber() != null && !seller.getGstNumber().isBlank()) {
+                boolean gstVerified = documents.stream().anyMatch(d ->
+                        "GST_CERTIFICATE".equals(d.getDocumentType()) && "VERIFIED".equals(d.getVerificationStatus()));
+                if (!gstVerified) throw new com.kuraliupdates.bazaar.exception.ApiException(
+                        org.springframework.http.HttpStatus.CONFLICT, "Verify the GST certificate before approving this seller");
+                seller.setGstVerificationStatus("VERIFIED");
+            }
+            String category = seller.getCategory() == null ? "" : seller.getCategory().toLowerCase(Locale.ROOT);
+            boolean foodBusiness = category.contains("grocery") || category.contains("food")
+                    || category.contains("bakery") || category.contains("restaurant")
+                    || category.contains("dairy") || category.contains("meat");
+            if (foodBusiness) {
+                boolean fssaiVerified = documents.stream().anyMatch(d ->
+                        "FSSAI_CERTIFICATE".equals(d.getDocumentType()) && "VERIFIED".equals(d.getVerificationStatus()));
+                if (!fssaiVerified) throw new com.kuraliupdates.bazaar.exception.ApiException(
+                        org.springframework.http.HttpStatus.CONFLICT, "Verify the FSSAI certificate before approving this food seller");
+                seller.setFssaiVerificationStatus("VERIFIED");
+            }
             seller.setStatus("APPROVED");
             seller.setApprovedAt(LocalDateTime.now());
             return ResponseEntity.ok(sellerRepository.save(seller));

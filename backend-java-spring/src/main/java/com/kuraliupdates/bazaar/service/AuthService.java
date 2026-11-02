@@ -292,6 +292,48 @@ public class AuthService {
         if (req.name() == null || req.name().isBlank() || email.isBlank() || phone.isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Full name, email and mobile number are required for registration");
         }
+        if ("SELLER".equals(normalizeRole(req.role()))) {
+            requireSellerValue(req.businessType(), "Business type is required");
+            if (!Set.of("INDIVIDUAL", "PROPRIETORSHIP", "PARTNERSHIP", "COMPANY").contains(req.businessType().trim().toUpperCase())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Select a valid business type");
+            }
+            requireSellerValue(req.storeName(), "Shop name is required");
+            requireSellerValue(req.registeredBusinessName(), "Registered business name is required");
+            requireSellerValue(req.category(), "Business category is required");
+            requireSellerValue(req.shopNumber(), "Shop number is required");
+            requireSellerValue(req.wardNumber(), "Ward number is required");
+            requireSellerValue(req.streetLocality(), "Street or locality is required");
+            if (req.pinCode() == null || !req.pinCode().matches("\\d{6}")) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Enter a valid 6-digit shop PIN code");
+            }
+            if (req.latitude() == null || req.longitude() == null
+                    || req.latitude() < -90 || req.latitude() > 90
+                    || req.longitude() < -180 || req.longitude() > 180) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "A valid shop map location is required");
+            }
+            if (!Boolean.TRUE.equals(req.agreementAccepted()) || req.agreementVersion() == null || req.agreementVersion().isBlank()) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "You must accept the current seller agreement to continue");
+            }
+            if (req.gstNumber() != null && !req.gstNumber().isBlank()
+                    && !req.gstNumber().trim().toUpperCase().matches("\\d{2}[A-Z]{5}\\d{4}[A-Z][A-Z0-9]Z[A-Z0-9]")) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Enter a valid GSTIN format");
+            }
+            String category = req.category().toLowerCase();
+            boolean foodBusiness = category.contains("grocery") || category.contains("food")
+                    || category.contains("bakery") || category.contains("restaurant")
+                    || category.contains("dairy") || category.contains("meat");
+            if (foodBusiness && (req.fssaiNumber() == null || req.fssaiNumber().isBlank())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "FSSAI registration/licence details are required for food businesses");
+            }
+            if (req.fssaiNumber() != null && !req.fssaiNumber().isBlank()
+                    && !req.fssaiNumber().trim().matches("\\d{14}")) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Enter a valid 14-digit FSSAI number");
+            }
+        }
+    }
+
+    private void requireSellerValue(String value, String message) {
+        if (value == null || value.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, message);
     }
 
     private Optional<SellerEntity> findSellerProfile(UserEntity user) {
@@ -381,9 +423,24 @@ public class AuthService {
                     .userId(user.getUserId())
                     .storeName(defaultString(req.storeName()).isBlank() ? user.getName() + "'s Shop" : req.storeName().trim())
                     .ownerName(user.getName()).email(user.getEmail()).phone(user.getPhone())
-                    .category(defaultString(req.category()).isBlank() ? "General" : req.category().trim())
-                    .address(defaultString(req.address()).isBlank() ? locality + ", Kurali" : req.address().trim())
-                    .locality(locality).distanceKm(BigDecimal.ONE).rating(BigDecimal.ZERO).reviewCount(0)
+                    .category(req.category().trim())
+                    .address(String.join(", ", List.of(defaultString(req.shopNumber()), defaultString(req.wardNumber()), defaultString(req.streetLocality()), defaultString(req.pinCode()))))
+                    .locality(req.streetLocality().trim()).latitude(toDecimal(req.latitude())).longitude(toDecimal(req.longitude()))
+                    .businessType(req.businessType().trim().toUpperCase())
+                    .registeredBusinessName(req.registeredBusinessName().trim())
+                    .shopNumber(req.shopNumber().trim()).wardNumber(req.wardNumber().trim())
+                    .streetLocality(req.streetLocality().trim()).pinCode(req.pinCode().trim())
+                    .landmark(defaultString(req.landmark()))
+                    .gstNumber(defaultString(req.gstNumber()).trim().toUpperCase())
+                    .fssaiNumber(defaultString(req.fssaiNumber()).trim())
+                    .fssaiLicenseType(defaultString(req.fssaiLicenseType()))
+                    .fssaiExpiryDate(req.fssaiExpiryDate() == null || req.fssaiExpiryDate().isBlank() ? null : java.time.LocalDate.parse(req.fssaiExpiryDate()))
+                    .gstVerificationStatus(req.gstNumber() == null || req.gstNumber().isBlank() ? "NOT_SUBMITTED" : "PENDING")
+                    .fssaiVerificationStatus(req.fssaiNumber() == null || req.fssaiNumber().isBlank() ? "NOT_SUBMITTED" : "PENDING")
+                    .openingTime(defaultString(req.openingTime())).closingTime(defaultString(req.closingTime()))
+                    .weeklyClosedDay(defaultString(req.weeklyClosedDay())).preparationMinutes(req.preparationMinutes())
+                    .agreementVersion(req.agreementVersion()).agreementAcceptedAt(now)
+                    .distanceKm(BigDecimal.ONE).rating(BigDecimal.ZERO).reviewCount(0)
                     .status("PENDING").registeredAt(now)
                     .minOrderForFreeDelivery(BigDecimal.valueOf(499)).baseDeliveryFee(BigDecimal.valueOf(35))
                     .description("Merchant application awaiting Kurali admin approval.").build());

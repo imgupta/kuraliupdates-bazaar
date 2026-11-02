@@ -79,6 +79,10 @@ export const authApi = {
     phone?: string;
     emailOtp?: string;
     phoneOtp?: string;
+    businessType?: string; registeredBusinessName?: string; shopNumber?: string; wardNumber?: string;
+    streetLocality?: string; pinCode?: string; gstNumber?: string; fssaiNumber?: string;
+    fssaiLicenseType?: string; fssaiExpiryDate?: string; openingTime?: string; closingTime?: string;
+    weeklyClosedDay?: string; preparationMinutes?: number; agreementAccepted?: boolean; agreementVersion?: string;
   }): Promise<{ success: boolean; token?: string; user?: any; message: string }> {
     const controller = new AbortController();
     // Verification consumes the OTP and creates a session in one request. Avoid
@@ -98,6 +102,23 @@ export const authApi = {
       return { success: false, message: err.name === 'AbortError' ? 'Authentication service timed out. Please request a fresh code before trying again.' : 'Authentication service is unavailable' };
     } finally {
       clearTimeout(timeoutId);
+    }
+  },
+
+  async uploadSellerDocument(token: string, documentType: string, file: File): Promise<{ success: boolean; documentId?: string; message?: string }> {
+    try {
+      const body = new FormData();
+      body.append('documentType', documentType);
+      body.append('file', file);
+      const res = await fetch(`${API_BASE_URL}/sellers/me/documents`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+        body,
+      });
+      const data = await res.json().catch(() => ({}));
+      return res.ok ? data : { success: false, message: data.message || 'Unable to upload seller document' };
+    } catch {
+      return { success: false, message: 'Document upload service is unavailable' };
     }
   },
 

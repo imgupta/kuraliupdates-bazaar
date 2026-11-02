@@ -28,5 +28,21 @@ public record VerifyOtpRequest(
         String category,
         String vehicleType,
         String vehicleNumber,
-        String licenseNumber
+        String licenseNumber,
+        String businessType,
+        String registeredBusinessName,
+        String shopNumber,
+        String wardNumber,
+        String streetLocality,
+        String pinCode,
+        String gstNumber,
+        String fssaiNumber,
+        String fssaiLicenseType,
+        String fssaiExpiryDate,
+        String openingTime,
+        String closingTime,
+        String weeklyClosedDay,
+        Integer preparationMinutes,
+        Boolean agreementAccepted,
+        String agreementVersion
 ) {}

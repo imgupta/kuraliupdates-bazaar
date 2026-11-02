@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { KURALI_LOCALITIES } from '../../data/initialData';
 import { UserRole } from '../../types';
 import { bazaarApi } from '../../services/api';
+import { LocationPicker, DeliveryLocation } from './LocationPicker';
 
 type AuthMode = 'signin' | 'register';
 type ContactMethod = 'email' | 'phone';
@@ -28,6 +29,7 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
   const [onboardingStatus, setOnboardingStatus] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [pendingToken, setPendingToken] = useState('');
   const [pendingIdentifier, setPendingIdentifier] = useState('');
+  const [shopLocation, setShopLocation] = useState<DeliveryLocation | null>(null);
   const [pendingRegistration, setPendingRegistration] = useState<{
     name: string;
     email: string;
@@ -39,6 +41,12 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
     vehicleType?: string;
     vehicleNumber?: string;
     licenseNumber?: string;
+    businessType?: string; registeredBusinessName?: string; shopNumber?: string; wardNumber?: string;
+    streetLocality?: string; pinCode?: string; gstNumber?: string; fssaiNumber?: string;
+    fssaiLicenseType?: string; openingTime?: string; closingTime?: string; weeklyClosedDay?: string;
+    agreementAccepted?: boolean; agreementVersion?: string;
+    latitude?: number; longitude?: number; formattedAddress?: string; placeId?: string;
+    shopFrontPhoto?: File; gstCertificate?: File; fssaiCertificate?: File;
   } | null>(null);
 
   const nameRef = useRef<HTMLInputElement>(null);
@@ -48,6 +56,22 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
   const addressRef = useRef<HTMLInputElement>(null);
   const storeNameRef = useRef<HTMLInputElement>(null);
   const categoryRef = useRef<HTMLInputElement>(null);
+  const businessTypeRef = useRef<HTMLSelectElement>(null);
+  const registeredBusinessNameRef = useRef<HTMLInputElement>(null);
+  const shopNumberRef = useRef<HTMLInputElement>(null);
+  const wardNumberRef = useRef<HTMLInputElement>(null);
+  const streetLocalityRef = useRef<HTMLInputElement>(null);
+  const pinCodeRef = useRef<HTMLInputElement>(null);
+  const gstNumberRef = useRef<HTMLInputElement>(null);
+  const fssaiNumberRef = useRef<HTMLInputElement>(null);
+  const fssaiLicenseTypeRef = useRef<HTMLSelectElement>(null);
+  const openingTimeRef = useRef<HTMLInputElement>(null);
+  const closingTimeRef = useRef<HTMLInputElement>(null);
+  const weeklyClosedDayRef = useRef<HTMLSelectElement>(null);
+  const agreementRef = useRef<HTMLInputElement>(null);
+  const shopFrontPhotoRef = useRef<HTMLInputElement>(null);
+  const gstCertificateRef = useRef<HTMLInputElement>(null);
+  const fssaiCertificateRef = useRef<HTMLInputElement>(null);
   const vehicleNumberRef = useRef<HTMLInputElement>(null);
   const licenseNumberRef = useRef<HTMLInputElement>(null);
   const vehicleTypeRef = useRef<HTMLSelectElement>(null);
@@ -107,6 +131,17 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
         if (registrationRole === 'seller') {
           if (!(storeNameRef.current?.value || '').trim()) throw new Error('Please enter your shop name');
           if (!(categoryRef.current?.value || '').trim()) throw new Error('Please enter your business category');
+          if (!(registeredBusinessNameRef.current?.value || '').trim()) throw new Error('Please enter the registered business name');
+          if (!(shopNumberRef.current?.value || '').trim()) throw new Error('Please enter the shop number');
+          if (!(wardNumberRef.current?.value || '').trim()) throw new Error('Please enter the ward number');
+          if (!(streetLocalityRef.current?.value || '').trim()) throw new Error('Please enter the street or locality');
+          if (!/^\\d{6}$/.test(pinCodeRef.current?.value || '')) throw new Error('Please enter a valid 6-digit shop PIN code');
+          if (!agreementRef.current?.checked) throw new Error('Please accept the Seller Agreement and Terms');
+          if (!shopLocation) throw new Error('Please set your shop location on the map');
+          if (!shopFrontPhotoRef.current?.files?.[0]) throw new Error('Please upload a shop-front photo');
+          if (gstNumberRef.current?.value.trim() && !gstCertificateRef.current?.files?.[0]) throw new Error('Please upload the GST certificate for the supplied GSTIN');
+          const foodCategory = (categoryRef.current?.value || '').toLowerCase();
+          if (/(grocery|food|bakery|restaurant|dairy|meat)/.test(foodCategory) && !fssaiCertificateRef.current?.files?.[0]) throw new Error('Please upload the FSSAI certificate for this food business');
         }
         if (registrationRole === 'delivery') {
           if (!(vehicleNumberRef.current?.value || '').trim()) throw new Error('Please enter your vehicle number');
@@ -131,6 +166,25 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
           address: (addressRef.current?.value || '').trim(),
           storeName: storeNameRef.current?.value.trim(),
           category: categoryRef.current?.value.trim(),
+          businessType: businessTypeRef.current?.value,
+          registeredBusinessName: registeredBusinessNameRef.current?.value.trim(),
+          shopNumber: shopNumberRef.current?.value.trim(),
+          wardNumber: wardNumberRef.current?.value.trim(),
+          streetLocality: streetLocalityRef.current?.value.trim(),
+          pinCode: pinCodeRef.current?.value.trim(),
+          gstNumber: gstNumberRef.current?.value.trim(),
+          fssaiNumber: fssaiNumberRef.current?.value.trim(),
+          fssaiLicenseType: fssaiLicenseTypeRef.current?.value,
+          openingTime: openingTimeRef.current?.value,
+          closingTime: closingTimeRef.current?.value,
+          weeklyClosedDay: weeklyClosedDayRef.current?.value,
+          agreementAccepted: agreementRef.current?.checked,
+          agreementVersion: 'seller-terms-2026-11-01',
+          latitude: shopLocation?.latitude, longitude: shopLocation?.longitude,
+          formattedAddress: shopLocation?.formattedAddress, placeId: shopLocation?.placeId,
+          shopFrontPhoto: shopFrontPhotoRef.current?.files?.[0],
+          gstCertificate: gstCertificateRef.current?.files?.[0],
+          fssaiCertificate: fssaiCertificateRef.current?.files?.[0],
           vehicleType: vehicleTypeRef.current?.value,
           vehicleNumber: vehicleNumberRef.current?.value.trim(),
           licenseNumber: licenseNumberRef.current?.value.trim(),
@@ -183,7 +237,10 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
       if (authMode === 'register') {
         const registration = pendingRegistration;
         if (!registration) throw new Error('Registration details are missing. Please start registration again.');
-        const { name, email, phone, locality, address, storeName, category, vehicleType, vehicleNumber, licenseNumber } = registration;
+        const { name, email, phone, locality, address, storeName, category, vehicleType, vehicleNumber, licenseNumber,
+          businessType, registeredBusinessName, shopNumber, wardNumber, streetLocality, pinCode, gstNumber,
+          fssaiNumber, fssaiLicenseType, openingTime, closingTime, weeklyClosedDay, agreementAccepted, agreementVersion,
+          latitude, longitude, formattedAddress, placeId, shopFrontPhoto, gstCertificate, fssaiCertificate } = registration;
 
         const response = await bazaarApi.verifyOtp({
           mode: 'REGISTER',
@@ -193,6 +250,9 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
           address,
           storeName,
           category,
+          businessType, registeredBusinessName, shopNumber, wardNumber, streetLocality, pinCode,
+          gstNumber, fssaiNumber, fssaiLicenseType, openingTime, closingTime, weeklyClosedDay,
+          agreementAccepted, agreementVersion, latitude, longitude, formattedAddress, placeId,
           vehicleType,
           vehicleNumber,
           licenseNumber,
@@ -203,6 +263,23 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
 
         if (!response.success || !response.token || !response.user) {
           throw new Error(response.message || 'Registration verification failed');
+        }
+
+        if (registrationRole === 'seller') {
+          const uploads: Array<Promise<{ success: boolean; documentId?: string; message?: string }>> = [
+            shopFrontPhoto
+              ? bazaarApi.uploadSellerDocument(response.token, 'SHOP_FRONT_PHOTO', shopFrontPhoto)
+              : Promise.resolve({ success: false, message: 'Shop-front photo is missing' }),
+            gstCertificate
+              ? bazaarApi.uploadSellerDocument(response.token, 'GST_CERTIFICATE', gstCertificate)
+              : Promise.resolve({ success: true }),
+            fssaiCertificate
+              ? bazaarApi.uploadSellerDocument(response.token, 'FSSAI_CERTIFICATE', fssaiCertificate)
+              : Promise.resolve({ success: true }),
+          ];
+          const uploadResults = await Promise.all(uploads);
+          const failedUpload = uploadResults.find(result => !result.success);
+          if (failedUpload) throw new Error(failedUpload.message || 'Seller document upload failed. Sign in and contact support to complete document submission.');
         }
 
         const result = registerUserWithOtp({
@@ -416,6 +493,35 @@ export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buye
                           <label className="block mb-1 text-xs font-bold text-slate-700">Business category <span className="text-rose-500">*</span></label>
                           <input ref={categoryRef} type="text" placeholder="Groceries, pharmacy, electronics..." className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white" />
                         </div>
+                        <div>
+                          <label className="block mb-1 text-xs font-bold text-slate-700">Business constitution <span className="text-rose-500">*</span></label>
+                          <select ref={businessTypeRef} defaultValue="INDIVIDUAL" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm"><option value="INDIVIDUAL">Individual</option><option value="PROPRIETORSHIP">Proprietorship</option><option value="PARTNERSHIP">Partnership</option><option value="COMPANY">Company / LLP</option></select>
+                        </div>
+                        <div><label className="block mb-1 text-xs font-bold text-slate-700">Registered business / legal name *</label><input ref={registeredBusinessNameRef} type="text" placeholder="Name as per registration" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm" /></div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><label className="block mb-1 text-xs font-bold text-slate-700">Shop number *</label><input ref={shopNumberRef} type="text" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
+                          <div><label className="block mb-1 text-xs font-bold text-slate-700">Ward number *</label><input ref={wardNumberRef} type="text" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><label className="block mb-1 text-xs font-bold text-slate-700">Street / locality *</label><input ref={streetLocalityRef} type="text" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
+                          <div><label className="block mb-1 text-xs font-bold text-slate-700">PIN code *</label><input ref={pinCodeRef} type="text" inputMode="numeric" maxLength={6} className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
+                        </div>
+                        <div className="sm:col-span-2"><p className="mb-2 text-xs font-bold text-slate-700">Pin your shop location <span className="text-rose-500">*</span></p><LocationPicker value={shopLocation} onChange={setShopLocation} /></div>
+                        <div><label className="block mb-1 text-xs font-bold text-slate-700">GSTIN <span className="font-normal text-slate-400">(if registered / applicable)</span></label><input ref={gstNumberRef} type="text" placeholder="15-character GSTIN" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm uppercase" /></div>
+                        <div><label className="block mb-1 text-xs font-bold text-slate-700">FSSAI number <span className="font-normal text-slate-400">(required for applicable food businesses)</span></label><input ref={fssaiNumberRef} type="text" maxLength={14} placeholder="14-digit FSSAI number" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
+                        <div><label className="block mb-1 text-xs font-bold text-slate-700">FSSAI licence type</label><select ref={fssaiLicenseTypeRef} defaultValue="" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm"><option value="">Select if applicable</option><option>Basic Registration</option><option>State Licence</option><option>Central Licence</option></select></div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><label className="block mb-1 text-xs font-bold text-slate-700">Opening time</label><input ref={openingTimeRef} type="time" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
+                          <div><label className="block mb-1 text-xs font-bold text-slate-700">Closing time</label><input ref={closingTimeRef} type="time" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
+                        </div>
+                        <div><label className="block mb-1 text-xs font-bold text-slate-700">Weekly closing day</label><select ref={weeklyClosedDayRef} defaultValue="" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm"><option value="">No fixed weekly closure</option>{['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day => <option key={day}>{day}</option>)}</select></div>
+                        <div className="space-y-3 rounded-xl border border-slate-200 p-3">
+                          <p className="text-xs font-black text-slate-800">Business documents <span className="text-rose-500">*</span></p>
+                          <div><label className="block mb-1 text-xs font-bold text-slate-700">Shop-front photo *</label><input ref={shopFrontPhotoRef} type="file" accept="image/jpeg,image/png,application/pdf" className="w-full text-xs" /><p className="text-[10px] text-slate-500">PDF, JPG or PNG; maximum 5 MB.</p></div>
+                          <div><label className="block mb-1 text-xs font-bold text-slate-700">GST certificate <span className="font-normal text-slate-400">(required when GSTIN is supplied)</span></label><input ref={gstCertificateRef} type="file" accept="image/jpeg,image/png,application/pdf" className="w-full text-xs" /></div>
+                          <div><label className="block mb-1 text-xs font-bold text-slate-700">FSSAI certificate <span className="font-normal text-slate-400">(required for applicable food businesses)</span></label><input ref={fssaiCertificateRef} type="file" accept="image/jpeg,image/png,application/pdf" className="w-full text-xs" /></div>
+                        </div>
+                        <label className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[11px] text-slate-600"><input ref={agreementRef} type="checkbox" className="mt-0.5" /><span>I confirm that the information is accurate and accept the <a href="/seller-agreement.html" target="_blank" rel="noreferrer" className="font-bold text-blue-700 underline">Seller Agreement</a>, marketplace terms and privacy notice. I understand approval is subject to document and compliance review. <b className="text-rose-600">*</b></span></label>
                       </>
                     )}
                     {registrationRole === 'delivery' && (
