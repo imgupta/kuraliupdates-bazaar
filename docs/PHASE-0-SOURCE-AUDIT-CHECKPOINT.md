@@ -766,3 +766,25 @@ Read-only Render inspection of service `srv-db0fv9egekts739hfa6g` in workspace `
 - The current V30 SQL uses an anonymous PL/SQL block that dynamically drops CHECK constraints, immediately followed by an ALTER TABLE to add a replacement CHECK. The Oracle error points to line 20/column 1, but the available log message does not include the complete PLS-xxxx diagnostic or prove whether the PL/SQL block, statement boundary, or following DDL caused it. Treat the exact SQL root cause as **not yet conclusively identified**; do not guess a delimiter or edit the migration based on the truncated error.
 - Required safe next diagnostic: obtain the full Oracle exception stack including any PLS-xxxx message and query-only evidence for `USER_CONSTRAINTS` / `ALL_CONSTRAINTS` on `AUTH_OTPS` and the exact V30 row in Flyway history. Confirm backup/restore point before any DDL or history repair.
 - Compatibility action: validate a supported Flyway version / Oracle 23 compatibility matrix in an isolated database clone before upgrading Flyway. Do not change the production/staging Flyway dependency solely to suppress this warning; test all existing V14–V30 migrations and baseline behavior first.
+
+
+### Root cause confirmed from complete Render error lines
+
+- A targeted log query recovered the omitted Oracle parser diagnostic: `PLS-00103: Encountered the symbol "ALTER"` at line 20, column 1. This confirms that Oracle was still parsing the following `ALTER TABLE` as part of the anonymous PL/SQL block. It is not a generic Oracle 23/Flyway compatibility failure.
+- The V30 migration has been corrected in this PR by adding the Oracle SQL*Plus/Flyway PL/SQL block terminator `/` on its own line immediately after `END;`. This lets Flyway's Oracle SQL parser finish the anonymous block before executing the subsequent `ALTER TABLE`.
+- The same PR corrects the diagnostics queries to use the unquoted `FLYWAY_SCHEMA_HISTORY` identifier, matching Oracle's conventional uppercase storage of unquoted identifiers.
+- This source correction is pending CI and has not yet been deployed or applied to the Oracle database. It cannot by itself clear the existing failed V30 history record.
+
+### Controlled recovery sequence (must be followed in dev/staging)
+
+1. Stop repeated automatic restarts/deploy attempts while the migration is known to be failed; preserve logs and take/confirm a restorable Oracle backup/restore point.
+2. Run read-only queries as the application schema owner (or DBA-approved equivalent) and capture:
+   - `SELECT constraint_name, constraint_type, search_condition_vc, status, validated FROM user_constraints WHERE table_name = 'AUTH_OTPS' AND constraint_type = 'C'`
+   - `SELECT installed_rank, version, description, type, script, checksum, installed_on, success FROM flyway_schema_history WHERE version = '30'`
+   - `SELECT owner, table_name FROM all_tables WHERE table_name = 'FLYWAY_SCHEMA_HISTORY'`
+3. Confirm whether the original OTP type check still exists, whether `CK_AUTH_OTPS_TYPE` exists, and whether any other CHECK constraints were removed. Export the exact result, with no secrets or personal data.
+4. If and only if the backup is restorable and metadata proves no unsafe partial schema state, use the reviewed Flyway recovery procedure to remove the failed migration record (`flyway repair`) and rerun migration with the corrected immutable artifact. Never delete history rows manually. If the migration partially committed DDL, first reconcile the actual constraint state with a DBA-reviewed idempotent corrective script; do not repair/re-run until the schema and script are aligned.
+5. Verify successful V30 history row, all four allowed OTP types, rejection of an invalid type, and startup/health/admin diagnostics. Capture migration checksums and the deployment commit.
+6. Keep the application unavailable for write traffic until schema migration and health checks pass; do not use `*:missing` or disable Flyway validation to bypass the failure.
+
+**Current status:** root cause source-level correction is prepared; Oracle metadata/backup/repair and runtime proof remain outstanding. The PR must not be merged/deployed to the database until CI passes and the recovery preconditions above are satisfied.
