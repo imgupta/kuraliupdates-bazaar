@@ -36,8 +36,9 @@ public class SellerOnboardingLeadService {
         }
         String id = UUID.randomUUID().toString();
         LocalDateTime now = LocalDateTime.now();
-        boolean emailRequired = otpConfig.emailEnabled();
-        boolean phoneRequired = otpConfig.mobileEnabled();
+        Map<String, Object> currentOtpSettings = otpConfig.get();
+        boolean emailRequired = Boolean.TRUE.equals(currentOtpSettings.get("emailOtpEnabled"));
+        boolean phoneRequired = Boolean.TRUE.equals(currentOtpSettings.get("mobileOtpEnabled"));
         jdbc.update("INSERT INTO SELLER_ONBOARDING_LEADS (LEAD_ID,OWNER_NAME,EMAIL,PHONE,SOURCE,STATUS,EMAIL_VERIFIED,PHONE_VERIFIED,CONTACT_CONSENT,CALLBACK_REQUESTED,EMAIL_OTP_REQUIRED,PHONE_OTP_REQUIRED,EMAIL_OTP_SKIPPED,PHONE_OTP_SKIPPED,CREATED_AT,UPDATED_AT) VALUES (?,?,?,?,?,'STARTED',0,0,0,0,?,?,?,?,?,?)",
                 id, name, email, phone, "SELLER_REGISTRATION",
                 emailRequired ? 1 : 0, phoneRequired ? 1 : 0,
