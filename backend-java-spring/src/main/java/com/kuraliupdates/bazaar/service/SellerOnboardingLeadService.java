@@ -197,12 +197,24 @@ public class SellerOnboardingLeadService {
     private Map<String,Object> getLead(String id) {
         if (id == null || id.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "Lead reference is required");
         List<Map<String,Object>> rows = jdbc.query("SELECT LEAD_ID,OWNER_NAME,EMAIL,PHONE,EMAIL_VERIFIED,PHONE_VERIFIED,EMAIL_OTP_REQUIRED,PHONE_OTP_REQUIRED,EMAIL_OTP_SKIPPED,PHONE_OTP_SKIPPED,CONTACT_CONSENT,STATUS,ASSIGNED_TO,CALLBACK_AT FROM SELLER_ONBOARDING_LEADS WHERE LEAD_ID=?",
-                (rs,row)->Map.of("leadId",rs.getString("LEAD_ID"),"ownerName",rs.getString("OWNER_NAME"),
-                        "email",rs.getString("EMAIL"),"phone",rs.getString("PHONE"),
-                        "emailVerified",rs.getInt("EMAIL_VERIFIED")==1,"phoneVerified",rs.getInt("PHONE_VERIFIED")==1,
-                        "emailOtpRequired",rs.getInt("EMAIL_OTP_REQUIRED")==1,"phoneOtpRequired",rs.getInt("PHONE_OTP_REQUIRED")==1,
-                        "emailOtpSkipped",rs.getInt("EMAIL_OTP_SKIPPED")==1,"phoneOtpSkipped",rs.getInt("PHONE_OTP_SKIPPED")==1,
-                        "contactConsent",rs.getInt("CONTACT_CONSENT")==1,"status",rs.getString("STATUS"),"assignedTo",rs.getString("ASSIGNED_TO")==null?"":rs.getString("ASSIGNED_TO"),"callbackAt",rs.getTimestamp("CALLBACK_AT")==null?"":rs.getTimestamp("CALLBACK_AT").toString()), id);
+                (rs,row)->{
+                    Map<String,Object> lead = new java.util.LinkedHashMap<>();
+                    lead.put("leadId", rs.getString("LEAD_ID"));
+                    lead.put("ownerName", rs.getString("OWNER_NAME"));
+                    lead.put("email", rs.getString("EMAIL"));
+                    lead.put("phone", rs.getString("PHONE"));
+                    lead.put("emailVerified", rs.getInt("EMAIL_VERIFIED") == 1);
+                    lead.put("phoneVerified", rs.getInt("PHONE_VERIFIED") == 1);
+                    lead.put("emailOtpRequired", rs.getInt("EMAIL_OTP_REQUIRED") == 1);
+                    lead.put("phoneOtpRequired", rs.getInt("PHONE_OTP_REQUIRED") == 1);
+                    lead.put("emailOtpSkipped", rs.getInt("EMAIL_OTP_SKIPPED") == 1);
+                    lead.put("phoneOtpSkipped", rs.getInt("PHONE_OTP_SKIPPED") == 1);
+                    lead.put("contactConsent", rs.getInt("CONTACT_CONSENT") == 1);
+                    lead.put("status", rs.getString("STATUS"));
+                    lead.put("assignedTo", rs.getString("ASSIGNED_TO") == null ? "" : rs.getString("ASSIGNED_TO"));
+                    lead.put("callbackAt", rs.getTimestamp("CALLBACK_AT") == null ? "" : rs.getTimestamp("CALLBACK_AT").toString());
+                    return lead;
+                }, id);
         if (rows.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "Seller registration lead was not found");
         return rows.get(0);
     }
