@@ -106,3 +106,9 @@ This is a planning baseline only. No application code, schema, hosting configura
 - Google Maps road routing is not available merely because an OpenStreetMap fallback exists.
 - Transactional five-role E2E is not passed merely because browser smoke or CI passes.
 - A Vercel READY deployment does not prove the backend or end-to-end user journey is healthy.
+
+## Architecture implementation plan
+
+- Follow [`LOW-COST-MICROFRONTEND-MICROSERVICES-IMPLEMENTATION-PLAN.md`](LOW-COST-MICROFRONTEND-MICROSERVICES-IMPLEMENTATION-PLAN.md) for the agreed five-portal / five-domain target, one-static-site frontend deployment, low-cost backend deployment modes, domain/data ownership, phase gates, tests, Docker requirements and rollback rules.
+- Initial backend decision: one Spring Boot runtime with five enforced domain modules (Mode A). Five JVM processes in one Docker image/container (Mode B) are optional only after memory, connection-pool, health, shutdown and failure testing; they share one deployment/failure domain and are not independently scalable.
+- This is a plan only. No application architecture, runtime, hosting, database or deployment has been changed by the documentation work.
