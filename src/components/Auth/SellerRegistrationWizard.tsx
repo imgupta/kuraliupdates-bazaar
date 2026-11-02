@@ -313,7 +313,7 @@ export const SellerRegistrationWizard: React.FC = () => {
               {otpStep && <button type="button" onClick={()=>setOtpStep(false)} className="w-full rounded-xl border border-slate-300 py-3 text-sm font-bold text-slate-700">{t.back}</button>}
             </div>
           ) : (
-          {!otpStep ? (
+          !otpStep ? (
             <div className="space-y-4">
               {step === 1 && <div className="grid gap-4 sm:grid-cols-2"><Field label={t.name}>{control(name,setName,{autoComplete:'name',placeholder:'Full name'})}</Field><Field label={t.email}>{control(email,setEmail,{type:'email',autoComplete:'email',placeholder:'name@example.com'})}</Field><Field label={t.phone}>{control(phone,setPhone,{type:'tel',inputMode:'numeric',maxLength:10,placeholder:'10-digit mobile number'})}</Field></div>}
               {step === 2 && <div className="grid gap-4 sm:grid-cols-2"><Field label={t.shop}>{control(storeName,setStoreName,{placeholder:'Shop name'})}</Field><Field label={t.category}><select value={category} onChange={event=>setCategory(event.target.value)} className={inputClass}><option value="">Select category</option>{CATEGORIES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></Field><Field label={t.constitution}><select value={businessType} onChange={event=>setBusinessType(event.target.value as BusinessType)} className={inputClass}><option value="INDIVIDUAL">Individual</option><option value="PROPRIETORSHIP">Proprietorship</option><option value="PARTNERSHIP">Partnership</option><option value="COMPANY">Company / LLP</option></select></Field>{businessType!=='INDIVIDUAL'&&<Field label={t.legalName}>{control(registeredBusinessName,setRegisteredBusinessName,{placeholder:'Name as per registration'})}</Field>}</div>}
@@ -324,7 +324,7 @@ export const SellerRegistrationWizard: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4"><div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{t.otp}</div><Field label="6-digit OTP"><input value={otp} onChange={event=>setOtp(event.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} className={inputClass}/></Field><div className="flex gap-3"><button type="button" onClick={()=>setOtpStep(false)} className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-bold">{t.back}</button><button type="button" onClick={handleContinue} disabled={loading} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<CheckCircle2 className="h-4 w-4"/>}{t.verify}</button></div></div>
-          )}
+          )
           )}
         </div>
       </section>
