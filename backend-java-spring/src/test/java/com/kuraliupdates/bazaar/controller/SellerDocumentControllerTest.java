@@ -41,14 +41,14 @@ class SellerDocumentControllerTest {
     @Mock private MalwareScanner malwareScanner;
     @InjectMocks private SellerDocumentController controller;
 
-    private final var admin = new UsernamePasswordAuthenticationToken(
+    private final UsernamePasswordAuthenticationToken admin = new UsernamePasswordAuthenticationToken(
             "unit-admin", "n/a", List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
 
     @BeforeEach
     void setUp() {
-        when(authService.requireUser("seller-token")).thenReturn(
+        lenient().when(authService.requireUser("seller-token")).thenReturn(
                 UserEntity.builder().userId("E2E-USER-UNIT").build());
-        when(sellerRepository.findByUserId("E2E-USER-UNIT")).thenReturn(Optional.of(
+        lenient().when(sellerRepository.findByUserId("E2E-USER-UNIT")).thenReturn(Optional.of(
                 SellerEntity.builder().sellerId(SELLER_ID).build()));
     }
 
