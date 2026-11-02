@@ -403,3 +403,317 @@ The redesign is complete only when:
 ## 16. Legal and operational review
 
 Before real seller onboarding, obtain qualified review of seller agreement, marketplace disclosures, GST/FSSAI applicability, privacy/DPDP notices, document retention, grievance handling and contracting entity. This document specifies engineering behaviour and is not legal advice.
+
+
+---
+
+# 17. Assisted merchant registration and onboarding CRM (approved extension)
+
+**Added:** 2 November 2026  
+**Purpose:** Extend the seller wizard into an assisted, trackable merchant-acquisition and onboarding journey. This section supersedes earlier assumptions that one email OTP at final submission is sufficient. It is a target specification; it does not claim these additions are implemented.
+
+## 17.1 Product decisions
+
+1. Seller registration must always provide clear navigation to the public KuraliUpdates home page, Buyer Login, and existing Seller Login.
+2. Email and mobile must both be verified at the beginning of registration, before the applicant proceeds to business details.
+3. Successful contact verification creates or resumes a **seller application/lead**, not an approved seller account.
+4. Admin users with the appropriate onboarding permission can see a verified prospective merchant as soon as the contact-verification stage is complete, even if the form is incomplete.
+5. A merchant can request a callback instead of completing the form unaided. Callback requests must verify the mobile number and record contact consent.
+6. Admins can assign leads, call the merchant using the verified number, record outcomes/notes and schedule follow-up.
+7. Applicants can save and resume their application. Drafts must never contain OTPs, session tokens or uploaded file bytes.
+8. Final seller activation remains a separate, privileged action after profile, applicable documents and manual checks pass.
+9. Lead follow-up state and compliance/document state are separate dimensions. A call outcome must never approve a seller or bypass compliance checks.
+
+## 17.2 Entry and exit navigation
+
+The seller-registration entry screen must show:
+- **Start seller registration**
+- **Request a callback**
+- **Already a buyer? Go to Buyer Login**
+- **Back to KuraliUpdates home**
+- **Already a seller? Seller Login**
+
+These navigation links remain available throughout the registration flow, including OTP and error states. Leaving the flow must not silently submit or discard a saved draft. If unsaved changes exist, explain whether they have been saved before leaving.
+
+The buyer-login/home route must use the repository's canonical route configuration; do not hardcode a route until Phase 0 verifies the current route names and role-portal redirect behavior.
+
+## 17.3 Revised registration sequence
+
+### Stage 0 — entry
+Explain merchant benefits and the steps involved. Offer self-service registration or callback assistance. Provide English, Punjabi and Hindi.
+
+### Stage 1 — contact verification (mandatory before Stage 2)
+Collect:
+- Owner/authorised representative name
+- Email address
+- Indian mobile number
+
+Verification sequence:
+1. Normalize and validate both identifiers.
+2. Check duplicates and existing account linkage without disclosing whether another person owns an identifier.
+3. Send email OTP and verify it.
+4. Send SMS OTP and verify it.
+5. Bind both verification proofs to the exact normalized identifiers, registration purpose, application/session and expiry.
+6. Create or resume the application lead and issue the minimum authenticated application session needed to continue.
+
+Do not allow progression to business details until both channels are verified. If the user edits either identifier after verification, invalidate that channel's proof and require re-verification. Email and SMS delivery failures must have clear retry/support paths. Resend cooldowns, expiry, attempt limits, per-identifier/IP throttling and abuse monitoring are required. Never log OTP values.
+
+Existing buyer account:
+- Link the seller application to the existing authenticated user; do not create a duplicate user.
+- If the applicant is already signed in, still verify any contact channel that is not already verified under an acceptable, unexpired proof policy.
+- Do not expose account-existence information through the public duplicate-check response.
+
+### Stage 2 — business identity
+Reuse the existing shop name, category, business constitution and conditional legal-name fields. Add an optional indication whether the merchant already operates a physical shop. Do not make unnecessary business descriptions mandatory.
+
+### Stage 3 — shop location
+Reuse address, locality, PIN and actual shop map pin. Backend service-area validation remains authoritative. An out-of-area applicant may opt into an **out-of-area interest lead** or request a callback; this does not create seller eligibility or bypass the configured service radius.
+
+### Stage 4 — compliance and documents
+Reuse conditional GST/FSSAI logic and private document storage/scanning. Clearly distinguish documents needed to submit from documents needed before activation. Do not ask all sellers for every document. A failed malware scan keeps a document quarantined and unavailable for review/approval until a clean scan is recorded.
+
+### Stage 5 — operations, agreement and review
+Reuse operating hours, required shop-front photograph and versioned agreement acceptance. Show a complete review screen with edit links. Record the accepted agreement version and timestamp. Submit idempotently and issue an application reference.
+
+### Stage 6 — confirmation and tracking
+Show reference, submission time, application status, outstanding corrections/documents and a support/callback route. Pending sellers must not publish products or accept seller orders.
+
+## 17.4 Callback-assisted route
+
+Callback request fields:
+- Name
+- Mobile number (OTP verified)
+- Shop name (optional at initial contact)
+- Locality/area
+- Preferred callback time window
+- Short optional help request
+- Explicit consent to be contacted about the seller application
+
+A callback-only request creates a lead with no seller privileges. It must not create a seller account or allow product/order access. When the merchant proceeds, link the verified callback lead to the seller application using a server-authoritative, auditable operation. Do not let an admin impersonate the applicant or accept legal declarations on their behalf; the merchant must review and accept the final agreement and submit their own declarations.
+
+## 17.5 Admin Merchant Onboarding CRM
+
+Add a dedicated **Merchant Onboarding** area in Admin Portal, separate from the existing seller document-review screen.
+
+Dashboard counts (computed from server-side filtered data):
+- New leads
+- Callback requested / callback due
+- Contact verified
+- In progress / abandoned
+- Submitted / under review
+- Correction required
+- Approved / rejected
+- Out-of-area interest
+
+Queue filters:
+- Application/lead status
+- Callback status and due date
+- Business category
+- Locality/service-area eligibility
+- Created/updated date
+- Assigned admin/employee
+- Contact verification state
+
+List columns:
+- Reference ID
+- Applicant/owner name
+- Shop name (when known)
+- Verified email/mobile indicators
+- Category and locality (when known)
+- Application stage
+- Callback/follow-up state
+- Assigned owner
+- Last activity and next follow-up
+
+Application detail:
+- Contact and verification metadata (never OTP values)
+- Business/shop profile and submitted answers
+- Shop location and service-area result
+- Document metadata, malware-scan state and verification state
+- Agreement version/acceptance timestamp
+- Callback preference and contact consent
+- Assignment, internal notes and activity timeline
+- Current application and separate follow-up states
+
+Admin actions:
+- Assign/reassign lead to an authorised onboarding operator.
+- Call verified mobile using a tel: action where supported; do not claim calls are automatically recorded.
+- Record call attempt, connected, no answer, callback requested, assistance provided, not interested, invalid contact or other controlled outcome.
+- Add internal note and next-follow-up date/time.
+- Mark callback complete or reschedule.
+- Send an approved contact message only through a configured provider and consented channel.
+- Open the applicant's current stage for guidance without impersonating the applicant.
+- Review documents, request corrections, approve or reject only through existing privileged review controls.
+
+Use role/permission checks on every API. Separate onboarding-agent permissions (view permitted lead fields, assign, call outcome, notes) from compliance-review/approval permissions. Mask contact fields for roles that do not need full access. Audit views/downloads of sensitive documents and all state/assignment/decision changes. Internal notes must not be visible to applicants.
+
+## 17.6 State model — keep dimensions separate
+
+### Application state
+DRAFT → CONTACT_VERIFIED → IN_PROGRESS → SUBMITTED → UNDER_REVIEW
+
+From UNDER_REVIEW:
+- ACTION_REQUIRED → applicant corrects details/evidence → SUBMITTED
+- APPROVED only after all activation requirements pass and an authorised reviewer approves
+- REJECTED with reason and resubmission policy
+
+Other non-approval outcomes:
+- WITHDRAWN
+- EXPIRED for abandoned leads under a documented retention policy
+- OUT_OF_AREA_INTEREST as an eligibility outcome/flag, not an approval state
+
+### Follow-up state (independent)
+NOT_REQUESTED, CALLBACK_REQUESTED, CALLBACK_DUE, CALL_ATTEMPTED, CONNECTED, FOLLOW_UP_SCHEDULED, COMPLETED, NO_LONGER_INTERESTED.
+
+### Document state (independent)
+Retain scan state (QUARANTINED, CLEAN, INFECTED, SCAN_FAILED) separately from reviewer state (PENDING, VERIFIED, REJECTED). A document is reviewable only after a clean scan. Do not collapse scanner and human-review states into one field.
+
+Every transition records actor, timestamp, previous/new state and reason where applicable. Enforce allowed transitions and approval gates in backend services, not only in UI controls.
+
+## 17.7 Proposed API additions
+
+Routes below are proposals; Phase 0 must reconcile them with existing /auth, /sellers, OTP, draft and admin conventions before coding. Do not create parallel APIs where an existing endpoint can be safely extended.
+
+| Method | Proposed route | Purpose |
+|---|---|---|
+| POST | /seller-onboarding/contact/start | Start/resume contact verification |
+| POST | /seller-onboarding/contact/verify-email | Verify email OTP |
+| POST | /seller-onboarding/contact/verify-mobile | Verify SMS OTP |
+| POST | /seller-onboarding/callback | Create callback lead after mobile verification and consent |
+| GET | /seller-onboarding/me | Get current applicant's lead/application |
+| PUT | /seller-onboarding/me/draft | Save permitted non-secret draft fields |
+| POST | /seller-onboarding/me/submit | Submit application idempotently |
+| GET | /admin/merchant-onboarding | Filter/paginate lead and application queue |
+| GET | /admin/merchant-onboarding/{id} | Read authorised detail and timeline |
+| PATCH | /admin/merchant-onboarding/{id}/assignment | Assign/reassign operator |
+| POST | /admin/merchant-onboarding/{id}/activities | Add call outcome/note/follow-up |
+| POST | /admin/merchant-onboarding/{id}/contact | Trigger approved configured contact message |
+| POST | /admin/merchant-onboarding/{id}/review | Request correction/approve/reject under reviewer permission |
+
+The exact request/response DTOs, idempotency keys, error codes and pagination contract are implementation deliverables. Derive applicant identity from authenticated server-side context. Do not trust user IDs, roles, application status or reviewer identity from request payloads.
+
+## 17.8 Data model additions — discovery before migration
+
+Reuse existing SELLER_REGISTRATION_DRAFTS, user identity, seller profile, seller document and audit structures where appropriate. Do not create duplicate identity records.
+
+Evaluate the smallest safe model, likely:
+- SELLER_ONBOARDING_APPLICATION: stable reference, applicant/user link where one exists, normalized contact references, business/profile fields, application state, eligibility outcome, agreement evidence and timestamps.
+- SELLER_ONBOARDING_ACTIVITY: append-only lifecycle events, actor, state transition, event type and reason.
+- SELLER_ONBOARDING_ASSIGNMENT: current/previous assignment or assignment history.
+- SELLER_ONBOARDING_FOLLOWUP: callback preference, due time, outcome and completion.
+- SELLER_ONBOARDING_NOTE: access-controlled internal notes.
+- Optional contact-verification challenge/proof persistence only if existing OTP service cannot safely bind both channels to an application; never store plaintext OTPs.
+
+Use Oracle-compatible types, constraints and indexes. Avoid storing redundant copies of email/mobile if a stable user/contact reference suffices. Define retention, deletion/anonymisation and audit access before collecting leads. Select a new Flyway version only after inspecting the deployed history; never edit applied migrations.
+
+## 17.9 Privacy, security and abuse controls
+
+- Explicit consent for application-related callback/contact, with timestamp, notice version and channel scope.
+- Purpose limitation: use lead data for seller onboarding, not unrelated marketing without separate consent.
+- Collect only fields required for onboarding; avoid Aadhaar and other sensitive IDs unless counsel confirms lawful necessity and controls.
+- Protect public duplicate checks against account enumeration.
+- OTPs are short-lived, single-purpose, rate-limited and never logged or stored in plaintext.
+- Prevent OTP replay, cross-application/channel reuse and identifier-change bypass.
+- Restrict CRM and notes to least-privilege admin roles; audit contact/document access.
+- Validate all state transitions and ownership server-side.
+- Use pagination and server-side filters; never load all leads into the browser.
+- Define retention/expiry for abandoned and callback-only leads, and provide a deletion/withdrawal process consistent with legal obligations.
+- Do not automatically send SMS/WhatsApp/call unless provider configuration, consent and delivery handling are verified.
+- No admin impersonation or acceptance of seller declarations on the merchant's behalf.
+
+## 17.10 Delivery plan and implementation order
+
+### Phase 0 — repository and product discovery (first)
+- [ ] Inspect canonical buyer home/login and seller login routes in combined app and role portals.
+- [ ] Trace current seller wizard, legacy auth wrapper, AppContext registration and login behavior.
+- [ ] Trace sendOtp, verifyOtp, checkRegistration, OTP purposes/channels, expiry, resend and rate limits.
+- [ ] Verify whether SMS OTP delivery is configured and operational in the designated staging environment; do not assume email provider implies SMS support.
+- [ ] Inspect existing user phone verification semantics and whether existing verified phone claims are trustworthy/current.
+- [ ] Trace seller registration draft V25 and authenticated resume behavior.
+- [ ] Trace seller profile creation, seller document upload, ClamAV scan gates and approval endpoint.
+- [ ] Inspect admin route permissions and existing seller queue/document review components.
+- [ ] Inspect Oracle schema/Flyway history and decide whether a dedicated onboarding application table is necessary.
+- [ ] Record existing endpoint contracts and backward compatibility requirements.
+- **Exit:** reviewed route/API/schema map, SMS provider/config readiness, data-retention/consent decisions and migration proposal.
+
+### Phase 1 — registration entry and contact verification
+- [ ] Add persistent Home, Buyer Login and Seller Login navigation.
+- [ ] Implement email OTP and SMS OTP verification before business details.
+- [ ] Bind verified channels to the same applicant/application and invalidate proof on identifier change.
+- [ ] Link existing buyer identity without duplicate account creation.
+- [ ] Add callback-request entry with mobile verification and explicit consent.
+- [ ] Add unit/API tests for OTP expiry, replay, rate limits, identifier changes and duplicate identity.
+- **Exit:** applicant cannot enter Stage 2 without both channels verified; buyer routes remain functional.
+
+### Phase 2 — lead/application persistence and draft recovery
+- [ ] Implement or adapt server-side application/lead record.
+- [ ] Create visible lead at contact verification; callback lead at verified callback request.
+- [ ] Autosave permitted fields and restore across refresh/session.
+- [ ] Keep OTP/token/file bytes out of drafts and logs.
+- [ ] Implement idempotent create/submit and safe duplicate detection.
+- [ ] Add out-of-area interest handling without bypassing radius eligibility.
+- **Exit:** verified applicant is visible to admin before completing the form; draft safely resumes.
+
+### Phase 3 — admin Merchant Onboarding CRM
+- [ ] Add permission-scoped, paginated queue and dashboard counts.
+- [ ] Add detail panel, verification indicators, profile/location/document status.
+- [ ] Add assignment, callback outcome, internal notes and next follow-up.
+- [ ] Add call action using verified number; no claim of automatic call recording.
+- [ ] Keep sales follow-up separate from compliance review/approval.
+- [ ] Add audit events and access tests.
+- **Exit:** admin can identify, contact, assist and track a lead without changing seller approval state.
+
+### Phase 4 — application completion, compliance and notifications
+- [ ] Refine existing five-step wizard and autosave.
+- [ ] Add status tracker and correction/resubmission path.
+- [ ] Preserve clean-scan-before-review and mandatory-document approval gates.
+- [ ] Add applicant notifications only for configured, consented channels.
+- [ ] Add explicit abandoned-lead retention/expiry policy.
+- **Exit:** merchant can complete, correct and track the application end to end.
+
+### Phase 5 — security, E2E and controlled staging pilot
+- [ ] Test buyer-to-seller linking and duplicate contact races.
+- [ ] Test both OTP channels, expiry/replay/rate limits and identifier changes.
+- [ ] Test callback consent, lead creation and CRM permissions.
+- [ ] Test admin assignment, notes, call outcomes and audit trail.
+- [ ] Test out-of-area lead versus seller eligibility.
+- [ ] Test document quarantine, clean scan, correction, resubmission and approval gates.
+- [ ] Run Playwright with dedicated synthetic seller/admin identities and isolated staging fixtures.
+- [ ] Confirm private ClamAV endpoint is configured and healthy before document lifecycle E2E.
+- [ ] Verify Oracle backup/restore and migration rollback plan before applying new migrations.
+- [ ] Pilot with a small set of consenting test merchants; do not use real personal documents in automated tests.
+- **Exit:** all P0 acceptance tests pass and runtime staging evidence is recorded.
+
+## 17.11 P0 acceptance criteria
+
+1. Seller registration entry always exposes working Home, Buyer Login and Seller Login navigation.
+2. A new applicant cannot proceed beyond contact stage until both email and mobile OTP are verified.
+3. Verification is bound to the exact identifiers, application and purpose; changing an identifier requires re-verification.
+4. OTP expiry, replay, brute-force and resend abuse are blocked and tested.
+5. Existing buyer can start seller onboarding without a duplicate user account.
+6. Admin can see the verified lead before the merchant completes business details.
+7. Callback-only request requires verified mobile and explicit contact consent and creates no seller privileges.
+8. Admin can assign a lead, record call outcomes, notes and follow-up date with an audit trail.
+9. Onboarding-agent permissions cannot approve sellers or verify compliance documents.
+10. Lead follow-up status cannot bypass application/document approval gates.
+11. Out-of-area applicants can request contact but cannot become eligible sellers through that route.
+12. Draft autosave/resume does not store OTPs, tokens or file bytes.
+13. Seller can submit, receive a reference, view status and correct rejected information/documents.
+14. A seller cannot publish/accept orders until authorised approval and mandatory compliance checks pass.
+15. Applicant navigation to buyer home/login works from every wizard state.
+16. Admin queue is paginated, filtered server-side and access-controlled.
+17. CRM notes/contact data are not exposed to sellers or unauthorised roles.
+18. Automated tests use synthetic identities and isolated staging fixtures only.
+
+## 17.12 Definition of done for this extension
+
+- Entry, buyer escape routes and seller login routes are verified.
+- Dual-channel OTP is working in staging with verified SMS delivery configuration.
+- Leads and callback requests are persisted with consent and retention metadata.
+- Admin CRM supports queue, assignment, calling workflow, notes, follow-up and audit.
+- Application and follow-up states are independent.
+- Existing seller document scan/review/approval protections remain intact.
+- All P0 acceptance criteria pass in automated tests.
+- New Oracle migrations are additive, reviewed and applied only to verified isolated staging after backup confirmation.
+- Staging UI/API/database behavior is independently verified; a green build alone is not sufficient.
+- Rollout, monitoring, retention and support runbooks are documented.
