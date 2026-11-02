@@ -1,8 +1,10 @@
 package com.kuraliupdates.bazaar.service;
 
 import com.kuraliupdates.bazaar.entity.SellerServiceAreaConfigEntity;
+import com.kuraliupdates.bazaar.entity.SellerServiceAreaConfigHistoryEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.repository.SellerServiceAreaConfigRepository;
+import com.kuraliupdates.bazaar.repository.SellerServiceAreaConfigHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,7 @@ public class SellerServiceAreaService {
     private static final double EARTH_RADIUS_KM = 6371.0088d;
 
     private final SellerServiceAreaConfigRepository repository;
+    private final SellerServiceAreaConfigHistoryRepository historyRepository;
 
     @Transactional(readOnly = true)
     public ServiceAreaView getConfiguration() {
@@ -47,7 +50,19 @@ public class SellerServiceAreaService {
         current.setConfigVersion(current.getConfigVersion() + 1);
         current.setUpdatedBy(actor == null || actor.isBlank() ? "ADMIN" : actor.substring(0, Math.min(64, actor.length())));
         current.setUpdatedAt(LocalDateTime.now());
-        return view(repository.save(current));
+        SellerServiceAreaConfigEntity saved = repository.save(current);
+        historyRepository.save(SellerServiceAreaConfigHistoryEntity.builder()
+                .historyId(java.util.UUID.randomUUID().toString())
+                .configKey(CONFIG_KEY)
+                .centerLatitude(saved.getCenterLatitude())
+                .centerLongitude(saved.getCenterLongitude())
+                .radiusKm(saved.getRadiusKm())
+                .enabled(saved.getEnabled())
+                .configVersion(saved.getConfigVersion())
+                .updatedBy(saved.getUpdatedBy())
+                .updatedAt(saved.getUpdatedAt())
+                .build());
+        return view(saved);
     }
 
     @Transactional(readOnly = true)
