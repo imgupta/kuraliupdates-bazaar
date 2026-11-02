@@ -4,7 +4,7 @@
 Allow an authorized KuraliUpdates admin to independently control email and mobile OTP requirements for new seller registrations. This is a seller-onboarding control only; it does not alter buyer registration/login, seller login, payments, order confirmation, or existing seller accounts.
 
 ## Admin UI
-Open Admin Portal → Seller management → Registration OTP controls.
+Open Admin Portal → Marketplace & Merchants → Registration OTP controls.
 
 - Email OTP verification: independently ON/OFF.
 - Mobile OTP verification: independently ON/OFF.
