@@ -374,6 +374,13 @@ export const SellerRegistrationWizard: React.FC = () => {
         <header className="bg-gradient-to-r from-amber-600 to-orange-600 p-6 text-white sm:p-8">
           <div className="flex items-start justify-between gap-4"><div className="flex items-center gap-3"><Store className="h-8 w-8"/><div><h1 className="text-xl font-black sm:text-2xl">{t.title}</h1><p className="mt-1 text-xs text-amber-50">{authMode === 'signin' ? 'Sign in to your seller account using email OTP.' : t.intro}</p><button type="button" onClick={()=>{setAuthMode(authMode==='register'?'signin':'register');setOtpStep(false);setOtp('');setError('');}} className="mt-2 text-xs font-bold text-white underline">{authMode==='register'?'Already registered? Sign in':'New merchant? Register here'}</button></div></div><select aria-label="Language" value={language} onChange={event => setLanguage(event.target.value as Language)} className="rounded-lg border border-white/30 bg-white/15 px-2 py-2 text-xs text-white"><option className="text-slate-900" value="en">English</option><option className="text-slate-900" value="pa">ਪੰਜਾਬੀ</option><option className="text-slate-900" value="hi">हिन्दी</option></select></div>
         </header>
+        <nav aria-label="Seller registration navigation" className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-bold sm:px-8">
+          <a href="/" className="rounded-lg px-3 py-2 text-slate-700 underline-offset-4 hover:bg-white hover:text-amber-700 hover:underline">Home</a>
+          <div className="flex flex-wrap items-center gap-2">
+            <a href="/register/buyer" className="rounded-lg px-3 py-2 text-slate-700 underline-offset-4 hover:bg-white hover:text-amber-700 hover:underline">Buyer Login</a>
+            <button type="button" onClick={() => { setAuthMode('signin'); setOtpStep(false); setOtp(''); setError(''); }} className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-amber-800 hover:bg-amber-50">Seller Login</button>
+          </div>
+        </nav>
         <div className="p-5 sm:p-8">
           <div className="mb-6 grid grid-cols-5 gap-2">{t.steps.map((label, index) => <div key={label} className="min-w-0"><div className={`h-1.5 rounded-full ${step >= index + 1 ? 'bg-amber-500' : 'bg-slate-200'}`}/><p className={`mt-2 text-[9px] leading-tight ${step === index + 1 ? 'font-black text-slate-900' : 'text-slate-500'}`}>{index + 1}. {label}</p></div>)}</div>
           {draftNotice && <div role="status" className="mb-4 rounded-xl bg-blue-50 p-3 text-xs text-blue-900">{draftNotice}</div>}
