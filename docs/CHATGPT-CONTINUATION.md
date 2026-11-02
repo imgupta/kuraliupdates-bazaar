@@ -74,3 +74,8 @@ Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller
 - The tree contains a tracked Oracle wallet ZIP and Dockerfile copies Wallet*.zip into the image. Review PR #84 before any wallet/Docker changes. Do not expose wallet material.
 - See DOMAIN-BOUNDARIES.md, FRONTEND-PORTAL-ROUTE-INVENTORY.md, SERVICE-DEPENDENCY-MAP.md and DATA-OWNERSHIP-MATRIX.md for source findings and remaining gaps.
 - Phase 0 remains in progress. Do not start broad code movement until method-level data access, transaction, migration and workflow inventories are complete.
+
+
+## Mandatory India compliance and product governance context
+
+All KuraliUpdates work must follow [India Compliance, Data Governance and Product Excellence](INDIA-COMPLIANCE-DATA-GOVERNANCE-AND-PRODUCT-EXCELLENCE.md), in addition to AGENTS.md and the Engineering Operating Standard. Every material ask must assess applicable Indian central/state/local rules, data collection/storage/processing/retention/deletion/access, security/privacy, consumer/seller/provider rights, tax/payment and operational duties, current vs future/proposed legal status, loopholes and fixes, plus meaningful seller-first product improvements. Use official primary sources and record effective dates for current legal claims. Escalate legal interpretation to qualified Indian counsel; never promise zero loopholes or claim sign-off without evidence. This is mandatory context for each response and engineering decision, scaled proportionately to the ask.
