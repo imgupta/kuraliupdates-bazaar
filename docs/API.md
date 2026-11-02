@@ -1,19 +1,15 @@
 # API contract index
 
-Base path: `/api/v1`
+Base path: `/api/v1`. Backend controllers and DTOs are authoritative; update this index when public contracts or authorization rules change.
 
-This document is an index, not a generated endpoint catalogue. The backend controllers and DTOs are authoritative; update this page when a public contract or authorization rule changes.
-
-## API conventions
-
+## Conventions
 - JSON for ordinary requests/responses; multipart form-data for seller document uploads.
 - Authenticated endpoints use the configured bearer-token mechanism.
-- Validate input at the boundary and enforce ownership/role checks in the service layer.
+- Validate input at the boundary and enforce role/record ownership in services.
 - Return DTOs, never persistence entities.
-- Error response details should not expose stack traces, SQL, secrets or private document content.
+- Errors must not expose stack traces, SQL, secrets or private document content.
 
 ## Domain areas
-
 | Domain | Responsibilities |
 |---|---|
 | Authentication | OTP registration/verification, sign-in, current identity |
@@ -26,14 +22,8 @@ This document is an index, not a generated endpoint catalogue. The backend contr
 | Daily Help | Service catalogue, provider profile, slots, booking and job lifecycle |
 | Tracking | Order/rider tracking and location reads |
 
-## Seller document API
+## Seller documents
+Seller-owned upload/list operations are implemented under `/sellers/me/documents`; admin review/download/verification operations are role-restricted. Confirm exact controller mappings and DTOs in source before integrating. Never expose private file URLs.
 
-The current implementation includes seller-owned upload/list operations under `/sellers/me/documents` and admin review/download/verification operations. Confirm exact controller mappings and DTOs in source before integrating a new client; do not invent endpoint paths or expose private file URLs. Authorization must be checked on every request.
-
-## Contract maintenance
-
-For each API change:
-1. Update the request/response DTO and validation.
-2. Add service/controller tests for success, invalid input, role and ownership boundaries.
-3. Update the relevant frontend domain API client and contract tests.
-4. Update this domain index only where the externally observable contract or security boundary changed.
+## Contract change checklist
+Update DTO validation, service/controller tests (including role and ownership boundaries), frontend domain client and contract tests. Update this index only for externally observable contract/security changes.
