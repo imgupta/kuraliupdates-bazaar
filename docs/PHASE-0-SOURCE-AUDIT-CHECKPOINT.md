@@ -452,3 +452,44 @@ All route mappings below were extracted from controller source at the audit base
 - No explicit `@Version` field was observed in OrderEntity, DailyHelpBookingEntity or ProductEntity; critical paths instead rely on repository pessimistic locks. Verify every writer uses the locking method and Oracle supports the expected row locks.
 
 **Test evidence limitation:** Existing unit/service tests and successful Maven CI do not establish true Oracle locking/concurrency behavior. Required tests must use an Oracle-compatible integration environment or a controlled Oracle staging schema with concurrent transactions.
+
+
+## Consolidated Phase 0 exit matrix — 2026-11-03
+
+This matrix separates source evidence from tests and runtime evidence. "Source reviewed" does not mean the risk is fixed or production-safe.
+
+| Gate | Current evidence/status | Severity / owner | Closure evidence required |
+|---|---|---|---|
+| Architecture decision | Modular monolith with five domain modules and five portal build targets recorded; current runtime remains one Spring Boot app/JVM/Docker image. | Closed as a decision | Keep architecture docs and tests aligned; future extraction needs approval. |
+| PR governance/docs | PR #227 merged; PR #228 source audit docs only, draft/unmerged. | In progress | Review/merge PR #228 after final CI/review; required branch protections and reviewers. |
+| Security configuration secrets | Checked-in JWT/wallet fallback credential material in baseline config. | **Critical — release blocker**; Security/Platform | Rotate all exposed credentials; remove source defaults; fail-closed production config; scan current/history; prove separate staging/prod keys; invalidate old tokens. |
+| Security default route policy | Catch-all `/**.permitAll()`; multiple public controller routes rely on method/service guards. | **High**; Backend/Security | Explicit public allowlist + authenticated default; exhaustive route negative tests. |
+| Seller lead OTP/callback endpoints | Public leadId-based send/verify/callback methods; service controls not fully tested. | **High**; Identity/Marketplace | Entropy, contact binding, expiry, attempts, replay/rate-limit tests, consent/version evidence and enumeration resistance. |
+| Public delivery registration response | Returns JPA DeliveryAgentEntity. | **High**; Delivery/Privacy | Narrow DTO; response serialization test; OTP/consent/anti-abuse/retention tests. |
+| Daily Help state transitions | Booking creation locks slot; start/status/complete read booking without locked repository method. | **High**; Daily Help | Locked state transition methods, concurrent OTP/complete tests, Oracle integration evidence. |
+| Orders/Delivery concurrency | Order stock and delivery claims use pessimistic locks in reviewed paths. | In progress; Orders/Delivery | Concurrency/failure-injection tests and Oracle lock/deadlock verification. |
+| Process-local ephemeral state | Portal handoff, resend throttle and E2E OTP capture use in-memory maps. | **High/Medium**; Identity/Delivery/Test | Prove single-instance constraints or move to shared durable store; restart/replica tests; keep E2E capture staging-only. |
+| Cross-domain persistence | AuthService and AdminController access repositories across domains; JdbcTemplate SQL in several domains. | **High architecture debt**; Backend Architecture | Complete writer map; domain-owned application contracts; FE/BE boundary tests after Phase 0. |
+| Flyway migration source | V14–V30 source reviewed; Flyway enabled, baseline version 13, missing migrations ignored. | Partial; DBA/Backend | Oracle history/checksum and applied success evidence; blank-DB bootstrap tested; pre/post V16 identity matching reports. |
+| Flyway diagnostic | Admin read-only endpoint exists; quoted lowercase history table identifier may not match Oracle's default uppercase identifier. | **Medium**; Backend/DBA | Verify actual table identifier; fix/read-only query; validate all migration rows and checksums. |
+| Data model/constraints | JPA entity/table mapping and selected DDL reviewed. | Partial; DBA | Full schema metadata for PK/FK/check/index/unique/trigger/sequence/grants; row-level orphan/duplicate reports. |
+| Frontend portal isolation | Five entry files/build targets exist; shared AppContext and general App.tsx import all dashboards. | Partial; Frontend | Bundle dependency audit and independent build/deep-link/refresh tests on actual hosts. |
+| Browser storage/session | Bearer token and PII/cache keys stored in localStorage. | **High**; Security/Frontend | Threat model, XSS/CSP/dependency controls or secure cookie/token design; logout/account-switch/expiry tests. |
+| E2E safety | Guarded staging token exchange and run tagging; E2E API base defaults to Render URL. | **High**; QA/Platform | Require explicit non-production API origin for state-changing tests; staging-only secrets; synthetic allowlisted accounts; restricted artifact retention. |
+| Background work/WebSocket | Targeted scan found polling/process maps; complete server async/WebSocket inventory not proven. | Open; Backend | Full local grep/blob scan and runtime bean/route registration evidence; expiry/outbox/retry design. |
+| External providers | Resend, MSG91, ClamAV, Google Routes configured/used in code; provider terms/regions and webhook/retry evidence incomplete. | Open; Platform/Privacy | Processor/subprocessor, region, retention, DPA, timeouts, retries, idempotency, webhook/auth, deletion evidence. |
+| Production India-only hosting | Current dev backend Singapore verified previously; database/backup/logs/CDN/vendor/support access unknown. | **Critical launch gate**; Platform/Privacy | Resource-by-resource India region evidence, including DB, replicas, backups, logs, object storage, cache, support access and vendor flows. |
+| Indian legal/regulatory register | Research and issue spotting recorded; applicability to actual company/fund flows/work model not professionally signed off. | Open; Founder + CA/legal/labour counsel | Incorporation proof; counsel/CA opinions; contracts; licences; tax/fund-flow and gig-worker applicability evidence. |
+| Production runtime verification | No production security smoke, live migration proof, backup restore or disaster-recovery test in this audit. | Open; QA/Platform | Approved synthetic staging tests, production-safe smoke, restore/DR rehearsal and incident runbook evidence. |
+
+### Phase 0 closure rule
+
+Phase 0 is not a calendar milestone and cannot be marked complete by the volume of documentation or number of successful CI runs. It closes only when:
+- every route, writer, table, task and integration has an accountable domain owner and security/data classification;
+- critical workflows have state transition, transaction, idempotency, concurrency and negative authorization evidence;
+- all Critical/High findings are fixed or have explicit approved containment and owner;
+- database baseline and migration behavior are reproducible;
+- India-only production data residency is demonstrated resource by resource;
+- external vendor and legal applicability gaps are either evidenced or formally accepted by the accountable professional/owner.
+
+**Current decision: Phase 0 remains OPEN.** The source audit has advanced substantially, but several release-blocking issues are now explicit. Do not start broad FE-1/BE-1 refactors or production launch until the critical gates are resolved.
