@@ -17,7 +17,7 @@ Open Admin Portal → Marketplace & Merchants → Registration OTP controls.
 - Public read endpoint: `GET /seller-registration/otp-settings` (only exposes whether each OTP is required).
 - Admin read endpoint: `GET /admin/seller-registration/otp-settings`.
 - Admin update endpoint: `PUT /admin/seller-registration/otp-settings` with `emailOtpEnabled` and `mobileOtpEnabled` booleans. Protected by the existing ADMIN role rule.
-- A new lead snapshots the two settings when created. Changing settings later applies to new leads only; it does not silently waive an in-progress applicant's already-required verification.
+- A new lead snapshots the two settings when created. Changing settings later applies to new leads only; it does not silently waive an in-progress applicant's already-required verification. Existing leads created before V28 retain the previous dual-OTP requirement through migration backfill.
 - The lead records each channel as verified or OTP-not-required. The CRM displays these states distinctly.
 - Seller provisioning checks both channel requirements server-side. A disabled channel is recorded as OTP-not-required, not falsely labelled as verified.
 - Callback requests still require explicit consent. CRM call/email links remain unavailable unless consent is recorded and the relevant channel is verified or OTP-not-required.
