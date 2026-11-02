@@ -263,3 +263,66 @@ This is a source-confirmed finding at the inspected commit. No secret material w
 - The diagnostic endpoint is a safe first step for read-only Flyway evidence; it is not a substitute for full DBA metadata review.
 - A clean-database bootstrap path is not yet demonstrated.
 - Critical credential hygiene is a production blocker and must be fixed through a separate explicitly authorized security change, not hidden inside a documentation-only audit.
+
+
+## Frontend architecture, browser storage and runtime effects — source review
+
+### Portal build and route model
+
+- Five entry points exist: `src/entries/{buyer,seller,delivery,daily-help,admin}.tsx`. Each calls `mountPortal(role, PortalComponent)` for one role.
+- Five portal-specific Vite build scripts use `VITE_PORTAL` to select the matching HTML entry and emit separate output folders. The root `vite.config.ts` sets `base: '/'`.
+- The general `src/App.tsx` imports all five dashboards and conditionally renders one through `PortalAppShell` based on active role. Therefore the monolithic app bundle and standalone portal builds are distinct deployment modes; five build outputs do not by themselves prove five isolated dependency graphs or separate backend services.
+- `vercel.json` rewrites all paths to `/index.html` for Vercel SPA fallback. The currently described Render static-site deployment needs its own explicit deep-link/refresh rewrite verification; a Vercel rewrite file does not configure Render. Test direct navigation and refresh for every role path on the actual hosting provider.
+- Existing E2E login suite includes a standalone role-portal root and refresh/history test, but no successful current runtime result was verified in this audit.
+
+### Context/state ownership map
+
+| File/hook | Source-observed responsibility | State/effect concern |
+|---|---|---|
+| `AuthSessionContext` | User, active role, auth-initializing state; synchronizes non-admin role into local storage. | Role is a UI selection; backend session must remain authoritative. |
+| `useMarketplaceCollections` | Sellers, products, coupons, delivery agents, orders. | Initializes from local storage and seeded defaults; stale browser cache must never override server authorization, pricing, stock or order state. |
+| `usePortalUiState` | Registered roles, locality, compare/tracking/cart/register modal state, toast. | Toast uses timeout; verify no state update after unmount if component lifetime changes. |
+| `useBuyerCommerceState` | Cart and applied coupon. | Cart is locally persisted; server must reprice/revalidate coupon, seller, availability and quantity at checkout. |
+| `usePersistedValue` | Writes context state to browser storage via effects. | Storage failures are swallowed by safe wrapper; persistence is not durable backup or trusted source. |
+| `useBackendConnection` | Backend URL/status, bootstrap and sync orchestration. | Backend URL can be overridden and persisted in browser storage; validate scheme/host in production and avoid sending bearer tokens to arbitrary configured hosts. |
+| `useAuthBootstrap` | Restores session via `getMe`, refreshes backend sync every 45 seconds, redeems SSO handoff query/hash code, fetches registered roles. | Handoff codes in URL must be removed from history/log/referrer immediately after capture; verify one-time redemption, origin, expiry and cleanup. |
+| `useNegotiationChatState` | Negotiation chats, unread notifications, bargain cart reconciliation. | Polls every 4 seconds and uses localStorage token presence; cleanup exists. Verify hidden-tab/backoff, overlapping requests, multiple tabs, token changes, notification mark-read idempotency and rate limits. |
+| `useBackendSync` | Health, buyer orders, catalogue, sellers and delivery jobs synchronization. | Review stale-cache merge semantics and prevent local seeded/old records being treated as server-authoritative. |
+| `useAuthOperations` | Login/registration/profile/logout API operations. | Map every action to backend endpoint and verify token clear on logout, role switch and expired/revoked session. |
+| `useOrderDeliveryOperations` | Order placement, delivery operations and local state reconciliation. | Confirm server-authoritative transitions; avoid local optimistic state persisting after rejected backend action. |
+| `useMarketplaceOperations` / `useSellerAdminOperations` | Marketplace/seller/admin actions. | Full component-to-method and API call graph still open. |
+
+### Browser storage and session security
+
+- `safeStorage.ts` uses browser `localStorage` for all keys.
+- Confirmed keys include `kurali_auth_token`, `kurali_role`, `kurali_user`, `kurali_backend_url`, `kurali_sellers`, `kurali_products`, `kurali_coupons`, `kurali_delivery_agents`, `kurali_orders`, `kurali_cart` and `kurali_applied_coupon`.
+- The bearer token is therefore accessible to JavaScript running on the origin. Any successful XSS or compromised third-party script can potentially exfiltrate it. **High security priority:** evaluate migration to Secure, HttpOnly, SameSite cookies with CSRF protection, or a documented short-lived access-token/rotating-refresh-token design with strict CSP, dependency controls and session revocation. Do not make a token-storage change without testing cross-portal SSO and CORS.
+- User/profile, seller, delivery, order and address details in localStorage create shared-device exposure and persist after tab/browser closure. Minimize persisted PII; clear sensitive caches on logout/account switch; apply TTL/versioning and explicit logout cleanup; do not store identity documents or OTPs there.
+- `kurali_backend_url` is user-overridable and persisted. Production should pin an allowlisted HTTPS API origin, reject localhost/non-production hosts in production builds, and ensure credentials cannot be forwarded to arbitrary URLs.
+- LocalStorage is not a secure session store. Server must validate every request and never trust client role, cached registeredRoles, price, order status or ownership.
+
+### Health/status correctness issue
+
+- `useBackendConnection` initializes the database label as `Oracle Cloud Autonomous Database (ap-mumbai-1)`.
+- `useBackendSync` falls back to `Oracle Autonomous Database Connected` when the health response has no database field.
+- These are presentation defaults, not evidence of a live Oracle connection or a verified region. Replace with neutral UNKNOWN/NOT_CHECKED until backend health explicitly reports a verified connection; avoid asserting Mumbai/India residency until resource-level evidence is obtained.
+
+### E2E suite coverage and limitations
+
+- `e2e/login.spec.ts` covers site load, portal roots/refresh/history, login validation, multi-role switching and conditional authenticated role login. It has staging-only OTP capture guards for authenticated tests.
+- `e2e/order-daily-help-lifecycle.spec.ts` includes guarded transactional flows for bargain/checkout/seller/delivery claim and OTP, Daily Help booking/provider start OTP/completion/history, and admin queue role restrictions. It uses synthetic run IDs and E2E token exchange; admin test is conditional on staging configuration.
+- The order lifecycle suite's default API base URL is the Render backend URL. Auth token helper is configured to fail closed unless the backend is explicitly configured as staging with a strong shared secret and allowlisted identities, but the suite should still require an explicit non-production API host before any state-changing test is permitted.
+- Playwright config defaults browser base URL to the bazaar hostname and captures screenshots/video plus traces on failure. Ensure artifacts never include live PII, OTPs, bearer tokens, seller documents or full addresses; restrict artifact access and retention.
+- Existing suite source is useful coverage, but no test execution against an approved staging target was performed in this audit.
+
+### Frontend release gates
+
+1. Complete route-to-entry-to-component-to-API map for every portal; verify no unintended imports of another portal's dashboard in standalone builds.
+2. Test direct deep link, refresh, back/forward, role switch and SSO handoff on the actual Render/Vercel host configuration.
+3. Add storage tests for logout, expiry, account switching, corrupted cache, shared-device privacy and malicious backend URL.
+4. Add request authorization/ownership tests server-side; client route guards are UX only.
+5. Verify polling teardown, hidden-tab behavior, retry/backoff and multi-tab coordination.
+6. Replace false-positive Oracle region/connected labels with source-of-truth health metadata.
+7. Ensure synthetic-only E2E, strict staging target allowlist, restricted artifact retention and no secrets/PII in traces.
+
+**Status:** Source structure and key state/effect risks are documented. Full consumer map, complete API endpoint/component call graph, standalone bundle dependency isolation, and actual hosting rewrite behavior remain unverified.
