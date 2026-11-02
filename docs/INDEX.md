@@ -10,6 +10,7 @@ Start with these maintained sources:
 | [Seller registration redesign](SELLER-REGISTRATION-REDESIGN.md) | Approved target UX, radius, multilingual, compliance, APIs, backlog and release gates |
 | [Seller onboarding](SELLER-ONBOARDING.md) | Current seller registration, document storage, admin approval and compliance workflow |
 | [Assisted seller onboarding CRM](SELLER-ONBOARDING-CRM-IMPLEMENTATION.md) | Consolidated lead capture, dual OTP, callback consent, admin CRM and rollout gates |
+| [Seller registration OTP administration](SELLER-REGISTRATION-OTP-ADMIN.md) | Independent admin switches for email and mobile OTP with per-lead snapshots |
 | [Deployment](../DEPLOYMENT.md) | Vercel/Render release, environment and rollback gates |
 | [API](API.md) | Domain API index and contract maintenance |
 | [Database](DATABASE.md) | Flyway migration facts and Oracle operational safety |
