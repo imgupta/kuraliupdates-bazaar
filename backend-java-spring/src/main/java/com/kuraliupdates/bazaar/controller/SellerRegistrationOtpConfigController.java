@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.Map;
 
 @RestController
@@ -21,15 +20,18 @@ public class SellerRegistrationOtpConfigController {
     }
 
     @GetMapping("/admin/seller-registration/otp-settings")
-    public Map<String, Object> adminSettings() {
-        return config.get();
+    public Map<String, Object> adminSettings() { return config.get(); }
+
+    @GetMapping("/admin/seller-registration/otp-settings/history")
+    public Map<String, Object> adminHistory(@RequestParam(defaultValue = "20") int limit) {
+        return Map.of("items", config.history(limit));
     }
 
     @PutMapping("/admin/seller-registration/otp-settings")
     public Map<String, Object> update(@RequestBody Map<String, Boolean> body) {
         if (body.get("emailOtpEnabled") == null || body.get("mobileOtpEnabled") == null) {
             throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.BAD_REQUEST, "Both email and mobile OTP settings are required");
+                org.springframework.http.HttpStatus.BAD_REQUEST, "Both email and mobile OTP settings are required");
         }
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String actor = auth == null ? "ADMIN" : auth.getName();
