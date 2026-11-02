@@ -1,40 +1,65 @@
 # Engineering handoff — KuraliUpdates
 
-Keep this file short and current. It replaces the previous chronological debugging diary; durable architecture and current gaps live in dedicated docs.
+Keep this file concise and current. Durable architecture, risks and detailed discovery live in linked documents.
+
+## Mandatory engineering standard
+
+Before every coding, refactoring, review, test or release task, read [ENGINEERING-OPERATING-STANDARD.md](ENGINEERING-OPERATING-STANDARD.md) and the relevant current-state/domain docs. Apply the multidisciplinary rigor expected of a 30+ year experienced frontend engineer, architect, designer, analyst, security consultant and management consultant. This is a quality/operating standard, not a literal employment-history claim.
 
 ## Repository and runtime
+
 - Repository: https://github.com/imgupta/kuraliupdates-bazaar
-- Main branch: `main`
+- Main branch: main
 - Website: https://kuraliupdates.com
 - API: https://kuraliupdates-bazaar.onrender.com/api/v1
-- Frontend: six Vercel projects (combined Bazaar + five role portals)
-- Backend: Render Docker service rooted at `backend-java-spring/`
-- Environment: one owner-designated shared staging environment
+- Backend: Render Docker service rooted at backend-java-spring/
+- Frontend: historical deployment notes mention six Vercel projects; do not assume current provider topology without live verification.
+- Environment: one owner-designated shared staging environment. Do not run transactional tests against real/shared business records.
 
-## Latest merged application changes
-- PR #219, registration OTP audit history, merged to `main` as `9b2e51fbf20aa4f8f3d421d0725a4c9bee99624a` on 3 Nov 2026. Adds the append-only OTP policy audit table (Flyway V29), ADMIN-protected history endpoint, admin UI history view and controller regression tests. All required PR CI jobs passed.
-- PR #218, independent buyer/seller registration email and mobile OTP controls, was previously merged. It introduced Flyway V28 and backend-enforced signup-only channel switches, default OFF/OFF.
-- PR #205, seller compliance onboarding and private Oracle BLOB documents, merged as `1a44fb45da9f0061d8e9c902c825770662b9fd11` on 2 Nov 2026. Source includes seller onboarding fields, document upload/list and admin review/download/verification API, Flyway V14 and frontend integration.
+## Locked architecture decision
 
-## Last observed deployment checkpoint — 2 Nov 2026 (historical; predates PR #219)
-- Six Vercel deployment records were READY on the merged SHA.
-- Render Docker build for the same SHA succeeded, but latest observed deployment state remained `update_in_progress`; final LIVE confirmation was not observed.
-- Backend rollout, deployed V14 and document BLOB round-trip were therefore unconfirmed at that checkpoint. Recheck provider status before relying on this dated observation.
+- Frontend: five independently buildable portals — Buyer, Seller, Delivery, Daily Help Provider, Admin — in one monorepo. Low-cost target is one combined static deployment, subject to route/base/fallback verification.
+- Backend: one Spring Boot JVM, one Docker runtime and five enforced domain modules: Identity, Marketplace, Orders, Delivery, Daily Help.
+- This is a modular monolith, not five deployed microservices. No five-JVM or five-service deployment unless the owner explicitly changes the decision after cost/resource measurement.
+- Communications (email/SMS/Zender/notifications) is a shared adapter capability, not a sixth core domain.
+- Keep Oracle initially with strict logical data ownership. No cross-domain repository/table writes.
+
+## Discovery documents
+
+- [Current implementation status](CURRENT-STATE.md)
+- [Low-cost implementation plan](LOW-COST-MICROFRONTEND-MICROSERVICES-IMPLEMENTATION-PLAN.md)
+- [Domain boundaries](DOMAIN-BOUNDARIES.md)
+- [Frontend portal/route inventory](FRONTEND-PORTAL-ROUTE-INVENTORY.md)
+- [Backend service dependency map](SERVICE-DEPENDENCY-MAP.md)
+- [Data ownership and transaction matrix](DATA-OWNERSHIP-MATRIX.md)
+- [Engineering operating standard](ENGINEERING-OPERATING-STANDARD.md)
+
+Phase 0 is not complete: the route registry, frontend import graph, endpoint/controller map, table/entity readers/writers, Flyway ownership, transaction boundaries, scheduled jobs, WebSocket handlers and complete workflow traces still require exact source inspection. Do not move code or persistence until those inventories are complete.
+
+## Latest known application changes (historical notes; recheck exact main)
+
+- PR #219 was documented as adding registration OTP policy audit history and Flyway V29; CI results do not prove the migration is applied to the target Oracle schema.
+- PR #218 added independent buyer/seller email/mobile registration OTP controls, default OFF/OFF, and Flyway V28.
+- PR #205 added seller compliance onboarding and private Oracle BLOB document handling, with Flyway V14 source migration; runtime application and BLOB round-trip require independent verification.
+- Recheck current main SHA, open PRs, CI and Render deployment before making release claims.
 
 ## Confirmed business decisions
-- Parent company plan: Kura Ventures Private Limited; KuraliUpdates as brand/business division. Incorporation/registrations require professional review and filing.
-- Grocery: direct customer-to-seller payment; platform earns commission/platform fee. Do not describe aggregator/bank-split as active without code/config proof.
+
+- Parent company plan: Kura Ventures Private Limited; incorporation/registrations require professional review and filing.
+- Grocery: customer pays seller directly; platform earns commission/platform fee.
 - Grocery refunds: seller directly refunds customer; platform records/co-ordinates case. No minimum seller refund reserve selected.
 - Daily Help: independent provider marketplace; verify current payment implementation before describing settlement as active.
 - Delivery agents use their own two-wheelers.
 - Maps: OpenStreetMap fallback; Google Routes features require backend key/configuration.
 
 ## Next actions
-1. Recheck exact main CI, Render LIVE status, application startup and Flyway V14/V28/V29.
-2. Complete seller onboarding admin review UI and document security/retry gaps in [SELLER-ONBOARDING.md](SELLER-ONBOARDING.md).
-3. Fix five-role E2E fixture preflight and prove isolated synthetic data/cleanup before mutating tests.
-4. Continue domain API extraction and AppContext modularisation with regression tests.
-5. Add observability, backup/restore and capacity runbooks before scale-up.
 
-## Safety
-Do not run V13 or destructive reset routinely. Do not run transactional E2E against real/shared business records. Do not enable staging OTP capture before database target and dedicated identities are verified. Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller documents. Claim completion only when source, tests, CI and runtime evidence agree.
+1. Finish Phase 0 inventories in the linked documents from the exact current main tree.
+2. Reconcile open PRs that may alter the source baseline, especially architecture/security documentation.
+3. Complete five-role route/auth/session and frontend import dependency maps.
+4. Complete backend endpoint/service/repository/entity/table/transaction and workflow maps.
+5. Only then begin FE-1 and BE-1 as separate, small PRs with architecture tests and regression evidence.
+
+## Safety and evidence
+
+Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller documents. Do not enable mutating E2E until the database target, synthetic identities/data and cleanup are verified. Do not routinely run destructive reset migrations. Claim completion only when source, tests, CI and runtime evidence agree.
