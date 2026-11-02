@@ -36,3 +36,10 @@ Flyway V28 creates `SELLER_REGISTRATION_OTP_CONFIG` with both switches defaulted
 8. Confirm buyer and seller sign-in OTP flows are unaffected.
 
 Do not enable SMS until the applicable government/provider restrictions and approved messaging templates permit it. The setting is an operational switch, not a legal-compliance determination.
+
+
+## Audit history (PR #219)
+
+Every effective change to the email/mobile OTP settings is recorded in `SELLER_REGISTRATION_OTP_CONFIG_AUDIT`, introduced by Flyway V29. The record captures the previous and new channel flags, authenticated administrator identity and timestamp. Saving unchanged values does not create an audit event. Admin Portal → Marketplace & Merchants → Customer & seller OTP controls displays the latest 20 changes.
+
+The history API is `GET /admin/seller-registration/otp-settings/history?limit=20` and is protected by the existing ADMIN authorization boundary. The public settings endpoints continue to return only the two required booleans. See [Registration OTP audit history](REGISTRATION-OTP-AUDIT-HISTORY.md) for the acceptance checklist.
