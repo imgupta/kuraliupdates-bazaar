@@ -12,6 +12,7 @@ interface LocationPickerProps {
   value: DeliveryLocation | null;
   onChange: (location: DeliveryLocation) => void;
   purpose?: 'delivery' | 'shop';
+  initialCenter?: { latitude: number; longitude: number };
 }
 
 declare global {
@@ -56,7 +57,7 @@ const reverseGeocodeOsm = async (latitude: number, longitude: number): Promise<D
   };
 };
 
-export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, purpose = 'delivery' }) => {
+export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, purpose = 'delivery', initialCenter }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const mapInstance = useRef<any>(null);
@@ -67,7 +68,8 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange,
   const [loading, setLoading] = useState(false);
   const [permissionMessage, setPermissionMessage] = useState('');
   const [searchText, setSearchText] = useState(value?.formattedAddress || '');
-  const point = validPoint(value?.latitude, value?.longitude) || DEFAULT_CENTER;
+  const configuredCenter = validPoint(initialCenter?.latitude, initialCenter?.longitude) || DEFAULT_CENTER;
+  const point = validPoint(value?.latitude, value?.longitude) || configuredCenter;
   const bbox = [
     Math.max(-180, point.lng - 0.012),
     Math.max(-90, point.lat - 0.008),
@@ -149,7 +151,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange,
 
   useEffect(() => {
     if (!ready || fallbackMode || !mapRef.current || !window.google?.maps) return;
-    const center = validPoint(value?.latitude, value?.longitude) || DEFAULT_CENTER;
+    const center = validPoint(value?.latitude, value?.longitude) || configuredCenter;
     mapInstance.current = new window.google.maps.Map(mapRef.current, {
       center,
       zoom: value ? 17 : 14,
@@ -193,7 +195,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange,
       if (autocomplete.current && window.google?.maps?.event) window.google.maps.event.clearInstanceListeners(autocomplete.current);
       if (marker.current && window.google?.maps?.event) window.google.maps.event.clearInstanceListeners(marker.current);
     };
-  }, [ready, fallbackMode]);
+  }, [ready, fallbackMode, initialCenter?.latitude, initialCenter?.longitude]);
 
   useEffect(() => {
     if (!mapInstance.current || !marker.current || !value || fallbackMode) return;
