@@ -326,14 +326,16 @@ export const SellerRegistrationWizard: React.FC = () => {
         setLoading(true);
         const normalizedEmail = email.trim().toLowerCase();
         const normalizedPhone = phone.replace(/\D/g, '');
-        if (!leadId) {
+        let activeLeadId = leadId;
+        if (!activeLeadId) {
           const check = await bazaarApi.checkRegistration(normalizedEmail, normalizedPhone, 'SELLER');
           if (!check.success) throw new Error(check.message || 'Unable to validate account details');
           const lead = await sellerOnboardingApi.start(name.trim(), normalizedEmail, normalizedPhone);
-          setLeadId(lead.leadId);
+          activeLeadId = lead.leadId;
+          setLeadId(activeLeadId);
         }
         if (!otpStep) {
-          const sent = await sellerOnboardingApi.sendContactOtps(leadId);
+          const sent = await sellerOnboardingApi.sendContactOtps(activeLeadId);
           if (!sent.success) throw new Error('Unable to send both verification codes. Check SMS/email delivery configuration and try again.');
           setOtpStep(true);
           showToast('Verification codes sent to your email and mobile.', 'info');
@@ -342,7 +344,7 @@ export const SellerRegistrationWizard: React.FC = () => {
         if (emailOtp.replace(/\D/g, '').length !== 6 || phoneOtp.replace(/\D/g, '').length !== 6) {
           throw new Error('Enter both six-digit verification codes');
         }
-        const verified = await sellerOnboardingApi.verifyContact(leadId, emailOtp.replace(/\D/g, ''), phoneOtp.replace(/\D/g, ''));
+        const verified = await sellerOnboardingApi.verifyContact(activeLeadId, emailOtp.replace(/\D/g, ''), phoneOtp.replace(/\D/g, ''));
         if (!verified.success) throw new Error('Unable to verify both contact methods');
         setContactVerified(true);
         setOtpStep(false);
