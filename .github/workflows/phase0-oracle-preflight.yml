@@ -1,0 +1,95 @@
+name: Phase 0 Oracle read-only preflight
+
+on:
+  push:
+    branches:
+      - audit/phase-zero-source-inventory
+    paths:
+      - ".github/workflows/phase0-oracle-preflight.yml"
+      - "backend-java-spring/src/main/**"
+      - "backend-java-spring/pom.xml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase0-oracle-preflight
+  cancel-in-progress: false
+
+jobs:
+  oracle-read-only-preflight:
+    name: Oracle metadata preflight (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend-java-spring
+    env:
+      ORACLE_USERNAME: ${{ secrets.ORACLE_USERNAME }}
+      ORACLE_PASSWORD: ${{ secrets.ORACLE_PASSWORD }}
+      WALLET_PASSWORD: ${{ secrets.ORACLE_WALLET_PASSWORD }}
+      ORACLE_TNS_ALIAS: ${{ secrets.ORACLE_TNS_ALIAS }}
+    steps:
+      - name: Check out Phase 0 branch
+        uses: actions/checkout@v4
+
+      - name: Validate required protected secrets
+        shell: bash
+        run: |
+          missing=()
+          for key in ORACLE_USERNAME ORACLE_PASSWORD WALLET_PASSWORD ORACLE_TNS_ALIAS; do
+            if [[ -z "${!key}" ]]; then missing+=("$key"); fi
+          done
+          if [[ -z "${{ secrets.ORACLE_WALLET_BASE64 }}" ]]; then
+            missing+=("ORACLE_WALLET_BASE64")
+          fi
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing GitHub Actions secrets: %s\n' "${missing[*]}"
+            exit 2
+          fi
+
+      - name: Prepare isolated Oracle wallet
+        shell: bash
+        env:
+          ORACLE_WALLET_BASE64: ${{ secrets.ORACLE_WALLET_BASE64 }}
+        run: |
+          set -euo pipefail
+          sudo install -d -m 700 /app/wallet
+          printf '%s' "$ORACLE_WALLET_BASE64" | base64 --decode > /tmp/oracle-wallet.zip
+          sudo unzip -oq -P "$WALLET_PASSWORD" /tmp/oracle-wallet.zip -d /app/wallet
+          sudo chown -R "$(id -u):$(id -g)" /app/wallet
+          chmod 600 /app/wallet/*
+          rm -f /tmp/oracle-wallet.zip
+          if [[ ! -f /app/wallet/tnsnames.ora ]]; then
+            echo "Wallet extraction did not produce tnsnames.ora"
+            exit 3
+          fi
+          if [[ ! -f /app/wallet/sqlnet.ora ]]; then
+            echo "Wallet extraction did not produce sqlnet.ora"
+            exit 3
+          fi
+          sed -i 's|DIRECTORY="[^"]*"|DIRECTORY="/app/wallet"|g' /app/wallet/sqlnet.ora
+
+      - name: Build diagnostic application
+        run: mvn -B -DskipTests package
+
+      - name: Run read-only Oracle metadata preflight
+        shell: bash
+        env:
+          ORACLE_JDBC_URL: jdbc:oracle:thin:@${{ secrets.ORACLE_TNS_ALIAS }}?TNS_ADMIN=/app/wallet
+          SPRING_PROFILES_ACTIVE: phase0-diagnostics
+        run: |
+          set -euo pipefail
+          java -jar target/kurali-bazaar-api-1.0.0-SNAPSHOT.jar \
+            --spring.profiles.active=phase0-diagnostics 2>&1 | tee phase0-oracle-preflight.log
+          grep -q 'PHASE0_ORACLE_PREFLIGHT' phase0-oracle-preflight.log
+
+      - name: Upload sanitized preflight report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase0-oracle-preflight
+          path: backend-java-spring/phase0-oracle-preflight.log
+          if-no-files-found: ignore
+          retention-days: 3
