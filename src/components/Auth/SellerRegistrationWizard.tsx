@@ -79,10 +79,12 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
 const inputClass = 'min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100';
 
 export const SellerRegistrationWizard: React.FC = () => {
-  const { registerUserWithOtp, showToast } = useApp();
+  const { registerUserWithOtp, loginWithOtp, showToast } = useApp();
   const [language, setLanguage] = useState<Language>('en');
   const t = COPY[language];
   const [step, setStep] = useState<Step>(1);
+  const [authMode, setAuthMode] = useState<'register' | 'signin'>('register');
+  const [authPending, setAuthPending] = useState(false);
   const [otpStep, setOtpStep] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -210,9 +212,46 @@ export const SellerRegistrationWizard: React.FC = () => {
     setSubmissionComplete(true);
   };
 
+  const handleSignIn = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      if (!otpStep) {
+        if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) throw new Error('Enter the email address registered with KuraliUpdates');
+        const sent = await bazaarApi.sendOtp(email.trim().toLowerCase(), 'EMAIL', 'LOGIN');
+        if (!sent.success) throw new Error(sent.message || 'Unable to send sign-in OTP');
+        setOtpStep(true);
+        showToast('Sign-in code sent to your email', 'info');
+        return;
+      }
+      if (otp.replace(/\\D/g, '').length !== 6) throw new Error('Enter the complete six-digit email OTP');
+      const response = await bazaarApi.verifyOtp({
+        mode: 'LOGIN', identifier: email.trim().toLowerCase(),
+        otp: otp.replace(/\\D/g, ''), type: 'EMAIL',
+      });
+      if (!response.success || !response.token || !response.user) throw new Error(response.message || 'OTP verification failed');
+      const approval = await bazaarApi.getOnboardingStatus(response.token, 'SELLER');
+      if (approval.success && approval.status !== 'APPROVED') {
+        setAuthPending(true);
+        return;
+      }
+      const result = loginWithOtp({
+        identifier: email.trim().toLowerCase(), email: email.trim().toLowerCase(),
+        token: response.token, serverUser: response.user,
+      });
+      showToast(result.message, 'success');
+      window.location.href = '/';
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to sign in');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleContinue = async () => {
     setError('');
     try {
+      if (authMode === 'signin') { await handleSignIn(); return; }
       validateStep();
       if (step < 5) {
         setStep((step + 1) as Step);
@@ -246,6 +285,10 @@ export const SellerRegistrationWizard: React.FC = () => {
     <input {...props} value={value} onChange={event => onChange(event.target.value)} className={inputClass} />
   );
 
+  if (authPending) {
+    return <main className="min-h-screen bg-slate-950 flex items-center justify-center p-4"><section className="w-full max-w-lg rounded-3xl bg-white p-8 text-center shadow-2xl"><Store className="mx-auto h-12 w-12 text-amber-600"/><h1 className="mt-4 text-2xl font-black text-slate-900">Seller application under review</h1><p className="mt-3 text-sm leading-relaxed text-slate-600">Your seller account is not approved yet. The admin team must verify your shop profile and applicable documents before you can start selling.</p><button type="button" onClick={() => { window.location.href = '/'; }} className="mt-5 w-full rounded-xl bg-slate-900 p-3 text-sm font-bold text-white">Continue</button></section></main>;
+  }
+
   if (submissionComplete) {
     return <main className="min-h-screen bg-slate-950 flex items-center justify-center p-4"><section className="w-full max-w-lg rounded-3xl bg-white p-8 text-center shadow-2xl"><CheckCircle2 className="mx-auto h-14 w-14 text-emerald-600"/><h1 className="mt-4 text-2xl font-black text-slate-900">Application submitted</h1><p className="mt-3 text-sm leading-relaxed text-slate-600">Your seller profile and uploaded documents have been received. Your shop will remain pending until the KuraliUpdates admin team reviews the profile, shop-front photo and all applicable compliance evidence.</p><p className="mt-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-900">You cannot publish products or accept orders until approval is granted.</p><button type="button" onClick={() => { window.location.href = '/'; }} className="mt-5 w-full rounded-xl bg-slate-900 p-3 text-sm font-bold text-white">Continue to KuraliUpdates</button></section></main>;
   }
@@ -258,11 +301,18 @@ export const SellerRegistrationWizard: React.FC = () => {
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 flex items-center justify-center p-3 sm:p-6">
       <section className="w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl">
         <header className="bg-gradient-to-r from-amber-600 to-orange-600 p-6 text-white sm:p-8">
-          <div className="flex items-start justify-between gap-4"><div className="flex items-center gap-3"><Store className="h-8 w-8"/><div><h1 className="text-xl font-black sm:text-2xl">{t.title}</h1><p className="mt-1 text-xs text-amber-50">{t.intro}</p></div></div><select aria-label="Language" value={language} onChange={event => setLanguage(event.target.value as Language)} className="rounded-lg border border-white/30 bg-white/15 px-2 py-2 text-xs text-white"><option className="text-slate-900" value="en">English</option><option className="text-slate-900" value="pa">ਪੰਜਾਬੀ</option><option className="text-slate-900" value="hi">हिन्दी</option></select></div>
+          <div className="flex items-start justify-between gap-4"><div className="flex items-center gap-3"><Store className="h-8 w-8"/><div><h1 className="text-xl font-black sm:text-2xl">{t.title}</h1><p className="mt-1 text-xs text-amber-50">{authMode === 'signin' ? 'Sign in to your seller account using email OTP.' : t.intro}</p><button type="button" onClick={()=>{setAuthMode(authMode==='register'?'signin':'register');setOtpStep(false);setOtp('');setError('');}} className="mt-2 text-xs font-bold text-white underline">{authMode==='register'?'Already registered? Sign in':'New merchant? Register here'}</button></div></div><select aria-label="Language" value={language} onChange={event => setLanguage(event.target.value as Language)} className="rounded-lg border border-white/30 bg-white/15 px-2 py-2 text-xs text-white"><option className="text-slate-900" value="en">English</option><option className="text-slate-900" value="pa">ਪੰਜਾਬੀ</option><option className="text-slate-900" value="hi">हिन्दी</option></select></div>
         </header>
         <div className="p-5 sm:p-8">
           <div className="mb-6 grid grid-cols-5 gap-2">{t.steps.map((label, index) => <div key={label} className="min-w-0"><div className={`h-1.5 rounded-full ${step >= index + 1 ? 'bg-amber-500' : 'bg-slate-200'}`}/><p className={`mt-2 text-[9px] leading-tight ${step === index + 1 ? 'font-black text-slate-900' : 'text-slate-500'}`}>{index + 1}. {label}</p></div>)}</div>
           {error && <div role="alert" className="mb-5 flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900"><AlertCircle className="h-4 w-4 shrink-0"/>{error}</div>}
+          {authMode === 'signin' ? (
+            <div className="space-y-4">
+              {!otpStep ? <Field label={t.email}>{control(email,setEmail,{type:'email',autoComplete:'email',placeholder:'name@example.com'})}</Field> : <><div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{t.otp}</div><Field label="6-digit OTP"><input value={otp} onChange={event=>setOtp(event.target.value.replace(/\\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} className={inputClass}/></Field></>}
+              <button type="button" onClick={handleSignIn} disabled={loading} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-black text-white disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<ArrowRight className="h-4 w-4"/>}{otpStep?'Verify & sign in':'Send sign-in OTP'}</button>
+              {otpStep && <button type="button" onClick={()=>setOtpStep(false)} className="w-full rounded-xl border border-slate-300 py-3 text-sm font-bold text-slate-700">{t.back}</button>}
+            </div>
+          ) : (
           {!otpStep ? (
             <div className="space-y-4">
               {step === 1 && <div className="grid gap-4 sm:grid-cols-2"><Field label={t.name}>{control(name,setName,{autoComplete:'name',placeholder:'Full name'})}</Field><Field label={t.email}>{control(email,setEmail,{type:'email',autoComplete:'email',placeholder:'name@example.com'})}</Field><Field label={t.phone}>{control(phone,setPhone,{type:'tel',inputMode:'numeric',maxLength:10,placeholder:'10-digit mobile number'})}</Field></div>}
@@ -274,6 +324,7 @@ export const SellerRegistrationWizard: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4"><div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{t.otp}</div><Field label="6-digit OTP"><input value={otp} onChange={event=>setOtp(event.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} className={inputClass}/></Field><div className="flex gap-3"><button type="button" onClick={()=>setOtpStep(false)} className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-bold">{t.back}</button><button type="button" onClick={handleContinue} disabled={loading} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<CheckCircle2 className="h-4 w-4"/>}{t.verify}</button></div></div>
+          )}
           )}
         </div>
       </section>
