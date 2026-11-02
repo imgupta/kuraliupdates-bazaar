@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { KURALI_LOCALITIES } from '../../data/initialData';
 import { API_BASE_URL, bazaarApi } from '../../services/api';
 import { DeliveryLocation, LocationPicker } from './LocationPicker';
+import { sellerApi } from '../../services/domains/sellerApi';
 
 type Language = 'en' | 'pa' | 'hi';
 type Step = 1 | 2 | 3 | 4 | 5;
@@ -119,6 +120,9 @@ export const SellerRegistrationWizard: React.FC = () => {
   const [serviceArea, setServiceArea] = useState<{ radiusKm: number; enabled: boolean; centerLatitude: number; centerLongitude: number } | null>(null);
   const [serviceAreaError, setServiceAreaError] = useState('');
   const [uploadedDocumentTypes, setUploadedDocumentTypes] = useState<string[]>([]);
+  const [draftSession, setDraftSession] = useState(false);
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftNotice, setDraftNotice] = useState('');
 
   const isFood = FOOD_CATEGORIES.has(category);
 
@@ -212,6 +216,55 @@ export const SellerRegistrationWizard: React.FC = () => {
     setSubmissionComplete(true);
   };
 
+  const restoreSellerDraft = (draft: any) => {
+    if (!draft || draft.exists === false || Object.keys(draft).length === 0) return false;
+    if (typeof draft.name === 'string') setName(draft.name);
+    if (typeof draft.email === 'string') setEmail(draft.email);
+    if (typeof draft.phone === 'string') setPhone(draft.phone);
+    if (typeof draft.locality === 'string') setLocality(draft.locality);
+    if (typeof draft.address === 'string') setAddress(draft.address);
+    if (typeof draft.storeName === 'string') setStoreName(draft.storeName);
+    if (typeof draft.category === 'string') setCategory(draft.category);
+    if (['INDIVIDUAL','PROPRIETORSHIP','PARTNERSHIP','COMPANY'].includes(draft.businessType)) setBusinessType(draft.businessType);
+    if (typeof draft.registeredBusinessName === 'string') setRegisteredBusinessName(draft.registeredBusinessName);
+    if (typeof draft.shopNumber === 'string') setShopNumber(draft.shopNumber);
+    if (typeof draft.wardNumber === 'string') setWardNumber(draft.wardNumber);
+    if (typeof draft.streetLocality === 'string') setStreetLocality(draft.streetLocality);
+    if (typeof draft.pinCode === 'string') setPinCode(draft.pinCode);
+    if (draft.location && Number.isFinite(Number(draft.location.latitude)) && Number.isFinite(Number(draft.location.longitude))) setLocation(draft.location);
+    if (typeof draft.gstNumber === 'string') setGstNumber(draft.gstNumber);
+    if (typeof draft.fssaiNumber === 'string') setFssaiNumber(draft.fssaiNumber);
+    if (typeof draft.fssaiLicenseType === 'string') setFssaiLicenseType(draft.fssaiLicenseType);
+    if (typeof draft.openingTime === 'string') setOpeningTime(draft.openingTime);
+    if (typeof draft.closingTime === 'string') setClosingTime(draft.closingTime);
+    if (typeof draft.weeklyClosedDay === 'string') setWeeklyClosedDay(draft.weeklyClosedDay);
+    if (typeof draft.agreementAccepted === 'boolean') setAgreementAccepted(draft.agreementAccepted);
+    const savedStep = Number(draft.currentStep);
+    if (Number.isInteger(savedStep) && savedStep >= 1 && savedStep <= 5) setStep(savedStep as Step);
+    setDraftNotice('Your saved details have been restored. Re-select any document files before submitting; files are never stored in a draft.');
+    return true;
+  };
+
+  const saveSellerDraft = async () => {
+    if (!draftSession || draftBusy) return;
+    setDraftBusy(true);
+    setDraftNotice('');
+    try {
+      await sellerApi.saveSellerRegistrationDraft({
+        currentStep: step, name, email, phone, locality, address, storeName, category, businessType,
+        registeredBusinessName, shopNumber, wardNumber, streetLocality, pinCode, location,
+        gstNumber, fssaiNumber, fssaiLicenseType, openingTime, closingTime, weeklyClosedDay,
+        agreementAccepted,
+      });
+      setDraftNotice('Draft saved securely to your KuraliUpdates account. Uploaded files are not included.');
+      showToast('Seller registration draft saved.', 'success');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to save seller draft.');
+    } finally {
+      setDraftBusy(false);
+    }
+  };
+
   const handleSignIn = async () => {
     setError('');
     setLoading(true);
@@ -231,16 +284,33 @@ export const SellerRegistrationWizard: React.FC = () => {
       });
       if (!response.success || !response.token || !response.user) throw new Error(response.message || 'OTP verification failed');
       const approval = await bazaarApi.getOnboardingStatus(response.token, 'SELLER');
-      if (approval.success && approval.status !== 'APPROVED') {
-        setAuthPending(true);
-        return;
-      }
       const result = loginWithOtp({
         identifier: email.trim().toLowerCase(), email: email.trim().toLowerCase(),
         token: response.token, serverUser: response.user,
       });
       showToast(result.message, 'success');
-      window.location.href = '/';
+      const existingSeller = await sellerApi.getCurrentSeller();
+      if (existingSeller) {
+        if (approval.success && approval.status !== 'APPROVED') {
+          setAuthPending(true);
+          return;
+        }
+        window.location.href = '/';
+        return;
+      }
+      setName(response.user.name || '');
+      setEmail(email.trim().toLowerCase());
+      setAuthMode('register');
+      setOtpStep(false);
+      setOtp('');
+      setDraftSession(true);
+      try {
+        const savedDraft = await sellerApi.getSellerRegistrationDraft();
+        if (restoreSellerDraft(savedDraft)) showToast('Saved seller registration draft restored.', 'success');
+        else setDraftNotice('You are signed in. You can save your seller application and resume it later.');
+      } catch (draftError) {
+        setDraftNotice(draftError instanceof Error ? draftError.message : 'Draft storage is unavailable right now.');
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to sign in');
     } finally {
@@ -305,6 +375,7 @@ export const SellerRegistrationWizard: React.FC = () => {
         </header>
         <div className="p-5 sm:p-8">
           <div className="mb-6 grid grid-cols-5 gap-2">{t.steps.map((label, index) => <div key={label} className="min-w-0"><div className={`h-1.5 rounded-full ${step >= index + 1 ? 'bg-amber-500' : 'bg-slate-200'}`}/><p className={`mt-2 text-[9px] leading-tight ${step === index + 1 ? 'font-black text-slate-900' : 'text-slate-500'}`}>{index + 1}. {label}</p></div>)}</div>
+          {draftNotice && <div role="status" className="mb-4 rounded-xl bg-blue-50 p-3 text-xs text-blue-900">{draftNotice}</div>}
           {error && <div role="alert" className="mb-5 flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900"><AlertCircle className="h-4 w-4 shrink-0"/>{error}</div>}
           {authMode === 'signin' ? (
             <div className="space-y-4">
@@ -320,7 +391,7 @@ export const SellerRegistrationWizard: React.FC = () => {
               {step === 3 && <div className="space-y-4"><p className="rounded-xl bg-blue-50 p-3 text-xs text-blue-900">{t.radius} {serviceArea?.enabled ? `Configured radius: ${serviceArea.radiusKm} km.` : serviceAreaError || 'Seller registration is currently unavailable until the service area is configured.'}</p><div className="grid gap-4 sm:grid-cols-2"><Field label={t.locality}><select value={locality} onChange={event=>setLocality(event.target.value)} className={inputClass}>{KURALI_LOCALITIES.map(item=><option key={item}>{item}</option>)}</select></Field><Field label={t.address}>{control(address,setAddress,{placeholder:'Landmark or additional address'})}</Field><Field label={t.shopNumber}>{control(shopNumber,setShopNumber)}</Field><Field label={t.ward}>{control(wardNumber,setWardNumber)}</Field><Field label={t.street}>{control(streetLocality,setStreetLocality)}</Field><Field label={t.pin}>{control(pinCode,setPinCode,{inputMode:'numeric',maxLength:6,placeholder:'140103'})}</Field></div><div><p className="mb-2 text-xs font-bold text-slate-700">{t.map}</p><LocationPicker value={location} onChange={setLocation} purpose="shop" initialCenter={serviceArea ? { latitude: serviceArea.centerLatitude, longitude: serviceArea.centerLongitude } : undefined}/></div></div>}
               {step === 4 && <div className="space-y-4"><Field label={t.gst}>{control(gstNumber,setGstNumber,{maxLength:15,placeholder:'15-character GSTIN',onChange:undefined})}</Field>{gstNumber.trim()&&<Field label={t.gstDoc}><input type="file" accept="application/pdf,image/jpeg,image/png" onChange={event=>setGstCertificate(event.target.files?.[0]||null)} className={inputClass}/></Field>}<div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900">{t.foodNote}</div>{isFood&&<><Field label={t.fssai}>{control(fssaiNumber,setFssaiNumber,{maxLength:14,placeholder:'14-digit FSSAI number'})}</Field><Field label={t.fssaiType}><select value={fssaiLicenseType} onChange={event=>setFssaiLicenseType(event.target.value)} className={inputClass}><option value="">Select licence type if applicable</option><option>Basic Registration</option><option>State Licence</option><option>Central Licence</option></select></Field><Field label={t.fssaiDoc}><input type="file" accept="application/pdf,image/jpeg,image/png" onChange={event=>setFssaiCertificate(event.target.files?.[0]||null)} className={inputClass}/></Field></>}</div>}
               {step === 5 && <div className="space-y-4"><div className="grid gap-4 sm:grid-cols-2"><Field label={t.opening}>{control(openingTime,setOpeningTime,{type:'time'})}</Field><Field label={t.closing}>{control(closingTime,setClosingTime,{type:'time'})}</Field></div><Field label={t.closed}><select value={weeklyClosedDay} onChange={event=>setWeeklyClosedDay(event.target.value)} className={inputClass}><option value="">No fixed weekly closure</option>{['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day=><option key={day}>{day}</option>)}</select></Field><Field label={t.shopPhoto}><input type="file" accept="image/jpeg,image/png" capture="environment" onChange={event=>setShopFrontPhoto(event.target.files?.[0]||null)} className={inputClass}/></Field><label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs leading-relaxed text-slate-700"><input type="checkbox" checked={agreementAccepted} onChange={event=>setAgreementAccepted(event.target.checked)} className="mt-0.5 h-4 w-4"/><span>{t.agreement} <a href="/seller-agreement.html" target="_blank" rel="noreferrer" className="font-bold text-blue-700 underline">Seller Agreement</a></span></label><div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-700">{t.review}<div className="mt-2 font-semibold">{storeName} · {category} · {streetLocality}, {pinCode}</div></div></div>}
-              <div className="flex gap-3 pt-2">{step>1&&<button type="button" onClick={()=>setStep((step-1) as Step)} disabled={loading} className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-bold text-slate-700">{t.back}</button>}<button type="button" onClick={handleContinue} disabled={loading||!serviceArea?.enabled} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-600 px-5 text-sm font-black text-white disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<ArrowRight className="h-4 w-4"/>}{step<5?t.next:t.send}</button></div>
+              <div className="flex flex-wrap gap-3 pt-2">{draftSession && <button type="button" onClick={() => void saveSellerDraft()} disabled={draftBusy || loading} className="min-h-11 rounded-xl border border-blue-300 bg-blue-50 px-4 text-xs font-bold text-blue-900 disabled:opacity-50">{draftBusy ? 'Saving…' : 'Save draft'}</button>}{step>1&&<button type="button" onClick={()=>setStep((step-1) as Step)} disabled={loading} className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-bold text-slate-700">{t.back}</button>}<button type="button" onClick={handleContinue} disabled={loading||!serviceArea?.enabled} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-600 px-5 text-sm font-black text-white disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<ArrowRight className="h-4 w-4"/>}{step<5?t.next:t.send}</button></div>
             </div>
           ) : (
             <div className="space-y-4"><div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{t.otp}</div><Field label="6-digit OTP"><input value={otp} onChange={event=>setOtp(event.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} className={inputClass}/></Field><div className="flex gap-3"><button type="button" onClick={()=>setOtpStep(false)} className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-bold">{t.back}</button><button type="button" onClick={handleContinue} disabled={loading} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<CheckCircle2 className="h-4 w-4"/>}{t.verify}</button></div></div>
