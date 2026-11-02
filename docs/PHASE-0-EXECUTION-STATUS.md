@@ -23,8 +23,8 @@ This file is the operational status companion to [PHASE-0-SOURCE-AUDIT-CHECKPOIN
 | Gate | Current evidence | Status |
 |---|---|---|
 | PR source changes | Changes committed to this PR branch | Implemented |
-| Preflight unit tests | Added; execution awaits CI | Pending |
-| Full CI / seller-registration quality gates | Previous head had runs pending with no jobs returned; new commits require fresh runs | Pending |
+| Preflight unit tests | Included in the successful Spring Boot Maven verification step on commit `bdf12fdfdbabb5299e06825caa4dfc79757278ac` | Passed in CI |
+| Spring Boot Maven verification | Completed successfully on commit `bdf12fdfdbabb5299e06825caa4dfc79757278ac` | Passed in CI |\n| Frontend lint, TypeScript and production build | All three steps completed successfully on the same commit | Passed in CI |\n| Remaining CI / E2E workflow | Workflow run is pending; no jobs returned yet | Pending |
 | Oracle preflight against staging | No Oracle SQL/console/connector access is exposed by the available Render integration | Not run |
 | V30 live migration history and constraint state | Render startup logs report Flyway validation failure for V30; exact Oracle row/DDL state remains unknown | Blocked on read-only Oracle evidence |
 | Normal Flyway-enabled startup and health | Latest recorded backend deployment failed; no healthy startup on this PR head | Not verified |
