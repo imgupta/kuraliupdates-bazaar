@@ -45,6 +45,7 @@ public class AuthService {
     private final BuyerAddressService addressService;
     private final SellerServiceAreaService sellerServiceAreaService;
     private final SellerOnboardingLeadService sellerOnboardingLeadService;
+    private final SellerRegistrationOtpConfigService registrationOtpConfig;
 
     @Transactional
     public OtpSendResult sendOtp(String rawIdentifier, String requestedType, String mode) {
@@ -236,7 +237,10 @@ public class AuthService {
         }
 
         String role = normalizeRole(req.role());
-        if (!"SELLER".equals(role)) {
+        if ("BUYER".equals(role)) {
+            if (registrationOtpConfig.emailEnabled()) otpService.verify(email, "EMAIL", req.emailOtp());
+            if (registrationOtpConfig.mobileEnabled()) otpService.verify(phone, "PHONE", req.phoneOtp());
+        } else if (!"SELLER".equals(role)) {
             otpService.verify(email, "EMAIL", req.emailOtp());
         }
 
