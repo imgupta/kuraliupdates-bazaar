@@ -711,3 +711,48 @@ The user has added an explicit programme objective: redesign parts of the platfo
 
 Do not purchase or deploy new infrastructure now solely for projected scale. First instrument and baseline. The likely high-return sequence is: remove avoidable polling, fix query/pagination/index behavior, bound caches, make OTP/provider handling resilient, and only then decide whether replicas, a shared cache/broker or service extraction are economically justified. A modular monolith with measured, efficient DB access is expected to be the lowest-complexity starting point for this marketplace.
 
+
+
+## Runtime and Oracle verification — 2026-11-03
+
+### Render development runtime evidence
+
+Read-only Render inspection of service `srv-db0fv9egekts739hfa6g` in workspace `tea-db0fmde0tbcc73fl1csg` returned:
+
+- Service: `kuraliupdates-bazaar`; branch `main`; Docker runtime; root directory `backend-java-spring/`; one instance; Singapore region; Free plan; public IP allowlist `0.0.0.0/0`; auto-deploy on commit.
+- This is accepted as development/staging only. No migration of this environment is required. India-only production hosting remains a release gate and must cover database, backups, logs, documents, CDN, messaging vendors, telemetry and support access.
+- Latest deployment for commit `e0264529da34ea5a512e150e9f8df5ca1c515c97` (PR #220, OTP constraint change) ended `update_failed` at 2026-11-02 20:16:31 UTC. The previous deployment for `9b2e51fbf20aa4f8f3d421d0725a4c9bee99624a` remains marked `live`.
+- Render events show repeated `server_failed` / process exit code 1 between 21:44 and 21:55 UTC on 2026-11-02.
+- Render application logs at 2026-11-02 21:55:12 UTC show Spring context startup failed because Flyway validation failed. The log explicitly says: `Detected failed migration to version 30 (allow seller registration otp types)`. This is a confirmed runtime/database migration blocker, not a generic hosting issue.
+- The application restarted at 21:56 UTC. This alone does not prove the restart became healthy; the most recent successful deployment record still points to the earlier commit. No current authenticated health/diagnostics response was available through this audit connection.
+- Render metrics returned historical per-instance CPU and memory series for 2 Nov; multiple instance IDs across the day reflect repeated restarts/deploy instances. This data is not a load test and cannot establish sustainable capacity or production SLOs.
+
+### Oracle / Flyway status
+
+- Runtime logs establish that the application reached Flyway validation against the configured database and that Flyway detected a failed V30 migration. They do not establish the exact Oracle DDL statement that failed, whether V30 partially changed the schema, whether the failure row remains in Flyway history, or whether all earlier migrations are correct.
+- V30 source dynamically drops CHECK constraints on `AUTH_OTPS` whose `SEARCH_CONDITION_VC` contains `OTP_TYPE`, then adds `CK_AUTH_OTPS_TYPE` allowing `EMAIL`, `PHONE`, `SELLER_EMAIL`, and `SELLER_PHONE`. Oracle DDL can implicitly commit; therefore the failed migration must be reconciled against actual constraint metadata and Flyway history before any repair/retry.
+- **Do not run Flyway repair, delete a schema-history row, manually drop a constraint, or rerun V30 blindly.** First take/confirm a restorable backup, capture read-only `USER_CONSTRAINTS` / `ALL_CONSTRAINTS` metadata for `AUTH_OTPS`, inspect the full Flyway history row for version 30 (installed rank, success, checksum, description, script, installed time), and confirm the live constraint definition. Then prepare an idempotent, reviewed recovery script and validate it against a copy of the database.
+- The read-only `GET /api/v1/admin/diagnostics` endpoint is protected by admin authentication. The audit connection cannot call it as an authenticated admin. Its source currently queries quoted lowercase `"flyway_schema_history"` in two places. On conventional Oracle installations where Flyway creates the unquoted uppercase object, this query is likely to fail; it should use the correct schema-qualified/unquoted identifier after verifying Flyway's configured schema/table.
+- The diagnostics endpoint reports selected table counts and V13 only; it does not validate all V14–V30 checksums, constraints, indexes or schema drift. A database connection status alone is not schema health.
+- **Oracle gate: BLOCKED.** The deployed application log proves a failed V30 migration; live Oracle metadata and authenticated diagnostic output are still needed to determine exact repair safely. This prevents Phase 0 closure.
+
+### CI and repository evidence
+
+- GitHub Actions run `41532356166` for audit head `6337ce1ac69518e47f01933aad595cf490001625` completed successfully (workflow `Seller registration quality gates`). This confirms that workflow's checks only; it does not override the failed Render deployment or prove Oracle runtime health.
+- Render deployment and GitHub Actions are separate evidence systems. The CI pass and Render deploy failure must both remain recorded.
+- The audit PR remains draft and unmerged. No Render configuration, environment variables, Oracle data, wallet, secrets or deployment were changed during this verification.
+
+### Phase 0 disposition update
+
+| Gate | Result | Evidence / remaining action |
+|---|---|---|
+| Oracle connectivity and migration execution | **Blocked** | Runtime reached Flyway but V30 is recorded as failed; inspect read-only Oracle metadata and safely reconcile migration state |
+| Admin diagnostics | **Source reviewed; runtime unverified** | Endpoint is protected; obtain sanitized authenticated output after app is healthy; fix Oracle history identifier after confirming schema/table |
+| Development hosting region | **Accepted** | Singapore is explicitly accepted for dev/staging |
+| Production India-only hosting | **Deferred release gate** | User confirms future migration; resource-by-resource residency evidence required before production |
+| Secret rotation | **Deferred by user** | Existing exposed-secret finding remains Critical and must be completed before production; not marked remediated |
+| Runtime availability | **Not passed** | Latest deployment failed and process exited; prove a healthy current deployment and successful authenticated health/diagnostics |
+| Full source traceability | **In progress** | Current source inventory is substantial but does not yet enumerate every backend file/call site, every frontend route/API consumer, all security-negative tests and all async/WebSocket wiring |
+| CI for audit head | **Passed** | Workflow run 41532356166 successful; does not prove runtime/database |
+
+**Exit decision:** Phase 0 is **not complete yet**. The user's acceptance of dev-region Singapore removes only the dev-hosting-region item from the blockers. Secret rotation is deferred and explicitly remains a production-critical action. The active blocker is the failed V30 Oracle migration and unverified healthy runtime; exhaustive source traceability also needs completion before the audit can be called complete. No destructive Oracle repair was attempted.
