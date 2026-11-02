@@ -49,7 +49,7 @@ export const AdminDashboard: React.FC = () => {
     showToast,
   } = useApp();
 
-  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory' | 'accounts' | 'delivery-config'>('trends');
+  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory' | 'accounts' | 'delivery-config' | 'seller-area-config'>('trends');
   const [buyers, setBuyers] = useState<any[]>([]);
   const [adminAccounts, setAdminAccounts] = useState<any[]>([]);
   const [accountSearch, setAccountSearch] = useState('');
@@ -72,6 +72,10 @@ export const AdminDashboard: React.FC = () => {
   const [deliveryConfigLoading, setDeliveryConfigLoading] = useState(false);
   const [deliveryConfigSaving, setDeliveryConfigSaving] = useState(false);
   const [deliveryConfigError, setDeliveryConfigError] = useState<string | null>(null);
+  const [sellerAreaConfig, setSellerAreaConfig] = useState<any | null>(null);
+  const [sellerAreaLoading, setSellerAreaLoading] = useState(false);
+  const [sellerAreaSaving, setSellerAreaSaving] = useState(false);
+  const [sellerAreaError, setSellerAreaError] = useState<string | null>(null);
   const [directorySearch, setDirectorySearch] = useState('');
   const [editingDailyHelpId, setEditingDailyHelpId] = useState<string | null>(null);
   const [updatingHelperId, setUpdatingHelperId] = useState<string | null>(null);
@@ -115,6 +119,60 @@ export const AdminDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, [isRootAdmin]);
 
+
+  const refreshSellerAreaConfiguration = async () => {
+    setSellerAreaLoading(true);
+    setSellerAreaError(null);
+    try {
+      const config = await adminApi.getSellerServiceArea();
+      setSellerAreaConfig({
+        centerLatitude: String(config.centerLatitude),
+        centerLongitude: String(config.centerLongitude),
+        radiusKm: String(config.radiusKm),
+        enabled: Boolean(config.enabled),
+        version: config.version,
+        updatedAt: config.updatedAt,
+      });
+    } catch (error: any) {
+      setSellerAreaError(error?.message || 'Unable to load seller registration area.');
+    } finally {
+      setSellerAreaLoading(false);
+    }
+  };
+
+  const saveSellerAreaConfiguration = async () => {
+    if (!sellerAreaConfig || sellerAreaSaving) return;
+    const centerLatitude = Number(sellerAreaConfig.centerLatitude);
+    const centerLongitude = Number(sellerAreaConfig.centerLongitude);
+    const radiusKm = Number(sellerAreaConfig.radiusKm);
+    if (!Number.isFinite(centerLatitude) || !Number.isFinite(centerLongitude)
+        || !Number.isFinite(radiusKm) || radiusKm <= 0 || radiusKm > 100) {
+      setSellerAreaError('Enter valid coordinates and a radius greater than 0 and no more than 100 km.');
+      return;
+    }
+    setSellerAreaSaving(true);
+    setSellerAreaError(null);
+    try {
+      const saved = await adminApi.updateSellerServiceArea({
+        centerLatitude, centerLongitude, radiusKm, enabled: Boolean(sellerAreaConfig.enabled),
+      });
+      setSellerAreaConfig((current: any) => ({ ...current, ...saved,
+        centerLatitude: String(saved.centerLatitude), centerLongitude: String(saved.centerLongitude),
+        radiusKm: String(saved.radiusKm), enabled: Boolean(saved.enabled),
+      }));
+      showToast('Seller registration area settings saved.', 'success');
+      await refreshSellerAreaConfiguration();
+    } catch (error: any) {
+      setSellerAreaError(error?.message || 'Unable to save seller registration area.');
+      showToast(error?.message || 'Unable to save seller registration area.', 'error');
+    } finally {
+      setSellerAreaSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isRootAdmin && activeAdminTab === 'seller-area-config') void refreshSellerAreaConfiguration();
+  }, [activeAdminTab, isRootAdmin]);
 
   const refreshDeliveryConfiguration = async () => {
     setDeliveryConfigLoading(true);
@@ -426,7 +484,7 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Grouped admin navigation */}
       <nav aria-label="Admin sections" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-        <details open={['approvals', 'stores', 'buyers'].includes(activeAdminTab)} className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <details open={['approvals', 'stores', 'buyers', 'seller-area-config'].includes(activeAdminTab)} className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3.5 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
             <span className="flex min-w-0 items-center gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700"><Store className="h-5 w-5" /></span>
@@ -438,6 +496,7 @@ export const AdminDashboard: React.FC = () => {
             <button onClick={() => setActiveAdminTab('approvals')} className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'approvals' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}><span>Pending merchant approvals</span>{pendingSellers.length > 0 && <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] text-white">{pendingSellers.length}</span>}</button>
             <button onClick={() => setActiveAdminTab('stores')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'stores' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>All active stores <span className="ml-1 text-slate-400">({approvedSellers.length})</span></button>
             <button onClick={() => setActiveAdminTab('buyers')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'buyers' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Buyers <span className="ml-1 text-slate-400">({buyers.length})</span></button>
+            <button onClick={() => setActiveAdminTab('seller-area-config')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-area-config' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Seller registration radius</button>
           </div>
         </details>
 
@@ -555,6 +614,31 @@ export const AdminDashboard: React.FC = () => {
               Showing {filteredDirectoryGroups.length} of {directoryGroups.length} user groups / unowned records. Product IDs are attached to a seller's user group when the seller-user relationship is present in the API data. Missing IDs are shown as — and are never guessed. ACCOUNT_LINK_MISSING flags provider profiles that need ownership review.
             </div>
           </div>
+        </div>
+      )}
+
+      {activeAdminTab === 'seller-area-config' && (
+        <div className="space-y-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900">Seller registration service area</h2>
+              <p className="mt-1 text-xs text-slate-500">Controls which shops may register. This is separate from the grocery delivery radius and does not alter existing sellers automatically.</p>
+            </div>
+            <button type="button" onClick={() => void refreshSellerAreaConfiguration()} disabled={sellerAreaLoading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${sellerAreaLoading ? 'animate-spin' : ''}`}/>Refresh settings</button>
+          </div>
+          {sellerAreaError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">{sellerAreaError}</div>}
+          {sellerAreaLoading && !sellerAreaConfig ? <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Loading seller registration settings…</div> : sellerAreaConfig && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="space-y-1 text-xs font-bold text-slate-700">Centre latitude<input type="number" step="0.0000001" value={sellerAreaConfig.centerLatitude} onChange={event=>setSellerAreaConfig((current:any)=>({...current,centerLatitude:event.target.value}))} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"/></label>
+                <label className="space-y-1 text-xs font-bold text-slate-700">Centre longitude<input type="number" step="0.0000001" value={sellerAreaConfig.centerLongitude} onChange={event=>setSellerAreaConfig((current:any)=>({...current,centerLongitude:event.target.value}))} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"/></label>
+                <label className="space-y-1 text-xs font-bold text-slate-700">Seller registration radius (km)<input type="number" min="0.1" max="100" step="0.1" value={sellerAreaConfig.radiusKm} onChange={event=>setSellerAreaConfig((current:any)=>({...current,radiusKm:event.target.value}))} className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"/></label>
+                <label className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 text-xs font-bold text-slate-700"><input type="checkbox" checked={Boolean(sellerAreaConfig.enabled)} onChange={event=>setSellerAreaConfig((current:any)=>({...current,enabled:event.target.checked}))} className="h-4 w-4"/>Enable seller registration within this radius</label>
+              </div>
+              <div className="mt-4 rounded-xl bg-blue-50 p-3 text-xs text-blue-900">Initial setting: 5 km around Kurali. Confirm the operational centre on the map before changing or enabling public seller onboarding. Current configuration version: {sellerAreaConfig.version ?? '—'}.</div>
+              <div className="mt-5 flex justify-end"><button type="button" onClick={saveSellerAreaConfiguration} disabled={sellerAreaSaving || sellerAreaLoading} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-xs font-black text-white disabled:opacity-50"><Save className="h-4 w-4"/>{sellerAreaSaving ? 'Saving…' : 'Save seller area settings'}</button></div>
+            </div>
+          )}
         </div>
       )}
 
