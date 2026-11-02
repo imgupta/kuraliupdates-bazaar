@@ -47,7 +47,7 @@ public class SecurityConfig {
                     "/delivery/**"
                 ).permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
-                .requestMatchers("/**").permitAll()
+                .anyRequest().authenticated()
             );
 
         return http.build();
