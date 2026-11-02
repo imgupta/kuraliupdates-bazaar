@@ -1,6 +1,6 @@
 # Seller registration redesign — implementation specification
 
-**Status:** Approved product/engineering specification; implementation not started  
+**Status:** Approved target specification; partial seller-registration foundation is implemented (five-step wizard, email OTP at final submission, authenticated draft, location/compliance/document flow and admin document review). Dual-channel early verification, lead CRM and callback assistance remain planned.  
 **Last updated:** 2 November 2026  
 **Scope:** Documentation and planning only  
 **Target:** Existing React + TypeScript frontend, Java/Spring Boot API and Oracle database
