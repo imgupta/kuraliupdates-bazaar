@@ -15,9 +15,11 @@ This page distinguishes merged source from deployed/runtime verification. Rechec
 - Seller compliance onboarding fields, map location, shop-front photo, agreement acceptance and applicable GST/FSSAI document integration.
 - Oracle BLOB seller document storage and authenticated seller/admin document API; Flyway V14 source migration.
 
-## Approved seller registration redesign — implementation not started
+## Assisted seller registration and CRM — implementation candidate
 
-The approved target specification and complete 86-ticket backlog are documented in [SELLER-REGISTRATION-REDESIGN.md](SELLER-REGISTRATION-REDESIGN.md).
+The approved target design is documented in [SELLER-REGISTRATION-REDESIGN.md](SELLER-REGISTRATION-REDESIGN.md). A consolidated implementation candidate is being reviewed in [PR #217](https://github.com/imgupta/kuraliupdates-bazaar/pull/217); details and rollout gates are in [SELLER-ONBOARDING-CRM-IMPLEMENTATION.md](SELLER-ONBOARDING-CRM-IMPLEMENTATION.md).
+
+The candidate adds pre-business dual-channel OTP, verified lead binding, callback consent, an admin-only lead queue, assignment, call notes/outcomes and follow-up scheduling, plus additive Flyway V27. It is not considered deployed or operational until CI and isolated staging verification pass. MSG91/Resend credentials, Oracle backup/restore, migration application and private ClamAV health must be independently verified. Do not accept real merchant data until those gates are met.
 
 Locked decisions:
 - Five-step mobile-first registration wizard.

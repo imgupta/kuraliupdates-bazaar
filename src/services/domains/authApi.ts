@@ -79,6 +79,7 @@ export const authApi = {
     phone?: string;
     emailOtp?: string;
     phoneOtp?: string;
+    leadId?: string;
     businessType?: string; registeredBusinessName?: string; shopNumber?: string; wardNumber?: string;
     streetLocality?: string; pinCode?: string; gstNumber?: string; fssaiNumber?: string;
     fssaiLicenseType?: string; fssaiExpiryDate?: string; openingTime?: string; closingTime?: string;

@@ -55,7 +55,7 @@ public class E2eOtpCaptureService {
      */
     public boolean shouldSuppressEmailDelivery(String identifier, String type) {
         String key = normalize(identifier);
-        return "EMAIL".equalsIgnoreCase(type)
+        return type != null && type.toUpperCase().endsWith("EMAIL")
                 && isSafelyConfigured()
                 && !key.isBlank()
                 && allowedIdentifiers.contains(key);

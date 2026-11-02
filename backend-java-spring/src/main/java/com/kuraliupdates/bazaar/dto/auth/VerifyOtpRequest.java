@@ -24,6 +24,7 @@ public record VerifyOtpRequest(
         String phone,
         String emailOtp,
         String phoneOtp,
+        String leadId,
         String storeName,
         String category,
         String vehicleType,

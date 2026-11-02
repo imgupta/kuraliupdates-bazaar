@@ -28,7 +28,7 @@ public class OtpDeliveryService {
             .build();
 
     public void sendOtp(String identifier, String type, String otp, int expiryMinutes) throws Exception {
-        if ("EMAIL".equals(type)) {
+        if (type != null && type.endsWith("EMAIL")) {
             sendEmail(identifier, otp, expiryMinutes);
         } else {
             sendSms(identifier, otp, expiryMinutes);
