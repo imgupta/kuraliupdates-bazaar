@@ -52,3 +52,55 @@ For every table/entity record schema.table, entity class, Flyway migration, owne
 ## Exit gate
 
 No persistence refactor or service extraction until every table has one proposed owner, all current writers are identified, cross-domain transactions are documented and migration/rollback is reviewed. This matrix remains incomplete until that evidence exists.
+
+
+## Source-confirmed JPA entity/table names
+
+The following explicit `@Table` mappings were inspected from the current Java entity source. Proposed ownership is provisional until every repository call, migration and database constraint is mapped.
+
+| Entity | Table | Proposed owner |
+|---|---|---|
+| AuthOtpEntity | `AUTH_OTPS` | Identity |
+| UserEntity | `USERS` | Identity |
+| UserSessionEntity | `USER_SESSIONS` | Identity |
+| UserAddressEntity | `USER_ADDRESSES` | Identity/profile ownership decision |
+| SellerEntity | `SELLERS` | Marketplace |
+| SellerDocumentEntity | `SELLER_DOCUMENTS` | Marketplace |
+| SellerRegistrationDraftEntity | `SELLER_REGISTRATION_DRAFTS` | Marketplace onboarding; Identity auth |
+| SellerServiceAreaConfigEntity | `SELLER_SERVICE_AREA_CONFIG` | Marketplace |
+| SellerServiceAreaConfigHistoryEntity | `SELLER_SERVICE_AREA_CONFIG_HISTORY` | Marketplace |
+| ProductEntity | `PRODUCTS` | Marketplace |
+| BillDiscountEntity | `BILL_DISCOUNTS` | Marketplace (seller pricing) |
+| OrderEntity | `ORDERS` | Orders |
+| OrderItemEntity | `ORDER_ITEMS` | Orders |
+| DeliveryAgentEntity | `DELIVERY_AGENTS` | Delivery |
+| DailyHelpServiceEntity | `DAILY_HELP_SERVICES` | Daily Help |
+| DailyHelpProfessionalEntity | `DAILY_HELP_PROFESSIONALS` | Daily Help profile; Identity link |
+| DailyHelpProfessionalSlotEntity | `DAILY_HELP_PROFESSIONAL_SLOTS` | Daily Help |
+| DailyHelpBookingEntity | `DAILY_HELP_BOOKINGS` | Daily Help |
+| SearchTrendEntity | `SEARCH_TRENDS` | Analytics/platform capability; owner to decide |
+
+### Observed relationship hints
+
+- `ORDERS` references `SELLERS` and `DELIVERY_AGENTS`; it also owns child `ORDER_ITEMS`, which references `PRODUCTS`.
+- `DAILY_HELP_BOOKINGS` references `DAILY_HELP_SERVICES` and `DAILY_HELP_PROFESSIONALS`; slots reference professionals.
+- `BILL_DISCOUNTS` references `SELLERS`; `PRODUCTS` references `SELLERS`.
+- These JPA joins are not a substitute for verifying Oracle foreign keys, cascade rules, triggers or migration DDL.
+
+## Flyway source inventory observed
+
+Migration files present in the tree:
+- Java migrations V14–V22 (including negotiation, E2E tagging, role profile linking, admin permissions, seller/rider availability, multi-seller delivery, pickup/payout snapshots, OTP resend timeout, bargain/notifications).
+- SQL migrations V22_1–V30 (seller compliance/documents, seller service-area config/history, registration drafts, malware quarantine, onboarding leads, OTP admin config/audit and seller OTP type constraint).
+
+The actual V1–V13 baseline and any out-of-band schema changes must be checked against the deployed Oracle schema; do not infer runtime migration status from file presence.
+
+## Confirmed cross-domain persistence coupling
+
+- `OrderService` directly injects SellerRepository and ProductRepository while creating orders; this violates the desired Orders -> Marketplace contract boundary.
+- `SellerService` directly injects OrderRepository.
+- `DeliveryService` directly injects OrderRepository.
+- `AuthService` directly injects SellerRepository, DeliveryAgentRepository and DailyHelpProfessionalRepository in addition to Identity repositories.
+- These are priority BE-0 call sites. Determine exact read/write methods and transaction scopes before creating packages or ArchUnit rules.
+
+This is not a complete reader/writer matrix. Repository method usage, native SQL/JdbcTemplate, Flyway DDL, Oracle FK/trigger metadata, transaction propagation and data classification remain open.

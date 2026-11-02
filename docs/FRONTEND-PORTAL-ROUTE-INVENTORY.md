@@ -65,3 +65,33 @@ For each route capture exact path, portal owner, component/entry, public/auth st
 ## Current conclusion
 
 Five build targets exist, but exact route ownership and import/session dependencies remain unenumerated. Root asset base is not proof of readiness for nested paths. Complete route and dependency discovery before changing URL strategy or moving portal code.
+
+
+## Source-confirmed route registry
+
+Inspected `src/app/routing/routeConfig.ts`, `roleRouteAccess.ts` and `portalRedirect.ts` at main SHA `560a34a4a94241e007a396a2ad4cbc8e2e67e428`.
+
+| Exact path | Route kind | Owner/role |
+|---|---|---|
+| `/` | home | public |
+| `/register/buyer` | buyer registration | Buyer |
+| `/register/seller` | registration | Seller |
+| `/register/delivery` | registration | Delivery |
+| `/register/daily-help` | registration | Daily Help Provider (`professional`) |
+| `/account` | account | authenticated account |
+| `/buyer` | role dashboard | Buyer |
+| `/seller` | role dashboard | Seller |
+| `/delivery` | role dashboard | Delivery |
+| `/daily-help` | role dashboard | Daily Help Provider (`professional`) |
+| `/admin` | role dashboard | Admin |
+
+Important observed behavior:
+- `resolveAppRoute` normalizes trailing slashes and defaults unknown paths to `home`.
+- `resolvePortalRoute` maps `/` to the configured portal role only when the role is supported.
+- `authorizeRoleRoute` checks signed-in state, admin flag and registered role. It is client-side only; backend authorization is authoritative.
+- `buildPortalRedirectUrl` accepts HTTPS configured URLs only; cross-origin portals go to `/`, same-origin portals use the role path; query/hash are removed.
+- The five portal entry points exist, but route ownership is still shared through `PortalAppShell`/AppContext; exact per-portal route coverage and legacy URL aliases outside this registry need further inspection.
+
+## Confirmed backend API families
+
+The route registry above is frontend-only. The inspected backend controllers expose corresponding API families under `/auth`, `/buyers`, `/sellers`, `/delivery`, `/daily-help`, `/negotiations`, `/tracking` and `/admin`, plus seller-registration lead/draft/OTP settings and seller-document endpoints. Full method/path/authz mapping remains in progress; do not treat these API paths as browser routes.

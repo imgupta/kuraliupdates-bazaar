@@ -123,3 +123,26 @@ New discovery and governance documents:
 The Phase 0 inspection was partial because repository code search returned no indexed matches and directory fetch is unsupported in the connected GitHub interface. Do not claim exhaustive route, endpoint, entity, repository, migration or transaction mapping. No application code, schema, secret, hosting or runtime behavior was changed in this documentation work. Complete the open inventories against an exact main SHA before FE-1/BE-1.
 
 **Mandatory coding rule:** Every future implementation must follow ENGINEERING-OPERATING-STANDARD.md, applying the equivalent rigor of a 30+ year experienced frontend engineer, architect, designer, analyst, security consultant and management consultant. This describes the required operating perspective, not a literal experience claim.
+
+
+## Phase 0 source-audit checkpoint — 3 November 2026
+
+**Baseline:** main at `560a34a4a94241e007a396a2ad4cbc8e2e67e428` (PR #222 merge). The repository tree contains 147 Java files and 96 frontend `src/` files.
+
+Source-verified findings are recorded in:
+- [Domain boundaries](DOMAIN-BOUNDARIES.md)
+- [Frontend route inventory](FRONTEND-PORTAL-ROUTE-INVENTORY.md)
+- [Backend service dependency map](SERVICE-DEPENDENCY-MAP.md)
+- [Data ownership matrix](DATA-OWNERSHIP-MATRIX.md)
+
+Confirmed frontend routes include the public root, four registration paths, account and five role dashboards. Backend controller families have been mapped to domain candidates. Explicit entity/table mappings were inspected for 19 entities.
+
+Important coupling requiring BE-1 design before package moves:
+- OrderService directly uses SellerRepository and ProductRepository.
+- SellerService and DeliveryService directly use OrderRepository.
+- AuthService directly uses seller, delivery-agent and Daily Help professional repositories.
+- OrderService reads delivery configuration using JdbcTemplate.
+- Portal handoff tokens are process-local in-memory state (60-second TTL).
+- The tracked source tree contains an Oracle wallet ZIP and the inspected Dockerfile copies Wallet*.zip into the image; review the open security PR #84 and current secret-handling state before touching this.
+
+This remains a partial source audit. Method-level repository read/write classification, every controller's full authz table, all migration DDL, Oracle FK/trigger metadata, frontend route consumer map and runtime migration evidence are not yet complete. No application code or runtime configuration was changed.
