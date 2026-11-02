@@ -8,7 +8,7 @@ type Lead = {
   callbackRequested: boolean; assignedTo?: string; callbackAt?: string; createdAt?: string;
 };
 
-const STATUSES = ['CONTACT_VERIFIED','CALLBACK_REQUESTED','IN_PROGRESS','APPLICATION_SUBMITTED','CONVERTED','NOT_INTERESTED','UNREACHABLE'];
+const STATUSES = ['STARTED','CONTACT_VERIFIED','CALLBACK_REQUESTED','IN_PROGRESS','APPLICATION_SUBMITTED','CONVERTED','NOT_INTERESTED','UNREACHABLE'];
 
 export const SellerOnboardingCRM: React.FC = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
