@@ -11,10 +11,12 @@ Keep this file short and current. It replaces the previous chronological debuggi
 - Backend: Render Docker service rooted at `backend-java-spring/`
 - Environment: one owner-designated shared staging environment
 
-## Latest merged application change
-PR #205, seller compliance onboarding and private Oracle BLOB documents, merged as `1a44fb45da9f0061d8e9c902c825770662b9fd11` on 2 Nov 2026. Source includes seller onboarding fields, document upload/list and admin review/download/verification API, Flyway V14 and frontend integration.
+## Latest merged application changes
+- PR #219, registration OTP audit history, merged to `main` as `9b2e51fbf20aa4f8f3d421d0725a4c9bee99624a` on 3 Nov 2026. Adds the append-only OTP policy audit table (Flyway V29), ADMIN-protected history endpoint, admin UI history view and controller regression tests. All required PR CI jobs passed.
+- PR #218, independent buyer/seller registration email and mobile OTP controls, was previously merged. It introduced Flyway V28 and backend-enforced signup-only channel switches, default OFF/OFF.
+- PR #205, seller compliance onboarding and private Oracle BLOB documents, merged as `1a44fb45da9f0061d8e9c902c825770662b9fd11` on 2 Nov 2026. Source includes seller onboarding fields, document upload/list and admin review/download/verification API, Flyway V14 and frontend integration.
 
-## Last observed deployment checkpoint — 2 Nov 2026
+## Last observed deployment checkpoint — 2 Nov 2026 (historical; predates PR #219)
 - Six Vercel deployment records were READY on the merged SHA.
 - Render Docker build for the same SHA succeeded, but latest observed deployment state remained `update_in_progress`; final LIVE confirmation was not observed.
 - Backend rollout, deployed V14 and document BLOB round-trip were therefore unconfirmed at that checkpoint. Recheck provider status before relying on this dated observation.
@@ -28,7 +30,7 @@ PR #205, seller compliance onboarding and private Oracle BLOB documents, merged 
 - Maps: OpenStreetMap fallback; Google Routes features require backend key/configuration.
 
 ## Next actions
-1. Recheck exact main CI, Render LIVE status, application startup and Flyway V14.
+1. Recheck exact main CI, Render LIVE status, application startup and Flyway V14/V28/V29.
 2. Complete seller onboarding admin review UI and document security/retry gaps in [SELLER-ONBOARDING.md](SELLER-ONBOARDING.md).
 3. Fix five-role E2E fixture preflight and prove isolated synthetic data/cleanup before mutating tests.
 4. Continue domain API extraction and AppContext modularisation with regression tests.
