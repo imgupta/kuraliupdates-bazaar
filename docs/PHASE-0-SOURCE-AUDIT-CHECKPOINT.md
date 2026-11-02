@@ -410,3 +410,45 @@ All route mappings below were extracted from controller source at the audit base
 - `ClamAvMalwareScanner` uses bounded socket connect/read timeouts, clamped between 1 and 15 seconds; application default is 5 seconds. Verify scanner network isolation and malware fail-closed behavior.
 - `OtpDeliveryService` calls Resend email and MSG91 OTP APIs using Java HttpClient with 10-second connect/request timeouts. No durable retry/outbox or provider webhook reconciliation was established from this inspection. Avoid blind retries that can send duplicate OTPs; add provider request IDs, idempotency where supported and delivery status observability.
 - GitHub code-search API returned incomplete results for scheduler/async/WebSocket searches; zero results from an incomplete search is not evidence that no such code exists. Full local repository grep or complete blob scan is still required.
+
+
+## Critical transaction and concurrency review — Orders, Delivery and Daily Help
+
+### Orders: positive controls observed
+
+- `OrderService.placeOrder` is transactional. It consolidates duplicate product IDs, sorts them using a `TreeMap`, locks each product with `ProductRepository.findLockedByProductId` (PESSIMISTIC_WRITE), validates seller approval/open status, seller consistency, available stock and effective price, decrements stock and persists order/items in the same transaction.
+- Accepted bargain price is re-read from accepted message/chat rows with matching product, seller and buyer, current agreed price, accepted state and no expiry. Client-supplied negotiated price is compared against server value.
+- Pending chats are selected `FOR UPDATE` and closed as purchased in the standard-price checkout transaction; accepted bargain chats are closed after successful order persistence.
+- Multi-seller checkout has its own transactional method and was previously source-observed to enforce seller limits and create grouped orders. Inspect complete method and failure-injection tests before claiming cross-seller atomicity verified.
+- `OrderRepository` exposes pessimistic write locks for checkout groups and order IDs. Delivery claim/verification methods use them.
+
+**Remaining tests:** concurrent checkout for last stock unit; two simultaneous multi-seller checkouts; seller closing store during checkout; bargain accept racing checkout; rollback when a later seller order/item insert fails; repeated checkout request/idempotency; coupon/discount revalidation; Oracle lock timeout/deadlock recovery.
+
+### Delivery: positive controls and known gap
+
+- Single-order claim uses `findLockedByOrderId`; combined checkout claim uses `findLockedByCheckoutGroupId`. Both validate agent profile ownership and current order/group readiness before assignment.
+- Pickup confirmation, delivery OTP resend and delivery OTP verification use pessimistically locked order reads. OTP verification uses `findLockedForDeliveryVerification` and validates assigned agent, active state, pickup-before-completion and replay/status conditions.
+- Combined group claim checks feature flag, seller count, fulfilment mode, all-orders-ready/unassigned and configured route limit before assigning the group.
+- OTP resend throttling uses a synchronized process-local map. It is not cluster-wide, is lost on restart and can diverge between instances. Database lock on an order does not make the throttle map durable/distributed.
+- `DeliveryController` claim accepts `agentId` in request parameters, but service checks the requested agent belongs to the authenticated user. Preserve this server-side binding and test a forged agentId.
+
+**Remaining tests:** two riders claim same order/group simultaneously; resend from two replicas; restart during resend cooldown; OTP replay and five/sixth invalid attempts; grouped delivery partial failure; agent deactivation/session revocation during an active route; payout snapshot immutability and COD cash reconciliation.
+
+### Daily Help: slot lock is present, but booking lifecycle lock use is inconsistent
+
+- `createBooking` locks the selected slot using `findLockedBySlotId`, validates availability/professional verification/locality/exact start/duration/future time, marks slot BOOKED and saves booking in one transaction. This is a positive anti-double-booking control.
+- `DailyHelpBookingRepository` provides `findLockedByBookingId` (PESSIMISTIC_WRITE).
+- However, source reviewed methods `updateStatus`, `startBooking`, and `completeBooking` currently use `bookingRepository.findById` rather than `findLockedByBookingId`. Concurrent starts/completions/status updates may race; in particular concurrent invalid OTP attempts may read the same attempt count and fail to increment monotonically, while concurrent valid starts/completion can race state transitions.
+- `startBooking` intentionally uses `@Transactional(noRollbackFor = ApiException.class)` so invalid OTP attempt increments commit even though API returns an error. That is a reasonable explicit requirement, but without pessimistic row lock it is vulnerable to concurrent-attempt lost updates. The method also accepts `professionalId` in request and checks it matches assigned professional; verify controller independently binds it to authenticated professional profile.
+- Booking response exposes OTP conditionally; verify exact buyer-only visibility and that professional/admin endpoints never receive the OTP.
+
+**High-priority recommended fix after Phase 0 sign-off:** use `findLockedByBookingId` for every state-mutating booking lifecycle command, validate allowed transition from current locked state, enforce one-time OTP consumption, and add concurrent integration tests. Add DB constraints where appropriate for unique slot/booking linkage and legal state values. Do not implement before checking migration/schema compatibility.
+
+### Other transaction findings
+
+- `AuthService.requireUser` loads session, checks expiry and account status; account suspension is enforced at service layer. Verify session revocation and account status updates are transactionally atomic with audit insert.
+- `AuthService` links/creates Seller, Delivery and Daily Help profiles across repositories. This is cross-domain orchestration inside Identity and should become explicit application-layer contracts, not direct repository coupling.
+- `DailyHelpService.startBooking` is the only observed `noRollbackFor = ApiException.class` case in the reviewed service set; it is documented in source as intentional for failed OTP attempt persistence.
+- No explicit `@Version` field was observed in OrderEntity, DailyHelpBookingEntity or ProductEntity; critical paths instead rely on repository pessimistic locks. Verify every writer uses the locking method and Oracle supports the expected row locks.
+
+**Test evidence limitation:** Existing unit/service tests and successful Maven CI do not establish true Oracle locking/concurrency behavior. Required tests must use an Oracle-compatible integration environment or a controlled Oracle staging schema with concurrent transactions.
