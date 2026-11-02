@@ -156,3 +156,12 @@ This removes the accidental database dependency from the non-database smoke read
 
 
 The smoke runner also handles the current deployment topology: Render still deploys `main` and PR previews are disabled, so the newly added `/health/live` route is not present on the shared service until a reviewed deployment occurs. If the shared service returns 404 for `/health/live`, the runner falls back to the existing public `/v3/api-docs` endpoint as an HTTP/application response probe. This fallback is database-independent. Database-backed public catalogue and availability reads are excluded from this tranche; anonymous-access guard probes remain. The runner follows normal HTTP redirects, records recent retry diagnostics, and does not print secrets or personal data.
+
+
+### Smoke runner hardening follow-up
+- The non-database smoke suite now excludes public catalogue and availability reads, which would query Oracle-backed repositories.
+- It retains only process liveness plus anonymous-access guard requests that should be rejected before repository access.
+- If the new `/health/live` route is not yet deployed on the shared Render `main` service, a 404 triggers a fallback probe to the existing public `/v3/api-docs` route. HTTP redirects are followed.
+- The runner writes a sanitized `smoke-report.json` containing probe status, elapsed time, retry count and recent failure diagnostics. CI uploads this report alongside Playwright artifacts.
+- CI validates the smoke script with `node --check` and allows 25 minutes for the E2E job, including Render cold-start retries.
+- These checks do not certify database-backed application behavior or resolve the existing Render Flyway startup failure.
