@@ -59,3 +59,49 @@ Do not assign a controller/service to a domain solely from its class name. Confi
 ## Exit criteria
 
 Every endpoint, table writer, scheduled task, integration and critical workflow must have a documented owner, dependency and test reference before BE-1. Unknowns require a decision owner and must remain visible.
+
+
+## Source-confirmed dependency findings
+
+Inspected controller/service fields and mapping annotations at main SHA `560a34a4a94241e007a396a2ad4cbc8e2e67e428`.
+
+| Current component | Direct persistence dependencies observed | Proposed owner | Boundary issue |
+|---|---|---|---|
+| AuthService | User, UserSession, Seller, DeliveryAgent, DailyHelpProfessional repositories | Identity plus role-profile contracts | Identity directly reads/writes profile repositories across domains |
+| OrderService | Order, Seller, Product repositories; JdbcTemplate | Orders | Direct Marketplace persistence and delivery-configuration SQL during checkout |
+| SellerService | Seller, Product, Order, BillDiscount repositories | Marketplace | Direct Orders persistence dependency; inspect writes/read-only usage |
+| DeliveryService | DeliveryAgent and Order repositories | Delivery | Direct Orders persistence dependency for fulfillment lifecycle |
+| DailyHelpService | DailyHelpService, DailyHelpProfessional, DailyHelpBooking, DailyHelpProfessionalSlot repositories | Daily Help | Cohesive data group; still verify admin/auth/payment call paths |
+| AuthController | AuthService and BuyerAddressService | Identity / address ownership decision | Controller coordinates two services; define profile/address owner |
+
+The table reports constructor/field dependencies observed, not every method-level read/write. Each repository call still needs classification as read, write, transaction participant or query-only projection.
+
+### Controller/API family map
+
+| Controller | Base path | Primary domain |
+|---|---|---|
+| AuthController | `/auth` | Identity |
+| BuyerController | `/buyers` | Buyer experience; delegates to Marketplace/Orders |
+| SellerController | `/sellers` | Marketplace; seller order operations contract with Orders |
+| DeliveryController | `/delivery` | Delivery |
+| DeliveryTrackingController | `/tracking` | Delivery read model / tracking |
+| DailyHelpController | `/daily-help` | Daily Help |
+| NegotiationChatController | `/negotiations` | Marketplace offer negotiation; Orders owns accepted order snapshot |
+| AdminController | `/admin` | Admin facade; split by underlying owning domain |
+| SellerOnboardingLeadController | `/seller-registration/leads` | Prospect CRM boundary decision |
+| AdminSellerOnboardingController | `/admin/seller-leads` | Marketplace CRM/admin workflow |
+| SellerRegistrationDraftController | `/sellers/me/draft` | Marketplace onboarding plus Identity authorization |
+| SellerRegistrationOtpConfigController | `/seller-registration/otp-settings`, `/registration/otp-settings`, `/admin/seller-registration/otp-settings` | Identity |
+| SellerDocumentController | `/sellers/me/documents`, `/admin/sellers/{sellerId}/documents` | Marketplace compliance/document lifecycle |
+| E2E/health/diagnostics controllers | dedicated paths | test/operations only; do not include in public domain API by default |
+
+### Critical modularization sequence
+
+1. Build explicit identity profile contracts for seller, delivery and Daily Help profile linkage; preserve existing multi-role account semantics.
+2. Create Marketplace query contracts for product/seller validation used by checkout; avoid Orders importing Marketplace repositories/entities.
+3. Create Orders application commands for seller order status and delivery fulfillment outcomes; migrate SellerService and DeliveryService away from OrderRepository access.
+4. Move delivery configuration access behind an owning configuration contract (decision needed: Delivery or platform configuration).
+5. Keep accepted bargain validation at checkout server-side and preserve offer/order price snapshots.
+6. Separate E2E and operational endpoints from customer-facing API contracts.
+
+No package move should start until method-level writes and transaction boundaries are enumerated.
