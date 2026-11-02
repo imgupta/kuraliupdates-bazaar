@@ -46,7 +46,6 @@ public class SellerOnboardingLeadService {
         return Map.of("success", true, "leadId", id, "status", "STARTED");
     }
 
-    @Transactional
     public Map<String, Object> sendContactOtps(String leadId) {
         Map<String,Object> lead = getLead(leadId);
         boolean emailRequired = Boolean.TRUE.equals(lead.get("emailOtpRequired"));
@@ -115,7 +114,7 @@ public class SellerOnboardingLeadService {
         int safeSize = Math.max(1, Math.min(100, size));
         String normalizedStatus = status == null ? "" : status.trim().toUpperCase();
         String term = search == null ? "" : search.trim().toLowerCase();
-        StringBuilder sql = new StringBuilder("SELECT LEAD_ID,OWNER_NAME,EMAIL,PHONE,SOURCE,STATUS,EMAIL_VERIFIED,PHONE_VERIFIED,CONTACT_CONSENT,CALLBACK_REQUESTED,ASSIGNED_TO,CALLBACK_AT,LAST_CONTACTED_AT,APPLICATION_ID,CREATED_AT,UPDATED_AT FROM SELLER_ONBOARDING_LEADS WHERE 1=1");
+        StringBuilder sql = new StringBuilder("SELECT LEAD_ID,OWNER_NAME,EMAIL,PHONE,SOURCE,STATUS,EMAIL_VERIFIED,PHONE_VERIFIED,EMAIL_OTP_REQUIRED,PHONE_OTP_REQUIRED,EMAIL_OTP_SKIPPED,PHONE_OTP_SKIPPED,CONTACT_CONSENT,CALLBACK_REQUESTED,ASSIGNED_TO,CALLBACK_AT,LAST_CONTACTED_AT,APPLICATION_ID,CREATED_AT,UPDATED_AT FROM SELLER_ONBOARDING_LEADS WHERE 1=1");
         java.util.List<Object> params = new java.util.ArrayList<>();
         if (!normalizedStatus.isBlank()) { sql.append(" AND STATUS=?"); params.add(normalizedStatus); }
         if (!term.isBlank()) {
@@ -131,6 +130,8 @@ public class SellerOnboardingLeadService {
             m.put("email", rs.getString("EMAIL")); m.put("phone", rs.getString("PHONE"));
             m.put("source", rs.getString("SOURCE")); m.put("status", rs.getString("STATUS"));
             m.put("emailVerified", rs.getInt("EMAIL_VERIFIED") == 1); m.put("phoneVerified", rs.getInt("PHONE_VERIFIED") == 1);
+            m.put("emailOtpRequired", rs.getInt("EMAIL_OTP_REQUIRED") == 1); m.put("phoneOtpRequired", rs.getInt("PHONE_OTP_REQUIRED") == 1);
+            m.put("emailOtpSkipped", rs.getInt("EMAIL_OTP_SKIPPED") == 1); m.put("phoneOtpSkipped", rs.getInt("PHONE_OTP_SKIPPED") == 1);
             m.put("contactConsent", rs.getInt("CONTACT_CONSENT") == 1); m.put("callbackRequested", rs.getInt("CALLBACK_REQUESTED") == 1);
             m.put("assignedTo", rs.getString("ASSIGNED_TO")); m.put("callbackAt", rs.getTimestamp("CALLBACK_AT"));
             m.put("lastContactedAt", rs.getTimestamp("LAST_CONTACTED_AT")); m.put("applicationId", rs.getString("APPLICATION_ID"));
