@@ -365,3 +365,48 @@ Source review has positively identified:
 - process-local delivery resend throttle map (from earlier service scan).
 
 No complete Spring `@Scheduled`, `@Async`, event-listener, WebSocket handler, executor, cache or message-broker inventory has yet been established. Do not infer bargain expiry, notification delivery, OTP throttling or cleanup is durable/distributed from frontend polling or process-local maps. The remaining source scan must verify actual scheduler registration, all expiry enforcement paths and restart/multi-instance behavior.
+
+
+## Complete controller route inventory — source mapping snapshot
+
+All route mappings below were extracted from controller source at the audit baseline. A route being listed does not imply its full method-level authorization/ownership test has passed.
+
+| Controller | Base path / method paths |
+|---|---|
+| AuthController | `/auth/send-otp`, `/registration-check`, `/verify-otp`, `/portal-handoff`, `/portal-handoff/redeem`, `/me/roles`, `/onboarding-status`, `/me` GET/PUT, `/me/addresses` GET/POST, `/me/addresses/{addressId}` PUT, `/me/addresses/{addressId}/default` PUT, `/logout` |
+| BuyerController | `/buyers/products/search`, `/orders` POST, `/orders/checkout` POST, `/orders/{orderId}/confirm-pickup` POST, `/me/orders` GET, `/orders/{orderId}/track` GET |
+| SellerController | `/sellers/register` POST, `/me` GET, `/me/availability` PUT, `/me/products` GET/POST, `/me/products/{productId}` PUT/DELETE, `/me/orders` GET, `/me/orders/{orderId}/status` POST, `/me/discounts` GET/POST, `/me/discounts/{ruleId}` DELETE |
+| DeliveryController | `/delivery/register` POST, `/me` GET, `/me/availability` PUT, `/jobs/available` GET, `/jobs/mine` GET, `/jobs/{orderId}/claim` POST, `/jobs/checkout/{checkoutGroupId}/claim` POST, `/jobs/{orderId}/confirm-pickup` POST, `/jobs/{orderId}/resend-otp` POST, `/jobs/{orderId}/verify-otp` POST |
+| DailyHelpController | `/daily-help/services` GET, `/bookings` POST, `/availability` GET, `/professionals/register` POST, `/professionals/by-phone/{phone}` GET, `/professionals/{professionalId}/availability` POST, `/professionals/{professionalId}/slots` GET/POST, `/professionals/{professionalId}/slots/{slotId}` DELETE, `/professionals/{professionalId}/jobs/available` GET, `/professionals/{professionalId}/jobs/{bookingId}/accept` POST, `/professionals/{professionalId}/jobs` GET, `/professionals/{professionalId}/earnings` GET, `/bookings/latest` GET, `/bookings/{bookingId}` GET, `/bookings/{bookingId}/status` POST, `/bookings/{bookingId}/start` POST, `/bookings/{bookingId}/complete` POST |
+| AdminController | `/admin/buyers` GET, `/sellers` GET, `/delivery` GET, `/analytics/demand-trends` GET, `/analytics/search-trends` GET, `/sellers/pending` GET, `/sellers/{sellerId}/approve` POST, `/sellers/{sellerId}/reject` POST, `/delivery/pending` GET, `/delivery/{agentId}/approve` POST, `/delivery/{agentId}/reject` POST, `/daily-help/helpers` GET, `/daily-help/helpers/{professionalId}/verification` POST, `/daily-help/helpers/{professionalId}/availability` POST, `/daily-help/services` GET/POST, `/daily-help/services/{serviceId}` PUT, `/accounts` GET, `/accounts/{userId}/status` POST, `/accounts/{userId}/revoke-sessions` POST, `/accounts/{userId}/audit` GET, `/delivery/configuration` GET/PUT, `/sellers/{sellerId}/location` POST |
+| AdminDiagnosticsController | `/admin/diagnostics` GET |
+| AdminSellerOnboardingController | `/admin/seller-leads` GET, `/admin/seller-leads/{leadId}` PATCH, `/admin/seller-leads/{leadId}/notes` GET/POST |
+| SellerDocumentController | `/sellers/me/documents` POST/GET, `/admin/sellers/{sellerId}/documents` GET, `/admin/sellers/{sellerId}/documents/{documentId}` GET, `/admin/sellers/{sellerId}/documents/{documentId}/scan` POST, `/admin/sellers/{sellerId}/documents/{documentId}/verification` POST |
+| SellerOnboardingLeadController | `/seller-registration/leads` POST, `/{leadId}/send-contact-otps` POST, `/{leadId}/verify-contact` POST, `/{leadId}/callback` POST |
+| SellerRegistrationDraftController | `/sellers/me/draft` GET/PUT/DELETE |
+| SellerRegistrationOtpConfigController | `/seller-registration/otp-settings` and `/registration/otp-settings` GET, `/admin/seller-registration/otp-settings` GET/PUT, `/admin/seller-registration/otp-settings/history` GET |
+| SellerServiceAreaController | `/seller-service-area` GET/PUT |
+| DeliveryTrackingController | `/tracking/delivery/{agentId}/location` POST, `/tracking/orders/{orderId}` GET |
+| NegotiationChatController | `/negotiations` GET/POST, `/negotiations/notifications` GET, `/negotiations/notifications/{notificationId}/read` POST, `/negotiations/{chatId}/messages` POST, `/negotiations/{chatId}/offers/{offerId}/respond` POST |
+| SearchAnalyticsController | `/analytics/search` POST |
+| E2eAuthController | `/e2e/auth/token` POST |
+| E2eOtpController | `/e2e/otp/latest` GET |
+| E2eRunCleanupController | `/e2e/cleanup/{runId}` POST |
+| HealthController | `/health` GET |
+
+### Route inventory caveats
+
+- Spring's servlet context path is `/api/v1`; table paths above are controller mappings and must be prefixed accordingly.
+- E2E controllers are fail-closed by environment/shared-secret checks in source, but remain mapped routes. Verify production config cannot accidentally enable their secrets and that cleanup rejects non-staging environments at service layer.
+- The complete method-level authorization review remains open for SellerController, AdminController, AuthController, registration flows, E2E cleanup, negotiation and all service methods. Explicit checks seen in a controller are not proof of database ownership constraints.
+- The SecurityConfig public fallback makes omission of a controller/service guard a default-deny gap. Add route-level integration tests for every mapping, including HTTP method, role and owner.
+
+## Additional transaction and asynchronous source scan
+
+- `BuyerAddressService` has one `@Transactional` occurrence.
+- `ProductService` has two read-only transaction annotations.
+- `E2eRunCleanupService` has one transaction and direct `JdbcTemplate` cleanup writes.
+- `E2eOtpCaptureService` stores captured OTP values in a process-local `ConcurrentHashMap`; it is not durable or shared across replicas and must remain staging-only.
+- `ClamAvMalwareScanner` uses bounded socket connect/read timeouts, clamped between 1 and 15 seconds; application default is 5 seconds. Verify scanner network isolation and malware fail-closed behavior.
+- `OtpDeliveryService` calls Resend email and MSG91 OTP APIs using Java HttpClient with 10-second connect/request timeouts. No durable retry/outbox or provider webhook reconciliation was established from this inspection. Avoid blind retries that can send duplicate OTPs; add provider request IDs, idempotency where supported and delivery status observability.
+- GitHub code-search API returned incomplete results for scheduler/async/WebSocket searches; zero results from an incomplete search is not evidence that no such code exists. Full local repository grep or complete blob scan is still required.
