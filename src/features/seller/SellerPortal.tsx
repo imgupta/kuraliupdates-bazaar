@@ -14,6 +14,12 @@ export const SellerDashboard: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [discounts, setDiscounts] = useState<any[]>([]);
+  const [sellerDocuments, setSellerDocuments] = useState<any[]>([]);
+  const [onboardingStatus, setOnboardingStatus] = useState<any | null>(null);
+  const [onboardingError, setOnboardingError] = useState('');
+  const [documentUploadType, setDocumentUploadType] = useState('');
+  const [documentUploadFile, setDocumentUploadFile] = useState<File | null>(null);
+  const [documentUploadBusy, setDocumentUploadBusy] = useState(false);
   const [discountMin, setDiscountMin] = useState('500');
   const [discountType, setDiscountType] = useState<'percentage' | 'flat'>('percentage');
   const [discountValue, setDiscountValue] = useState('5');
@@ -31,17 +37,22 @@ export const SellerDashboard: React.FC = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const [remoteSeller, remoteProducts, remoteOrders, remoteDiscounts] = await Promise.all([
+      const [remoteSeller, remoteProducts, remoteOrders, remoteDiscounts, remoteDocuments, remoteOnboarding] = await Promise.all([
         sellerApi.getCurrentSeller(),
         sellerApi.getSellerProducts(),
         sellerApi.getSellerOrders(),
         sellerApi.getSellerDiscounts(),
+        sellerApi.getMySellerDocuments(),
+        sellerApi.getSellerOnboardingStatus(),
       ]);
       setSeller(remoteSeller);
       setProducts((remoteProducts || []).map((p: any) => mapSellerProduct(p, remoteSeller)));
       setOrders(remoteOrders || []);
       knownOrderIds.current = new Set((remoteOrders || []).map((order: any) => String(order.orderId || order.id)));
       setDiscounts((remoteDiscounts || []).map((d: any) => ({ ...d })));
+      setSellerDocuments(remoteDocuments || []);
+      setOnboardingStatus(remoteOnboarding || null);
+      setOnboardingError('');
       if (!remoteSeller) showToast('Seller store profile could not be loaded. Please sign in again.', 'error');
     } finally {
       setLoading(false);
@@ -67,6 +78,21 @@ export const SellerDashboard: React.FC = () => {
     const timer = window.setInterval(() => { void poll(); }, 15000);
     return () => window.clearInterval(timer);
   }, [seller?.sellerId, showToast]);
+
+  const uploadCorrectionDocument = async () => {
+    if (!documentUploadType || !documentUploadFile || documentUploadBusy) return;
+    setDocumentUploadBusy(true);
+    try {
+      await sellerApi.uploadMySellerDocument(documentUploadType, documentUploadFile);
+      const [documents, status] = await Promise.all([sellerApi.getMySellerDocuments(), sellerApi.getSellerOnboardingStatus()]);
+      setSellerDocuments(documents);
+      setOnboardingStatus(status);
+      setDocumentUploadFile(null);
+      showToast('Replacement document uploaded for admin review.', 'success');
+    } catch (error: any) {
+      showToast(error?.message || 'Unable to upload replacement document.', 'error');
+    } finally { setDocumentUploadBusy(false); }
+  };
 
   const toggleStoreAvailability = async () => {
     if (!seller || availabilitySaving) return;
@@ -186,6 +212,15 @@ export const SellerDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {!isApproved && (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-extrabold text-amber-950">Seller application · {String(onboardingStatus?.status || seller?.status || 'PENDING').replaceAll('_',' ')}</h2><p className="mt-1 text-xs text-amber-900">Your shop remains inactive until admin approval and verification of applicable documents.</p></div><button type="button" onClick={()=>void load()} className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-900">Refresh status</button></div>
+          {onboardingError && <p role="alert" className="mt-2 text-xs text-rose-800">{onboardingError}</p>}
+          <div className="mt-3 space-y-2">{sellerDocuments.map((doc:any)=><div key={doc.documentId} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3"><div><p className="text-xs font-bold text-slate-800">{String(doc.documentType).replaceAll('_',' ')}</p><p className="text-[10px] text-slate-500">{doc.fileName}</p>{doc.rejectionReason&&<p className="mt-1 text-xs text-rose-700">Correction requested: {doc.rejectionReason}</p>}</div><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold">{doc.verificationStatus || 'PENDING'}</span></div>)}</div>
+          {sellerDocuments.some((doc:any)=>doc.verificationStatus==='REJECTED') && <div className="mt-3 rounded-xl border border-rose-200 bg-white p-3"><p className="text-xs font-bold">Upload a corrected document</p><div className="mt-2 grid gap-2 sm:grid-cols-3"><select value={documentUploadType} onChange={event=>setDocumentUploadType(event.target.value)} className="min-h-10 rounded-lg border px-2 text-xs"><option value="">Document type</option>{[...new Set(sellerDocuments.filter((doc:any)=>doc.verificationStatus==='REJECTED').map((doc:any)=>doc.documentType))].map((type:any)=><option key={type} value={type}>{String(type).replaceAll('_',' ')}</option>)}</select><input type="file" accept="application/pdf,image/jpeg,image/png" onChange={event=>setDocumentUploadFile(event.target.files?.[0]||null)} className="min-h-10 min-w-0 rounded-lg border p-1 text-xs"/><button type="button" onClick={()=>void uploadCorrectionDocument()} disabled={!documentUploadType||!documentUploadFile||documentUploadBusy} className="min-h-10 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white disabled:opacity-40">{documentUploadBusy?'Uploading…':'Upload correction'}</button></div></div>}
+        </section>
+      )}
+
       <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 rounded-3xl p-6 sm:p-8 text-white shadow-xl">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
