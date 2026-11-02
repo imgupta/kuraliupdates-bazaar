@@ -1,7 +1,8 @@
 # Backend Service and Dependency Map
 
-**Status:** Phase 0 target map established; source call graph pending.  
-**Date:** 2026-11-03
+**Status:** Phase 0 partial source audit; endpoint families and selected method paths inspected.  
+**Baseline:** main SHA `840842662c03ae026c9ddd996b62b074784359a0` (3 Nov 2026).  
+**Companion:** [Engineering Operating Standard](ENGINEERING-OPERATING-STANDARD.md) and [Mandatory India PR Governance](INDIA-PR-GOVERNANCE.md).
 
 ## Verified runtime baseline
 
@@ -9,7 +10,7 @@
 - Artifact kurali-bazaar-api; Spring Boot 3.3.4; Java 17.
 - Spring Web, Data JPA, Validation, Security, WebSocket; Flyway core and Oracle support; Oracle JDBC/security libraries.
 - One Dockerfile builds one executable JAR and starts one JVM.
-- The full controller/service/repository call graph was not available through code search in this session. Do not infer it from class names.
+- This is a modular-monolith target with five domain modules, not five deployed microservices.
 
 ## Target domain map
 
@@ -17,14 +18,78 @@
 |---|---|---|
 | Identity | Registration, OTP, credentials, roles, sessions, account linking | Authenticated principal/claims and identity lookup |
 | Marketplace | Seller onboarding, compliance, catalogue, products, inventory, pricing, offer negotiation | Seller identity reference; accepted offer snapshot to Orders |
-| Orders | Cart, checkout, orders/suborders, payments/refunds, financial records | Catalogue validation; delivery request/outcome; Daily Help excluded |
+| Orders | Cart, checkout, orders/suborders, payments/refunds, financial records | Catalogue validation; delivery request/outcome |
 | Delivery | Agent operations, dispatch, assignment, tracking, delivery OTP/status | Receive fulfillment request; report outcome to Orders |
 | Daily Help | Provider services, slots, booking, job lifecycle, completion OTP, earnings | Identity reference; payment contract still to be verified |
 | Shared communications adapter | Email/SMS/Zender/notification delivery | Domain notification intent; no ownership of business state |
 
+## Controller and endpoint-family inventory
+
+This is a source-level route inventory, not a completed authorization matrix. Method-level service calls, auth principal, role and record ownership must still be tested.
+
+| Controller | Base path / endpoint patterns observed | Primary owner / follow-up |
+|---|---|---|
+| AuthController | `/auth`: send-otp, registration-check, verify-otp, portal-handoff/redeem, me/roles, onboarding-status, me, me/addresses CRUD/default, logout | Identity; address ownership and handoff token durability |
+| BuyerController | `/buyers`: products/search, orders, orders/checkout, orders/{id}/confirm-pickup, me/orders, orders/{id}/track | Buyer facade; Marketplace/Orders contracts |
+| SellerController | `/sellers`: register, me, me/availability, me/products CRUD, me/orders, me/orders/{id}/status, me/discounts CRUD | Marketplace; order-status command must move to Orders contract |
+| DeliveryController | `/delivery`: register, me, me/availability, jobs/available, jobs/mine, claim order/group, confirm-pickup, resend-otp, verify-otp | Delivery; record ownership and OTP replay/rate limit tests |
+| DailyHelpController | `/daily-help`: services, bookings, availability, professionals/register, by-phone, availability, slots CRUD, jobs/available/accept/list, earnings, bookings/latest, booking detail/status/start/complete | Daily Help; sensitive phone/booking read authorization |
+| AdminController | `/admin`: buyers, sellers, delivery, demand/search analytics, pending approvals, seller/delivery approve/reject, Daily Help helpers/services, accounts/status/session revocation/audit, delivery config, seller location verification | Admin facade; delegate to each owner domain |
+| DeliveryTrackingController | `/tracking`: delivery/{agentId}/location, orders/{orderId} | Delivery; verify agent/order ownership and location privacy |
+| NegotiationChatController | `/negotiations`: list/open, notifications/read, chat messages, offer response | Marketplace; verify participant and active-role authorization |
+| SellerDocumentController | `/sellers/me/documents`, `/admin/sellers/{sellerId}/documents` upload/list/download/scan/verification | Marketplace; private document IDOR, malware, retention and admin audit |
+| SellerOnboardingLeadController | `/seller-registration/leads`: create, send-contact-otps, verify-contact, callback | CRM ownership decision; public abuse/rate limit and callback consent |
+| AdminSellerOnboardingController | `/admin/seller-leads`: list/update/notes | Marketplace/CRM; ensure admin role on every operation |
+| SellerRegistrationDraftController | `/sellers/me/draft`: GET/PUT/DELETE | Marketplace onboarding; token/session ownership |
+| SellerRegistrationOtpConfigController | public seller-registration/otp-settings and registration/otp-settings; admin GET/history/PUT | Identity; verify admin gates and public response minimization |
+| SellerServiceAreaController | `/seller-service-area`: GET/PUT | Marketplace; admin-only update and audit |
+| AdminDiagnosticsController | `/admin/diagnostics` GET | Operations; admin role and sensitive output minimization |
+| E2eAuthController | `/e2e/auth/token` | Test-only; fail closed outside approved isolated staging |
+| E2eOtpController | `/e2e/otp/latest` | Test-only; fail closed outside approved isolated staging |
+| E2eRunCleanupController | `/e2e/cleanup/{runId}` POST | Test-only destructive endpoint; verify isolation/run ownership |
+| SearchAnalyticsController | `/analytics/search` POST | Analytics; caller identity should not be trusted from request body |
+| HealthController | `/health` GET | Operational; disclose no secrets or sensitive internals |
+
+Other controller class mappings and every individual method signature must be retained in the full inventory as the audit proceeds; this summary is not a substitute for source review.
+
+## Security configuration — source observation and tests required
+
+Inspected `SecurityConfig.java`:
+- `/admin/**` has an explicit `hasRole("ADMIN")` matcher.
+- A prior matcher group for `/health`, Swagger and selected buyer/seller/delivery prefixes is `permitAll()`; the final `/**` matcher is also `permitAll()`.
+- `SessionAuthenticationFilter` is inserted into the security chain.
+- No `@EnableMethodSecurity` was found in this configuration and no `@PreAuthorize` was observed in the inspected controllers.
+
+This does **not** establish that every endpoint is vulnerable or protected. Effective authorization depends on the custom filter and service checks. Required test matrix for every sensitive read/mutation: anonymous, expired/revoked/malformed session, authenticated wrong role, correct role, wrong record owner, admin, and client-selected role spoofing. Explicitly test public-by-phone Daily Help lookup, latest booking, tracking, seller docs, seller lead callback, registration draft, OTP settings, service-area update and E2E cleanup.
+
+## Source-confirmed service dependencies and transactional observations
+
+| Component | Direct dependencies observed | Boundary / transaction concerns |
+|---|---|---|
+| AuthService | User, UserSession, Seller, DeliveryAgent, DailyHelpProfessional repositories | Identity directly accesses role-profile persistence; multiple `@Transactional` methods |
+| OrderService | Order, Seller, Product repositories; JdbcTemplate | Orders directly accesses Marketplace persistence and SQL; multiple write/read-only transactions |
+| SellerService | Seller, Product, Order, BillDiscount repositories | Marketplace directly reads/writes Orders; seller order status transaction must be moved behind Orders contract |
+| DeliveryService | DeliveryAgent and Order repositories; JdbcTemplate; in-memory ConcurrentMap resend timestamps | Delivery directly accesses Orders; OTP resend throttle is process-local and resets on restart/multi-instance |
+| DailyHelpService | DailyHelpService, DailyHelpProfessional, DailyHelpBooking, DailyHelpProfessionalSlot repositories | Cohesive data group; includes `noRollbackFor=ApiException.class` on one transaction; verify intended partial state |
+| AdminController | Cross-domain repositories plus JdbcTemplate | Admin facade spans all domains; domain owners must own mutations/audit |
+
+The annotation scan confirms many `@Transactional` declarations in OrderService, SellerService, DeliveryService, AuthService and DailyHelpService. It is **not** a complete transaction inventory: propagation, isolation, self-invocation, nested calls, rollback rules, repository flush behavior and all controllers still need exact review.
+
+## Specific source-level risk candidates (not confirmed exploitable)
+
+1. `SearchAnalyticsController` accepts `userId` in a request record; verify it ignores/reconciles client-supplied identity and applies minimization/rate limiting.
+2. Daily Help public/sensitive routes include professional-by-phone and latest-booking-by-phone; verify authentication, ownership and data minimization.
+3. `SellerServiceAreaController` exposes a PUT; verify admin-only authorization and append-only history/audit.
+4. `SellerRegistrationOtpConfigController` exposes admin settings/history/update; verify explicit role enforcement and audit on all mutations.
+5. `AdminSellerOnboardingController` methods show no controller-level `@PreAuthorize`; verify `/admin/**` URL matcher is effective for every route and custom filter does not bypass it.
+6. E2E cleanup is destructive by nature; verify staging-only guard, run-scoped ownership and no access to shared/production data.
+7. DeliveryService OTP resend throttling is process-local; a restart or multiple instances may bypass intended cooldown. Verify persisted/shared enforcement and atomic rate limiting.
+8. AuthController portal handoff uses process-local one-time state (historically observed); verify expiry, replay, concurrency and restart behavior or move to a durable/shared store if needed.
+9. No endpoint-level authorization test matrix is yet evidenced. Treat this as a release-blocking discovery gap for sensitive routes.
+
 ## Required source call graph
 
-For every controller/API endpoint record HTTP method/path, auth/authorization, controller, application service, repositories/entities/tables, integrations, transaction boundary, domain owner, cross-domain calls and test references.
+For every controller/API endpoint record HTTP method/path, auth/authorization, controller, application service, repositories/entities/tables, integrations, transaction boundary, domain owner and test references.
 
 For each service/repository record callers/callees, tables read/written, direct JDBC/EntityManager use, scheduled/async invocation, side effects, idempotency and retry/exception behavior.
 
@@ -50,75 +115,17 @@ For each service/repository record callers/callees, tables read/written, direct 
 - External SDKs remain behind adapters.
 - Initial runtime remains one Spring Boot process and one pool; do not multiply JVMs/pools during package modularization.
 
-## Exact source inventory still required
+## Remaining Phase 0 inventory
 
-Inspect all Java source/tests and populate controller -> endpoint -> service -> repository -> entity/table map; package/import graph; @Transactional propagation; JdbcTemplate/EntityManager/native SQL; scheduled/async jobs, listeners and WebSockets; external clients/timeouts/retries/secrets; Flyway-to-domain ownership; Hikari settings and effective connection limits.
-
-Do not assign a controller/service to a domain solely from its class name. Confirm behavior and writes.
+- Full method/path/authorization/record-owner matrix for all 20 controllers and any other REST/WebSocket mappings.
+- Service -> repository/entity/table read/write call graph, including admin and direct JDBC/native SQL.
+- Every `@Transactional` annotation, propagation/isolation/rollback and transaction participant.
+- Complete Flyway V1–V30 source inventory and DDL/domain mapping; live Oracle schema only via authorized read-only inspection.
+- Scheduled jobs, async executors, event listeners, WebSocket handlers, caches and process-local state.
+- All external integrations, secret/config names (never values), timeouts/retries/idempotency/webhook validation.
+- Full workflow traces and negative tests.
+- Hikari effective pool sizing, host/DB connection capacity and deployment resource model.
 
 ## Exit criteria
 
-Every endpoint, table writer, scheduled task, integration and critical workflow must have a documented owner, dependency and test reference before BE-1. Unknowns require a decision owner and must remain visible.
-
-
-## Source-confirmed dependency findings
-
-Inspected controller/service fields and mapping annotations at main SHA `560a34a4a94241e007a396a2ad4cbc8e2e67e428`.
-
-| Current component | Direct persistence dependencies observed | Proposed owner | Boundary issue |
-|---|---|---|---|
-| AuthService | User, UserSession, Seller, DeliveryAgent, DailyHelpProfessional repositories | Identity plus role-profile contracts | Identity directly reads/writes profile repositories across domains |
-| OrderService | Order, Seller, Product repositories; JdbcTemplate | Orders | Direct Marketplace persistence and delivery-configuration SQL during checkout |
-| SellerService | Seller, Product, Order, BillDiscount repositories | Marketplace | Direct Orders persistence dependency; inspect writes/read-only usage |
-| DeliveryService | DeliveryAgent and Order repositories | Delivery | Direct Orders persistence dependency for fulfillment lifecycle |
-| DailyHelpService | DailyHelpService, DailyHelpProfessional, DailyHelpBooking, DailyHelpProfessionalSlot repositories | Daily Help | Cohesive data group; still verify admin/auth/payment call paths |
-| AuthController | AuthService and BuyerAddressService | Identity / address ownership decision | Controller coordinates two services; define profile/address owner |
-
-The table reports constructor/field dependencies observed, not every method-level read/write. Each repository call still needs classification as read, write, transaction participant or query-only projection.
-
-### Controller/API family map
-
-| Controller | Base path | Primary domain |
-|---|---|---|
-| AuthController | `/auth` | Identity |
-| BuyerController | `/buyers` | Buyer experience; delegates to Marketplace/Orders |
-| SellerController | `/sellers` | Marketplace; seller order operations contract with Orders |
-| DeliveryController | `/delivery` | Delivery |
-| DeliveryTrackingController | `/tracking` | Delivery read model / tracking |
-| DailyHelpController | `/daily-help` | Daily Help |
-| NegotiationChatController | `/negotiations` | Marketplace offer negotiation; Orders owns accepted order snapshot |
-| AdminController | `/admin` | Admin facade; split by underlying owning domain |
-| SellerOnboardingLeadController | `/seller-registration/leads` | Prospect CRM boundary decision |
-| AdminSellerOnboardingController | `/admin/seller-leads` | Marketplace CRM/admin workflow |
-| SellerRegistrationDraftController | `/sellers/me/draft` | Marketplace onboarding plus Identity authorization |
-| SellerRegistrationOtpConfigController | `/seller-registration/otp-settings`, `/registration/otp-settings`, `/admin/seller-registration/otp-settings` | Identity |
-| SellerDocumentController | `/sellers/me/documents`, `/admin/sellers/{sellerId}/documents` | Marketplace compliance/document lifecycle |
-| E2E/health/diagnostics controllers | dedicated paths | test/operations only; do not include in public domain API by default |
-
-### Critical modularization sequence
-
-1. Build explicit identity profile contracts for seller, delivery and Daily Help profile linkage; preserve existing multi-role account semantics.
-2. Create Marketplace query contracts for product/seller validation used by checkout; avoid Orders importing Marketplace repositories/entities.
-3. Create Orders application commands for seller order status and delivery fulfillment outcomes; migrate SellerService and DeliveryService away from OrderRepository access.
-4. Move delivery configuration access behind an owning configuration contract (decision needed: Delivery or platform configuration).
-5. Keep accepted bargain validation at checkout server-side and preserve offer/order price snapshots.
-6. Separate E2E and operational endpoints from customer-facing API contracts.
-
-No package move should start until method-level writes and transaction boundaries are enumerated.
-
-
-## Additional security/admin dependencies
-
-- SecurityConfig has an explicit ADMIN role matcher for /admin/**; the final catch-all matcher is permitAll. SessionAuthenticationFilter is inserted into the chain. Test the effective principal and role mapping for every endpoint.
-- No @EnableMethodSecurity was found in the inspected SecurityConfig, and inspected AdminController has no method-level @PreAuthorize. URL-level ADMIN gating is the primary visible admin gate.
-- AdminController directly injects repositories for Identity (User), Marketplace (Seller, SellerDocument, Product), Orders (Order), Delivery (DeliveryAgent), analytics (SearchTrend), and Daily Help (DailyHelpProfessional), plus JdbcTemplate. Keep the controller as a thin compatibility facade; route operations to owning domain application interfaces.
-- E2E OTP capture is fail-closed based on staging environment, strong token length, safe capture configuration and constant-time token validation. Keep E2E support out of normal production workflows.
-
-## Security verification tasks before FE-1/BE-1
-
-1. Enumerate all controller methods and match them to SecurityConfig patterns.
-2. Test anonymous, authenticated wrong-role, correct-role and wrong-record-owner access for every mutation and sensitive read.
-3. Verify the custom session filter rejects expired/revoked/malformed sessions and never trusts client-selected role.
-4. Check whether public /buyers/**, /sellers/** and /delivery/** endpoints have explicit service-level identity/ownership checks.
-5. Ensure admin actions are auditable and every admin operation uses the owning domain contract.
-6. Verify E2E OTP capture remains disabled/not-found outside a correctly configured staging environment.
+Every endpoint, table writer, scheduled task, integration and critical workflow must have a documented owner, dependency, authz/record ownership, transaction boundary, failure behavior and test reference before BE-1. Unknowns require an owner and remain visible. No broad package move until then.
