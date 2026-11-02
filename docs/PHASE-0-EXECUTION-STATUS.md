@@ -165,3 +165,6 @@ The smoke runner also handles the current deployment topology: Render still depl
 - The runner writes a sanitized `smoke-report.json` containing probe status, elapsed time, retry count and recent failure diagnostics. CI uploads this report alongside Playwright artifacts.
 - CI validates the smoke script with `node --check` and allows 25 minutes for the E2E job, including Render cold-start retries.
 - These checks do not certify database-backed application behavior or resolve the existing Render Flyway startup failure.
+
+- Added `tests/productionSmoke.test.mjs` using a local in-memory HTTP server to verify the smoke runner's normal liveness path, OpenAPI compatibility fallback, auth-guard probes and explicit exclusion of database-backed routes. The test does not contact staging or Oracle.
+- Added this regression test to the frontend/CI workflow before the staging smoke step.
