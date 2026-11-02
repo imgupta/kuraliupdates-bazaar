@@ -74,3 +74,8 @@ Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller
 - The tree contains a tracked Oracle wallet ZIP and Dockerfile copies Wallet*.zip into the image. Review PR #84 before any wallet/Docker changes. Do not expose wallet material.
 - See DOMAIN-BOUNDARIES.md, FRONTEND-PORTAL-ROUTE-INVENTORY.md, SERVICE-DEPENDENCY-MAP.md and DATA-OWNERSHIP-MATRIX.md for source findings and remaining gaps.
 - Phase 0 remains in progress. Do not start broad code movement until method-level data access, transaction, migration and workflow inventories are complete.
+
+
+## India legal and security register
+
+Before further Phase 0 closure work, review [INDIA-LEGAL-REGULATORY-AND-SECURITY-REGISTER.md](INDIA-LEGAL-REGULATORY-AND-SECURITY-REGISTER.md). It records official-source legal status as of 3 November 2026, including DPDP phased commencement, the 2027 e-commerce amendment, CERT-In, Social Security Code, GST, FSSAI and payment-boundary questions, plus source findings, unknowns and closure evidence. The register is preliminary, not legal sign-off. Phase 0 remains open until all technical inventories and provider/runtime/legal-professional evidence are complete.
