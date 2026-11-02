@@ -647,3 +647,67 @@ PR #229 was opened prematurely with proposed Daily Help pessimistic locking and 
 **NO-GO for implementation-phase start and production launch.** This is a completed decision based on current evidence, not a claim that every source method has been exhaustively audited. The audit has identified the architecture and principal Critical/High gates, but the remaining evidence items above are not waived.
 
 Repository analysis may be called *source-inventory substantially complete*; Phase 0 as a whole remains **OPEN / evidence-gated** until the external and exhaustive verification items are either supplied or explicitly accepted as residual risks by the user with named owners. No application-code changes, schema changes or deployments are authorized by this audit update.
+
+
+## Scale, performance and cost-optimization redesign baseline — 2026-11-03
+
+The user has added an explicit programme objective: redesign parts of the platform during the completion journey when evidence shows that doing so improves performance, reliability or total cost at anticipated high user/order volume. This is an architectural constraint for the next phase, not permission for premature infrastructure expansion or speculative rewrites.
+
+### Source observations
+
+- Backend is one Spring Boot 3.3.4 / Java 17 application, one Oracle datasource, Hikari maximum pool size 10 and minimum idle 1. It is not five deployed backend microservices.
+- JPA is configured with `open-in-view=false`, Hibernate JDBC batch size 25, and Flyway on application startup. Pool sizing and batch settings are configuration values, not proof of optimal throughput.
+- Frontend builds five portal targets into separate output directories; `vite.config.ts` uses root base `/`. This is not proof that the static deploy is five isolated runtime apps or that deep links work on the current Render static host.
+- Buyer/backend sync calls health and fetches backend data; auth bootstrap refreshes every 45 seconds.
+- Negotiation chat polls every 4 seconds for buyer/seller roles and prevents overlapping refresh in the hook. At 1,000 concurrently open eligible clients this can imply up to 250 polling requests/second before other API traffic; at 10,000 clients, up to 2,500 requests/second. These are upper-bound arithmetic scenarios, not measured traffic or observed load. Polling must become visibility-aware, jittered, backed off and/or replaced by a durable event/notification mechanism only after measurement and cross-instance design.
+- Maven includes `spring-boot-starter-websocket`, but source/runtime registration was not proven in this audit. Dependency presence alone does not mean WebSocket is enabled.
+- OTP delivery makes synchronous provider HTTP requests with 10-second request timeouts. Under provider latency/failure, request threads can remain occupied; there is no source evidence yet of durable outbox/retry/idempotency or provider callback reconciliation.
+- Delivery resend cooldown and portal handoff state are process-local maps. Horizontal scaling would make behavior inconsistent across replicas and restarts.
+- Current schema/query patterns include order lists by buyer/seller/agent/status and Daily Help lists by locality/professional/status/time. Index adequacy must be checked against Oracle execution plans and actual cardinality; entity/repository method names alone do not prove index use.
+- Local browser storage caches catalogue, orders, user/profile and cart data. Client caches must never become authoritative for prices, stock, permissions or payment state; minimize PII, TTL/version caches, isolate identities and clear account-bound state on logout/account switch.
+
+### Optimization principles and target redesign (not yet implemented)
+
+1. **Keep the modular monolith by default.** Preserve one JVM/deployment until measured CPU, memory, lock contention, deployment coupling or independent scaling requirements justify extraction. Enforce domain boundaries and prevent cross-domain repository access; do not create five services, Kafka or Kubernetes merely to anticipate growth.
+2. **Measure before sizing.** Add privacy-safe request metrics (route template, status, latency percentiles), DB pool active/idle/pending, query latency, lock waits, provider latency/error, queue depth, cache hit/miss, frontend bundle size and Web Vitals. Never put OTPs, tokens, full phone/email, addresses, document names or message bodies in metric labels/logs.
+3. **Establish workload scenarios.** Model at least 100, 1,000 and 10,000 concurrent active users; 1, 10 and 100 orders/minute; peak browse/search and chat sessions; seller/rider/admin concurrency; OTP bursts; and provider/DB degradation. These are load-test scenarios, not business forecasts. Include ramp, steady state, spike and soak.
+4. **Database-first efficiency.** Capture Oracle AWR/ASH or approved equivalent, execution plans, rows examined, query counts, N+1 patterns, lock waits, connection acquisition and transaction duration. Add only evidence-backed indexes; use keyset pagination for growing feeds; bound admin result sets; select DTO projections; batch safe writes; keep transactions short; avoid external network calls inside DB transactions. Test indexes/migrations against production-like cardinality.
+5. **Cache selectively and safely.** Cache public catalogue/service-area/config read models with bounded TTL and explicit invalidation/versioning. Do not cache authorization decisions, inventory availability, prices, order/payment/refund status or personal records without a strong consistency design. Start with in-process bounded caches only for immutable/low-churn data; distributed cache is a later evidence-driven option.
+6. **Replace high-frequency polling economically.** First add tab visibility, jitter, adaptive backoff, conditional requests/ETags and incremental cursors to existing polling. Compare cost and operational burden of managed pub/sub, SSE or WebSocket against expected active sessions. Any cross-instance real-time transport requires shared broker/state, authorization per subscription, reconnect/backpressure, delivery semantics and India-region verification.
+7. **Make external integrations resilient.** Move slow OTP/email/SMS and noncritical notifications to a durable outbox/worker when measured request pressure warrants; implement idempotency keys, provider message IDs, bounded retries with jitter, dead-letter/manual recovery, status reconciliation and per-provider rate limits. Never blindly retry a message that may already have been delivered.
+8. **Control file/document costs and risk.** Avoid serving BLOBs through app memory for large downloads; evaluate India-resident object storage, encrypted quarantine, short-lived authorized downloads and lifecycle retention only after verifying provider residency, backups and access controls. Virus scan must fail closed; scanner outage should not mark documents clean.
+9. **Frontend cost/performance.** Verify actual bundle graph per portal, route-level lazy loading, shared dependency duplication, image formats/sizes, CDN caching and static asset immutable hashes. Keep five portal builds only if they improve release isolation or bundle size; a single static deploy is acceptable if deep links, cache headers and rollback are reliable.
+10. **Scale statelessly.** Before adding replicas, move session/handoff/rate-limit/OTP coordination to appropriate shared durable or atomic stores; verify idempotent jobs, DB pool multiplication (replicas × pool size), graceful shutdown, health/readiness, rolling deploy and regional failover.
+11. **Optimize unit economics.** Track monthly cost per 1,000 active users, per 1,000 orders and per successful OTP; separate fixed baseline, variable traffic, storage/egress, database, observability, provider, support and backup/DR. Set budgets and alerts before increasing service tiers.
+12. **India-only production remains mandatory.** Any cache, broker, queue, object store, analytics, CDN, backup or monitoring vendor introduced by optimization must satisfy the production India residency gate, including support/subprocessor access and disaster-recovery copies.
+
+### Performance/cost gates required before implementation sign-off
+
+- Baseline current p50/p95/p99 latency, error rate, throughput, CPU/memory, pool saturation, DB query/lock profile and frontend Web Vitals.
+- Produce a workload-to-cost model for the 100/1k/10k concurrency scenarios with transparent assumptions and sensitivity ranges.
+- Identify the top 10 expensive/high-volume endpoints and top 10 slow/expensive queries from real staging load, not guesswork.
+- Establish SLOs and budgets per journey: registration/OTP, browse/search, checkout, seller fulfilment, delivery tracking, Daily Help booking, chat, admin.
+- Load-test at 1x and 2x expected launch peak; demonstrate graceful degradation for DB/provider outages and avoid uncontrolled retry/polling amplification.
+- Prove cost per successful OTP and cost per completed order, including failed/duplicate/retried requests.
+- Add automated bundle-size and dependency checks; keep generated source maps private if they can expose source.
+- Every proposed redesign must include current bottleneck evidence, target metric, expected monthly cost delta, migration/rollback plan, data/privacy impact, India residency evidence and test proof.
+
+### Prioritized redesign candidates (discovery only)
+
+| Priority | Candidate | Why it matters | Evidence needed before choosing a solution |
+|---|---|---|---|
+| P0 | Remove committed secrets; rotate credentials | Security incident containment; avoid expensive compromise | Rotation proof, revoked sessions, secret scan/history evidence |
+| P0 | Fix default-deny authorization and CORS | Prevent unauthorized data access | Route matrix, negative tests, origin/preflight matrix |
+| P1 | Polling/chat traffic reduction | 4-second polling scales linearly with active chat clients | Active-session distribution, request rates, DB query profile |
+| P1 | Durable cross-instance rate limits/handoff | Current in-memory maps break under replicas/restarts | Replica/restart tests, abuse tests, latency/cost comparison |
+| P1 | DB query/index/pagination optimization | Oracle is likely a primary cost and throughput constraint | AWR/plans, realistic cardinality, N+1 and lock profiling |
+| P1 | OTP outbox and provider reconciliation | Slow synchronous calls tie up request threads and create uncertain delivery outcomes | Provider SLA/error/latency, duplicate rate, queue cost |
+| P1 | Cache public read models | Reduce repeated catalogue/config reads | Hit-rate opportunity, freshness and invalidation requirements |
+| P2 | Portal bundle isolation and CDN tuning | Reduce first-load time and static egress | Per-entry bundle analyzer, Web Vitals, cache-header tests |
+| P2 | Managed real-time transport | Reduce polling only if chat traffic warrants it | Concurrent sessions, fanout, regional availability/cost |
+| P2 | Object storage for seller documents | Lower app memory/storage coupling and improve lifecycle controls | BLOB size/volume, backup/retention, scanner flow, India region proof |
+
+### Cost optimization decision
+
+Do not purchase or deploy new infrastructure now solely for projected scale. First instrument and baseline. The likely high-return sequence is: remove avoidable polling, fix query/pagination/index behavior, bound caches, make OTP/provider handling resilient, and only then decide whether replicas, a shared cache/broker or service extraction are economically justified. A modular monolith with measured, efficient DB access is expected to be the lowest-complexity starting point for this marketplace.
+
