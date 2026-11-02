@@ -1,45 +1,51 @@
-# Deployment
+# Deployment and release runbook
 
-## Environments
+## Environment model
 
-- There is one deployed environment, designated **staging** by the owner. Do not assume a separate production deployment exists.
-- The public custom domains and Render API are part of this same owner-designated environment unless the owner independently verifies a separate environment.
-- Keep routine smoke checks read-only. Do not run transactional E2E or destructive cleanup until the Oracle target and synthetic fixture isolation are verified.
-- Verify the active Vercel deployment, Render service/deployment, and Oracle target independently. A hosting label alone does not prove which database is configured.
+There is one deployed environment designated **staging** by the owner. The public website/custom domains and Render API currently belong to this same environment. Do not infer a separate production environment from Vercel's provider target label.
 
-## Web
-Vercel builds the repository root with the Vite frontend. Verify the domain alias and commit SHA, not only deployment state. A READY preview is not proof that the custom domain uses that build.
+- Frontend: six existing Vercel projects (combined Bazaar plus Buyer, Seller, Delivery, Daily Help and Admin).
+- Backend: Render service `kuraliupdates-bazaar`, branch `main`, Docker root `backend-java-spring/`.
+- Database: Oracle configured through Render environment settings; independently verify database/schema identity before any mutating test.
 
-## API
-Render builds `backend-java-spring/` using its Dockerfile. Verify service ID, environment configuration and deployed commit. Never print credentials or wallet contents.
+## Release sequence
 
-## Staging database reset (V13)
+1. Review PR diff and confirm no secrets, generated files, or unintended runtime changes.
+2. Run frontend lint/type checks/build and backend `mvn clean verify`.
+3. Merge only after required checks pass.
+4. Verify each relevant Vercel project deployment is READY on the exact merged commit SHA. For docs-only changes, confirm ignore-build behavior rather than expecting six new deployments.
+5. Verify Render deployment separately: build succeeded, rollout reached LIVE, and deployed commit SHA equals intended main SHA.
+6. Inspect sanitized startup logs for successful Flyway validation/migration and application readiness.
+7. Run read-only health/API smoke against the intended host.
+8. Run mutating staging E2E only after database identity, dedicated synthetic fixtures, run-scoped ownership and cleanup have been verified.
 
-`V13__reset_staging_test_data.sql` is a one-time, destructive staging/test-data cleanup that retains the documented admin accounts and reseeds the Daily Help catalogue. Use it only after the owner confirms the target Oracle schema is isolated staging. Confirm the Flyway row reports success after it is run. Do not rerun it as a general fix, and never edit an already-applied migration; use a new versioned migration for corrections.
+A Vercel READY status does not prove the API is live. A successful Render image build does not prove the new instance completed rollout. CI success does not prove real workflow execution.
 
-## Release gate
+## Vercel quota-aware builds
 
-1. Frontend typecheck and production build pass.
-2. Focused backend tests and `mvn clean verify` pass.
-3. Flyway validation succeeds against the intended Oracle target.
-4. API health and database readiness pass.
-5. Staging end-to-end regression checklist passes for the changed workflows.
-6. Verify the actual frontend domain alias and backend deployment commit.
-7. Promote to production only through the separately approved release workflow.
+The six existing projects use changed-path/ignore-build logic. Role-only changes should build only the affected role portal; shared runtime, dependency, Vite configuration or global CSS changes can fan out to all portals. Combined Bazaar remains a separate build target. Do not trigger artificial builds merely to test quota behavior.
+
+## Render backend
+
+- Service: `kuraliupdates-bazaar`
+- Branch: `main`
+- Root: `backend-java-spring/`
+- Dockerfile: `backend-java-spring/Dockerfile`
+- API base: `https://kuraliupdates-bazaar.onrender.com/api/v1`
+
+Auto-deploy is enabled. After a main commit, verify the exact deployment SHA and final LIVE state. Do not manually redeploy or change environment variables unless the deployment is genuinely stuck or an approved configuration change is required.
+
+## Database safety
+
+- Flyway owns schema changes; never edit applied migrations.
+- V13 is destructive staging/test-data cleanup. Do not rerun as routine cleanup.
+- V14 adds seller compliance fields and seller-document BLOB storage.
+- Verify migration outcome and DB target from approved, sanitized sources. Do not expose JDBC URLs, credentials, wallet files or schema secrets.
 
 ## Rollback
 
-Rollback the application deployment to the last known-good commit. Do not repair or rewrite Flyway history solely to make a deployment pass. Database rollback requires its own assessed migration plan.
+Rollback the application to the last known-good commit using the hosting provider. Assess database compatibility separately; do not rewrite Flyway history or blindly reverse schema migrations. Prefer a forward corrective migration when data/schema changes have already been applied.
 
-Keep secrets in hosting secret/environment configuration, never in Git.
+## Security
 
-
-## Quota-aware role portals
-
-The Buyer, Seller, Delivery, Daily Help and Admin portals have role-specific Vite entry points and build outputs. Build commands and output directories are documented in [docs/MICROFRONTEND-BUILD-STRATEGY.md](docs/MICROFRONTEND-BUILD-STRATEGY.md).
-
-- Use the per-project Vercel Ignore Build Step command from that document to skip deployments for unaffected portals.
-- Shared runtime, dependency, Vite configuration and global CSS changes intentionally trigger all role portals.
-- Documentation, test-only and workflow-only changes should not trigger Vercel site builds.
-- CI builds the combined app plus only affected role-portal artifacts; if change detection is unavailable, it fails safe by building all portals.
-- Vercel project settings must be updated and verified separately. A committed ignore script alone does not change settings in the Vercel dashboard.
+Keep all credentials in hosting secret stores. Never put OTPs, tokens, Oracle wallet material, private seller documents or personal data in Git, issue comments, logs or test artifacts.
