@@ -542,3 +542,51 @@ The following must be inventoried explicitly before closure:
 - Oracle Free Trial expiry does not establish whether the database is still accessible or whether its schema/migrations are healthy. Confirm resource status and migration history through approved read-only access.
 
 **Time-box decision:** aim to complete repository/source and CI-verifiable work by 9 November. Oracle runtime evidence, secret rotation, provider contracts/regions, India production residency and professional legal/tax/labour opinions depend on external access/owners; if those are not supplied, Phase 0 must remain OPEN with named blockers rather than be falsely marked complete.
+
+
+## Phase boundary correction — 2026-11-03
+
+### Phase 0 is analysis and readiness assessment only
+
+The authorized Phase 0 scope is:
+1. Discover and inventory the complete current system from repository and available read-only runtime evidence.
+2. Map frontend portals/routes/components/hooks/API calls and backend controllers/services/repositories/entities/tables.
+3. Map every data writer and SQL statement to domain owner, table, transaction, authorization/ownership check, idempotency and concurrency behavior.
+4. Inventory every asynchronous/event-driven mechanism: Spring events, schedulers, async executors, WebSockets/STOMP, polling/timers, provider callbacks, retry/outbox/inbox behavior and process-local state.
+5. Inspect every migration and compare intended changes with actual schema/history where read-only evidence is available.
+6. Assess security, privacy, India data residency, legal/regulatory applicability, vendor/subprocessor flows, operational resilience and E2E safety.
+7. Produce a prioritized risk register, evidence matrix, unresolved-access list, recommended implementation sequence and explicit Phase 0 exit decision.
+
+### Explicitly out of scope until Phase 0 exit approval
+
+- No application source-code fixes or refactoring.
+- No database migration/schema/data changes.
+- No dependency upgrades, frontend redesign or API contract changes.
+- No deployment, environment variable, secret, wallet or hosting changes.
+- No production or staging data mutation.
+- No implementation PRs for audit findings.
+
+Documentation-only changes to the Phase 0 audit record are permitted. Any implementation recommendation must be labelled **proposed — not implemented**.
+
+### Correction to premature implementation attempt
+
+PR #229 was opened prematurely with proposed Daily Help pessimistic locking and Flyway diagnostic identifier changes. It was closed unmerged immediately after the Phase 0 boundary was clarified. Its branch is not merged to `main`; neither proposed code change is approved, deployed or part of the current system baseline. Reassess both findings during the Phase 0 exit review, then implement only after a separate explicit approval.
+
+### Required Phase 0 deliverables and acceptance tests
+
+| Deliverable | Minimum acceptance criterion |
+|---|---|
+| System inventory | Every tracked runtime entry point, controller route, frontend route, service, repository, entity/table, migration, external integration and operational workflow has an owner or explicit UNKNOWN. |
+| API authorization matrix | Every method has public/authenticated status, role, immutable actor identity, record ownership rule, validation, rate limit and negative test/evidence. |
+| Data and SQL lineage | Every repository/JdbcTemplate/native SQL writer is mapped to table/columns, domain owner, caller, transaction, lock, side effect and PII/security classification. |
+| EDA/asynchronous inventory | Each event/task/socket/poll/callback/retry/timer has producer, consumer, trigger, payload, transaction, durability, ordering, idempotency, retry/dead-letter, retention and observability documented; absence claims supported by exhaustive source scan and runtime registration evidence. |
+| State/transaction catalogue | Checkout, order, bargain, seller onboarding, document scan, OTP, delivery, Daily Help and refund lifecycles have state diagrams, allowed transitions, invariants, transaction/locking and failure behavior mapped. |
+| Database/migration assessment | V13 baseline assumptions, every available migration, checksums, Oracle object names/constraints/indexes, clean install and upgrade/rollback/recovery paths classified as source-verified, test-verified, runtime-verified or unknown. |
+| Frontend/UI/API traceability | Each portal screen/route maps to components, fields/actions, state/effects/storage, API method and backend owner; responsive/accessibility and error/loading/empty states captured. |
+| Data lifecycle/vendor map | Each data class maps collection/purpose, legal basis/notice, storage region, access, processor/subprocessor, transfer, retention, deletion, backup expiry and incident controls. |
+| Legal/compliance register | Current law vs future commencement vs draft/proposal distinguished; applicability questions and evidence owners identified for counsel/CA/CS/labour/FSSAI/tax/payment review. |
+| Risk register and exit decision | Critical/High/Medium/Low, evidence, impact, exploitability, mitigation options, owner, dependency and verification acceptance criteria; explicit go/no-go and residual UNKNOWNs. |
+
+### Current Phase 0 decision
+
+**OPEN — analysis incomplete.** The source audit has substantial findings, but the exhaustive EDA scan, all SQL/writer call sites, full route authorization matrix, frontend screen/API mapping, Oracle schema/history evidence, provider/data-residency map and legal applicability evidence are not yet complete. No implementation should begin until the Phase 0 deliverables above are reviewed and the user explicitly authorizes the next phase.
