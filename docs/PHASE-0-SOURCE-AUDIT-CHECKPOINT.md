@@ -164,3 +164,30 @@ Phase 0 remains open. The next evidence tranche must enumerate every SQL stateme
 - No application code or security configuration was changed.
 - Do not classify the whole API as public or vulnerable based only on the broad matcher: controller/service guards exist in reviewed paths. Equally, do not infer safety for unreviewed endpoints.
 - Remaining: inspect every other controller method, `AuthService` session/account-state semantics, entity serialization, rate-limit configuration, file storage, all SQL statements, and add/run negative endpoint tests in approved synthetic staging.
+
+
+## Flyway DDL tranche — seller onboarding, documents and OTP policy
+
+**Scope:** source inspection of SQL migrations V22_1 and V23–V30 on the audit baseline. This does not prove any migration has been applied to Oracle.
+
+| Migration | Source-confirmed schema/data change | Review points |
+|---|---|---|
+| V22_1 | Adds GST/FSSAI verification fields to SELLERS; creates SELLER_DOCUMENTS with BLOB document data, seller FK with ON DELETE CASCADE, status/type checks and seller/type index. | Document BLOB is sensitive identity/business data: verify TDE/backup encryption, access audit, retention/deletion, backup expiry and document download controls. Cascade deletion may conflict with legal/audit retention obligations; define soft-delete/retention policy before seller deletion. |
+| V23 | Creates singleton-style SELLER_SERVICE_AREA_CONFIG with center coordinates, radius, enabled/version and bounds checks; inserts initial config. | Verify singleton enforcement (unique/PK key), admin-only mutation, concurrency/version update and audit. Coordinates are operationally sensitive. |
+| V24 | Creates SELLER_SERVICE_AREA_CONFIG_HISTORY referencing config table and seeds history. | Confirm immutable history semantics, actor identity, append-only DB permissions and transaction coupling to config updates. |
+| V25 | Creates SELLER_REGISTRATION_DRAFTS with DRAFT_JSON CLOB and step constraint. | CLOB may contain names, phone/email, addresses, business and identity data. Confirm encryption at rest, least-privilege access, JSON schema validation, log redaction, expiry/deletion, backup retention and whether raw identity documents are prohibited from draft JSON. |
+| V26 | Adds scan status to SELLER_DOCUMENTS, defaults existing/new rows to QUARANTINED and constrains scan state to QUARANTINED/CLEAN/INFECTED/SCAN_FAILED. | Verify migration backfill semantics against existing documents and ensure no code path treats null/unknown scan state as clean. |
+| V27 | Creates seller onboarding leads, notes and audit tables; captures contact details, email/phone verification, contact consent flag/version/time, callback request, assignment and follow-up; adds lookup indexes and FKs. | Contact consent defaults to 0, which is privacy-protective only if all contact workflows enforce it. Verify lawful basis/notice, purpose, consent capture/version, withdrawal, access audit, retention, call-note minimization and no unsolicited outreach. |
+| V28 | Creates global seller registration OTP config; both email/mobile flags default to 0 and seed GLOBAL=(0,0). Adds per-lead required/skipped flags, with required flags defaulting to 1. | Potential policy mismatch between global disabled seed and lead-required defaults. Inspect service logic and admin defaults; enforce fail-closed, explicit verified/skipped state and audit of any bypass. |
+| V29 | Creates OTP config audit table with current/previous email/mobile flags, actor and timestamp; adds descending time index. | Migration comment says append-only, but DDL alone does not prevent UPDATE/DELETE. Verify DB grants, application update paths and audit actor is immutable authenticated admin ID, not caller-supplied text. |
+| V30 | Finds AUTH_OTPS check constraints whose search condition mentions OTP_TYPE, drops each dynamically, then adds a named check allowing EMAIL, PHONE, SELLER_EMAIL, SELLER_PHONE. | Verify exact constraints dropped in each supported Oracle version/schema and migration rerun/failure behavior. Test OTP type isolation, uniqueness, expiry, attempts, consumption, and transaction ordering when provider delivery succeeds but persistence fails. |
+
+### Migration-specific privacy and operational gates
+
+1. Treat `SELLER_REGISTRATION_DRAFTS.DRAFT_JSON`, `SELLER_DOCUMENTS.DOCUMENT_DATA`, lead contact details, callback notes and OTP audit data as restricted data. Define table-level access, encryption, retention, deletion and backup expiry before production.
+2. Require contact-consent enforcement at the point of every CRM call/message, not merely a stored Boolean. A lead created without consent must not be treated as permission to market or repeatedly call.
+3. Reconcile V28's GLOBAL OTP config seed (both disabled) with per-lead defaults (both required). Document exact effective policy, fail-closed behavior and safe admin emergency change.
+4. Confirm V22_1/V23/V24/V25/V26/V27/V28/V29/V30 are ordered and compatible with all Java migrations and the actual Flyway schema history. The V22_1 naming sequence and missing V1–V13 source files require a documented baseline/repair strategy, never manual guessing.
+5. Run migrations against disposable Oracle-compatible test schema and a sanitized production-like snapshot before rollout; capture before/after constraints, indexes, row counts and rollback/restore plan. Flyway migrations may be non-transactional in Oracle; prove recovery procedure rather than assuming rollback.
+
+**Unverified:** Oracle version, applied migration history, actual constraints/indexes/triggers/grants, DB encryption, backup region/retention, and current row contents. These require authorized read-only DB/provider evidence.
