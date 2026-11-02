@@ -95,6 +95,8 @@ export const SellerRegistrationWizard: React.FC = () => {
   const [phoneOtp, setPhoneOtp] = useState('');
   const [leadId, setLeadId] = useState('');
   const [contactVerified, setContactVerified] = useState(false);
+  const [emailOtpRequired, setEmailOtpRequired] = useState(false);
+  const [mobileOtpRequired, setMobileOtpRequired] = useState(false);
   const [callbackConsent, setCallbackConsent] = useState(false);
   const [callbackRequested, setCallbackRequested] = useState(false);
   const [token, setToken] = useState('');
@@ -336,21 +338,38 @@ export const SellerRegistrationWizard: React.FC = () => {
         }
         if (!otpStep) {
           const sent = await sellerOnboardingApi.sendContactOtps(activeLeadId);
-          if (!sent.success) throw new Error('Unable to send both verification codes. Check SMS/email delivery configuration and try again.');
+          if (!sent.success) throw new Error('Unable to start contact verification. Please try again.');
+          setEmailOtpRequired(sent.emailOtpRequired);
+          setMobileOtpRequired(sent.mobileOtpRequired);
+          if (!sent.emailOtpRequired && !sent.mobileOtpRequired) {
+            const completed = await sellerOnboardingApi.verifyContact(activeLeadId, '', '');
+            if (!completed.success) throw new Error('Unable to complete registration contact checks');
+            setContactVerified(true);
+            showToast('Contact details saved. OTP verification is currently disabled by KuraliUpdates.', 'info');
+            return;
+          }
           setOtpStep(true);
-          showToast('Verification codes sent to your email and mobile.', 'info');
+          const channels = [sent.emailOtpRequired ? 'email' : '', sent.mobileOtpRequired ? 'mobile' : ''].filter(Boolean).join(' and ');
+          showToast(`Verification code sent to your ${channels}.`, 'info');
           return;
         }
-        if (emailOtp.replace(/\D/g, '').length !== 6 || phoneOtp.replace(/\D/g, '').length !== 6) {
-          throw new Error('Enter both six-digit verification codes');
+        if (emailOtpRequired && emailOtp.replace(/\D/g, '').length !== 6) {
+          throw new Error('Enter the six-digit email verification code');
         }
-        const verified = await sellerOnboardingApi.verifyContact(activeLeadId, emailOtp.replace(/\D/g, ''), phoneOtp.replace(/\D/g, ''));
-        if (!verified.success) throw new Error('Unable to verify both contact methods');
+        if (mobileOtpRequired && phoneOtp.replace(/\D/g, '').length !== 6) {
+          throw new Error('Enter the six-digit mobile verification code');
+        }
+        const verified = await sellerOnboardingApi.verifyContact(
+          activeLeadId,
+          emailOtpRequired ? emailOtp.replace(/\D/g, '') : '',
+          mobileOtpRequired ? phoneOtp.replace(/\D/g, '') : ''
+        );
+        if (!verified.success) throw new Error('Unable to complete contact verification');
         setContactVerified(true);
         setOtpStep(false);
         setEmailOtp('');
         setPhoneOtp('');
-        showToast('Email and mobile verified. You can continue with your shop details.', 'success');
+        showToast('Contact verification complete. You can continue with your shop details.', 'success');
         return;
       }
       if (step < 5) {
@@ -444,7 +463,7 @@ export const SellerRegistrationWizard: React.FC = () => {
               <div className="flex flex-wrap gap-3 pt-2">{draftSession && <button type="button" onClick={() => void saveSellerDraft()} disabled={draftBusy || loading} className="min-h-11 rounded-xl border border-blue-300 bg-blue-50 px-4 text-xs font-bold text-blue-900 disabled:opacity-50">{draftBusy ? 'Saving…' : 'Save draft'}</button>}{step>1&&<button type="button" onClick={()=>setStep((step-1) as Step)} disabled={loading} className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-bold text-slate-700">{t.back}</button>}<button type="button" onClick={handleContinue} disabled={loading||!serviceArea?.enabled} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-600 px-5 text-sm font-black text-white disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<ArrowRight className="h-4 w-4"/>}{step<5?t.next:t.verify}</button></div>
             </div>
           ) : (
-            <div className="space-y-4"><div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Enter the six-digit codes sent to both your email address and mobile number. Both must be verified before you can enter business details.</div><Field label="Email verification code"><input value={emailOtp} onChange={event=>setEmailOtp(event.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} className={inputClass}/></Field><Field label="Mobile verification code"><input value={phoneOtp} onChange={event=>setPhoneOtp(event.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} className={inputClass}/></Field><div className="flex flex-wrap gap-3"><button type="button" onClick={()=>{setOtpStep(false);setEmailOtp('');setPhoneOtp('');}} className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-bold">{t.back}</button><button type="button" onClick={async()=>{setLoading(true);setError('');try{const sent=await sellerOnboardingApi.sendContactOtps(leadId);if(!sent.success)throw new Error('Unable to resend verification codes');setEmailOtp('');setPhoneOtp('');showToast('New verification codes sent.','info');}catch(cause){setError(cause instanceof Error?cause.message:'Unable to resend verification codes');}finally{setLoading(false);}}} disabled={loading} className="min-h-11 rounded-xl border border-amber-300 px-4 text-sm font-bold text-amber-800">Resend codes</button><button type="button" onClick={handleContinue} disabled={loading} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<CheckCircle2 className="h-4 w-4"/>}Verify both contacts</button></div></div>
+            <div className="space-y-4"><div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Enter the verification code for each enabled channel. Disabled channels are recorded as “OTP not required” and do not block registration.</div>{emailOtpRequired && <Field label="Email verification code"><input value={emailOtp} onChange={event=>setEmailOtp(event.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} className={inputClass}/></Field>}{mobileOtpRequired && <Field label="Mobile verification code"><input value={phoneOtp} onChange={event=>setPhoneOtp(event.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} className={inputClass}/></Field>}<div className="flex flex-wrap gap-3"><button type="button" onClick={()=>{setOtpStep(false);setEmailOtp('');setPhoneOtp('');}} className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-bold">{t.back}</button><button type="button" onClick={async()=>{setLoading(true);setError('');try{const sent=await sellerOnboardingApi.sendContactOtps(leadId);if(!sent.success)throw new Error('Unable to resend verification codes');setEmailOtp('');setPhoneOtp('');showToast('New verification codes sent.','info');}catch(cause){setError(cause instanceof Error?cause.message:'Unable to resend verification codes');}finally{setLoading(false);}}} disabled={loading} className="min-h-11 rounded-xl border border-amber-300 px-4 text-sm font-bold text-amber-800">Resend codes</button><button type="button" onClick={handleContinue} disabled={loading} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<CheckCircle2 className="h-4 w-4"/>}Verify both contacts</button></div></div>
           )
           )}
         </div>
