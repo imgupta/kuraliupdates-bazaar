@@ -788,3 +788,22 @@ Read-only Render inspection of service `srv-db0fv9egekts739hfa6g` in workspace `
 6. Keep the application unavailable for write traffic until schema migration and health checks pass; do not use `*:missing` or disable Flyway validation to bypass the failure.
 
 **Current status:** root cause source-level correction is prepared; Oracle metadata/backup/repair and runtime proof remain outstanding. The PR must not be merged/deployed to the database until CI passes and the recovery preconditions above are satisfied.
+
+
+## Automated Oracle preflight added to this PR
+
+A staging-only diagnostic path is now included in this PR:
+
+- `PhaseZeroOraclePreflight` is activated only by the explicit `phase0-diagnostics` Spring profile.
+- `application-phase0-diagnostics.yml` disables Flyway only for that profile, sets Hibernate DDL generation to `none`, and keeps SQL initialization disabled.
+- The runner performs read-only Oracle metadata queries for the current schema, visible Flyway history-table owners, V30 history rows/checksum/status, AUTH_OTPS table presence, and its check constraints.
+- Each check is independently fault-tolerant. The report is emitted under the `PHASE0_ORACLE_PREFLIGHT` log marker. It does not query business records, print exception messages/connection details, or execute DDL/DML.
+- This profile is a diagnostic bypass, not an application recovery. It must never be left active for normal service operation. Flyway remains enabled by default in the standard profile.
+
+### Execution and closure controls
+
+The preflight has been committed but has **not yet executed against the live Oracle database**. Execution requires the staging service to start this PR's code with `SPRING_PROFILES_ACTIVE=phase0-diagnostics`; normal Flyway execution must remain disabled only for that diagnostic run. Once the sanitized report is captured, stop the diagnostic run, restore normal profile settings, and use the observed V30 row/constraint state to prepare a reviewed recovery. Do not infer that the database is repaired merely because the diagnostic profile starts.
+
+The preflight deliberately does not invoke `flyway repair`, delete or insert Flyway history, drop constraints, or retry V30. Oracle DDL can implicitly commit; a restorable snapshot and explicit state-based recovery are prerequisites.
+
+**Remaining external gates:** CI for the latest commit; controlled staging execution and sanitized log capture; database recovery; normal-profile redeploy and health verification; remaining authorization, data-flow and source-coverage evidence. Phase 0 remains open until those checks pass.
