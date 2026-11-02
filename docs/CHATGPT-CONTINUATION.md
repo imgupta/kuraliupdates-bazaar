@@ -1,52 +1,38 @@
 # Engineering handoff — KuraliUpdates
 
-This file is a short current handoff, not a chronological debugging diary. Keep durable decisions and verified next actions here; archive or remove obsolete dated status entries rather than appending new history forever.
+Keep this file short and current. It replaces the previous chronological debugging diary; durable architecture and current gaps live in dedicated docs.
 
-## Repository
-
-- Repo: https://github.com/imgupta/kuraliupdates-bazaar
+## Repository and runtime
+- Repository: https://github.com/imgupta/kuraliupdates-bazaar
 - Main branch: `main`
 - Website: https://kuraliupdates.com
 - API: https://kuraliupdates-bazaar.onrender.com/api/v1
-- Frontend: six existing Vercel projects (combined Bazaar + five role portals)
+- Frontend: six Vercel projects (combined Bazaar + five role portals)
 - Backend: Render Docker service rooted at `backend-java-spring/`
 - Environment: one owner-designated shared staging environment
 
-## Latest documented application change
+## Latest merged application change
+PR #205, seller compliance onboarding and private Oracle BLOB documents, merged as `1a44fb45da9f0061d8e9c902c825770662b9fd11` on 2 Nov 2026. Source includes seller onboarding fields, document upload/list and admin review/download/verification API, Flyway V14 and frontend integration.
 
-PR #205, seller compliance onboarding and private Oracle BLOB documents, was merged into main as `1a44fb45da9f0061d8e9c902c825770662b9fd11` (Nov 2, 2026). This includes seller onboarding fields, document upload/list and admin review/download/verification API, Flyway V14, and associated frontend integration.
+## Last observed deployment checkpoint — 2 Nov 2026
+- Six Vercel deployment records were READY on the merged SHA.
+- Render Docker build for the same SHA succeeded, but latest observed deployment state remained `update_in_progress`; final LIVE confirmation was not observed.
+- Backend rollout, deployed V14 and document BLOB round-trip were therefore unconfirmed at that checkpoint. Recheck provider status before relying on this dated observation.
 
-## Last observed deployment checkpoint (Nov 2, 2026)
-
-- All six Vercel production deployment records were READY on commit `1a44fb45da9f0061d8e9c902c825770662b9fd11`.
-- Render Docker build for the same commit succeeded, but the latest observed deployment status remained `update_in_progress`; a final LIVE/server-available event had not yet been confirmed.
-- Therefore frontend build/deployment records were confirmed; backend rollout, V14 execution on the target Oracle schema and runtime seller document round-trip were not yet confirmed.
-- Recheck live provider status before using this checkpoint as current status. This is a dated observation, not a live health claim.
-
-## Confirmed product decisions
-
-- Parent company plan: Kura Ventures Private Limited; KuraliUpdates as brand/business division. Incorporation and statutory registrations remain subject to professional review/filing.
-- Grocery marketplace: direct customer-to-seller payment; platform earns seller commission/platform fee. No payment aggregator/bank-split integration should be described as active without code/config verification.
-- Grocery refunds: seller directly refunds the customer; platform records/coordinates the case. No mandatory seller refund reserve was selected.
-- Daily Help: independent provider marketplace model; confirm current runtime payment handling before describing settlement as active.
+## Confirmed business decisions
+- Parent company plan: Kura Ventures Private Limited; KuraliUpdates as brand/business division. Incorporation/registrations require professional review and filing.
+- Grocery: direct customer-to-seller payment; platform earns commission/platform fee. Do not describe aggregator/bank-split as active without code/config proof.
+- Grocery refunds: seller directly refunds customer; platform records/co-ordinates case. No minimum seller refund reserve selected.
+- Daily Help: independent provider marketplace; verify current payment implementation before describing settlement as active.
 - Delivery agents use their own two-wheelers.
 - Maps: OpenStreetMap fallback; Google Routes features require backend key/configuration.
 
-## Immediate engineering priorities
+## Next actions
+1. Recheck exact main CI, Render LIVE status, application startup and Flyway V14.
+2. Complete seller onboarding admin review UI and document security/retry gaps in [SELLER-ONBOARDING.md](SELLER-ONBOARDING.md).
+3. Fix five-role E2E fixture preflight and prove isolated synthetic data/cleanup before mutating tests.
+4. Continue domain API extraction and AppContext modularisation with regression tests.
+5. Add observability, backup/restore and capacity runbooks before scale-up.
 
-1. Recheck current main CI and Render deployment status for the exact main SHA; confirm application startup and Flyway V14.
-2. Run seller onboarding acceptance tests: account creation, document upload retry/recovery, BLOB round-trip, seller ownership isolation, admin-only download/verification, invalid MIME/signature/oversize rejection, and manual approval gating.
-3. Complete admin frontend document-review UI; backend endpoints alone are not an end-to-end admin workflow.
-4. Close seller onboarding gaps: collect FSSAI expiry where applicable; populate agreement acceptance IP where lawful/needed; define seller document download/replacement behavior; replace food-category keyword heuristic with explicit category applicability mapping.
-5. Security hardening: malware scanning, assess application-layer document encryption/key management, audit log for document access/verification, retention/deletion policy and rate limits.
-6. Fix registration partial-failure handling: OTP verification may create an account before a later document upload fails; provide a reliable resume/retry state and prevent silent incomplete onboarding.
-7. Correct and rerun the five-role staging fixture preflight. Keep transactional E2E disabled until role/profile IDs, buyer-visible synthetic product, active Daily Help service/slot, exact local start time, database isolation and scoped cleanup all pass.
-8. Continue frontend modularisation: move endpoint implementations out of the shared API module in small tested batches; preserve AppContext compatibility until consumers are migrated.
-
-## Safety boundaries
-
-- Do not run V13 or any destructive reset as routine cleanup.
-- Do not run transactional E2E against real/shared business records.
-- Do not enable staging OTP capture until database target and dedicated test identities are verified.
-- Never commit or log secrets, OTPs, bearer tokens, Oracle wallet material or private seller documents.
-- Mark work complete only after source, tests, CI and runtime state support the claim.
+## Safety
+Do not run V13 or destructive reset routinely. Do not run transactional E2E against real/shared business records. Do not enable staging OTP capture before database target and dedicated identities are verified. Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller documents. Claim completion only when source, tests, CI and runtime evidence agree.
