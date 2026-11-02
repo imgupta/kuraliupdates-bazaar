@@ -191,3 +191,75 @@ Phase 0 remains open. The next evidence tranche must enumerate every SQL stateme
 5. Run migrations against disposable Oracle-compatible test schema and a sanitized production-like snapshot before rollout; capture before/after constraints, indexes, row counts and rollback/restore plan. Flyway migrations may be non-transactional in Oracle; prove recovery procedure rather than assuming rollback.
 
 **Unverified:** Oracle version, applied migration history, actual constraints/indexes/triggers/grants, DB encryption, backup region/retention, and current row contents. These require authorized read-only DB/provider evidence.
+
+
+## Flyway runtime configuration and migration baseline — source-confirmed
+
+The checked-in `application.yml` confirms:
+- `spring.flyway.enabled: true`.
+- `baseline-on-migrate: true`.
+- `baseline-version: 13`.
+- `ignore-migration-patterns: "*:missing"`.
+- Hibernate `ddl-auto: none`; Spring SQL init is disabled.
+- Oracle JDBC datasource and HikariCP are configured through environment placeholders plus a checked-in wallet path.
+- Flyway Oracle support is present in `pom.xml`.
+
+### What this means operationally
+
+1. The application is configured to run Flyway automatically during Spring startup when datasource connectivity and application initialization permit it. It is not correct to assume a migration has run simply because the code is deployed.
+2. `baseline-on-migrate` with version 13 is designed to baseline a non-empty schema that has no Flyway history table, treating it as version 13, after which V14+ migrations can run. It does not prove that the existing schema actually matches the historical V13 structure.
+3. The repository does not contain V1–V13 scripts in the inspected migration tree. The comment in application config says the existing staging schema is at version 13; this is a source comment/config assumption, not a live Oracle fact.
+4. A brand-new empty database is materially different: Flyway generally does not baseline an empty schema through `baseline-on-migrate`; it will attempt the available migrations. Since V1–V13 are absent, the V14+ scripts may reference tables/columns that do not exist. **New-database provisioning is therefore a High-priority unresolved gate** until a reproducible bootstrap schema or explicit baseline procedure is tested.
+5. `*:missing` tells Flyway to ignore missing migrations recorded in history. This can allow a database with legacy V1–V13 history to validate despite those source files being absent; it also reduces drift visibility. Keep this exception narrowly documented and verify checksums/success for every available migration.
+6. Migration execution and application startup must be observed in deployment logs; CI compilation does not prove Flyway ran or completed against Oracle.
+
+### Existing diagnostic capability discovered
+
+`AdminDiagnosticsController` exposes read-only `GET /api/v1/admin/diagnostics` and queries:
+- current Oracle schema,
+- counts for a hard-coded list of core tables,
+- latest ten rows in `flyway_schema_history`,
+- success state for migration version 13.
+
+It is protected by the `/admin/**` matcher in the security chain. The diagnostic code catches errors and reports UNKNOWN/ERROR, so an absent history table or wrong case/schema must not be misread as an empty database. The table-count list is incomplete for later seller onboarding/document/OTP configuration tables and is not a full schema audit. It returns aggregate counts rather than row contents.
+
+**Safe next evidence path:** an authorized administrator can run the existing read-only diagnostics endpoint in the intended environment and share the JSON response after redacting email/identity details. No DB password, wallet, connection string or direct database access is needed for that first check. A complete Oracle metadata export still requires DBA-approved read-only queries.
+
+## Additional controller security and data-flow findings
+
+| Controller / route | Source finding | Priority and action |
+|---|---|---|
+| `SellerOnboardingLeadController` `POST /seller-registration/leads` | Public lead creation stores name/email/phone via service. | Public lead capture may be intended. Validate input, deduplicate/anti-enumerate, rate-limit, explain purpose and retention, and do not treat lead submission as consent to marketing. |
+| `POST /{leadId}/send-contact-otps` and `POST /{leadId}/verify-contact` | Both are public and accept lead ID; verification takes email and phone OTP values. | **High:** verify unguessable IDs, OTP expiry/attempt caps, rate limits, one-time consumption, binding to the exact contact and replay prevention. Prevent lead-ID enumeration and OTP bombing. |
+| `POST /{leadId}/callback` | Public callback endpoint passes a Boolean consent flag and preferred time to service. | **High:** server must validate actual affirmative consent, record notice/version/time/source and contact purpose, prevent caller from altering other lead fields, support withdrawal and audit access. A client-supplied `consent=true` alone is not sufficient evidence of informed consent. |
+| `AdminSellerOnboardingController` `/admin/seller-leads/**` | Admin list/update/notes routes are under explicit admin prefix. Actor is recorded as `Authentication.getName()`. | Verify pagination bounds, field-level access, authenticated immutable actor ID, audit integrity and note minimization. |
+| `SellerRegistrationOtpConfigController` | Public GET returns only OTP-required flags; admin GET/history/PUT use `/admin/**`. | Public response is limited; test admin authorization. Audit actor currently uses authentication name; prefer immutable principal ID. Validate limit bounds and history pagination. |
+| `DeliveryController` `POST /delivery/register` | Public registration accepts name, phone, email, vehicle type/number, licence number and locality, then returns a `DeliveryAgentEntity`. | **High privacy/data-minimization issue:** return a narrow response DTO, never a JPA entity; verify validation, duplicate handling, OTP/ownership, notice/consent, admin review and rate limiting. Do not expose internal status, location, IDs or other fields through entity serialization. |
+| `DeliveryController` authenticated routes | Current profile, availability, jobs, claim, checkout-group claim, pickup, resend OTP and verify OTP require an authenticated principal. Claim routes accept agentId as request parameter but service must bind it to authenticated user's profile. | Verify caller cannot claim as another agent, concurrency/atomicity, OTP attempt/rate limits, replay, idempotency and status transitions. |
+| `BuyerController` | Search is public; order placement, multi-seller checkout, pickup confirmation, history and tracking require authenticated principal. | Verify order ownership, checkout idempotency, product/seller status/price/stock revalidation, COD/payment state and cross-seller atomicity in service. |
+| `AuthController` | Portal handoff codes are held in a process-local `ConcurrentHashMap`; one-time removal and 60-second expiry were observed in source. | **Medium/High operational risk:** restart loses outstanding codes; multiple backend instances do not share handoffs. Ensure code entropy, target role/origin binding, rate limiting and constant-time compare. Prefer short-lived persisted/shared one-time token if multi-instance production is planned. |
+| `SellerRegistrationDraftController` | Authenticated user ID is passed to get/save/delete draft service methods. | Verify strict per-user ownership, JSON schema/field allowlist, size bounds, sensitive data minimization and deletion/retention. |
+| `SellerServiceAreaController` | Update checks `ROLE_ADMIN`; reads are public. | Confirm read exposes only operationally necessary location/radius; admin changes need actor, version concurrency and append-only audit. |
+| `SearchAnalyticsController` | Public search analytics endpoint writes search trend records. | Rate-limit and bound payload; avoid raw query PII/secrets; define retention, aggregation and deletion. |
+
+## Configuration security finding — Critical release blocker
+
+The checked-in `application.yml` at the audit baseline contains hard-coded fallback credential material in application configuration, including a JWT signing secret and wallet-password fallback. It also contains permissive CORS origin text in application properties, while `SecurityConfig` separately defines a fixed allowlist. **Secret values are intentionally not reproduced in this audit.**
+
+Required actions before production:
+1. Treat committed secret material as potentially exposed; rotate/revoke it and invalidate sessions/tokens signed with the old JWT key.
+2. Remove all secret defaults from source. Require strong externally injected secrets and fail startup if absent/weak in production. Never fall back to a committed value.
+3. Verify Render environment variable names and wallet mount/configuration using secure secret manager UI; do not paste secret values into PRs, logs, chat or diagnostics.
+4. Reconcile the CORS property with the actual SecurityConfig bean. Remove wildcard and preview-domain origins from production; use exact approved origins and test preflight/credential behavior.
+5. Audit Git history and all branches/tags for exposed secrets, not only current HEAD; rotate first, then clean history if required by repository-owner security procedure.
+6. Ensure staging and production have separate credentials and JWT keys; staging secrets cannot sign production sessions.
+7. Record owner, rotation date, verification evidence and incident assessment. Do not close the security gate merely because current source no longer contains the value.
+
+This is a source-confirmed finding at the inspected commit. No secret material was copied into this document or exposed in this report.
+
+## Phase 0 status refinement
+
+- Source configuration establishes Flyway is enabled and attempts migration on startup, but applied Oracle history remains runtime-unverified.
+- The diagnostic endpoint is a safe first step for read-only Flyway evidence; it is not a substitute for full DBA metadata review.
+- A clean-database bootstrap path is not yet demonstrated.
+- Critical credential hygiene is a production blocker and must be fixed through a separate explicitly authorized security change, not hidden inside a documentation-only audit.
