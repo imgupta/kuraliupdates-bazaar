@@ -493,3 +493,52 @@ Phase 0 is not a calendar milestone and cannot be marked complete by the volume 
 - external vendor and legal applicability gaps are either evidenced or formally accepted by the accountable professional/owner.
 
 **Current decision: Phase 0 remains OPEN.** The source audit has advanced substantially, but several release-blocking issues are now explicit. Do not start broad FE-1/BE-1 refactors or production launch until the critical gates are resolved.
+
+
+## Revalidation and time-boxed completion plan — 2026-11-03
+
+### Revalidation against current repository state
+
+- Rechecked `main`: it still resolves to `4f6d919779454d41d592d01051da5189a9b60b43`; PR #228 is not merged and its latest head remains `d5ea5b6c47fb079122f865d1a065f5ca4ca226f2`.
+- PR #228 workflow run `41528933203` completed successfully. Both reported jobs passed: frontend TypeScript checks and production build; Spring Boot Maven verification. This validates the documentation branch's build gates only, not the runtime/security/database claims.
+- PR #228 remains draft/open, with no submitted reviews or inline review threads at recheck. It changes only this audit checkpoint document.
+- PR #84 remains draft/open and unmerged. The current `main` Git tree still contains a tracked Oracle wallet archive. The archive was not downloaded, opened, parsed or reproduced. This is a **Critical exposed-secret-material finding**: treat wallet/database credentials as compromised until rotation/revocation is evidenced. The existence of PR #84 is not remediation; its merge/deployment prerequisites remain unresolved.
+- The PR #84 branch must be reconciled against current main before any merge decision. Its documented secret-file and environment-variable setup must be validated against the actual application configuration and an isolated staging database. Do not deploy a configuration that makes the existing service unable to connect.
+- The repository-wide tree enumeration returned 339 blobs and was not truncated. It confirms the inventory of controllers, services, repositories, entities, Java/SQL migrations, frontend portals/hooks/API modules and E2E workflows listed in this document. A tree listing alone does not establish complete method-level behavior.
+
+### EDA / asynchronous / event-driven coverage
+
+The phrase EDA is treated here as event-driven/asynchronous architecture coverage. It is a required Phase 0 audit dimension, not an assumed architectural pattern. The application is still a single Spring Boot modular monolith; no Kafka/event broker or independently deployed event-driven services are established by the current source evidence.
+
+The following must be inventoried explicitly before closure:
+- Spring application events: `@EventListener`, `@TransactionalEventListener`, publishers and listeners, including transaction phase and exception behavior.
+- Scheduling/background execution: `@Scheduled`, `@Async`, executor beans, scheduler pools, process-local timers/maps and startup runners.
+- WebSocket/STOMP endpoints, handshake authentication, origin policy, destination authorization, subscription ownership and message payload minimization.
+- Polling and client-side timers, including negotiation polling, session refresh and backend synchronization; cleanup on unmount, tab visibility, role/token change and logout.
+- Provider callbacks/webhooks, retries, outbox/inbox patterns, idempotency keys, dead-letter/reconciliation handling and duplicate delivery.
+- In-memory state that disappears on restart or is inconsistent across instances, including OTP resend timestamps, portal handoff codes and E2E OTP capture.
+- For every asynchronous flow: producer, trigger, payload/PII classification, transaction boundary, durable state, retry/backoff, deduplication, ordering, expiry, observability, owner and tests.
+
+**Status:** not yet exhaustive. The prior targeted scans did not prove absence of these mechanisms. A full repository content scan plus runtime bean/endpoint registration evidence remains required.
+
+### This-week execution sequence (3–9 November 2026)
+
+| Work tranche | Required outputs | Exit evidence |
+|---|---|---|
+| 1. Critical secret and release controls | Confirm secret rotation/revocation owner and evidence; reconcile PR #84; remove tracked wallet material from reachable branches/history after rotation; fail startup when required production secrets are missing; tighten production CORS. | No secret material in current tracked tree/history after approved cleanup; new credentials validated without disclosure; CI and secret scanning pass. |
+| 2. Complete backend source inventory | Every controller route and method; security matcher plus method/service guard; role and record ownership; all repository/JdbcTemplate/EntityManager/native SQL writes; table owner; transaction/lock/idempotency; all schedulers/events/WebSockets/executors. | Traceability matrix has no unclassified route/writer/task; anonymous, invalid-session, wrong-role and wrong-owner test cases mapped. |
+| 3. Critical workflow integrity | Buyer checkout/order, seller fulfilment, delivery claim/pickup/OTP/completion, Daily Help booking/accept/start/complete, seller onboarding/document verification, OTP/auth/handoff, negotiation/bargain. | State machines, lock and transaction boundaries, failure rollback, retries and concurrency tests; fix Daily Help state-changing commands to lock rows before mutation. |
+| 4. Flyway and Oracle | Reconcile V13 baseline and V14–V30 with actual `flyway_schema_history`; fix diagnostic query casing; compare migration checksums/status; validate clean database bootstrap and upgrade path. | Sanitized admin diagnostics output plus approved read-only Oracle metadata; isolated staging migration run and restart evidence. |
+| 5. Frontend and E2E | Map portal route → component → hook/context → API → backend route; storage keys and PII; portal build boundaries; deep links/refresh; polling cleanup; E2E explicit staging origin and artifact retention. | Portal smoke/build tests and negative authorization E2E on isolated synthetic staging only. |
+| 6. Data, hosting, legal and operations | Map every personal/business data category, storage/retention/deletion/backup/transfer; providers/subprocessors and regions; production India-only resources; incident/restore/DR; legal applicability decisions. | Resource-by-resource evidence, provider contracts/DPAs, retention/deletion tests, professional review and signed owner acceptance. |
+| 7. Closure review | Consolidated risk register, owners, residual risks, evidence links and explicit go/no-go. | All Critical/High fixed or explicitly contained/accepted; no unknown critical path hidden behind a passing CI run. |
+
+### Work boundaries and access dependencies
+
+- Repository source review, documentation updates, local/CI checks and proposed code fixes can proceed through the authorized GitHub repository workflow.
+- No Render environment variables, wallet files, Oracle credentials, production deployment settings or live data will be changed as part of this audit without explicit approval and a safe credential-rotation path.
+- The lowest-friction database evidence request is a sanitized response from the authenticated admin diagnostics endpoint in the intended staging environment. Redact identifiers and all secrets; never send passwords, wallet files, bearer tokens or OTPs.
+- Production India-only hosting remains a future production gate. Development/staging may remain in the current Singapore region with access controls and synthetic/minimized data; do not migrate staging merely to satisfy the production requirement.
+- Oracle Free Trial expiry does not establish whether the database is still accessible or whether its schema/migrations are healthy. Confirm resource status and migration history through approved read-only access.
+
+**Time-box decision:** aim to complete repository/source and CI-verifiable work by 9 November. Oracle runtime evidence, secret rotation, provider contracts/regions, India production residency and professional legal/tax/labour opinions depend on external access/owners; if those are not supplied, Phase 0 must remain OPEN with named blockers rather than be falsely marked complete.
