@@ -5,6 +5,7 @@ import { KURALI_LOCALITIES } from '../../data/initialData';
 import { API_BASE_URL, bazaarApi } from '../../services/api';
 import { DeliveryLocation, LocationPicker } from './LocationPicker';
 import { sellerApi } from '../../services/domains/sellerApi';
+import { sellerOnboardingApi } from '../../services/domains/sellerOnboardingApi';
 
 type Language = 'en' | 'pa' | 'hi';
 type Step = 1 | 2 | 3 | 4 | 5;
@@ -90,6 +91,12 @@ export const SellerRegistrationWizard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [otp, setOtp] = useState('');
+  const [emailOtp, setEmailOtp] = useState('');
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [leadId, setLeadId] = useState('');
+  const [contactVerified, setContactVerified] = useState(false);
+  const [callbackConsent, setCallbackConsent] = useState(false);
+  const [callbackRequested, setCallbackRequested] = useState(false);
   const [token, setToken] = useState('');
   const [applicationCreated, setApplicationCreated] = useState(false);
   const [submissionComplete, setSubmissionComplete] = useState(false);
@@ -181,16 +188,7 @@ export const SellerRegistrationWizard: React.FC = () => {
   };
 
   const submitRegistration = async () => {
-    if (!otpStep) {
-      const check = await bazaarApi.checkRegistration(email.trim().toLowerCase(), phone.replace(/\D/g, ''), 'SELLER');
-      if (!check.success) throw new Error(check.message || 'Unable to validate account details');
-      const sent = await bazaarApi.sendOtp(email.trim().toLowerCase(), 'EMAIL', 'REGISTER');
-      if (!sent.success) throw new Error(sent.message || 'Unable to send verification code');
-      setOtpStep(true);
-      showToast('Verification code sent to your email', 'info');
-      return;
-    }
-    if (otp.replace(/\D/g, '').length !== 6) throw new Error('Enter the complete six-digit email OTP');
+    if (!leadId || !contactVerified) throw new Error('Verify both email and mobile before completing seller registration');
     const response = await bazaarApi.verifyOtp({
       mode: 'REGISTER', name: name.trim(), role: 'seller', locality, address,
       storeName: storeName.trim(), category, businessType,
@@ -201,7 +199,7 @@ export const SellerRegistrationWizard: React.FC = () => {
       agreementAccepted, agreementVersion: 'seller-terms-2026-11-01',
       latitude: location?.latitude, longitude: location?.longitude,
       formattedAddress: location?.formattedAddress, placeId: location?.placeId,
-      email: email.trim().toLowerCase(), phone: phone.replace(/\D/g, ''), emailOtp: otp.replace(/\D/g, '')
+      email: email.trim().toLowerCase(), phone: phone.replace(/\D/g, ''), leadId
     });
     if (!response.success || !response.token || !response.user) throw new Error(response.message || 'Seller registration failed');
     setToken(response.token);
@@ -324,6 +322,37 @@ export const SellerRegistrationWizard: React.FC = () => {
     try {
       if (authMode === 'signin') { await handleSignIn(); return; }
       validateStep();
+      if (step === 1 && !contactVerified) {
+        setLoading(true);
+        const normalizedEmail = email.trim().toLowerCase();
+        const normalizedPhone = phone.replace(/\D/g, '');
+        if (!leadId) {
+          const check = await bazaarApi.checkRegistration(normalizedEmail, normalizedPhone, 'SELLER');
+          if (!check.success) throw new Error(check.message || 'Unable to validate account details');
+          const lead = await sellerOnboardingApi.start(name.trim(), normalizedEmail, normalizedPhone);
+          setLeadId(lead.leadId);
+        }
+        if (!otpStep) {
+          const emailSent = await bazaarApi.sendOtp(normalizedEmail, 'EMAIL', 'REGISTER');
+          if (!emailSent.success) throw new Error(emailSent.message || 'Unable to send email verification code');
+          const phoneSent = await bazaarApi.sendOtp(normalizedPhone, 'PHONE', 'REGISTER');
+          if (!phoneSent.success) throw new Error(phoneSent.message || 'Unable to send mobile verification code. SMS delivery may not be configured yet.');
+          setOtpStep(true);
+          showToast('Verification codes sent to your email and mobile.', 'info');
+          return;
+        }
+        if (emailOtp.replace(/\D/g, '').length !== 6 || phoneOtp.replace(/\D/g, '').length !== 6) {
+          throw new Error('Enter both six-digit verification codes');
+        }
+        const verified = await sellerOnboardingApi.verifyContact(leadId, emailOtp.replace(/\D/g, ''), phoneOtp.replace(/\D/g, ''));
+        if (!verified.success) throw new Error('Unable to verify both contact methods');
+        setContactVerified(true);
+        setOtpStep(false);
+        setEmailOtp('');
+        setPhoneOtp('');
+        showToast('Email and mobile verified. You can continue with your shop details.', 'success');
+        return;
+      }
       if (step < 5) {
         setStep((step + 1) as Step);
         return;
@@ -335,6 +364,19 @@ export const SellerRegistrationWizard: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCallbackRequest = async () => {
+    if (!leadId || !callbackConsent) return;
+    setLoading(true); setError('');
+    try {
+      const result = await sellerOnboardingApi.requestCallback(leadId, true);
+      if (!result.success) throw new Error(result.message || 'Unable to request a callback');
+      setCallbackRequested(true);
+      showToast('Callback request sent to the KuraliUpdates team.', 'success');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to request a callback');
+    } finally { setLoading(false); }
   };
 
   const retryDocuments = async () => {
@@ -394,7 +436,7 @@ export const SellerRegistrationWizard: React.FC = () => {
           ) : (
           !otpStep ? (
             <div className="space-y-4">
-              {step === 1 && <div className="grid gap-4 sm:grid-cols-2"><Field label={t.name}>{control(name,setName,{autoComplete:'name',placeholder:'Full name'})}</Field><Field label={t.email}>{control(email,setEmail,{type:'email',autoComplete:'email',placeholder:'name@example.com'})}</Field><Field label={t.phone}>{control(phone,setPhone,{type:'tel',inputMode:'numeric',maxLength:10,placeholder:'10-digit mobile number'})}</Field></div>}
+              {step === 1 && <div className="space-y-4"><div className="grid gap-4 sm:grid-cols-2"><Field label={t.name}>{control(name,setName,{autoComplete:'name',placeholder:'Full name'})}</Field><Field label={t.email}>{control(email,setEmail,{type:'email',autoComplete:'email',placeholder:'name@example.com',disabled:contactVerified})}</Field><Field label={t.phone}>{control(phone,setPhone,{type:'tel',inputMode:'numeric',maxLength:10,placeholder:'10-digit mobile number',disabled:contactVerified})}</Field></div>{contactVerified ? <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-sm font-bold text-emerald-800"><CheckCircle2 className="mr-1 inline h-4 w-4"/>Email and mobile verified</p><label className="flex items-start gap-2 text-xs text-slate-700"><input type="checkbox" checked={callbackConsent} onChange={event=>setCallbackConsent(event.target.checked)} className="mt-0.5"/><span>I agree that KuraliUpdates may call me to help complete my seller registration.</span></label>{callbackConsent && <button type="button" onClick={handleCallbackRequest} disabled={loading||callbackRequested} className="rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800">{callbackRequested?'Callback requested':'Request a registration assistance call'}</button>}</div> : <p className="text-xs text-slate-500">We verify both contact methods before collecting shop and business details.</p>}</div>}
               {step === 2 && <div className="grid gap-4 sm:grid-cols-2"><Field label={t.shop}>{control(storeName,setStoreName,{placeholder:'Shop name'})}</Field><Field label={t.category}><select value={category} onChange={event=>setCategory(event.target.value)} className={inputClass}><option value="">Select category</option>{CATEGORIES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></Field><Field label={t.constitution}><select value={businessType} onChange={event=>setBusinessType(event.target.value as BusinessType)} className={inputClass}><option value="INDIVIDUAL">Individual</option><option value="PROPRIETORSHIP">Proprietorship</option><option value="PARTNERSHIP">Partnership</option><option value="COMPANY">Company / LLP</option></select></Field>{businessType!=='INDIVIDUAL'&&<Field label={t.legalName}>{control(registeredBusinessName,setRegisteredBusinessName,{placeholder:'Name as per registration'})}</Field>}</div>}
               {step === 3 && <div className="space-y-4"><p className="rounded-xl bg-blue-50 p-3 text-xs text-blue-900">{t.radius} {serviceArea?.enabled ? `Configured radius: ${serviceArea.radiusKm} km.` : serviceAreaError || 'Seller registration is currently unavailable until the service area is configured.'}</p><div className="grid gap-4 sm:grid-cols-2"><Field label={t.locality}><select value={locality} onChange={event=>setLocality(event.target.value)} className={inputClass}>{KURALI_LOCALITIES.map(item=><option key={item}>{item}</option>)}</select></Field><Field label={t.address}>{control(address,setAddress,{placeholder:'Landmark or additional address'})}</Field><Field label={t.shopNumber}>{control(shopNumber,setShopNumber)}</Field><Field label={t.ward}>{control(wardNumber,setWardNumber)}</Field><Field label={t.street}>{control(streetLocality,setStreetLocality)}</Field><Field label={t.pin}>{control(pinCode,setPinCode,{inputMode:'numeric',maxLength:6,placeholder:'140103'})}</Field></div><div><p className="mb-2 text-xs font-bold text-slate-700">{t.map}</p><LocationPicker value={location} onChange={setLocation} purpose="shop" initialCenter={serviceArea ? { latitude: serviceArea.centerLatitude, longitude: serviceArea.centerLongitude } : undefined}/></div></div>}
               {step === 4 && <div className="space-y-4"><Field label={t.gst}>{control(gstNumber,setGstNumber,{maxLength:15,placeholder:'15-character GSTIN',onChange:undefined})}</Field>{gstNumber.trim()&&<Field label={t.gstDoc}><input type="file" accept="application/pdf,image/jpeg,image/png" onChange={event=>setGstCertificate(event.target.files?.[0]||null)} className={inputClass}/></Field>}<div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900">{t.foodNote}</div>{isFood&&<><Field label={t.fssai}>{control(fssaiNumber,setFssaiNumber,{maxLength:14,placeholder:'14-digit FSSAI number'})}</Field><Field label={t.fssaiType}><select value={fssaiLicenseType} onChange={event=>setFssaiLicenseType(event.target.value)} className={inputClass}><option value="">Select licence type if applicable</option><option>Basic Registration</option><option>State Licence</option><option>Central Licence</option></select></Field><Field label={t.fssaiDoc}><input type="file" accept="application/pdf,image/jpeg,image/png" onChange={event=>setFssaiCertificate(event.target.files?.[0]||null)} className={inputClass}/></Field></>}</div>}
@@ -402,7 +444,7 @@ export const SellerRegistrationWizard: React.FC = () => {
               <div className="flex flex-wrap gap-3 pt-2">{draftSession && <button type="button" onClick={() => void saveSellerDraft()} disabled={draftBusy || loading} className="min-h-11 rounded-xl border border-blue-300 bg-blue-50 px-4 text-xs font-bold text-blue-900 disabled:opacity-50">{draftBusy ? 'Saving…' : 'Save draft'}</button>}{step>1&&<button type="button" onClick={()=>setStep((step-1) as Step)} disabled={loading} className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-bold text-slate-700">{t.back}</button>}<button type="button" onClick={handleContinue} disabled={loading||!serviceArea?.enabled} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-600 px-5 text-sm font-black text-white disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<ArrowRight className="h-4 w-4"/>}{step<5?t.next:t.send}</button></div>
             </div>
           ) : (
-            <div className="space-y-4"><div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{t.otp}</div><Field label="6-digit OTP"><input value={otp} onChange={event=>setOtp(event.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} className={inputClass}/></Field><div className="flex gap-3"><button type="button" onClick={()=>setOtpStep(false)} className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-bold">{t.back}</button><button type="button" onClick={handleContinue} disabled={loading} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<CheckCircle2 className="h-4 w-4"/>}{t.verify}</button></div></div>
+            <div className="space-y-4"><div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Enter the six-digit codes sent to both your email address and mobile number. Both must be verified before you can enter business details.</div><Field label="Email verification code"><input value={emailOtp} onChange={event=>setEmailOtp(event.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} className={inputClass}/></Field><Field label="Mobile verification code"><input value={phoneOtp} onChange={event=>setPhoneOtp(event.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} className={inputClass}/></Field><div className="flex gap-3"><button type="button" onClick={()=>{setOtpStep(false);setEmailOtp('');setPhoneOtp('');}} className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-bold">{t.back}</button><button type="button" onClick={handleContinue} disabled={loading} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<CheckCircle2 className="h-4 w-4"/>}Verify both contacts</button></div></div>
           )
           )}
         </div>
