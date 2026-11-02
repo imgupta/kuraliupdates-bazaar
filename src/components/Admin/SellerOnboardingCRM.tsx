@@ -4,7 +4,7 @@ import { Phone, RefreshCw, Search, MessageSquare, UserRoundCheck } from 'lucide-
 
 type Lead = {
   leadId: string; ownerName: string; email: string; phone: string; status: string;
-  emailVerified: boolean; phoneVerified: boolean; contactConsent: boolean;
+  emailVerified: boolean; phoneVerified: boolean; emailOtpSkipped: boolean; phoneOtpSkipped: boolean; emailOtpRequired: boolean; phoneOtpRequired: boolean; contactConsent: boolean;
   callbackRequested: boolean; assignedTo?: string; callbackAt?: string; createdAt?: string;
 };
 
@@ -110,17 +110,17 @@ export const SellerOnboardingCRM: React.FC = () => {
       <div className="overflow-hidden rounded-2xl border bg-white">
         {leads.length===0 ? <p className="p-6 text-sm text-slate-500">{busy?'Loading leads…':'No matching seller leads.'}</p> : <div className="divide-y">{leads.map(lead=><button key={lead.leadId} type="button" onClick={()=>setSelected(lead)} className={`block w-full p-4 text-left hover:bg-amber-50 ${selected?.leadId===lead.leadId?'bg-amber-50':''}`}>
           <div className="flex items-start justify-between gap-2"><div><p className="font-bold text-slate-900">{lead.ownerName}</p><p className="mt-1 text-xs text-slate-600">{lead.email} · {lead.phone}</p></div><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold">{lead.status}</span></div>
-          <div className="mt-2 flex flex-wrap gap-2 text-[10px]"><span className={lead.emailVerified?'text-emerald-700':'text-amber-700'}>Email {lead.emailVerified?'verified':'unverified'}</span><span className={lead.phoneVerified?'text-emerald-700':'text-amber-700'}>Mobile {lead.phoneVerified?'verified':'unverified'}</span>{lead.callbackRequested&&<span className="font-bold text-rose-700">Callback requested</span>}</div>
+          <div className="mt-2 flex flex-wrap gap-2 text-[10px]"><span className={lead.emailVerified||lead.emailOtpSkipped?'text-emerald-700':'text-amber-700'}>Email {lead.emailVerified?'verified':lead.emailOtpSkipped?'OTP not required':'unverified'}</span><span className={lead.phoneVerified||lead.phoneOtpSkipped?'text-emerald-700':'text-amber-700'}>Mobile {lead.phoneVerified?'verified':lead.phoneOtpSkipped?'OTP not required':'unverified'}</span>{lead.callbackRequested&&<span className="font-bold text-rose-700">Callback requested</span>}</div>
         </button>)}</div>}
       </div>
       <div className="rounded-2xl border bg-white p-4">
         {!selected ? <div className="py-10 text-center text-sm text-slate-500">Select a lead to view the calling workflow.</div> : <div className="space-y-4">
           <div><h3 className="text-lg font-black">{selected.ownerName}</h3><p className="text-xs text-slate-500">{selected.leadId}</p></div>
           <div className="flex flex-wrap gap-2">
-            <a href={selected.contactConsent&&selected.phoneVerified?`tel:${selected.phone}`:undefined} onClick={e=>{if(!selected.contactConsent||!selected.phoneVerified)e.preventDefault();}} aria-disabled={!selected.contactConsent||!selected.phoneVerified} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white"><Phone className="h-3 w-3"/>Call merchant</a>
-            <a href={selected.contactConsent&&selected.emailVerified?`mailto:${selected.email}`:undefined} onClick={e=>{if(!selected.contactConsent||!selected.emailVerified)e.preventDefault();}} aria-disabled={!selected.contactConsent||!selected.emailVerified} className="rounded-lg border px-3 py-2 text-xs font-bold">Email</a>
+            <a href={selected.contactConsent&&(selected.phoneVerified||selected.phoneOtpSkipped)?`tel:${selected.phone}`:undefined} onClick={e=>{if(!selected.contactConsent||(!selected.phoneVerified&&!selected.phoneOtpSkipped))e.preventDefault();}} aria-disabled={!selected.contactConsent||!selected.phoneVerified} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white"><Phone className="h-3 w-3"/>Call merchant</a>
+            <a href={selected.contactConsent&&(selected.emailVerified||selected.emailOtpSkipped)?`mailto:${selected.email}`:undefined} onClick={e=>{if(!selected.contactConsent||(!selected.emailVerified&&!selected.emailOtpSkipped))e.preventDefault();}} aria-disabled={!selected.contactConsent||!selected.emailVerified} className="rounded-lg border px-3 py-2 text-xs font-bold">Email</a>
           </div>
-          {(!selected.contactConsent||!selected.phoneVerified)&&<p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">Contact is disabled until the applicant verifies their mobile and explicitly consents to a callback.</p>}
+          {(!selected.contactConsent||(!selected.phoneVerified&&!selected.phoneOtpSkipped))&&<p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">Contact is disabled until the applicant verifies their mobile and explicitly consents to a callback.</p>}
           <label className="block text-xs font-bold">Assigned admin / agent<input value={assignedTo} onChange={e=>setAssignedTo(e.target.value)} className="mt-1 w-full rounded-lg border p-2 text-sm" placeholder="Admin name or team member"/></label>
           <label className="block text-xs font-bold">Follow-up date & time<input type="datetime-local" value={followUpAt} onChange={e=>setFollowUpAt(e.target.value)} className="mt-1 w-full rounded-lg border p-2 text-sm"/></label>
           <button type="button" onClick={updateLead} disabled={busy} className="w-full rounded-lg bg-amber-600 p-2.5 text-xs font-black text-white"><UserRoundCheck className="mr-1 inline h-4 w-4"/>Save assignment / follow-up</button>
