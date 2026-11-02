@@ -184,9 +184,19 @@ jobs:
           const values = Object.fromEntries(lines.map(line => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
           values.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED = trusted && values.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED === 'true' ? 'true' : 'false';
           values.E2E_TRANSACTIONAL_FLOWS_ENABLED = trusted && values.E2E_TRANSACTIONAL_FLOWS_ENABLED === 'true' ? 'true' : 'false';
-          // These token values are nested inside a JSON secret, so GitHub does not mask them individually.
-          // Register masks before exporting them for later steps, without changing the configured secrets.
-          for (const key of ['E2E_OTP_CAPTURE_TOKEN', 'E2E_FLOW_AUTH_TOKEN']) {
+          // Values nested in the JSON secret are not individually masked by GitHub.
+          // Mask tokens, test identities, contact details and fixture identifiers before
+          // exporting them; subsequent Actions step environment summaries then redact them.
+          const sensitiveKeys = [
+            'E2E_OTP_CAPTURE_TOKEN', 'E2E_FLOW_AUTH_TOKEN',
+            'E2E_BUYER_IDENTITY', 'E2E_SELLER_IDENTITY', 'E2E_DELIVERY_IDENTITY',
+            'E2E_PROVIDER_IDENTITY', 'E2E_ADMIN_IDENTITY',
+            'E2E_FLOW_BUYER_PHONE', 'E2E_FLOW_BUYER_EMAIL',
+            'E2E_FLOW_PRODUCT_ID', 'E2E_FLOW_SELLER_ID', 'E2E_FLOW_DELIVERY_AGENT_ID',
+            'E2E_FLOW_DAILY_HELP_SERVICE_ID', 'E2E_FLOW_DAILY_HELP_SLOT_ID',
+            'E2E_FLOW_PROFESSIONAL_ID'
+          ];
+          for (const key of sensitiveKeys) {
             const value = values[key];
             if (value) console.log('::add-mask::' + value.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A'));
           }
@@ -264,13 +274,17 @@ jobs:
           fi
           test "$E2E_ENVIRONMENT" = "staging" || { echo "Refusing transactional E2E unless E2E_ENVIRONMENT=staging"; exit 1; }
           test "$E2E_API_BASE_URL" = "https://kuraliupdates-bazaar.onrender.com/api/v1" || { echo "Refusing transactional E2E against an unapproved API"; exit 1; }
-          required=(E2E_FLOW_AUTH_TOKEN E2E_BUYER_IDENTITY E2E_SELLER_IDENTITY E2E_DELIVERY_IDENTITY E2E_PROVIDER_IDENTITY E2E_FLOW_BUYER_PHONE E2E_FLOW_BUYER_EMAIL E2E_FLOW_PRODUCT_ID E2E_FLOW_SELLER_ID E2E_FLOW_DELIVERY_AGENT_ID E2E_FLOW_ORDER_QUANTITY E2E_FLOW_DAILY_HELP_SERVICE_ID E2E_FLOW_DAILY_HELP_SLOT_ID E2E_FLOW_PROFESSIONAL_ID E2E_FLOW_DAILY_HELP_START E2E_FLOW_DAILY_HELP_HOURS)
+          required=(E2E_FLOW_AUTH_TOKEN E2E_BUYER_IDENTITY E2E_SELLER_IDENTITY E2E_DELIVERY_IDENTITY E2E_PROVIDER_IDENTITY E2E_ADMIN_IDENTITY E2E_FLOW_BUYER_PHONE E2E_FLOW_BUYER_EMAIL E2E_FLOW_PRODUCT_ID E2E_FLOW_SELLER_ID E2E_FLOW_DELIVERY_AGENT_ID E2E_FLOW_ORDER_QUANTITY E2E_FLOW_DAILY_HELP_SERVICE_ID E2E_FLOW_DAILY_HELP_SLOT_ID E2E_FLOW_PROFESSIONAL_ID E2E_FLOW_DAILY_HELP_START E2E_FLOW_DAILY_HELP_HOURS)
           missing=()
           for name in "${required[@]}"; do
             if [ -z "${!name:-}" ]; then missing+=("$name"); fi
           done
           if [ "${#missing[@]}" -gt 0 ]; then
             printf 'Transactional E2E enabled but missing required secrets/variables: %s\n' "${missing[*]}"
+            exit 1
+          fi
+          if [ "${E2E_SELLER_IDENTITY,,}" = "${E2E_ADMIN_IDENTITY,,}" ]; then
+            echo "Seller lifecycle E2E requires separate dedicated seller and admin identities."
             exit 1
           fi
           for key in E2E_FLOW_PRODUCT_ID E2E_FLOW_SELLER_ID E2E_FLOW_DELIVERY_AGENT_ID E2E_FLOW_DAILY_HELP_SERVICE_ID E2E_FLOW_DAILY_HELP_SLOT_ID E2E_FLOW_PROFESSIONAL_ID; do
