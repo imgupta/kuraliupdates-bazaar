@@ -85,11 +85,24 @@ async function waitForApiLiveness() {
       Math.min(timeoutMs, 15000),
     );
 
+    // Render currently deploys main with PR previews disabled. Until the new
+    // liveness route is deployed there, accept the existing public OpenAPI route
+    // as a database-independent compatibility probe on the shared staging service.
+    if (!lastResult.ok && lastResult.status === 404) {
+      const fallback = await request(
+        "/v3/api-docs",
+        success,
+        "API HTTP liveness (OpenAPI compatibility fallback)",
+        Math.min(timeoutMs, 15000),
+      );
+      if (fallback.ok) lastResult = fallback;
+    }
+
     if (lastResult.ok) {
       lastResult.attempts = attempts;
       lastResult.waitedMs = Date.now() - startedAt;
       results.push(lastResult);
-      console.log(`API process became reachable after ${Math.round(lastResult.waitedMs / 1000)}s (${attempts} probe(s)); database health was not checked.`);
+      console.log(`${lastResult.label} succeeded after ${Math.round(lastResult.waitedMs / 1000)}s (${attempts} readiness cycle(s)); database health was not checked.`);
       return true;
     }
 
