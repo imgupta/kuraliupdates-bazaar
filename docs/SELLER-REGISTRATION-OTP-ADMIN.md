@@ -1,25 +1,25 @@
-# Seller registration OTP administration
+# Customer and seller registration OTP administration
 
 ## Purpose
-Allow an authorized KuraliUpdates admin to independently control email and mobile OTP requirements for new seller registrations. This is a seller-onboarding control only; it does not alter buyer registration/login, seller login, payments, order confirmation, or existing seller accounts.
+Allow an authorized KuraliUpdates admin to independently control email and mobile OTP requirements for new buyer (customer) and seller registrations. The controls affect signup only; buyer/seller login OTP, payments, order confirmation and existing accounts are unchanged.
 
 ## Admin UI
-Open Admin Portal → Marketplace & Merchants → Registration OTP controls.
+Open Admin Portal → Marketplace & Merchants → Customer & seller OTP controls.
 
 - Email OTP verification: independently ON/OFF.
 - Mobile OTP verification: independently ON/OFF.
 - Save persists the settings in Oracle.
-- Both OFF: applicants can submit contact details and continue to business details without an OTP challenge.
-- One ON: only that channel receives a code and is required.
-- Both ON: both channels are required.
+- Both OFF: buyer applicants can create their account without an OTP challenge; seller applicants can continue from contact details to business details without an OTP challenge.
+- One ON: only that channel receives a code and is required for both buyer and seller signup.
+- Both ON: both channels are required for both buyer and seller signup.
 
 ## Backend enforcement
-- Public read endpoint: `GET /seller-registration/otp-settings` (only exposes whether each OTP is required).
+- Public read endpoints: `GET /registration/otp-settings` and `GET /seller-registration/otp-settings` (only expose whether each OTP is required).
 - Admin read endpoint: `GET /admin/seller-registration/otp-settings`.
 - Admin update endpoint: `PUT /admin/seller-registration/otp-settings` with `emailOtpEnabled` and `mobileOtpEnabled` booleans. Protected by the existing ADMIN role rule.
-- A new lead snapshots the two settings when created. Changing settings later applies to new leads only; it does not silently waive an in-progress applicant's already-required verification. Existing leads created before V28 retain the previous dual-OTP requirement through migration backfill.
+- A new seller lead snapshots the two settings when created. Buyer signup reads the current settings when the registration form starts. Changing settings later applies to new leads only; it does not silently waive an in-progress applicant's already-required verification. Existing leads created before V28 retain the previous dual-OTP requirement through migration backfill.
 - The lead records each channel as verified or OTP-not-required. The CRM displays these states distinctly.
-- Seller provisioning checks both channel requirements server-side. A disabled channel is recorded as OTP-not-required, not falsely labelled as verified.
+- Buyer account creation checks both channel requirements server-side. Seller provisioning checks both channel requirements server-side. A disabled channel is recorded as OTP-not-required, not falsely labelled as verified.
 - Callback requests still require explicit consent. CRM call/email links remain unavailable unless consent is recorded and the relevant channel is verified or OTP-not-required.
 
 ## Database
@@ -28,11 +28,11 @@ Flyway V28 creates `SELLER_REGISTRATION_OTP_CONFIG` with both switches defaulted
 ## Rollout checklist
 1. Apply V28 through the normal Render backend deployment and confirm Flyway reaches version 28.
 2. Sign in as an admin and confirm both controls initially show OFF.
-3. Create a synthetic seller lead and confirm no email/SMS is sent and the applicant can continue.
-4. Turn email ON only; verify email is required while mobile is marked OTP-not-required.
-5. Turn mobile ON only; verify mobile is required while email is marked OTP-not-required.
-6. Turn both ON; verify both channels are required.
-7. Confirm an existing in-progress lead retains its original snapshot after settings are changed.
+3. Create a synthetic buyer and seller registration with both OFF; confirm no email/SMS is sent and both can complete signup.
+4. Turn email ON only; verify buyer and seller signup require email only.
+5. Turn mobile ON only; verify buyer and seller signup require mobile only.
+6. Turn both ON; verify both channels are required for buyer and seller signup.
+7. Confirm an existing in-progress seller lead retains its original snapshot after settings are changed.
 8. Confirm buyer and seller sign-in OTP flows are unaffected.
 
 Do not enable SMS until the applicable government/provider restrictions and approved messaging templates permit it. The setting is an operational switch, not a legal-compliance determination.
