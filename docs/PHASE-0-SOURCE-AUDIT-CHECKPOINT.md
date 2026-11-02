@@ -756,3 +756,13 @@ Read-only Render inspection of service `srv-db0fv9egekts739hfa6g` in workspace `
 | CI for audit head | **Passed** | Workflow run 41532356166 successful; does not prove runtime/database |
 
 **Exit decision:** Phase 0 is **not complete yet**. The user's acceptance of dev-region Singapore removes only the dev-hosting-region item from the blockers. Secret rotation is deferred and explicitly remains a production-critical action. The active blocker is the failed V30 Oracle migration and unverified healthy runtime; exhaustive source traceability also needs completion before the audit can be called complete. No destructive Oracle repair was attempted.
+
+
+### Additional Oracle log detail (captured 2026-11-03)
+
+- The first failed V30 execution occurred at 2026-11-02 20:16:27 UTC. Render recorded `Migration V30__allow_seller_registration_otp_types.sql failed`, Oracle `ORA-06550: line 20, column 1`, with the failing script location under `db/migration/V30__allow_seller_registration_otp_types.sql`.
+- The same startup log reports the database as `Oracle 23.0` and warns Flyway `10.10.0` reports tested support only through Oracle `21.3`.
+- At 20:18, 20:20, 20:22 and 20:24 UTC the next application starts fail with Flyway validation errors because a failed migration is present. Later restarts at approximately 21:55 UTC report failed version 30 again.
+- The current V30 SQL uses an anonymous PL/SQL block that dynamically drops CHECK constraints, immediately followed by an ALTER TABLE to add a replacement CHECK. The Oracle error points to line 20/column 1, but the available log message does not include the complete PLS-xxxx diagnostic or prove whether the PL/SQL block, statement boundary, or following DDL caused it. Treat the exact SQL root cause as **not yet conclusively identified**; do not guess a delimiter or edit the migration based on the truncated error.
+- Required safe next diagnostic: obtain the full Oracle exception stack including any PLS-xxxx message and query-only evidence for `USER_CONSTRAINTS` / `ALL_CONSTRAINTS` on `AUTH_OTPS` and the exact V30 row in Flyway history. Confirm backup/restore point before any DDL or history repair.
+- Compatibility action: validate a supported Flyway version / Oracle 23 compatibility matrix in an isolated database clone before upgrading Flyway. Do not change the production/staging Flyway dependency solely to suppress this warning; test all existing V14–V30 migrations and baseline behavior first.
