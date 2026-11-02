@@ -26,9 +26,9 @@ Before every coding, refactoring, review, test or release task, read [ENGINEERIN
 
 ## Production hosting and data residency
 
-Production target is India for application compute, primary database and production data storage. Read-only Render service inspection on 3 Nov 2026 verified the backend service region as Singapore; the static frontend is CDN-served with no single region exposed in its service details. Oracle DB, backups and other vendor regions remain unknown. This target is not current state; current backend is not India-hosted. Before production approval, inventory actual regions for app, DB/replicas, documents/object storage, backups, logs, CDN/cache, analytics, email/SMS, support access and disaster recovery; assess subprocessors and transfers. No real customer/seller/worker data in non-approved staging. See INDIA-PR-GOVERNANCE.md.
+Production target is India for application compute, primary database and production data storage. Read-only Render inspection verified the development backend in Singapore; the static frontend is CDN-served with no single region exposed. Oracle DB, backups and other vendor regions remain unknown. This is acceptable for development/staging; do not migrate the dev environment solely for India residency. Production must use verified India locations and separately assessed vendor/CDN flows. Before production approval, inventory actual regions for app, DB/replicas, documents/object storage, backups, logs, CDN/cache, analytics, email/SMS, support access and disaster recovery; assess subprocessors and transfers. No real customer/seller/worker data in non-approved staging. See INDIA-PR-GOVERNANCE.md.
 
-## Discovery documents
+## Documentation deliverables\n\nEvery code-changing PR updates source-backed canonical Markdown for affected UI, routes, APIs, services, data, integrations, security, architecture and operations. UI specs include exact labels/fields/layout/interactions/responsive states; API specs include contracts/authz/data/transaction/error flows. Word/PDF/PPT packs are generated on demand from the current commit and canonical docs, with source/evidence references. See [Codebase Documentation Standard](CODEBASE-DOCUMENTATION-STANDARD.md).\n\n## Discovery documents
 
 - [Current implementation status](CURRENT-STATE.md)
 - [Low-cost implementation plan](LOW-COST-MICROFRONTEND-MICROSERVICES-IMPLEMENTATION-PLAN.md)
@@ -37,7 +37,7 @@ Production target is India for application compute, primary database and product
 - [Backend service dependency map](SERVICE-DEPENDENCY-MAP.md)
 - [Data ownership and transaction matrix](DATA-OWNERSHIP-MATRIX.md)
 - [Engineering operating standard](ENGINEERING-OPERATING-STANDARD.md)
-- [Mandatory India PR governance](INDIA-PR-GOVERNANCE.md)
+- [Mandatory India PR governance](INDIA-PR-GOVERNANCE.md)\n- [Codebase documentation standard](CODEBASE-DOCUMENTATION-STANDARD.md)
 - [India legal/regulatory/security register](INDIA-LEGAL-REGULATORY-AND-SECURITY-REGISTER.md)
 
 ## Phase 0 status
