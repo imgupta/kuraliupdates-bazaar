@@ -436,7 +436,7 @@ public class AuthService {
                     .openingTime(defaultString(req.openingTime())).closingTime(defaultString(req.closingTime()))
                     .weeklyClosedDay(defaultString(req.weeklyClosedDay())).preparationMinutes(req.preparationMinutes())
                     .agreementVersion(req.agreementVersion()).agreementAcceptedAt(now)
-                    .distanceKm(BigDecimal.valueOf(sellerServiceAreaService.validateSellerLocation(req.latitude(), req.longitude()).distanceKm())).rating(BigDecimal.ZERO).reviewCount(0)
+                    .distanceKm(BigDecimal.ONE).rating(BigDecimal.ZERO).reviewCount(0)
                     .status("PENDING").registeredAt(now)
                     .minOrderForFreeDelivery(BigDecimal.valueOf(499)).baseDeliveryFee(BigDecimal.valueOf(35))
                     .description("Merchant application awaiting Kurali admin approval.").build());
