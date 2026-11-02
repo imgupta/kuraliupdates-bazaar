@@ -13,3 +13,12 @@ The Admin Portal displays the latest 20 changes. The endpoint `GET /admin/seller
 - Verify existing seller leads retain their original OTP requirement snapshot.
 - Verify login OTP, payment verification and existing accounts are unchanged.
 - Exercise OTP resend cooldown and failed-attempt lockout; the existing OTP service enforces cooldown and a five-attempt limit.
+
+
+## Merge and verification record
+
+- PR: [#219](https://github.com/imgupta/kuraliupdates-bazaar/pull/219)
+- Status: merged to `main` on 3 November 2026.
+- Merge commit: `9b2e51fbf20aa4f8f3d421d0725a4c9bee99624a`.
+- PR CI: Spring Boot verification, frontend lint/production build, backend tests, frontend checks, and browser E2E/read-only smoke checks all passed.
+- Deployment/database status: not established by PR CI. Confirm Render rollout and Flyway V29 application to the intended Oracle schema before treating the audit feature as live. Complete the acceptance checks above in staging and record evidence.
