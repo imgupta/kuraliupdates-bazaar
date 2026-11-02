@@ -60,9 +60,9 @@ public class SellerRegistrationDraftService {
         Map<String, Object> safe = new java.util.LinkedHashMap<>();
         input.forEach((key, value) -> {
             String normalized = key == null ? "" : key.replaceAll("[^A-Za-z0-9]", "").toLowerCase(java.util.Locale.ROOT);
-            if (Set.of("otp", "emailotp", "token", "accesstoken", "refreshtoken",
-                    "shopfrontphoto", "gstcertificate", "fssaicertificate", "file", "files",
-                    "documentdata", "documentbytes", "base64").contains(normalized)) return;
+            if (normalized.contains("otp") || normalized.contains("token")
+                    || Set.of("shopfrontphoto", "gstcertificate", "fssaicertificate", "file", "files",
+                    "documentdata", "documentbytes", "base64", "binarycontent").contains(normalized)) return;
             if (value instanceof Map<?, ?> nested) {
                 Map<String, Object> child = new java.util.LinkedHashMap<>();
                 nested.forEach((childKey, childValue) -> {
