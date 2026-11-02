@@ -1,9 +1,17 @@
 # Current implementation status and remaining work
 
-**Last reconciled:** 2 November 2026  
-**Repository baseline:** main commit `1a44fb45da9f0061d8e9c902c825770662b9fd11` (seller compliance onboarding / private Oracle BLOB documents).
+**Last reconciled:** 3 November 2026  
+**Repository baseline:** `main` includes PR #219, squash merge `9b2e51fbf20aa4f8f3d421d0725a4c9bee99624a` (registration OTP audit history).
 
 This page distinguishes merged source from deployed/runtime verification. Recheck provider status before treating dated deployment observations as current.
+
+## Latest merged change — PR #219 (3 Nov 2026)
+
+- PR [#219](https://github.com/imgupta/kuraliupdates-bazaar/pull/219) is merged to `main` as `9b2e51fbf20aa4f8f3d421d0725a4c9bee99624a`.
+- Adds append-only Oracle audit history for effective buyer/seller registration email/mobile OTP policy changes, including before/after values, authenticated admin identity and timestamp.
+- Adds the ADMIN-protected history endpoint and latest-20 admin UI history view; public settings remain limited to the two required booleans.
+- Verification on the PR head passed: Spring Boot verification, frontend lint/production build, backend tests, frontend checks, and browser E2E/read-only smoke checks.
+- These CI results do **not** establish that V29 has been applied to the target Oracle schema or that the production/staging runtime is deployed and functionally verified. Those remain release gates.
 
 ## Implemented in source / merged
 
@@ -14,6 +22,8 @@ This page distinguishes merged source from deployed/runtime verification. Rechec
 - Delivery agent approval, server-authoritative job claim/OTP/status/payout flows; optional combined routing/store-pickup paths require runtime feature/config verification.
 - Seller compliance onboarding fields, map location, shop-front photo, agreement acceptance and applicable GST/FSSAI document integration.
 - Oracle BLOB seller document storage and authenticated seller/admin document API; Flyway V14 source migration.
+- Independent buyer/seller registration email and mobile OTP switches (PR #218), default OFF/OFF, enforced by backend; Flyway V28.
+- Registration OTP policy audit history and admin UI (PR #219); Flyway V29. Existing OTP resend cooldown and five-attempt verification lockout remain unchanged.
 
 ## Assisted seller registration and CRM — implementation candidate
 
@@ -42,7 +52,7 @@ This is a planning baseline only. No application code, schema, hosting configura
 
 - [ ] Recheck exact main SHA and latest GitHub Actions conclusion.
 - [ ] Confirm Render deployment for that SHA reaches LIVE and inspect sanitized startup logs.
-- [ ] Confirm Flyway V14 is successfully applied to the intended Oracle schema.
+- [ ] Confirm Flyway V14, V28 and V29 are successfully applied to the intended Oracle schema.
 - [ ] Verify API readiness and database connectivity using read-only checks.
 - [ ] Do not run transactional E2E until database identity and isolated synthetic fixture ownership are proven.
 
@@ -87,6 +97,9 @@ This is a planning baseline only. No application code, schema, hosting configura
 - [ ] Review delivery-agent independent-contractor terms, safety/insurance and local compliance.
 
 ## Explicitly not to claim yet
+
+- PR #219 CI passing does not prove V29 has run on the configured database or that the new admin history endpoint has passed a live runtime smoke test.
+- The four buyer/seller OTP channel combinations, audit-row behavior, non-admin denial and login/payment isolation still require explicit staging acceptance evidence.
 
 - Seller onboarding is not fully operational until admin review UI, retry/recovery and security controls are complete.
 - V14 is not confirmed deployed until Render startup/database evidence confirms it.
