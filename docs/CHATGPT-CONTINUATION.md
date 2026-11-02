@@ -38,3 +38,9 @@ Keep this file short and current. It replaces the previous chronological debuggi
 
 ## Safety
 Do not run V13 or destructive reset routinely. Do not run transactional E2E against real/shared business records. Do not enable staging OTP capture before database target and dedicated identities are verified. Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller documents. Claim completion only when source, tests, CI and runtime evidence agree.
+
+## Architecture implementation plan
+
+- Follow [`LOW-COST-MICROFRONTEND-MICROSERVICES-IMPLEMENTATION-PLAN.md`](LOW-COST-MICROFRONTEND-MICROSERVICES-IMPLEMENTATION-PLAN.md) for the agreed five-portal / five-domain target, one-static-site frontend deployment, low-cost backend deployment modes, domain/data ownership, phase gates, tests, Docker requirements and rollback rules.
+- Initial backend decision: one Spring Boot runtime with five enforced domain modules (Mode A). Five JVM processes in one Docker image/container (Mode B) are optional only after memory, connection-pool, health, shutdown and failure testing; they share one deployment/failure domain and are not independently scalable.
+- This is a plan only. No application architecture, runtime, hosting, database or deployment has been changed by the documentation work.
