@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Loader2, Store } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertCircle, ArrowRight, CheckCircle2, Loader2, Store } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { KURALI_LOCALITIES } from '../../data/initialData';
 import { API_BASE_URL, bazaarApi } from '../../services/api';
@@ -116,7 +116,6 @@ export const SellerRegistrationWizard: React.FC = () => {
   const [serviceArea, setServiceArea] = useState<{ radiusKm: number; enabled: boolean } | null>(null);
 
   const isFood = FOOD_CATEGORIES.has(category);
-  const languageNames = useMemo(() => ({ en: 'English', pa: 'ਪੰਜਾਬੀ', hi: 'हिन्दी' }), []);
 
   useEffect(() => {
     let active = true;
@@ -167,7 +166,7 @@ export const SellerRegistrationWizard: React.FC = () => {
   };
 
   const submitRegistration = async () => {
-    if (!applicationCreated) {
+    if (!otpStep) {
       const check = await bazaarApi.checkRegistration(email.trim().toLowerCase(), phone.replace(/\D/g, ''), 'SELLER');
       if (!check.success) throw new Error(check.message || 'Unable to validate account details');
       const sent = await bazaarApi.sendOtp(email.trim().toLowerCase(), 'EMAIL', 'REGISTER');
