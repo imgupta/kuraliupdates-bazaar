@@ -5,6 +5,7 @@ import { KURALI_LOCALITIES } from '../../data/initialData';
 import { UserRole } from '../../types';
 import { bazaarApi } from '../../services/api';
 import { LocationPicker, DeliveryLocation } from './LocationPicker';
+import { SellerRegistrationWizard } from './SellerRegistrationWizard';
 
 type AuthMode = 'signin' | 'register';
 type ContactMethod = 'email' | 'phone';
@@ -13,7 +14,7 @@ interface AuthPageV2Props {
   registrationRole?: UserRole;
 }
 
-export const AuthPageV2: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer' }) => {
+const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer' }) => {
   const { loginWithOtp, registerUserWithOtp, showToast } = useApp();
   const roleRegistration = registrationRole === 'seller' || registrationRole === 'delivery' || registrationRole === 'professional';
 
@@ -659,3 +660,9 @@ const RoleRegistrationCard: React.FC<{
     <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-black">Register <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" /></span>
   </a>
 );
+
+
+export const AuthPageV2: React.FC<AuthPageV2Props> = (props) => {
+  if (props.registrationRole === 'seller') return <SellerRegistrationWizard />;
+  return <AuthPageV2Legacy {...props} />;
+};

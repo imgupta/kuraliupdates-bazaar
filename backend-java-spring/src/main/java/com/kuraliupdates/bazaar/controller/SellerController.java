@@ -19,9 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/sellers")
@@ -34,12 +32,9 @@ public class SellerController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    @Operation(summary = "Register new Kurali Shop (legacy endpoint)")
-    public ResponseEntity<SellerEntity> registerSeller(@RequestBody SellerEntity seller) {
-        seller.setSellerId("seller-" + UUID.randomUUID().toString().substring(0, 8));
-        seller.setStatus("PENDING");
-        seller.setRegisteredAt(LocalDateTime.now());
-        return ResponseEntity.ok(sellerRepository.save(seller));
+    @Operation(summary = "Legacy seller registration disabled; use OTP-verified seller onboarding")
+    public ResponseEntity<Void> registerSeller() {
+        return ResponseEntity.status(410).build();
     }
 
     @GetMapping("/me")

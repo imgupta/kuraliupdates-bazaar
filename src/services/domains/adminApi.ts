@@ -2,6 +2,49 @@ import { API_BASE_URL, adminAuthHeaders } from '../http/apiConfig';
 
 /** Domain-owned API operations; endpoint and fallback behavior retained from the legacy client. */
 export const adminApi = {
+  async getSellerDocuments(sellerId: string): Promise<any[]> {
+    const res = await fetch(`${API_BASE_URL}/admin/sellers/${encodeURIComponent(sellerId)}/documents`, { headers: adminAuthHeaders(), cache: 'no-store' });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to load seller documents (HTTP ${res.status})`);
+    return Array.isArray(data) ? data : [];
+  },
+
+  async getSellerDocument(sellerId: string, documentId: string): Promise<Blob> {
+    const res = await fetch(`${API_BASE_URL}/admin/sellers/${encodeURIComponent(sellerId)}/documents/${encodeURIComponent(documentId)}`, { headers: adminAuthHeaders(), cache: 'no-store' });
+    if (!res.ok) throw new Error(`Unable to download seller document (HTTP ${res.status})`);
+    return res.blob();
+  },
+
+  async verifySellerDocument(sellerId: string, documentId: string, status: 'VERIFIED' | 'REJECTED', reason?: string): Promise<any> {
+    const params = new URLSearchParams({ status });
+    if (reason) params.set('reason', reason);
+    const res = await fetch(`${API_BASE_URL}/admin/sellers/${encodeURIComponent(sellerId)}/documents/${encodeURIComponent(documentId)}/verification?${params}`, {
+      method: 'POST', headers: adminAuthHeaders(),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to update document verification (HTTP ${res.status})`);
+    return data;
+  },
+  async getSellerServiceArea(): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/seller-service-area`, {
+      headers: adminAuthHeaders(),
+      cache: 'no-store',
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.message || `Unable to load seller service area (HTTP ${response.status})`);
+    return data;
+  },
+
+  async updateSellerServiceArea(payload: { centerLatitude: number; centerLongitude: number; radiusKm: number; enabled: boolean }): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/seller-service-area`, {
+      method: 'PUT',
+      headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.message || `Unable to save seller service area (HTTP ${response.status})`);
+    return data;
+  },
   async getAdminDiagnostics(): Promise<any> {
       const res = await fetch(`${API_BASE_URL}/admin/diagnostics`, {
         headers: adminAuthHeaders(),
