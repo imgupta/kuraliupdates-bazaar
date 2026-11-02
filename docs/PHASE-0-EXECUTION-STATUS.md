@@ -4,7 +4,7 @@
 **PR:** [#228 — Phase 0 source audit checkpoint](https://github.com/imgupta/kuraliupdates-bazaar/pull/228)  
 **Branch:** `audit/phase-zero-source-inventory`  
 **Last checked:** 2026-11-03 (UTC)  
-**Disposition:** OPEN — do not authorize FE-1/BE-1 or broad refactoring yet.
+**Disposition:** OPEN — owner has instructed that Oracle/database execution be excluded from the current work tranche. Database and live-runtime verification remain explicitly deferred; do not represent them as passed.
 
 This file is the operational status companion to [PHASE-0-SOURCE-AUDIT-CHECKPOINT.md](./PHASE-0-SOURCE-AUDIT-CHECKPOINT.md). It separates source changes committed in this PR from evidence that requires a running staging service, Oracle access, or external review.
 
@@ -24,10 +24,10 @@ This file is the operational status companion to [PHASE-0-SOURCE-AUDIT-CHECKPOIN
 |---|---|---|
 | PR source changes | Changes committed to this PR branch | Implemented |
 | Preflight unit tests | Included in the successful Spring Boot Maven verification step on commit `bdf12fdfdbabb5299e06825caa4dfc79757278ac` | Passed in CI |
-| Spring Boot Maven verification | Completed successfully on commit `bdf12fdfdbabb5299e06825caa4dfc79757278ac` | Passed in CI |\n| Frontend lint, TypeScript and production build | All three steps completed successfully on the same commit | Passed in CI |\n| Remaining CI / E2E workflow | Workflow run is pending; no jobs returned yet | Pending |
-| Oracle preflight against staging | No Oracle SQL/console/connector access is exposed by the available Render integration | Not run |
-| V30 live migration history and constraint state | Render startup logs report Flyway validation failure for V30; exact Oracle row/DDL state remains unknown | Blocked on read-only Oracle evidence |
-| Normal Flyway-enabled startup and health | Latest recorded backend deployment failed; no healthy startup on this PR head | Not verified |
+| Spring Boot Maven verification | Completed successfully on commit `bdf12fdfdbabb5299e06825caa4dfc79757278ac` | Passed in CI |\n| Frontend lint, TypeScript and production build | All three steps completed successfully on the same commit | Passed in CI |\n| Browser E2E/read-only API smoke | Run `41535352177`: frontend and backend jobs passed; smoke job failed only at `/health` readiness after 15 probes / 360 seconds; browser tests were skipped | Blocked by unavailable backend/database runtime; database explicitly deferred by owner |
+| Oracle preflight against staging | Owner instructed to ignore database connectivity for this tranche | Deferred by owner; not passed |
+| V30 live migration history and constraint state | Exact Oracle row/DDL state remains unknown; historical Render logs show V30 Flyway validation failure | Deferred by owner; unresolved |
+| Normal backend startup and health | Latest known Render deployment failed; CI readiness endpoint timed out | Not verified; database/runtime deferred |
 | Registration negative authorization tests | Source audit identifies the need; approved staging execution evidence not attached | Open |
 | Exhaustive backend/frontend source inventories | Existing checkpoint contains targeted inventories and explicit gaps; not yet exhaustive | Open |
 | Production India-only hosting evidence | Development/staging Singapore is accepted; production resource-by-resource residency plan remains a launch gate | Open |
@@ -45,7 +45,7 @@ This proves the deployed `main` instance was failing Flyway validation at the ti
 The Render service has no configured PR preview deployment. No deployment was triggered from this PR because the service tracks `main`; changing service configuration or deploying unreviewed PR code to the shared service would be unsafe.
 
 
-## Isolated Oracle preflight runner
+## Optional isolated Oracle preflight runner
 
 A one-shot GitHub Actions workflow, `.github/workflows/phase0-oracle-preflight.yml`, has been added to the Phase 0 branch. It runs in an ephemeral GitHub-hosted runner, checks out this branch, extracts the supplied wallet into a restricted temporary directory, builds the backend and activates only `phase0-diagnostics`. It does not deploy to or alter the shared Render API service. The runner is read-only at the SQL level and uploads its sanitized log as a short-retention artifact.
 
@@ -59,7 +59,7 @@ Before it can connect, configure these repository Actions secrets under **Settin
 
 Use a dedicated read-only Oracle account if one already exists. The diagnostic SQL is SELECT-only; it never invokes DDL/DML or Flyway repair. If only the application's existing ADMIN account is available, the workflow still executes only the read-only preflight queries, but that is a temporary least-privilege exception and must not become a permanent integration. Do not put secret values in commits, issues, PR comments or chat.
 
-**Execution status:** workflow committed on the Phase 0 branch; execution is pending the five repository secrets above. No Oracle report has been generated yet. The shared Render service has not been modified.
+**Execution status:** workflow committed on the Phase 0 branch but intentionally not executed under the owner's instruction to defer database connectivity. No Oracle report has been generated. The shared Render service has not been modified.
 
 ## Oracle recovery safety
 
@@ -72,6 +72,14 @@ Do not run `flyway repair`, delete/insert history rows, drop/recreate constraint
 5. A reviewed, state-specific recovery plan with before/after verification.
 
 The diagnostic profile is not a repair mechanism. It must be used only for a controlled staging metadata preflight and then removed from the service's active profile configuration. Normal operation must run with Flyway enabled.
+
+## Owner scope instruction — non-database tranche
+
+The owner has explicitly instructed the team to ignore Oracle/database connectivity for the current tranche. Accordingly:
+- Do not block source-only frontend, API contract, security, transaction-code, integration and operational review on the Oracle connector.
+- Do not run database migrations, alter Flyway history, change constraints, or claim database health.
+- Keep Oracle schema/history, database-backed runtime readiness, migration recovery and database-dependent E2E marked **deferred/unverified**.
+- Continue closing all non-database audit items with source evidence and automated tests. Phase 0 overall cannot be certified fully complete while deferred runtime/database gates remain open.
 
 ## Remaining Phase 0 exit criteria
 
