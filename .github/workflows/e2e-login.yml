@@ -48,6 +48,8 @@ jobs:
         run: bun add --dev @playwright/test
       - name: TypeScript checks
         run: bun run lint
+      - name: Database-independent API smoke runner regression tests
+        run: node --test tests/productionSmoke.test.mjs
       - name: Frontend route registry regression tests
         run: node --import tsx --test tests/routeConfig.test.ts
       - name: Role route access policy regression tests
