@@ -79,7 +79,7 @@ Verified source facts:
 - Tracked Oracle wallet ZIP and Dockerfile wallet copy were observed; PR #84 requires replacement secrets/configuration validation before merge/deploy. Treat credentials as potentially exposed and rotate.
 
 Not evidenced:
-- Actual Oracle, Render, Vercel, email/SMS, document and backup regions; processors/subprocessors and support access.
+- Render backend region verified Singapore on 3 Nov 2026; frontend static site is CDN-served and no single region is exposed in service details. Oracle database/replicas/backups, logs, email/SMS, document storage and other vendor regions; processors/subprocessors and support access remain unverified. India is the production target, not current backend residency.
 - Complete data inventory, lawful purposes/notices/consent, retention/deletion/backup expiry and data-principal request process.
 - Live Oracle schema, applied Flyway versions, FK/trigger metadata and restore test.
 - Full endpoint authz/record-owner tests; all repository writers, native SQL and transaction participants.
@@ -87,7 +87,7 @@ Not evidenced:
 - Actual incorporation, seller contracts, grievance officer, local licences, FSSAI role, GST position and bank/payment-provider confirmation.
 - Punjab-specific labour/scheme, Shops and Establishments, local trade and municipal requirements.
 
-## 6. Priority remediation
+## 6. Hosting region evidence (3 November 2026)\n\nRead-only Render service inspection verified:\n- Backend web service `kuraliupdates-bazaar` (`srv-db0fv9egekts739hfa6g`): `region=singapore`. Current backend is therefore outside India.\n- Frontend static site `kuraliupdates-frontend` (`srv-db5m757lot8c73fer22g`): static-site service; service details expose no single deployment region and it is served through a CDN. Confirm provider cache locations and ensure static bundles contain no user-specific/personal data.\n- Oracle database, replicas, backups, object/document storage, logs, CDN cache behavior, email/SMS providers, support access and disaster recovery: not verified.\n\nThe inspected Render service region choices did not include India. Do not assume Render can be switched in place to an Indian region. Select an India-capable production compute/database/storage provider or architecture, then verify every data flow and contractual/subprocessor term before launch. No hosting setting was changed.\n\n## 7. Priority remediation
 
 | Priority | Action | Closure evidence |
 |---|---|---|
@@ -104,7 +104,7 @@ Not evidenced:
 | P1 | CERT-In operational controls. | Applicability decision, POC, log/time sync, incident simulation and provider escalation. |
 | P2 | Domain boundaries and frontend dependency map. | Module tests, API contracts, import boundaries, route/context consumer maps. |
 
-## 7. Official sources reviewed
+## 8. Official sources reviewed
 
 - Gazette G.S.R. 843(E), DPDP commencement: https://egazette.gov.in/WriteReadData/2025/267647.pdf
 - MeitY DPDP Rules and timeline library: https://www.meity.gov.in/documents/act-and-policies/digital-personal-data-protection-rules-2025-gDOxUjMtQWa
@@ -117,7 +117,7 @@ Not evidenced:
 - FSSAI licensing/registration amendments 2026: https://www.fssai.gov.in/food-law/regulations/amendments/licensing-registration
 - RBI: https://www.rbi.org.in/
 
-## 8. Phase 0 exit criteria — not met
+## 9. Phase 0 exit criteria — not met
 
 Phase 0 is complete only when every endpoint has method/path/authz/record-owner classification and tests; every table/entity/repository/native SQL writer/transaction/migration has an owner; scheduler/async/event/WebSocket/integrations are inventoried; critical journeys include failure/retry/security/privacy/financial traces; frontend route/build/hosting/import/context/session dependencies are mapped; hosting/data residency/processors/secrets/backups/retention/deletion are evidenced; legal applicability is reviewed by qualified professionals; and Critical/High risks have containment and accountable owners.
 
