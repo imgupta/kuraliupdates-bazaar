@@ -120,7 +120,7 @@ class DailyHelpServiceTest {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
-        when(bookingRepository.findById("BOOK-1")).thenReturn(Optional.of(booking));
+        when(bookingRepository.findLockedByBookingId("BOOK-1")).thenReturn(Optional.of(booking));
         when(bookingRepository.save(any(DailyHelpBookingEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
