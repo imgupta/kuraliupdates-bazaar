@@ -9,7 +9,7 @@ This page distinguishes source facts from CI, deployment, database and runtime e
 
 Every PR, including documentation-only, dependencies, configuration and infrastructure, must use the [mandatory PR template and review gates](INDIA-PR-GOVERNANCE.md). It covers Indian central/state/local laws, regulator directions, current vs future-effective vs draft rules, personal/business data lifecycle, hosting and transfers, security, consumer/seller/provider rights, payment and tax impacts, risk ownership, tests and release evidence.
 
-**Production hosting target: India.** This is an approved target, not proof of current region. Current app/DB/storage/backup/log/CDN/vendor/support/DR regions remain unverified until resource-by-resource evidence is collected. Do not claim India residency from a high-level account setting or provider marketing page.
+**Production hosting target: India.** This is an approved target, not proof of current region. Read-only Render inspection on 3 Nov 2026 verified the current backend web service region as Singapore. The frontend is a Render static site delivered via CDN and has no single region shown in its service details. Oracle database, replicas, backups, logs, vendor/support access and DR locations remain unverified. Current backend is not India-hosted; Render region options inspected did not include India, so production requires a provider/architecture decision for India residency. Do not claim India residency from a high-level account setting or provider marketing page.
 
 ## Architecture decision
 
@@ -72,7 +72,7 @@ Until then, no broad code movement or persistence refactor. Next implementation 
 ## Known release/security blockers and unknowns
 
 - PR #84 wallet/secret handling must not be merged/deployed until secure replacement credentials/configuration are in place and verified. Treat tracked wallet/credentials as potentially exposed; rotate securely. No secrets or wallet contents in source/logs.
-- Current hosting resource regions and data flows are not established by source inspection. India is the production target, not a verified present state.
+- Current Render backend region was verified as Singapore on 3 Nov 2026; frontend is a CDN-served static site without a single region in service details. Oracle DB/replicas/backups and other vendor/data flows remain unknown. India is the production target, not current backend state; provider migration/India-region selection is a pre-production decision.
 - Oracle live schema, applied migration versions, FKs/triggers and restore test are not verified here.
 - Full endpoint authz/record-owner coverage is incomplete.
 - Actual entity incorporation, seller/customer/provider contracts, grievance appointment, GST/FSSAI/payment-provider classification, Punjab/local licences and worker scheme applicability require evidence and professional review.
