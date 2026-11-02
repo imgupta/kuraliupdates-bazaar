@@ -70,3 +70,51 @@ Before FE-1/BE-1, inspect and record:
 ## Phase 0 exit criteria
 
 Discovery is complete only when every route, endpoint, table writer, scheduled task, integration and critical workflow has an owner; cross-domain transactions are listed; unknowns have decision owners; docs are checked against exact main SHA/open PRs; and no production behavior/schema/deployment was changed during discovery.
+
+
+## Source-level findings — exact main baseline after PR #222
+
+**Inspected baseline:** `560a34a4a94241e007a396a2ad4cbc8e2e67e428`. Repository tree contains 147 Java files and 96 frontend `src/` files. These are source inventory counts, not a statement that every file has been behaviorally audited.
+
+### Confirmed frontend routes
+
+`src/app/routing/routeConfig.ts` defines:
+- Public/home: `/`
+- Registration aliases: `/register/buyer`, `/register/seller`, `/register/delivery`, `/register/daily-help`
+- Account: `/account`
+- Role dashboards: `/buyer`, `/seller`, `/delivery`, `/daily-help`, `/admin`
+
+Unknown paths currently resolve to `home` in `resolveAppRoute`; confirm whether this is intentional before changing fallback behavior. `resolvePortalRoute` maps root to a configured portal role. `portalRedirect.ts` requires HTTPS configured portal URLs and routes cross-origin role portals to hostname root, same-origin roles to role paths. These details constrain any consolidated path-hosting migration.
+
+`roleRouteAccess.ts` is explicitly a pure client-side policy; its comments state backend authorization remains authoritative. It checks signed-in state, admin flag and registered roles.
+
+### Confirmed backend endpoint families (controller annotations inspected)
+
+- `AuthController` base `/auth`: send OTP, registration check, verify OTP, portal handoff/redeem, registered roles, onboarding status, current user/profile, addresses and logout.
+- `BuyerController` base `/buyers`: product search, order placement/checkout, pickup confirmation, buyer orders and order tracking.
+- `SellerController` base `/sellers`: seller registration/profile/availability, products, seller orders/status and discounts.
+- `DeliveryController` base `/delivery`: agent registration/profile/availability, available/mine jobs, claim, pickup confirmation, OTP resend and verification.
+- `DailyHelpController` base `/daily-help`: service discovery, booking, availability, professional registration/profile, slots, jobs, earnings, status, start and completion.
+- `NegotiationChatController` base `/negotiations`: notifications, messages and offer responses.
+- `DeliveryTrackingController` base `/tracking`: delivery location updates and order tracking.
+- Admin controller base `/admin`: buyer/seller/agent administration, analytics, seller/agent/provider review, Daily Help service administration, accounts/session revocation/audit and delivery configuration.
+- Additional controllers handle seller lead/CRM, registration drafts, registration OTP settings/audit, seller documents, health and E2E support.
+
+This is a controller-family summary, not a complete endpoint/authz table. E2E-only controllers must be treated separately from public production contracts.
+
+### Boundary implications observed in code
+
+- `OrderService` injects `OrderRepository`, but also `SellerRepository`, `ProductRepository`, `JdbcTemplate` and `GoogleRoutesService`. Checkout therefore currently reaches Marketplace-owned seller/product persistence and delivery configuration directly. Proposed BE-1 work must replace this with explicit read/validation contracts or a narrowly documented legacy adapter; do not move code blindly.
+- `SellerService` injects `SellerRepository`, `ProductRepository`, `OrderRepository` and `BillDiscountRepository`. Seller-owned operations currently reach Orders persistence. Inspect each call site to distinguish legitimate seller order views from direct state writes.
+- `DeliveryService` injects `DeliveryAgentRepository` and `OrderRepository`, plus `GoogleRoutesService`. Delivery currently reaches Orders persistence; define idempotent Orders-owned transition contracts before modularizing.
+- `AuthService` injects `UserRepository` and `UserSessionRepository`, but also seller, delivery-agent and Daily Help professional repositories and onboarding/config services. Identity is currently coupled to role-profile persistence; retain account/profile linking semantics while replacing direct repository access with contracts.
+- `DailyHelpService` uses Daily Help service, professional, booking and slot repositories and has explicit transactional methods. It is the clearest initial domain candidate by persistence grouping, but it is not proven independent until controller/admin/auth and payment dependencies are fully mapped.
+- `AuthController` also calls `BuyerAddressService`; address ownership needs a decision (Identity profile subdomain vs separate shared profile capability) before package extraction.
+
+### Security and operational review flags
+
+- `AuthController` portal handoff codes are held in an in-memory `ConcurrentHashMap` with a 60-second TTL and one-time removal. This is process-local: it will not work reliably across multiple backend instances/restarts. It is compatible with the current one-JVM deployment assumption but needs bounded cleanup/abuse controls and a future distributed-storage contract before horizontal scaling.
+- The tracked tree includes a wallet ZIP under `backend-java-spring/`, and the inspected Dockerfile copies `Wallet*.zip` into the image. This is a high-priority secret-material review. Do not open, print or copy wallet contents. PR #84 is an open historical security PR and must be reviewed before changing wallet handling.
+- `OrderService` checkout currently rejects online payment and accepts COD only in the inspected method. Do not describe online payment as live based on frontend UI or planning documents.
+
+These are discovery findings, not code changes or a security sign-off.
