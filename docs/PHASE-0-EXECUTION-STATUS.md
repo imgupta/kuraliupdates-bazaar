@@ -117,3 +117,25 @@ Source review of `SecurityConfig` found that unclassified API routes inherited `
 ## Closure rule
 
 Phase 0 may be marked complete only when each applicable criterion has an owner, evidence link, pass/fail result and residual risk disposition. A source-only audit cannot certify live Oracle state, a healthy deployment, legal compliance or India-only residency. Until those external gates are evidenced, the correct disposition is **OPEN** and FE-1/BE-1 remains gated.
+
+
+## Non-database endpoint review — controller evidence (2026-11-03)
+
+The current controller source was inspected for the major role domains. This is a focused source review, not yet an exhaustive route matrix:
+
+| Controller | Public/intended entry points observed | Protected behavior observed | Residual |
+|---|---|---|---|
+| BuyerController | `GET /buyers/products/search` | Order placement, checkout, pickup confirmation, history and tracking explicitly require a `UserEntity` principal; order tracking delegates ownership enforcement to `trackForBuyer` | Confirm buyer-role enforcement and negative owner/role tests at service level |
+| SellerController | Legacy `POST /sellers/register` returns 410 | Seller store, products, orders and discounts use bearer token passed to SellerService | Filter-chain prefix currently permits the path group; service-level token/ownership enforcement and role checks need tests |
+| DeliveryController | `POST /delivery/register` | All `/me` and job actions require a `UserEntity`; claim operations pass authenticated user to service | Verify service binds supplied agentId to authenticated user and enforces ownership/role under adversarial tests |
+| DailyHelpController | `GET /daily-help/services`, `GET /daily-help/availability` | Booking, professional registration/profile/slots/jobs/earnings use authenticated principal and/or phone/profile ownership checks | Continue through remaining controller methods and test role/ownership boundaries |
+| SellerOnboardingLeadController | Lead start, contact OTP dispatch/verification and callback request are unauthenticated | No authenticated principal is required in this controller | Public abuse controls, enumeration resistance, OTP throttling/expiry/replay and consent validation require dedicated review |
+
+### Security disposition
+- The `SecurityConfig` fallback is now `.anyRequest().authenticated()`, replacing the prior catch-all `permitAll()`.
+- The explicit `/buyers/**`, `/sellers/**`, and `/delivery/**` filter-chain permit rules remain broader than the public endpoint set. Controller/service checks provide additional protection on the inspected paths, but this is not a substitute for an exhaustive method-level authorization matrix.
+- Do not narrow those prefixes until all route mappings and required anonymous registration/search flows have been enumerated and regression tests are in place; otherwise seller/buyer/delivery onboarding could break.
+- No dedicated `SecurityConfigTest` or `SessionAuthenticationFilterTest` exists at the conventional package paths checked in this branch. This does not prove there are no equivalent tests elsewhere. Add explicit filter-chain tests for anonymous access, invalid/expired bearer tokens, wrong role, wrong owner and unknown routes before treating authorization closure as complete.
+- The seller registration lead endpoints are intentionally public for assisted onboarding. Their rate limits, OTP attempt limits, lead ID entropy, PII response shape and duplicate/enumeration behavior are still open review items.
+
+This evidence advances the source audit only. No database access, database-backed execution, shared Render deployment or live endpoint test was performed under the owner's current scope instruction.
