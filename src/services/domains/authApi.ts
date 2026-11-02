@@ -16,6 +16,18 @@ export const authApi = {
     }
   },
 
+  async getRegistrationOtpSettings(): Promise<{ success: boolean; emailOtpRequired: boolean; mobileOtpRequired: boolean; message?: string }> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/registration/otp-settings`, { headers: { Accept: 'application/json' } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { success: false, emailOtpRequired: true, mobileOtpRequired: false, message: data.message || 'Unable to load registration verification settings' };
+      return { success: true, emailOtpRequired: Boolean(data.emailOtpRequired), mobileOtpRequired: Boolean(data.mobileOtpRequired) };
+    } catch {
+      // Fail closed for registration: if settings cannot be read, preserve the historical email OTP requirement.
+      return { success: false, emailOtpRequired: true, mobileOtpRequired: false, message: 'Unable to load registration verification settings' };
+    }
+  },
+
   async checkRegistration(email: string, phone: string, role: string): Promise<{ success: boolean; message: string; available?: boolean; existingAccount?: boolean }> {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/registration-check`, {

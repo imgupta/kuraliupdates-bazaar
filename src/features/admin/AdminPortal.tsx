@@ -33,6 +33,7 @@ import { adminApi } from '../../services/domains/adminApi';
 import { MarketTrendsVisualization } from '../../components/Admin/MarketTrendsVisualization';
 import { ROOT_ADMIN_EMAIL, isRootAdminEmail } from '../../data/initialData';
 import { SellerOnboardingCRM } from '../../components/Admin/SellerOnboardingCRM';
+import { SellerRegistrationOtpConfig } from '../../components/Admin/SellerRegistrationOtpConfig';
 
 export const AdminDashboard: React.FC = () => {
   const {
@@ -50,7 +51,7 @@ export const AdminDashboard: React.FC = () => {
     showToast,
   } = useApp();
 
-  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory' | 'accounts' | 'delivery-config' | 'seller-area-config' | 'seller-documents' | 'seller-leads'>('trends');
+  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory' | 'accounts' | 'delivery-config' | 'seller-area-config' | 'seller-documents' | 'seller-leads' | 'registration-otp-config'>('trends');
   const [buyers, setBuyers] = useState<any[]>([]);
   const [adminAccounts, setAdminAccounts] = useState<any[]>([]);
   const [accountSearch, setAccountSearch] = useState('');
@@ -575,6 +576,7 @@ export const AdminDashboard: React.FC = () => {
             <button onClick={() => setActiveAdminTab('seller-area-config')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-area-config' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Seller registration radius</button>
             <button onClick={() => setActiveAdminTab('seller-documents')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-documents' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Seller document review</button>
             <button onClick={() => setActiveAdminTab('seller-leads')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-leads' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Merchant onboarding CRM</button>
+            <button onClick={() => setActiveAdminTab('registration-otp-config')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'registration-otp-config' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Customer & seller OTP controls</button>
           </div>
         </details>
 
@@ -736,6 +738,7 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {activeAdminTab === 'seller-leads' && <SellerOnboardingCRM />}
+      {activeAdminTab === 'registration-otp-config' && <SellerRegistrationOtpConfig />}
       {activeAdminTab === 'seller-area-config' && (
         <div className="space-y-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
