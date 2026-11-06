@@ -27,6 +27,7 @@ class OtpServiceTest {
     @Mock private OtpDeliveryService deliveryService;
     @Mock private E2eOtpCaptureService e2eOtpCaptureService;
     @Mock private JdbcTemplate jdbcTemplate;
+    @Mock private OtpAttemptService otpAttemptService;
     @InjectMocks private OtpService otpService;
 
     @Test
@@ -44,12 +45,8 @@ class OtpServiceTest {
     }
 
     @Test
-    void fifthInvalidOtpAttemptConsumesTheOtpRecord() {
-        AuthOtpEntity record = AuthOtpEntity.builder()
-                .otpId("otp-test").identifier("buyer@example.test")
-                .otpCode(hash("123456")).otpType("BUYER_EMAIL")
-                .attempts(4).isUsed(0)
-                .expiresAt(LocalDateTime.now().plusMinutes(5)).build();
+    void invalidOtpAttemptIsPersistedByIndependentAttemptService() {
+        AuthOtpEntity record = otpRecord("otp-test", "123456");
         when(repository.findFirstByIdentifierAndOtpTypeAndIsUsedAndAttemptsLessThanAndExpiresAtAfterOrderByCreatedAtDesc(
                 eq("buyer@example.test"), eq("BUYER_EMAIL"), eq(0), eq(5), any(LocalDateTime.class)))
                 .thenReturn(Optional.of(record));
@@ -58,27 +55,38 @@ class OtpServiceTest {
                 () -> otpService.verify("buyer@example.test", "BUYER_EMAIL", "654321"));
 
         assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
-        assertEquals(5, record.getAttempts());
-        assertEquals(1, record.getIsUsed());
-        verify(repository).save(record);
+        verify(otpAttemptService).registerFailedAttempt(eq("otp-test"), any(LocalDateTime.class));
+        verify(otpAttemptService, never()).consume(anyString(), any(LocalDateTime.class));
+        verify(repository, never()).save(any(AuthOtpEntity.class));
     }
 
     @Test
-    void validOtpIsMarkedUsedAfterHashComparison() {
-        AuthOtpEntity record = AuthOtpEntity.builder()
-                .otpId("otp-valid").identifier("buyer@example.test")
-                .otpCode(hash("123456")).otpType("BUYER_EMAIL")
-                .attempts(0).isUsed(0)
-                .expiresAt(LocalDateTime.now().plusMinutes(5)).build();
+    void validOtpIsConsumedAtomicallyByIndependentAttemptService() {
+        AuthOtpEntity record = otpRecord("otp-valid", "123456");
         when(repository.findFirstByIdentifierAndOtpTypeAndIsUsedAndAttemptsLessThanAndExpiresAtAfterOrderByCreatedAtDesc(
                 eq("buyer@example.test"), eq("BUYER_EMAIL"), eq(0), eq(5), any(LocalDateTime.class)))
                 .thenReturn(Optional.of(record));
+        when(otpAttemptService.consume(eq("otp-valid"), any(LocalDateTime.class))).thenReturn(true);
 
         otpService.verify("buyer@example.test", "BUYER_EMAIL", "123456");
 
-        assertEquals(1, record.getIsUsed());
-        assertEquals(0, record.getAttempts());
-        verify(repository).save(record);
+        verify(otpAttemptService).consume(eq("otp-valid"), any(LocalDateTime.class));
+        verify(repository, never()).save(any(AuthOtpEntity.class));
+    }
+
+    @Test
+    void validOtpIsRejectedWhenAnotherRequestAlreadyConsumedIt() {
+        AuthOtpEntity record = otpRecord("otp-raced", "123456");
+        when(repository.findFirstByIdentifierAndOtpTypeAndIsUsedAndAttemptsLessThanAndExpiresAtAfterOrderByCreatedAtDesc(
+                eq("buyer@example.test"), eq("BUYER_EMAIL"), eq(0), eq(5), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(record));
+        when(otpAttemptService.consume(eq("otp-raced"), any(LocalDateTime.class))).thenReturn(false);
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> otpService.verify("buyer@example.test", "BUYER_EMAIL", "123456"));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
+        verify(otpAttemptService).consume(eq("otp-raced"), any(LocalDateTime.class));
     }
 
     @Test
@@ -91,7 +99,14 @@ class OtpServiceTest {
                 () -> otpService.verify("buyer@example.test", "BUYER_EMAIL", "123456"));
 
         assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
+        verifyNoInteractions(otpAttemptService);
         verify(repository, never()).save(any(AuthOtpEntity.class));
+    }
+
+    private AuthOtpEntity otpRecord(String id, String otp) {
+        return AuthOtpEntity.builder().otpId(id).identifier("buyer@example.test")
+                .otpCode(hash(otp)).otpType("BUYER_EMAIL").attempts(0).isUsed(0)
+                .expiresAt(LocalDateTime.now().plusMinutes(5)).build();
     }
 
     private String hash(String value) {
