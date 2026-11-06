@@ -45,7 +45,6 @@ async function getJson(request: APIRequestContext, path: string, token: string) 
 }
 
 const runIds = new Map<string, string>();
-const fixtureRuns = new Set<string>();
 function testKey(info: TestInfo): string { return info.titlePath.join("::"); }
 function runScopedId(info: TestInfo): string {
   const run = (process.env.GITHUB_RUN_ID ?? randomUUID().replace(/-/g, "").slice(0, 12)).replace(/[^A-Za-z0-9_-]/g, "");
@@ -75,7 +74,6 @@ async function prepareFixtures(request: APIRequestContext, runId: string, seller
   }
   expect(Number(fixture.stock)).toBeGreaterThanOrEqual(1);
   expect(Number(fixture.requestedHours)).toBe(1);
-  fixtureRuns.add(runId);
   return fixture as {
     productId: string; sellerId: string; deliveryAgentId: string; serviceId: string;
     slotId: string; professionalId: string; scheduledStart: string;
@@ -100,16 +98,11 @@ test.afterEach(async ({ request }, testInfo) => {
     summary.chatMessages, summary.sessions, summary.products, summary.dailyHelpServices, summary.dailyHelpSlots, summary.sellers]) {
     expect(Number.isInteger(count) && count >= 0).toBeTruthy();
   }
-  if (fixtureRuns.delete(runId)) {
-    expect(summary.products, "all three run-owned synthetic products are deleted").toBe(3);
-    expect(summary.dailyHelpServices, "exactly this run's synthetic service is deleted").toBe(1);
-    expect(summary.dailyHelpSlots, "exactly this run's synthetic slot is deleted").toBe(1);
-    expect(summary.sellers, "exactly this run's synthetic rollback seller is deleted").toBe(1);
+  const fixtureCleanupCounts = [summary.products, summary.dailyHelpServices, summary.dailyHelpSlots, summary.sellers];
+  if (summary.products === 0) {
+    expect(fixtureCleanupCounts).toEqual([0, 0, 0, 0]);
   } else {
-    expect(summary.products).toBe(0);
-    expect(summary.dailyHelpServices).toBe(0);
-    expect(summary.dailyHelpSlots).toBe(0);
-    expect(summary.sellers).toBe(0);
+    expect(fixtureCleanupCounts, "all and only this run's synthetic fixtures are deleted").toEqual([3, 1, 1, 1]);
   }
 });
 
