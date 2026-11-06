@@ -18,10 +18,10 @@ Before every coding, refactoring, review, test or release task, read [ENGINEERIN
 
 ## Latest execution checkpoint
 
-- Main after PR #259: `d8d838dbb9d250a0c1d0e409c3dca036e2fc3817`.
-- Phase 0 formal evidence and exit disposition is recorded in [PHASE-0-FORMAL-EVIDENCE-REGISTER.md](PHASE-0-FORMAL-EVIDENCE-REGISTER.md); the security-hardening milestone is merged, but formal exit evidence is not complete.
-- PR #255 added six buyer address controller ownership/session tests; full backend suite reached 200 tests with zero failures/errors/skips.
-- Phase 1 remains in progress; latest merged evidence and remaining test limits are in [Phase 1 execution plan](PHASE-1-EXECUTION-PLAN.md).
+- Main after PR #263: `656ddd5bedc9d8b48a027ba574bb5263a284f633`.
+- PR #263 merged after exact-head CI: 230 backend tests, zero failures/errors/skips; frontend checks/build and seller-registration quality gates passed; read-only smoke 7/0 with `databaseHealthChecked=false`; browser E2E 3 passed / 9 skipped.
+- Phase 0 formal register: `PHASE-0-FORMAL-EVIDENCE-REGISTER.md`; milestone merged, formal closure remains open pending Oracle/backup/restore, hosting residency, secret rotation and qualified professional sign-offs.
+- Phase 1 remains in progress. Next PR #264 covers seller-document access negative cases, admin download response privacy headers and metadata data minimization.
 
 ## Locked architecture decision
 

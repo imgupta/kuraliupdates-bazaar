@@ -15,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
@@ -184,6 +185,82 @@ class SellerDocumentControllerTest {
 
         assertTrue(response.isEmpty());
         verify(sellerRepository).findByUserId("E2E-USER-UNIT");
+        verify(docs).findBySellerIdOrderByUploadedAtDesc(SELLER_ID);
+    }
+
+    @Test
+    void missingAndMalformedSellerBearerHeadersFailBeforeProfileOrDocumentAccess() throws Exception {
+        when(authService.requireUser(null)).thenThrow(new ApiException(HttpStatus.UNAUTHORIZED, "Session required"));
+
+        ApiException missing = assertThrows(ApiException.class, () -> controller.mine(null));
+        ApiException malformed = assertThrows(ApiException.class, () -> controller.upload(
+                "Basic not-a-bearer", "SHOP_FRONT_PHOTO",
+                new MockMultipartFile("file", "shop.pdf", "application/pdf", PDF)));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, missing.getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, malformed.getStatus());
+        verify(authService, times(2)).requireUser(null);
+        verifyNoInteractions(sellerRepository, docs, malwareScanner);
+    }
+
+    @Test
+    void sellerWithoutLinkedProfileCannotUploadOrReadDocuments() throws Exception {
+        when(authService.requireUser("seller-token")).thenReturn(
+                UserEntity.builder().userId("user-without-seller-profile").build());
+        when(sellerRepository.findByUserId("user-without-seller-profile")).thenReturn(Optional.empty());
+
+        ApiException upload = assertThrows(ApiException.class, () -> controller.upload(
+                "Bearer seller-token", "SHOP_FRONT_PHOTO",
+                new MockMultipartFile("file", "shop.pdf", "application/pdf", PDF)));
+        ApiException read = assertThrows(ApiException.class, () -> controller.mine("Bearer seller-token"));
+
+        assertEquals(HttpStatus.FORBIDDEN, upload.getStatus());
+        assertEquals(HttpStatus.FORBIDDEN, read.getStatus());
+        verify(sellerRepository, times(2)).findByUserId("user-without-seller-profile");
+        verifyNoInteractions(docs, malwareScanner);
+    }
+
+    @Test
+    void cleanAdminDownloadIncludesPrivateNoStoreAndNosniffHeaders() {
+        SellerDocumentEntity document = cleanDocument();
+        when(docs.findByDocumentIdAndSellerId(DOCUMENT_ID, SELLER_ID)).thenReturn(Optional.of(document));
+
+        ResponseEntity<byte[]> response = controller.download(SELLER_ID, DOCUMENT_ID, admin);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertArrayEquals(PDF, response.getBody());
+        assertEquals("no-store, private", response.getHeaders().getFirst(HttpHeaders.CACHE_CONTROL));
+        assertEquals("nosniff", response.getHeaders().getFirst("X-Content-Type-Options"));
+        assertTrue(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION).contains("shop.pdf"));
+        verify(docs).findByDocumentIdAndSellerId(DOCUMENT_ID, SELLER_ID);
+    }
+
+    @Test
+    void anonymousAdminDocumentOperationsFailBeforeRepositoryAccess() {
+        assertEquals(HttpStatus.FORBIDDEN, assertThrows(ApiException.class,
+                () -> controller.adminList(SELLER_ID, null)).getStatus());
+        assertEquals(HttpStatus.FORBIDDEN, assertThrows(ApiException.class,
+                () -> controller.download(SELLER_ID, DOCUMENT_ID, null)).getStatus());
+        assertEquals(HttpStatus.FORBIDDEN, assertThrows(ApiException.class,
+                () -> controller.rescan(SELLER_ID, DOCUMENT_ID, null)).getStatus());
+        assertEquals(HttpStatus.FORBIDDEN, assertThrows(ApiException.class,
+                () -> controller.verify(SELLER_ID, DOCUMENT_ID, "VERIFIED", null, null)).getStatus());
+
+        verifyNoInteractions(docs, malwareScanner);
+    }
+
+    @Test
+    void sellerDocumentMetadataNeverIncludesRawDocumentBytes() {
+        SellerDocumentEntity document = cleanDocument();
+        when(docs.findBySellerIdOrderByUploadedAtDesc(SELLER_ID)).thenReturn(List.of(document));
+
+        List<Map<String, Object>> response = controller.mine("Bearer seller-token");
+
+        assertEquals(1, response.size());
+        assertEquals(DOCUMENT_ID, response.get(0).get("documentId"));
+        assertFalse(response.get(0).containsKey("documentData"));
+        assertFalse(response.get(0).containsKey("bytes"));
+        assertFalse(response.get(0).containsKey("content"));
         verify(docs).findBySellerIdOrderByUploadedAtDesc(SELLER_ID);
     }
 
