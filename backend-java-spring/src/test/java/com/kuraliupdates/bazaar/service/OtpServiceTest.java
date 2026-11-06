@@ -51,7 +51,7 @@ class OtpServiceTest {
                 .attempts(4).isUsed(0)
                 .expiresAt(LocalDateTime.now().plusMinutes(5)).build();
         when(repository.findFirstByIdentifierAndOtpTypeAndIsUsedAndAttemptsLessThanAndExpiresAtAfterOrderByCreatedAtDesc(
-                "buyer@example.test", "BUYER_EMAIL", 0, 5, any(LocalDateTime.class)))
+                eq("buyer@example.test"), eq("BUYER_EMAIL"), eq(0), eq(5), any(LocalDateTime.class)))
                 .thenReturn(Optional.of(record));
 
         ApiException error = assertThrows(ApiException.class,
