@@ -557,6 +557,41 @@ class DeliveryServiceTest {
         verify(orderRepository).save(order);
     }
 
+    @Test
+    void authenticatedAgentCannotClaimUsingAnotherAgentsProfileId() {
+        DeliveryAgentEntity authenticatedAgent = agent("ACTIVE");
+        OrderEntity order = OrderEntity.builder().orderId("CLAIM-SPOOF-1")
+                .status("READY_FOR_PICKUP").fulfilmentMode("DELIVERY").build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(authenticatedAgent));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.claim("CLAIM-SPOOF-1", "AGENT-OTHER", user()));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        assertEquals("READY_FOR_PICKUP", order.getStatus());
+        verify(orderRepository, never()).findLockedByOrderId(any());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void authenticatedAgentCannotConfirmPickupAssignedToAnotherAgent() {
+        DeliveryAgentEntity authenticatedAgent = agent("ACTIVE");
+        DeliveryAgentEntity assignedAgent = DeliveryAgentEntity.builder()
+                .agentId("AGENT-OTHER").status("ACTIVE").build();
+        OrderEntity order = OrderEntity.builder().orderId("PICKUP-OTHER-AGENT")
+                .status("ASSIGNED_TO_DELIVERY").deliveryAgent(assignedAgent).build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(authenticatedAgent));
+        when(orderRepository.findLockedByOrderId("PICKUP-OTHER-AGENT")).thenReturn(Optional.of(order));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.confirmSellerPickup("PICKUP-OTHER-AGENT", user()));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        assertEquals("ASSIGNED_TO_DELIVERY", order.getStatus());
+        assertNull(order.getFulfilmentStatus());
+        verify(orderRepository, never()).save(any());
+    }
+
     private UserEntity user() {
         return UserEntity.builder().email("rider@example.com").phone("9876543210").name("Rider").role("DELIVERY").build();
     }
