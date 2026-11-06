@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -70,6 +71,7 @@ public class AuthController {
      * between the separate role portal origins. The bearer token is never placed
      * in the redirect URL.
      */
+    @Transactional
     @PostMapping("/portal-handoff")
     public ResponseEntity<Map<String, Object>> createPortalHandoff(
             @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -102,6 +104,7 @@ public class AuthController {
     }
 
     /** Redeems a handoff code once and returns the authenticated session to the target portal. */
+    @Transactional
     @PostMapping("/portal-handoff/redeem")
     public ResponseEntity<Map<String, Object>> redeemPortalHandoff(
             @RequestBody(required = false) Map<String, String> body) {

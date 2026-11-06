@@ -21,7 +21,7 @@ public class PortalHandoffEntity {
     @Column(name = "SESSION_TOKEN", nullable = false, length = 128)
     private String sessionToken;
 
-    @Column(name = "ROLE", nullable = false, length = 30)
+    @Column(name = "TARGET_ROLE", nullable = false, length = 30)
     private String role;
 
     @Column(name = "CREATED_AT", nullable = false)
