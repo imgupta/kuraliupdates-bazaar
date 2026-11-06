@@ -75,7 +75,7 @@ public class ApiRateLimitService {
 
     public void clearBucket(String scope, String rawKey) {
         String key = rawKey == null || rawKey.isBlank() ? "unknown" : rawKey.trim();
-        jdbc.update("DELETE FROM API_RATE_LIMIT_BUCKETS WHERE BUCKET_KEY = ?", hash(scope + "\\n" + key));
+        jdbc.update("DELETE FROM API_RATE_LIMIT_BUCKETS WHERE BUCKET_KEY = ?", hash(scope + "\n" + key));
     }
 
     private int merge(String bucketKey, LocalDateTime windowStart, LocalDateTime expiresAt, int limit) {
