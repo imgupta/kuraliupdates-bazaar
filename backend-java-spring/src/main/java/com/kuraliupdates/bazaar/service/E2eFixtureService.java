@@ -74,7 +74,7 @@ public class E2eFixtureService {
         if (!runId.equals(rollbackSeller.getE2eRunId())) {
             throw new ApiException(HttpStatus.CONFLICT, "Rollback seller fixture is not owned by this run");
         }
-        int dayOffset = 2 + Math.floorMod(suffix.hashCode(), 27);
+        int dayOffset = 2 + Math.floorMod(suffix.hashCode(), 24);
         int hourOffset = Math.floorMod(suffix.substring(0, 6).hashCode(), 8);
         LocalDate slotDate = LocalDate.now(ZoneId.of("Asia/Kolkata")).plusDays(dayOffset);
         LocalTime start = LocalTime.of(9 + hourOffset, 0);
