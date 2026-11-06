@@ -21,12 +21,15 @@ public class SellerOnboardingLeadController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String,Object> start(@RequestBody Map<String,String> body) {
-        String email = body == null || body.get("email") == null ? "" : body.get("email").trim().toLowerCase();
-        String phone = body == null || body.get("phone") == null ? "" : body.get("phone").replaceAll("\\D", "");
-        if (phone.length() == 12 && phone.startsWith("91")) phone = phone.substring(2);
+        String rawEmail = body == null ? null : body.get("email");
+        String rawPhone = body == null ? null : body.get("phone");
         String ownerName = body == null ? null : body.get("ownerName");
         if (ownerName != null && ownerName.length() > 150) throw new ApiException(HttpStatus.BAD_REQUEST, "Owner name must be 150 characters or fewer");
-        if (email.length() > 254 || phone.length() > 30) throw new ApiException(HttpStatus.BAD_REQUEST, "Seller contact details exceed the allowed length");
+        if (rawEmail != null && rawEmail.length() > 254) throw new ApiException(HttpStatus.BAD_REQUEST, "Email address is too long");
+        if (rawPhone != null && rawPhone.length() > 30) throw new ApiException(HttpStatus.BAD_REQUEST, "Phone number is too long");
+        String email = rawEmail == null ? "" : rawEmail.trim().toLowerCase();
+        String phone = rawPhone == null ? "" : rawPhone.replaceAll("\\D", "");
+        if (phone.length() == 12 && phone.startsWith("91")) phone = phone.substring(2);
         rateLimit.requireAllowed("seller-lead-start", email + ":" + phone, 3, Duration.ofHours(1));
         return leads.start(ownerName, email, phone);
     }
