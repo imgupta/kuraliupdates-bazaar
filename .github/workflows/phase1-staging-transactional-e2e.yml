@@ -67,6 +67,9 @@ jobs:
             'E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY','E2E_FLOW_BUYER_PHONE','E2E_FLOW_BUYER_EMAIL',
             'E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_PROFESSIONAL_ID'];
           for (const key of required) if (!String(config[key] ?? '').trim()) throw new Error('Missing required staging E2E configuration key: ' + key);
+          if (config.E2E_TRANSACTIONAL_FLOWS_ENABLED !== true) throw new Error('Transactional staging tests are not explicitly enabled in the owner-approved secret.');
+          if (config.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED !== true) throw new Error('Refusing to start: synthetic OTP email suppression has not been explicitly confirmed.');
+          if (String(config.E2E_OTP_CAPTURE_TOKEN ?? '').length < 32) throw new Error('E2E_OTP_CAPTURE_TOKEN must contain at least 32 characters.');
           if (String(config.E2E_FLOW_AUTH_TOKEN).length < 32) throw new Error('E2E_FLOW_AUTH_TOKEN must contain at least 32 characters.');
           for (const key of ['E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_PROFESSIONAL_ID']) {
             if (!/^E2E-[A-Za-z0-9_-]{3,80}$/.test(String(config[key]))) throw new Error(key + ' must be an E2E-prefixed synthetic profile ID.');
