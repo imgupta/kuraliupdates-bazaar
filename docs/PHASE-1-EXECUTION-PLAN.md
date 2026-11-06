@@ -443,3 +443,15 @@ The transactional suite now includes:
 - replay of an already accepted bargaining offer must be rejected without applying it twice.
 
 All these scenarios use one run ID and are covered by the cleanup preflight. If a race exposes duplicate run-owned rows, cleanup is allowed to remove only those rows after verifying their seller/product/service/slot links remain within the same run. Cross-run links still abort before writes.
+
+
+### PR #267 — public endpoint abuse controls
+
+- Added an Oracle-backed fixed-window rate-limit bucket table. Bucket keys are SHA-256 hashes; raw email, phone, lead ID, user ID and remote address are not persisted in the limiter table.
+- Seller lead creation is limited to 3 attempts per normalized email/phone pair per hour.
+- Lead OTP-send requests are limited to 3 per lead per hour; contact verification to 10 per lead per 15 minutes; callback requests to 2 per lead per day. Existing OTP cooldown and attempt caps remain in force.
+- Search analytics is limited to 300 events/minute per authenticated user or 600/minute per anonymous remote address.
+- Oracle first-insert duplicate-key races retry once against the winning bucket; a repeated database race fails closed with 503, and exhausted buckets return 429.
+- Seller lead owner-name, email, phone and callback-preference lengths are rejected when oversized rather than silently truncated.
+
+**Status:** code and regression tests are included in PR #267. Exact-head CI and the deployed V33 migration are still required before claiming these controls are verified on staging.

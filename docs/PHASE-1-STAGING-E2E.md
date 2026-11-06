@@ -24,3 +24,8 @@ Each created fixture carries the current run ID in V32-added nullable columns. E
 - Test addresses are explicitly synthetic/do-not-deliver; no physical service visit is initiated.
 - If a profile is missing or not approved/active/verified, provisioning fails closed.
 - A sequential staging journey is not proof of Oracle concurrency/race safety.
+
+
+## Public endpoint throttling
+
+The same release adds database-backed fixed-window limits for seller registration lead creation/OTP/callback operations and search analytics. Only SHA-256 bucket hashes are stored in API_RATE_LIMIT_BUCKETS; contact details and client identifiers are not stored in the rate-limit table. Seller lead input lengths are validated before persistence. The staging workflow does not generate public leads or send OTPs as part of its transactional order tests.
