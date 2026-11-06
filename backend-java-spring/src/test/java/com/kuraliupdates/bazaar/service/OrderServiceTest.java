@@ -222,6 +222,47 @@ class OrderServiceTest {
         verify(orderRepository, never()).findById(anyString());
     }
 
+    @Test
+    void aggregatesDuplicateCartLinesBeforeCheckingAvailableStock() {
+        SellerEntity seller = seller();
+        ProductEntity product = ProductEntity.builder().productId("P-1").seller(seller)
+                .title("Synthetic Test Product").sellerPrice(BigDecimal.valueOf(20))
+                .additionalDiscountPercent(BigDecimal.ZERO).stock(3).build();
+        when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.placeOrder(request("COD", List.of(
+                        new OrderItemRequest("P-1", 2, null),
+                        new OrderItemRequest("P-1", 2, null))), buyer()));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals(3, product.getStock());
+        verify(productRepository, times(1)).findLockedByProductId("P-1");
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void aggregatesDuplicateCartLinesIntoOneReservedOrderItem() {
+        SellerEntity seller = seller();
+        ProductEntity product = ProductEntity.builder().productId("P-1").seller(seller)
+                .title("Synthetic Test Product").sellerPrice(BigDecimal.valueOf(20))
+                .additionalDiscountPercent(BigDecimal.ZERO).stock(5).build();
+        when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
+        when(sellerRepository.findById("SELLER-1")).thenReturn(Optional.of(seller));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var result = orderService.placeOrder(request("COD", List.of(
+                new OrderItemRequest("P-1", 2, null),
+                new OrderItemRequest("P-1", 1, null))), buyer());
+
+        assertEquals(2, product.getStock());
+        assertEquals(1, result.order().items().size());
+        assertEquals(3, result.order().items().get(0).quantity());
+        assertEquals(new BigDecimal("60.00"), result.order().subtotal());
+        verify(productRepository, times(1)).findLockedByProductId("P-1");
+        verify(orderRepository).save(any(OrderEntity.class));
+    }
+
     private UserEntity buyer() {
         return UserEntity.builder().userId("USER-1").name("Authenticated Buyer")
                 .email("authenticated@example.test").phone("9876543210").role("BUYER").build();
