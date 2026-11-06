@@ -22,7 +22,8 @@ import static org.junit.jupiter.api.Assertions.*;
         "spring.datasource.url=jdbc:h2:mem:otp_attempts;MODE=Oracle;DB_CLOSE_DELAY=-1",
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.datasource.username=sa",
-        "spring.datasource.password="
+        "spring.datasource.password=",
+        "spring.flyway.enabled=false"
 })
 @Import(OtpAttemptService.class)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
