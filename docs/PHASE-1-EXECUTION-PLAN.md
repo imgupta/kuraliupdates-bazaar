@@ -355,6 +355,19 @@ PR #262 adds controller-level tests that every seller portal operation forwards 
 - Browser E2E: **3 passed, 9 skipped**; authenticated and transactional journeys remain skipped.
 - Seller-registration quality gates: passed; private Playwright report publication skipped by workflow policy.
 
-## Next P1-A slice — negotiation controller boundary
+## PR #263 verification addendum — 6 November 2026
 
-PR #263 adds controller-level principal-propagation and fail-closed authentication tests for chat list/open, notifications, mark-read, messages and offer responses. Existing `NegotiationChatServiceTest` covers buyer/seller cross-account chat ownership and invalid role/action boundaries. Controller tests do not replace HTTP filter-chain or transactional bargain acceptance/idempotency proof.
+- PR #263 merged to main as `656ddd5bedc9d8b48a027ba574bb5263a284f633`.
+- Added seven `NegotiationChatControllerAuthorizationTest` cases for chat list/open, notifications, mark-read, message send, offer response, validated E2E run tagging and missing/malformed authentication.
+- Full backend Maven verification: **230 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS**.
+- Frontend checks and seller-registration quality gates passed.
+- Read-only API smoke: **7 passed, 0 failed**, `databaseHealthChecked=false`; process liveness and anonymous guards only, not DB readiness.
+- Browser E2E: **3 passed, 9 skipped**. Authenticated and transactional bargain flows remain skipped.
+- No production runtime, API, schema, migration, payment/refund, hosting or deployment change; no staging or production data was mutated.
+
+## Next P1-C slice — bargain acceptance, expiry and replay atomicity
+
+PR #264 is being prepared to prove that an expired response commits the EXPIRED state before returning HTTP 409, and that a failed acceptance notification rolls back the accepted offer, competing offer rejections and chat agreed-price transition together. It also adds positive acceptance and sequential replay-conflict coverage. The H2 integration tests are transaction-behavior evidence only; Oracle row-lock/concurrency behavior remains unproven. After this slice, continue with checkout stock reservation/rollback, delivery claim races and Daily Help slot concurrency using isolated database-backed tests.
+
+
+**Phase 1 remains IN PROGRESS.** Negotiation controller identity propagation is covered, but bargain transaction state, authenticated browser journeys, Oracle concurrency/rollback, full seller service ownership, abuse/privacy controls and P1-D operational/legal gates remain open.
