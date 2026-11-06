@@ -368,3 +368,18 @@ PR #262 adds controller-level tests that every seller portal operation forwards 
 ### Next P1-A slice — seller-document access and PII handling
 
 PR #264 adds missing/invalid seller bearer-session and missing seller-profile negative tests, verifies anonymous admin document operations fail before repository access, verifies clean admin downloads carry private/no-store and nosniff headers, and verifies seller metadata does not expose raw document bytes. Existing tests already cover non-admin denial, seller-profile scoping, cross-seller document-path denial, malware quarantine and admin verification audit identity. This is a bounded controller test slice; full HTTP filter-chain multipart integration, encryption-at-rest, retention/deletion and storage-provider controls remain separate evidence requirements.
+
+
+
+## PR #264 verification addendum — 6 November 2026
+
+- PR #264 merged to main as `4dc3a9219c6f55a869d468c0d33b79ec19f7bced` after exact-head CI passed.
+- Full backend Maven verification: **235 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS**. `SellerDocumentControllerTest`: 14 passed (5 new cases).
+- Frontend checks and production build: passed; seller-registration quality gates passed.
+- Read-only API smoke: **7 passed, 0 failed**, `databaseHealthChecked=false`; not database readiness.
+- Browser E2E: **3 passed, 9 skipped**. Authenticated/transactional flows remain skipped.
+- First CI attempt exposed a missing test import (`HttpHeaders`); fixed on the PR branch, and all checks passed on the final exact head. No runtime behavior changed.
+
+## Next P1-A slice — admin seller-lead route enforcement
+
+PR #265 adds a MockMvc security-filter-chain test for actual `/admin/seller-leads` list, notes, update and add-note routes. It verifies anonymous and authenticated BUYER requests are denied, ADMIN can read, and write audit actor is sourced from the authenticated session rather than request-body `actor`. Existing controller unit tests cover the principal guard and spoofed actor rejection. No public lead intake behavior or business data is changed.
