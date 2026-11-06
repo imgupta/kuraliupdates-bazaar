@@ -341,6 +341,19 @@ Buyer order controller authorization tests are being added for authenticated ord
 - Browser E2E: **3 passed, 9 skipped**. Authenticated/transactional role journeys remain skipped; skips are not passes.
 - Seller-registration quality gates: passed. Private Playwright report publication skipped by workflow policy.
 
-## Next P1-A slice — seller controller boundary
+## PR #262 verification addendum — 6 November 2026
 
-PR #262 adds controller-level tests that every seller portal operation forwards only the extracted bearer-session token to the service, and that absent/malformed bearer headers are rejected by the session-backed service before mutations. Existing `SellerServiceTest` already covers seller-scoped product/discount/order reads, cross-store product/discount/order mutation denial, approved-seller requirements and allowed order transitions. Controller tests complement, but do not replace, service ownership assertions or HTTP filter-chain tests.
+- PR #262 merged to main as `30814af35c1b84a19e9f993482bd7c1a74a23b32`.
+- Added eight `SellerControllerAuthorizationTest` cases covering bearer-session token forwarding for seller profile, availability, product read/create/update/delete, order read/status update, discount read/create/delete, malformed/missing bearer handling and legacy registration returning HTTP 410.
+- Existing `SellerServiceTest` continues to cover seller-scoped product/discount/order reads, cross-store product/discount/order mutation denial, approved-seller requirements and allowed order transitions.
+- Exact-head full Maven verification: **223 tests, 0 failures, 0 errors, 0 skipped**. `SellerControllerAuthorizationTest`: 8 passed; `BuyerControllerOrderAuthorizationTest`: 7 passed; `OrderServiceTest`: 17 passed.
+- Frontend checks, seller-registration quality gates and frontend lint/production build: passed.
+- Browser E2E: **3 passed, 9 skipped**. Read-only API smoke: **7 passed, 0 failed**, `databaseHealthChecked=false`; process liveness and anonymous guards only, not database readiness.
+- No runtime, API, schema, migration, payment/refund, hosting or deployment change; no staging or production records accessed or mutated.
+
+## Next P1-A slice — seller service/resource ownership
+
+PR #262 closes controller bearer-token forwarding coverage, not the full seller authorization matrix. Next cover `SellerService.getCurrentSeller`, `updateStoreAvailability`, `addProduct`, `addDiscount` and own-resource delete paths at the service boundary. Add wrong-store and unauthenticated cases before repository reads/writes, validate inventory boundaries, and verify that seller DTOs do not expose unrelated account or document PII. Preserve the existing cross-store product/discount/order ownership tests. Do not add undocumented endpoints or alter seller-direct payment/refund behavior.
+
+
+**Phase 1 remains IN PROGRESS.** PR #262 improves seller controller coverage but does not complete seller service ownership, the full IDOR matrix, authenticated transactional E2E, Oracle concurrency/rollback, abuse/privacy controls or P1-D operational/legal gates.
