@@ -28,4 +28,4 @@ Each created fixture carries the current run ID in V32-added nullable columns. E
 
 ## Public endpoint throttling
 
-The same release adds database-backed fixed-window limits for seller registration lead creation/OTP/callback operations and search analytics. Only SHA-256 bucket hashes are stored in API_RATE_LIMIT_BUCKETS; contact details and client identifiers are not stored in the rate-limit table. Seller lead input lengths are validated before persistence. The staging workflow does not generate public leads or send OTPs as part of its transactional order tests.
+The same release adds database-backed fixed-window limits for seller registration lead creation (contact pair, email and phone), OTP and callback operations, and search analytics. Only SHA-256 bucket hashes are stored in API_RATE_LIMIT_BUCKETS; contact details and client identifiers are not stored in the rate-limit table. Seller lead input lengths are validated before persistence. The staging workflow does not generate public leads or send OTPs as part of its transactional order tests.
