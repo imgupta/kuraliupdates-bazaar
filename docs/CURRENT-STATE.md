@@ -110,3 +110,12 @@ Standard KuraliUpdates CI and E2E run 42218558947 is still pending with no jobs 
 - Fix in branch `phase1/fix-e2e-cleanup-booking-slot-link`: both cleanup preflight relationship checks now use `BOOKING_ID`; the new `E2eRunCleanupServiceTest` asserts the SQL never references `b.SLOT_ID` and verifies the booking/slot relationship in both directions.
 - The failed cleanup ran before the service's first write because all ownership checks precede mutations. The five sessions were created with the run tag and have the normal two-hour expiry. The run ID was not printed by the workflow, so no broad/manual cleanup is attempted.
 - Exact-head Maven/CI and a fresh staging preflight after the backend fix is deployed are required. PR #268 remains blocked until it passes. Do not infer Phase 1 completion from this fix alone.
+
+
+## 7 November 2026 — cleanup fix deployed; preflight retest required
+
+- PR #269 merged as `6d9b85b85869d00563b736040fdca6b053e327f7`. Render deployment `dep-dbmu5k6c6qcc73biqedg` is confirmed `live` on the backend service. The fix changes invalid Daily Help cleanup relationship checks to use `BOOKING_ID` and includes a regression test.
+- Exact-head PR #269 CI completed successfully: backend suite 263 tests, 0 failures/errors/skips; frontend checks/build passed; read-only staging smoke passed 7/0; browser E2E 3 passed, 11 skipped. The skipped browser tests are not counted as authenticated transaction coverage.
+- The earlier PR #268 preflight run `42232583085` remains a failed historical run: five role sessions authenticated, but cleanup returned HTTP 500 from the now-fixed invalid `B.SLOT_ID` reference. It is not a pass.
+- The old PR #268 branch is one commit behind main after PR #269. A fresh branch `phase1/staging-preflight-after-cleanup-fix` was created from current main and the safe, non-transactional preflight workflow was reapplied as commit `49a43fe74676c21ac4c20380b9e1d3b3f41dfa7e` to trigger a clean PR event against the deployed fix.
+- Next: open/review the fresh PR and verify its exact-head workflow run confirms all five role sessions and exact run-scoped cleanup count. Do not merge until green. Then run the separately trusted transactional staging workflow with owner-approved synthetic fixtures, verify V32/V33 migrations and Oracle-backed cleanup/rollback, and continue remaining authorization/privacy checks. Phase 1 remains IN PROGRESS.
