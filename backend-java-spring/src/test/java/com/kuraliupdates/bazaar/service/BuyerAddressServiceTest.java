@@ -93,7 +93,7 @@ class BuyerAddressServiceTest {
     @Test
     void addressCannotBeMadeDefaultByAUserWhoDoesNotOwnIt() {
         UserEntity user = UserEntity.builder().userId("requester-1").build();
-        when(userRepository.findById("requester-1")).thenReturn(Optional.of(user));
+        when(userRepository.findLockedByUserId("requester-1")).thenReturn(Optional.of(user));
         when(addressRepository.findByAddressIdAndUserId("addr-other", "requester-1")).thenReturn(Optional.empty());
 
         assertTrue(addressService.setDefault("requester-1", "addr-other").isEmpty());
@@ -110,7 +110,7 @@ class BuyerAddressServiceTest {
                 .addressLine1("Old").isDefault(1).build();
         UserAddressEntity nextDefault = UserAddressEntity.builder().addressId("addr-new").userId("user-5")
                 .addressLine1("New").isDefault(0).build();
-        when(userRepository.findById("user-5")).thenReturn(Optional.of(user));
+        when(userRepository.findLockedByUserId("user-5")).thenReturn(Optional.of(user));
         when(addressRepository.findByAddressIdAndUserId("addr-new", "user-5")).thenReturn(Optional.of(nextDefault));
         when(addressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc("user-5"))
                 .thenReturn(new ArrayList<>(List.of(oldDefault, nextDefault)));

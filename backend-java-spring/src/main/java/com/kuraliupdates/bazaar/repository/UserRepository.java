@@ -22,4 +22,8 @@ public interface UserRepository extends JpaRepository<UserEntity, String> {
     List<UserEntity> findByRoleIgnoreCaseOrderByCreatedAtDesc(String role);
 
     List<UserEntity> findAllByOrderByCreatedAtDesc();
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from UserEntity u where u.userId = :userId")
+    Optional<UserEntity> findLockedByUserId(@Param("userId") String userId);
 }
