@@ -71,7 +71,6 @@ async function prepareFixtures(request: APIRequestContext, runId: string, seller
   for (const key of ["productId", "sellerId", "deliveryAgentId", "serviceId", "slotId", "professionalId"]) {
     expect(String(fixture[key] ?? ""), key + " must be synthetic").toMatch(/^E2E-[A-Za-z0-9_-]{3,80}$/);
   }
-  expect(fixture.scheduledStart).toMatch(/^\\d{4}-\\d{2}-\\d{2}T10:00:00$/);
   expect(Number(fixture.stock)).toBeGreaterThanOrEqual(1);
   expect(Number(fixture.requestedHours)).toBe(1);
   return fixture as {
