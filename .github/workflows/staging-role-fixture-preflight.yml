@@ -10,7 +10,7 @@ on:
       - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/BuyerController.java'
       - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/DailyHelpController.java'
   push:
-    branches: [main]
+    branches: [main, phase1/staging-preflight-after-cleanup-fix]
     paths:
       - '.github/workflows/staging-role-fixture-preflight.yml'
       - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/E2eAuthController.java'
