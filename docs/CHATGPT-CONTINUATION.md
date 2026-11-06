@@ -18,8 +18,8 @@ Before every coding, refactoring, review, test or release task, read [ENGINEERIN
 
 ## Latest execution checkpoint
 
-- Main after PR #255: `c3e50040d9d40ec6452b9903c2fa1cff004fc934`.
-- PR #253 reconciled Phase 0 status: PR #231 is a security-hardening milestone, not Phase 0 completion.
+- Main after PR #259: `d8d838dbb9d250a0c1d0e409c3dca036e2fc3817`.
+- Phase 0 formal evidence and exit disposition is recorded in [PHASE-0-FORMAL-EVIDENCE-REGISTER.md](PHASE-0-FORMAL-EVIDENCE-REGISTER.md); the security-hardening milestone is merged, but formal exit evidence is not complete.
 - PR #255 added six buyer address controller ownership/session tests; full backend suite reached 200 tests with zero failures/errors/skips.
 - Phase 1 remains in progress; latest merged evidence and remaining test limits are in [Phase 1 execution plan](PHASE-1-EXECUTION-PLAN.md).
 
