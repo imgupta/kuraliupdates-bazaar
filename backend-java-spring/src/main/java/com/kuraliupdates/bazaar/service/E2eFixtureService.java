@@ -81,7 +81,7 @@ public class E2eFixtureService {
         ProductEntity product = productRepository.findFirstByE2eRunId(runId).orElseGet(() ->
                 productRepository.save(ProductEntity.builder()
                         .productId(productId).seller(seller)
-                        .title("E2E Synthetic Grocery " + suffix.substring(0, 6))
+                        .title("E2E Synthetic Grocery " + productId)
                         .category("E2E TEST").description("Synthetic staging test product. Not for sale or delivery.")
                         .mrp(TEST_PRICE).sellerPrice(TEST_PRICE).stock(2).unit("piece")
                         .tags("E2E,SYNTHETIC,DO-NOT-DELIVER").isFeatured(0)
@@ -96,7 +96,7 @@ public class E2eFixtureService {
         ProductEntity multiSellerValid = productRepository.findById(multiSellerValidProductId).orElseGet(() ->
                 productRepository.save(ProductEntity.builder()
                         .productId(multiSellerValidProductId).seller(firstSeller)
-                        .title("E2E Multi Seller Valid " + suffix.substring(0, 6))
+                        .title("E2E Multi Seller Valid " + multiSellerValidProductId)
                         .category("E2E TEST").description("Synthetic rollback test product.")
                         .mrp(TEST_PRICE).sellerPrice(TEST_PRICE).stock(2).unit("piece")
                         .tags("E2E,SYNTHETIC,ROLLBACK-VALID").isFeatured(0)
@@ -104,7 +104,7 @@ public class E2eFixtureService {
         ProductEntity multiSellerFail = productRepository.findById(multiSellerFailProductId).orElseGet(() ->
                 productRepository.save(ProductEntity.builder()
                         .productId(multiSellerFailProductId).seller(secondSeller)
-                        .title("E2E Multi Seller Failure " + suffix.substring(0, 6))
+                        .title("E2E Multi Seller Failure " + multiSellerFailProductId)
                         .category("E2E TEST").description("Synthetic zero-stock rollback test product.")
                         .mrp(TEST_PRICE).sellerPrice(TEST_PRICE).stock(0).unit("piece")
                         .tags("E2E,SYNTHETIC,ROLLBACK-FAIL").isFeatured(0)
