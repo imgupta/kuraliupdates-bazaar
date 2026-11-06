@@ -61,6 +61,12 @@ function taggedAuth(token: string, runId: string) {
 }
 async function prepareFixtures(request: APIRequestContext, runId: string, sellerId: string,
   deliveryAgentId: string, professionalId: string) {
+  const rateLimitProbe = await request.post(apiBase + "/e2e/fixtures/rate-limit-probe/" + encodeURIComponent(runId), {
+    headers: { "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"), "X-E2E-Run-Id": runId },
+    timeout: 20_000,
+  });
+  expect(rateLimitProbe.status(), "deployed Oracle rate-limit migration and atomic fixed-window enforcement").toBe(200);
+  expect((await rateLimitProbe.json()).rateLimitVerified).toBe(true);
   const response = await request.post(apiBase + "/e2e/fixtures/prepare/" + encodeURIComponent(runId), {
     headers: { "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"), "Cache-Control": "no-store", "Content-Type": "application/json" },
     data: { sellerId, deliveryAgentId, professionalId },
