@@ -3,6 +3,7 @@ package com.kuraliupdates.bazaar.controller;
 import com.kuraliupdates.bazaar.entity.SearchTrendEntity;
 import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.repository.SearchTrendRepository;
+import com.kuraliupdates.bazaar.service.ApiRateLimitService;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -33,7 +34,7 @@ class SearchAnalyticsControllerTest {
     @Test
     void normalizesWhitespaceAndStoresOnlyBoundedDisplayQuery() {
         SearchTrendRepository repository = mock(SearchTrendRepository.class);
-        SearchAnalyticsController controller = new SearchAnalyticsController(repository);
+        SearchAnalyticsController controller = new SearchAnalyticsController(repository, mock(ApiRateLimitService.class));
 
         var response = controller.recordSearch(
                 new SearchAnalyticsController.SearchEventRequest("  Milk   and   Bread  ", "spoofed-user"), null, null);
