@@ -82,7 +82,7 @@ public class AuthController {
 
         String code = portalHandoffService.create(token, role);
         return ResponseEntity.ok(Map.of("success", true, "code", code, "role", role,
-                "expiresInSeconds", PORTAL_HANDOFF_TTL_SECONDS));
+                "expiresInSeconds", PortalHandoffService.TTL_SECONDS));
     }
 
     /** Redeems a handoff code once and returns the authenticated session to the target portal. */

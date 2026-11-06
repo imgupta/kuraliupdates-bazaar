@@ -18,7 +18,7 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class PortalHandoffService {
-    private static final long TTL_SECONDS = 60;
+    public static final long TTL_SECONDS = 60;
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final PortalHandoffRepository repository;
