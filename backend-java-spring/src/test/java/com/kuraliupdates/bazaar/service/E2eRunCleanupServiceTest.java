@@ -24,7 +24,7 @@ class E2eRunCleanupServiceTest {
     @Test
     void refusesCleanupBeforeAnyWriteWhenTaggedOrderReferencesNonSyntheticData() {
         when(jdbc.queryForObject(anyString(), eq(Long.class), eq("E2E-run-123")))
-                .thenReturn(1L, 0L, 0L);
+                .thenReturn(1L, 0L, 0L, 0L, 0L, 0L);
 
         assertThrows(ApiException.class, () -> cleanupService.cleanup("E2E-run-123"));
 

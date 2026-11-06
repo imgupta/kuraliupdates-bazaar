@@ -34,29 +34,34 @@ public class BuyerAddressService {
     public List<AddressResponse> findByUserId(String userId) {
         List<UserAddressEntity> addresses = new ArrayList<>(addressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc(userId));
         if (addresses.isEmpty()) {
-            userRepository.findById(userId)
-                    .filter(user -> hasText(user.getAddressLine1()) || hasText(user.getAddress()))
-                    .ifPresent(user -> {
-                        String addressLine1 = hasText(user.getAddressLine1())
-                                ? user.getAddressLine1().trim()
-                                : user.getAddress().trim();
-                        LocalDateTime now = LocalDateTime.now();
-                        UserAddressEntity legacyAddress = UserAddressEntity.builder()
-                                .addressId("addr-" + UUID.randomUUID().toString().replace("-", ""))
-                                .userId(userId)
-                                .label("Home")
-                                .addressLine1(addressLine1)
-                                .landmark(trim(user.getLandmark()))
-                                .formattedAddress(trim(user.getFormattedAddress()))
-                                .placeId(trim(user.getPlaceId()))
-                                .latitude(user.getLatitude())
-                                .longitude(user.getLongitude())
-                                .isDefault(1)
-                                .createdAt(now)
-                                .updatedAt(now)
-                                .build();
-                        addresses.add(addressRepository.save(legacyAddress));
-                    });
+            // Serialize legacy-address normalization with create/update/default operations.
+            userRepository.findLockedByUserId(userId).ifPresent(user -> {
+                List<UserAddressEntity> refreshed = addressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc(userId);
+                if (!refreshed.isEmpty()) {
+                    addresses.addAll(refreshed);
+                    return;
+                }
+                if (!hasText(user.getAddressLine1()) && !hasText(user.getAddress())) return;
+                String addressLine1 = hasText(user.getAddressLine1())
+                        ? user.getAddressLine1().trim()
+                        : user.getAddress().trim();
+                LocalDateTime now = LocalDateTime.now();
+                UserAddressEntity legacyAddress = UserAddressEntity.builder()
+                        .addressId("addr-" + UUID.randomUUID().toString().replace("-", ""))
+                        .userId(userId)
+                        .label("Home")
+                        .addressLine1(addressLine1)
+                        .landmark(trim(user.getLandmark()))
+                        .formattedAddress(trim(user.getFormattedAddress()))
+                        .placeId(trim(user.getPlaceId()))
+                        .latitude(user.getLatitude())
+                        .longitude(user.getLongitude())
+                        .isDefault(1)
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+                addresses.add(addressRepository.save(legacyAddress));
+            });
         }
         return addresses.stream().map(AddressResponse::from).toList();
     }
@@ -127,7 +132,7 @@ public class BuyerAddressService {
     }
 
     private UserEntity requireUser(String userId) {
-        return userRepository.findById(userId)
+        return userRepository.findLockedByUserId(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User not found"));
     }
 

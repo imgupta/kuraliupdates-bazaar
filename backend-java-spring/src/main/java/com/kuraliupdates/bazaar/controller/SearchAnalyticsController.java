@@ -2,6 +2,7 @@ package com.kuraliupdates.bazaar.controller;
 
 import com.kuraliupdates.bazaar.entity.SearchTrendEntity;
 import com.kuraliupdates.bazaar.repository.SearchTrendRepository;
+import com.kuraliupdates.bazaar.service.ApiRateLimitService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -11,6 +12,8 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.UUID;
+import java.time.Duration;
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/analytics")
@@ -18,9 +21,10 @@ import java.util.UUID;
 public class SearchAnalyticsController {
 
     private final SearchTrendRepository searchTrendRepository;
+    private final ApiRateLimitService rateLimit;
 
     @PostMapping("/search")
-    public ResponseEntity<Void> recordSearch(@RequestBody SearchEventRequest request, Authentication authentication) {
+    public ResponseEntity<Void> recordSearch(@RequestBody SearchEventRequest request, Authentication authentication, HttpServletRequest servletRequest) {
         if (request == null || request.query() == null) {
             return ResponseEntity.badRequest().build();
         }
@@ -41,6 +45,11 @@ public class SearchAnalyticsController {
                 && authentication.getPrincipal() instanceof UserEntity user
                 ? user.getUserId()
                 : null;
+        String rateKey = authenticatedUserId != null ? "user:" + authenticatedUserId
+                : "ip:" + (servletRequest == null || servletRequest.getRemoteAddr() == null
+                    ? "unknown" : servletRequest.getRemoteAddr());
+        rateLimit.requireAllowed("search-analytics", rateKey,
+                authenticatedUserId == null ? 600 : 300, Duration.ofMinutes(1));
 
         searchTrendRepository.save(SearchTrendEntity.builder()
                 .searchId(UUID.randomUUID().toString())

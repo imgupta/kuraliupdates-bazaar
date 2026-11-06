@@ -55,6 +55,7 @@ public class SellerEntity {
     @Column(name = "AGREEMENT_VERSION", length = 40) private String agreementVersion;
     @Column(name = "AGREEMENT_ACCEPTED_AT") private LocalDateTime agreementAcceptedAt;
     @Column(name = "AGREEMENT_ACCEPTED_IP", length = 64) private String agreementAcceptedIp;
+    @Column(name = "E2E_RUN_ID", length = 80) private String e2eRunId;
 
     @JsonIgnore
     @OneToMany(mappedBy = "seller", cascade = CascadeType.ALL, orphanRemoval = true)

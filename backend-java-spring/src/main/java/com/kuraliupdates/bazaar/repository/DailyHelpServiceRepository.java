@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface DailyHelpServiceRepository extends JpaRepository<DailyHelpServiceEntity, String> {
     List<DailyHelpServiceEntity> findByActiveOrderByCategoryAscNameAsc(Integer active);
+    java.util.Optional<DailyHelpServiceEntity> findFirstByE2eRunId(String e2eRunId);
 }

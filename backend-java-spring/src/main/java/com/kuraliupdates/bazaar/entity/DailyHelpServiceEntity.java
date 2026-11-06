@@ -20,4 +20,5 @@ public class DailyHelpServiceEntity {
     @Column(name = "ACTIVE", nullable = false) private Integer active;
     @Column(name = "CREATED_AT", nullable = false) private LocalDateTime createdAt;
     @Column(name = "UPDATED_AT", nullable = false) private LocalDateTime updatedAt;
+    @Column(name = "E2E_RUN_ID", length = 80) private String e2eRunId;
 }

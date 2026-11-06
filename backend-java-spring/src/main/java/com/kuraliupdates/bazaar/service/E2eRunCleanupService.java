@@ -27,7 +27,11 @@ public class E2eRunCleanupService {
                            OR UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%RETURN%')
                        OR EXISTS (SELECT 1 FROM ORDER_ITEMS oi
                                   WHERE oi.ORDER_ID = o.ORDER_ID
-                                    AND (oi.PRODUCT_ID NOT LIKE 'E2E-%' OR oi.QUANTITY <= 0)))
+                                    AND (oi.PRODUCT_ID NOT LIKE 'E2E-%' OR oi.QUANTITY <= 0
+                                         OR NOT EXISTS (SELECT 1 FROM PRODUCTS p
+                                                        WHERE p.PRODUCT_ID = oi.PRODUCT_ID
+                                                          AND p.E2E_RUN_ID = o.E2E_RUN_ID
+                                                          AND p.SELLER_ID = o.SELLER_ID))))
                 """, runId);
         long unsafeBookings = count("""
                 SELECT COUNT(*) FROM DAILY_HELP_BOOKINGS b
@@ -35,18 +39,62 @@ public class E2eRunCleanupService {
                   AND (b.SERVICE_ID NOT LIKE 'E2E-%'
                        OR b.PROFESSIONAL_ID IS NULL
                        OR b.PROFESSIONAL_ID NOT LIKE 'E2E-%'
+                       OR NOT EXISTS (SELECT 1 FROM DAILY_HELP_SERVICES ds
+                                      WHERE ds.SERVICE_ID = b.SERVICE_ID
+                                        AND ds.E2E_RUN_ID = b.E2E_RUN_ID)
                        OR NOT EXISTS (SELECT 1 FROM DAILY_HELP_PROFESSIONAL_SLOTS s
-                                      WHERE s.BOOKING_ID = b.BOOKING_ID
+                                      WHERE s.E2E_RUN_ID = b.E2E_RUN_ID
                                         AND s.SLOT_ID LIKE 'E2E-%'
-                                        AND s.STATUS = 'BOOKED'
-                                        AND s.PROFESSIONAL_ID = b.PROFESSIONAL_ID))
+                                        AND s.PROFESSIONAL_ID = b.PROFESSIONAL_ID
+                                        AND s.SLOT_ID = b.SLOT_ID))
                 """, runId);
         long unsafeChats = count("""
                 SELECT COUNT(*) FROM NEGOTIATION_CHATS c
                 WHERE c.E2E_RUN_ID = ?
-                  AND (c.PRODUCT_ID NOT LIKE 'E2E-%' OR c.SELLER_ID NOT LIKE 'E2E-%')
+                  AND (c.PRODUCT_ID NOT LIKE 'E2E-%' OR c.SELLER_ID NOT LIKE 'E2E-%'
+                       OR NOT EXISTS (SELECT 1 FROM PRODUCTS p
+                                      WHERE p.PRODUCT_ID = c.PRODUCT_ID
+                                        AND p.E2E_RUN_ID = c.E2E_RUN_ID
+                                        AND p.SELLER_ID = c.SELLER_ID))
                 """, runId);
-        if (unsafeOrders != 0 || unsafeBookings != 0 || unsafeChats != 0) {
+        long unsafeProducts = count("""
+                SELECT COUNT(*) FROM PRODUCTS p
+                WHERE p.E2E_RUN_ID = ?
+                  AND (p.PRODUCT_ID NOT LIKE 'E2E-%' OR p.SELLER_ID NOT LIKE 'E2E-%'
+                       OR EXISTS (SELECT 1 FROM ORDER_ITEMS oi JOIN ORDERS o ON o.ORDER_ID = oi.ORDER_ID
+                                  WHERE oi.PRODUCT_ID = p.PRODUCT_ID AND NVL(o.E2E_RUN_ID, '-') <> ?)
+                       OR EXISTS (SELECT 1 FROM NEGOTIATION_CHATS nc
+                                  WHERE nc.PRODUCT_ID = p.PRODUCT_ID AND NVL(nc.E2E_RUN_ID, '-') <> ?)
+                       OR NOT EXISTS (SELECT 1 FROM SELLERS s
+                                      WHERE s.SELLER_ID = p.SELLER_ID
+                                        AND (s.E2E_RUN_ID IS NULL OR s.E2E_RUN_ID = p.E2E_RUN_ID)))
+                """, runId, runId, runId);
+        long unsafeServices = count("""
+                SELECT COUNT(*) FROM DAILY_HELP_SERVICES s
+                WHERE s.E2E_RUN_ID = ?
+                  AND (s.SERVICE_ID NOT LIKE 'E2E-%'
+                       OR EXISTS (SELECT 1 FROM DAILY_HELP_BOOKINGS b
+                                  WHERE b.SERVICE_ID = s.SERVICE_ID AND NVL(b.E2E_RUN_ID, '-') <> ?))
+                """, runId, runId);
+        long unsafeSlots = count("""
+                SELECT COUNT(*) FROM DAILY_HELP_PROFESSIONAL_SLOTS s
+                WHERE s.E2E_RUN_ID = ?
+                  AND (s.SLOT_ID NOT LIKE 'E2E-%' OR s.PROFESSIONAL_ID NOT LIKE 'E2E-%'
+                       OR EXISTS (SELECT 1 FROM DAILY_HELP_BOOKINGS b
+                                  WHERE (b.BOOKING_ID = s.BOOKING_ID OR b.SLOT_ID = s.SLOT_ID)
+                                    AND NVL(b.E2E_RUN_ID, '-') <> ?))
+                """, runId, runId);
+        long unsafeSellers = count("""
+                SELECT COUNT(*) FROM SELLERS s
+                WHERE s.E2E_RUN_ID = ?
+                  AND (s.SELLER_ID NOT LIKE 'E2E-%'
+                       OR EXISTS (SELECT 1 FROM PRODUCTS p
+                                  WHERE p.SELLER_ID = s.SELLER_ID AND NVL(p.E2E_RUN_ID, '-') <> ?)
+                       OR EXISTS (SELECT 1 FROM ORDERS o
+                                  WHERE o.SELLER_ID = s.SELLER_ID AND NVL(o.E2E_RUN_ID, '-') <> ?))
+                """, runId, runId, runId);
+        if (unsafeOrders != 0 || unsafeBookings != 0 || unsafeChats != 0
+                || unsafeProducts != 0 || unsafeServices != 0 || unsafeSlots != 0 || unsafeSellers != 0) {
             throw new ApiException(HttpStatus.CONFLICT,
                     "Run cleanup refused: one or more tagged records are not exclusively synthetic; no records were changed");
         }
@@ -73,24 +121,31 @@ public class E2eRunCleanupService {
                     WHERE o.E2E_RUN_ID = ? AND oi.PRODUCT_ID = p.PRODUCT_ID
                 )
                 WHERE p.PRODUCT_ID LIKE 'E2E-%'
+                  AND p.E2E_RUN_ID = ?
                   AND EXISTS (SELECT 1 FROM ORDER_ITEMS oi JOIN ORDERS o ON o.ORDER_ID = oi.ORDER_ID
                               WHERE o.E2E_RUN_ID = ? AND oi.PRODUCT_ID = p.PRODUCT_ID)
-                """, runId, runId);
+                """, runId, runId, runId);
         int orderItems = jdbc.update("""
                 DELETE FROM ORDER_ITEMS
                 WHERE ORDER_ID IN (SELECT ORDER_ID FROM ORDERS WHERE E2E_RUN_ID = ?)
                 """, runId);
         int orders = jdbc.update("DELETE FROM ORDERS WHERE E2E_RUN_ID = ?", runId);
+        int products = jdbc.update("DELETE FROM PRODUCTS WHERE E2E_RUN_ID = ?", runId);
+        int slots = jdbc.update("DELETE FROM DAILY_HELP_PROFESSIONAL_SLOTS WHERE E2E_RUN_ID = ?", runId);
+        int services = jdbc.update("DELETE FROM DAILY_HELP_SERVICES WHERE E2E_RUN_ID = ?", runId);
+        int sellers = jdbc.update("DELETE FROM SELLERS WHERE E2E_RUN_ID = ?", runId);
 
         int sessions = jdbc.update("DELETE FROM USER_SESSIONS WHERE E2E_RUN_ID = ?", runId);
-        return new CleanupResult(runId, orders, orderItems, bookings, deletedChats, chats, sessions);
+        return new CleanupResult(runId, orders, orderItems, bookings, deletedChats, chats, sessions,
+                products, services, slots, sellers);
     }
 
-    private long count(String sql, String runId) {
-        Long value = jdbc.queryForObject(sql, Long.class, runId);
+    private long count(String sql, String... params) {
+        Long value = jdbc.queryForObject(sql, Long.class, (Object[]) params);
         return value == null ? 0 : value;
     }
 
     public record CleanupResult(String runId, int orders, int orderItems, int dailyHelpBookings,
-                                int negotiationChats, int chatMessages, int sessions) {}
+                                int negotiationChats, int chatMessages, int sessions,
+                                int products, int dailyHelpServices, int dailyHelpSlots, int sellers) {}
 }

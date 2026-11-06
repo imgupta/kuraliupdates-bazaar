@@ -412,3 +412,51 @@ At code head 14dd0167c61aefa5e307b65d7dcfdfe259292264, the Seller registration q
 - An initial compile failure in SellerRegistrationOtpConfigControllerSecurityTest was corrected by matching the history mock to its declared List return type. The successful 248-test result is from the corrected code head.
 
 This evidence is a first successful quality-gate run, not yet the final PR head after this documentation addendum. Re-run exact-head workflows after the documentation update.
+
+
+## PR #267 — consolidated run-scoped staging lifecycle harness
+
+- Added a token-protected staging-only fixture endpoint that requires existing E2E-prefixed approved seller, active delivery agent and verified/available Daily Help professional profiles.
+- V32 adds nullable E2E_RUN_ID markers for products, Daily Help services and professional slots. It does not tag or alter pre-existing rows.
+- Each Playwright lifecycle test provisions its own synthetic product, service and future slot. COD order and Daily Help lifecycle use the real application endpoints and generated OTPs.
+- Cleanup preflights all run-owned rows before writes and deletes only the run's synthetic product/service/slot/order/booking/chat/sessions. It refuses cross-run or non-synthetic relationships.
+- A separate trusted workflow_run workflow waits for database-backed staging readiness and executes transactional lifecycle E2E after successful main-branch CI. PR checks remain non-mutating. Manual dispatch is also available.
+- Backend fixture-service tests are included in the focused Maven regression command and full suite.
+
+**Status:** PR #267 is open. Exact-head CI is pending. The transactional staging workflow has not yet executed against the deployed V32 schema. Phase 1 remains IN PROGRESS; no closure claim is made until that workflow passes and the remaining IDOR, abuse/privacy and Oracle concurrency/rollback criteria are either proven or explicitly dispositioned.
+
+
+### PR #267 additional staging transaction cases
+
+The consolidated synthetic fixture now includes a second run-owned seller profile solely for multi-seller checkout rollback. The fixture creates:
+- a normal stock-2 product for the end-to-end delivery flow;
+- a stock-2 product assigned to whichever synthetic seller sorts first by seller ID;
+- a zero-stock product assigned to the second seller in deterministic checkout grouping order;
+- one run-owned rollback seller, one Daily Help service and one future slot.
+
+The transactional suite now includes:
+- two simultaneous single-seller checkouts against stock 2; exactly one may succeed and stock must end at zero;
+- a third checkout after depletion must be rejected;
+- a multi-seller checkout where the first seller suborder can reserve stock and the second seller fails for zero stock; buyer history and the first seller's stock must be unchanged after rollback;
+- two concurrent claims by the same active synthetic rider; exactly one claim may win;
+- two concurrent Daily Help bookings for the same slot; exactly one booking may reserve it;
+- replay of an already accepted bargaining offer must be rejected without applying it twice.
+
+All these scenarios use one run ID and are covered by the cleanup preflight. If a race exposes duplicate run-owned rows, cleanup is allowed to remove only those rows after verifying their seller/product/service/slot links remain within the same run. Cross-run links still abort before writes.
+
+
+### PR #267 — public endpoint abuse controls
+
+- Added an Oracle-backed fixed-window rate-limit bucket table. Bucket keys are SHA-256 hashes; raw email, phone, lead ID, user ID and remote address are not persisted in the limiter table.
+- Seller lead creation is limited to 3 attempts per normalized contact pair, email, and phone independently per hour.
+- Lead OTP-send requests are limited to 3 per lead per hour; contact verification to 10 per lead per 15 minutes; callback requests to 2 per lead per day. Existing OTP cooldown and attempt caps remain in force.
+- Search analytics is limited to 300 events/minute per authenticated user or 600/minute per anonymous remote address.
+- Oracle first-insert duplicate-key races retry once against the winning bucket; a repeated database race fails closed with 503, and exhausted buckets return 429.
+- Seller lead owner-name, email, phone and callback-preference lengths are rejected when oversized rather than silently truncated.
+
+**Status:** code and regression tests are included in PR #267. Exact-head CI and the deployed V33 migration are still required before claiming these controls are verified on staging.
+
+
+## Staging environment decision — 2026-11-06
+
+The owner confirmed that the current KuraliUpdates environment is staging-only and explicitly authorized synthetic test orders and backend-created mock data for end-to-end verification. There is no production environment to target at this stage. Accordingly, Phase 1 transaction/concurrency tests may run against the designated staging Oracle database only when every created business row is tagged to a unique E2E_RUN_ID, uses E2E-prefixed fixture identities/IDs, and is removed by the guarded run-scoped cleanup. No production target, real customer/seller records, global reset, table truncation, or broad cleanup is authorized. This approval does not close Phase 0 backup/restore, residency, secret-rotation or legal sign-off requirements, and it does not authorize a production relaunch.

@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface DailyHelpProfessionalSlotRepository extends JpaRepository<DailyHelpProfessionalSlotEntity, String> {
+    Optional<DailyHelpProfessionalSlotEntity> findFirstByE2eRunId(String e2eRunId);
     List<DailyHelpProfessionalSlotEntity> findByProfessionalProfessionalIdAndSlotDateOrderByStartTimeAsc(
             String professionalId, LocalDate slotDate);
 

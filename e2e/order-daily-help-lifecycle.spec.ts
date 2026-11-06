@@ -59,6 +59,34 @@ function taggedAuth(token: string, runId: string) {
     "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"),
   };
 }
+async function prepareFixtures(request: APIRequestContext, runId: string, sellerId: string,
+  deliveryAgentId: string, professionalId: string) {
+  const rateLimitProbe = await request.post(apiBase + "/e2e/fixtures/rate-limit-probe/" + encodeURIComponent(runId), {
+    headers: { "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"), "X-E2E-Run-Id": runId },
+    timeout: 20_000,
+  });
+  expect(rateLimitProbe.status(), "deployed Oracle rate-limit migration and atomic fixed-window enforcement").toBe(200);
+  expect((await rateLimitProbe.json()).rateLimitVerified).toBe(true);
+  const response = await request.post(apiBase + "/e2e/fixtures/prepare/" + encodeURIComponent(runId), {
+    headers: { "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"), "Cache-Control": "no-store", "Content-Type": "application/json" },
+    data: { sellerId, deliveryAgentId, professionalId },
+    timeout: 20_000,
+  });
+  expect(response.status(), "backend should provision run-scoped synthetic fixtures").toBe(200);
+  const fixture = await response.json();
+  for (const key of ["productId", "sellerId", "deliveryAgentId", "serviceId", "slotId", "professionalId",
+    "rollbackSellerId", "multiSellerValidProductId", "multiSellerFailProductId"]) {
+    expect(String(fixture[key] ?? ""), key + " must be synthetic").toMatch(/^E2E-[A-Za-z0-9_-]{3,80}$/);
+  }
+  expect(Number(fixture.stock)).toBeGreaterThanOrEqual(1);
+  expect(Number(fixture.requestedHours)).toBe(1);
+  return fixture as {
+    productId: string; sellerId: string; deliveryAgentId: string; serviceId: string;
+    slotId: string; professionalId: string; scheduledStart: string;
+    requestedHours: number; stock: number; unitPrice: string;
+    rollbackSellerId: string; multiSellerValidProductId: string; multiSellerFailProductId: string;
+  };
+}
 
 test.afterEach(async ({ request }, testInfo) => {
   const key = testKey(testInfo);
@@ -72,8 +100,15 @@ test.afterEach(async ({ request }, testInfo) => {
   expect(cleanup.status(), "run-scoped cleanup must succeed without touching untagged records").toBe(200);
   const summary = await cleanup.json();
   expect(summary.runId).toBe(runId);
-  for (const count of [summary.orders, summary.orderItems, summary.dailyHelpBookings, summary.negotiationChats, summary.chatMessages, summary.sessions]) {
+  for (const count of [summary.orders, summary.orderItems, summary.dailyHelpBookings, summary.negotiationChats,
+    summary.chatMessages, summary.sessions, summary.products, summary.dailyHelpServices, summary.dailyHelpSlots, summary.sellers]) {
     expect(Number.isInteger(count) && count >= 0).toBeTruthy();
+  }
+  const fixtureCleanupCounts = [summary.products, summary.dailyHelpServices, summary.dailyHelpSlots, summary.sellers];
+  if (summary.products === 0) {
+    expect(fixtureCleanupCounts).toEqual([0, 0, 0, 0]);
+  } else {
+    expect(fixtureCleanupCounts, "all and only this run's synthetic fixtures are deleted").toEqual([3, 1, 1, 1]);
   }
 });
 
@@ -88,10 +123,12 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
     const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY", runId);
     const deliveryToken = await flowToken(request, "DELIVERY", "E2E_DELIVERY_IDENTITY", runId);
-    const productId = syntheticId("E2E_FLOW_PRODUCT_ID");
     const sellerId = syntheticId("E2E_FLOW_SELLER_ID");
     const agentId = syntheticId("E2E_FLOW_DELIVERY_AGENT_ID");
-    const quantity = Number(required("E2E_FLOW_ORDER_QUANTITY"));
+    const professionalId = syntheticId("E2E_FLOW_PROFESSIONAL_ID");
+    const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalId);
+    const productId = fixture.productId;
+    const quantity = 1;
     expect(Number.isInteger(quantity) && quantity > 0 && quantity <= 2,
       "Keep E2E order quantities small and deterministic").toBeTruthy();
 
@@ -147,6 +184,11 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const agreedChat = await acceptResponse.json();
     expect(Number(agreedChat.currentAgreedPrice)).toBe(counterPrice);
     expect(String(agreedChat.currentAgreedOfferId)).toBe(String(sellerCounter.offer.id));
+    const replayAccept = await request.post(
+      apiBase + "/negotiations/" + encodeURIComponent(chatId) + "/offers/" + encodeURIComponent(sellerCounter.offer.id) + "/respond",
+      { headers: { ...auth(buyerToken), "X-Active-Role": "BUYER" }, data: { action: "ACCEPT" }, timeout: 20_000 },
+    );
+    expect([400, 409], "replaying an accepted offer must not apply it a second time").toContain(replayAccept.status());
 
     // A later rejected offer must not replace the accepted price.
     const lowerOfferPrice = buyerOfferPrice;
@@ -229,11 +271,16 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const sellerOrders = await getJson(request, "/sellers/me/orders", sellerToken);
     expect(sellerOrders.filter((x: any) => x.orderId === orderId)).toHaveLength(1);
 
-    const claim = await request.post(apiBase + "/delivery/jobs/" + encodeURIComponent(orderId) + "/claim?agentId=" + encodeURIComponent(agentId), {
-      headers: auth(deliveryToken), timeout: 20_000,
-    });
-    expect(claim.status(), "active synthetic agent claims the ready order").toBe(200);
-    expect((await claim.json()).status).not.toBe("DELIVERED");
+    const claimAttempts = await Promise.all([1, 2].map(() =>
+      request.post(apiBase + "/delivery/jobs/" + encodeURIComponent(orderId) + "/claim?agentId=" + encodeURIComponent(agentId), {
+        headers: auth(deliveryToken), timeout: 20_000,
+      })
+    ));
+    const successfulClaims = claimAttempts.filter(response => response.status() === 200);
+    const rejectedClaims = claimAttempts.filter(response => response.status() === 409);
+    expect(successfulClaims, "exactly one concurrent claim may win").toHaveLength(1);
+    expect(rejectedClaims, "the duplicate concurrent claim must conflict").toHaveLength(1);
+    expect((await successfulClaims[0].json()).status).not.toBe("DELIVERED");
 
     const invalidOtp = await request.post(apiBase + "/delivery/jobs/" + encodeURIComponent(orderId) + "/verify-otp", {
       headers: auth(deliveryToken), data: { otp: "0000" === placement.deliveryOtp ? "9999" : "0000" }, timeout: 20_000,
@@ -246,6 +293,10 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
       headers: auth(deliveryToken), data: { otp: placement.deliveryOtp }, timeout: 20_000,
     });
     expect(validOtp.status(), "valid OTP completes the synthetic delivery").toBe(200);
+    const replayDeliveryOtp = await request.post(apiBase + "/delivery/jobs/" + encodeURIComponent(orderId) + "/verify-otp", {
+      headers: auth(deliveryToken), data: { otp: placement.deliveryOtp }, timeout: 20_000,
+    });
+    expect([400, 409], "delivery OTP replay must not complete or credit the trip twice").toContain(replayDeliveryOtp.status());
     const finalTrack = await getJson(request, "/buyers/orders/" + encodeURIComponent(orderId) + "/track", buyerToken);
     expect(finalTrack.status).toBe("DELIVERED");
     expect((await getJson(request, "/buyers/me/orders", buyerToken)).filter((x: any) => x.orderId === orderId)).toHaveLength(1);
@@ -258,24 +309,31 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     runIds.set(testKey(testInfo), runId);
     const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
     const professionalToken = await flowToken(request, "PROVIDER", "E2E_PROVIDER_IDENTITY", runId);
-    const serviceId = syntheticId("E2E_FLOW_DAILY_HELP_SERVICE_ID");
-    const slotId = syntheticId("E2E_FLOW_DAILY_HELP_SLOT_ID");
+    const sellerId = syntheticId("E2E_FLOW_SELLER_ID");
+    const agentId = syntheticId("E2E_FLOW_DELIVERY_AGENT_ID");
     const professionalId = syntheticId("E2E_FLOW_PROFESSIONAL_ID");
+    const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalId);
+    const serviceId = fixture.serviceId;
+    const slotId = fixture.slotId;
     const buyerPhone = required("E2E_FLOW_BUYER_PHONE");
     const buyerName = "E2E Synthetic Buyer";
     const address = "E2E Test Address - do not visit";
-    const scheduledStart = required("E2E_FLOW_DAILY_HELP_START");
-    const requestedHours = Number(required("E2E_FLOW_DAILY_HELP_HOURS"));
+    const scheduledStart = fixture.scheduledStart;
+    const requestedHours = fixture.requestedHours;
     expect(Number.isFinite(Date.parse(scheduledStart))).toBeTruthy();
     expect(requestedHours >= 1 && requestedHours <= 2).toBeTruthy();
 
-    const bookingResponse = await request.post(apiBase + "/daily-help/bookings", {
-      headers: taggedAuth(buyerToken, runId),
-      data: { serviceId, buyerName, buyerPhone, address, locality: "Kurali", scheduledStart, requestedHours, slotId },
-      timeout: 20_000,
-    });
-    expect(bookingResponse.status(), "booking an allowlisted synthetic slot").toBe(200);
-    const booking = await bookingResponse.json();
+    const bookingPayload = { serviceId, buyerName, buyerPhone, address, locality: "Kurali", scheduledStart, requestedHours, slotId };
+    const bookingAttempts = await Promise.all([1, 2].map(() =>
+      request.post(apiBase + "/daily-help/bookings", {
+        headers: taggedAuth(buyerToken, runId), data: bookingPayload, timeout: 20_000,
+      })
+    ));
+    const successfulBookings = bookingAttempts.filter(response => response.status() === 200);
+    const rejectedBookings = bookingAttempts.filter(response => [400, 409].includes(response.status()));
+    expect(successfulBookings, "only one concurrent booking may reserve the synthetic slot").toHaveLength(1);
+    expect(rejectedBookings, "the competing slot booking must be rejected").toHaveLength(1);
+    const booking = await successfulBookings[0].json();
     const bookingId = String(booking.id ?? "");
     expect(bookingId).toMatch(/^DH-KUR-[A-F0-9-]+$/i);
     expect(booking.status).toBe("PROFESSIONAL_ASSIGNED");
@@ -307,6 +365,10 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(startResponse.status(), "valid OTP starts the service timer").toBe(200);
     const started = await startResponse.json();
     expect(started.serviceStartedAt).toBeTruthy();
+    const replayStart = await request.post(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId) + "/start", {
+      headers: auth(professionalToken), data: { professionalId, otp: startOtp }, timeout: 20_000,
+    });
+    expect([400, 409], "Daily Help start OTP replay must not restart or reset the timer").toContain(replayStart.status());
 
     const completeResponse = await request.post(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId) + "/complete?professionalId=" + encodeURIComponent(professionalId), {
       headers: auth(professionalToken), timeout: 20_000,
@@ -315,6 +377,10 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const completed = await completeResponse.json();
     expect(completed.status).toBe("COMPLETED");
     expect(completed.serviceCompletedAt).toBeTruthy();
+    const replayComplete = await request.post(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId) + "/complete?professionalId=" + encodeURIComponent(professionalId), {
+      headers: auth(professionalToken), timeout: 20_000,
+    });
+    expect([400, 409], "Daily Help completion replay must not duplicate the terminal transition").toContain(replayComplete.status());
 
     const buyerReadBack = await request.get(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId), {
       headers: auth(buyerToken), timeout: 20_000,
@@ -327,12 +393,123 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(reconciledBooking.serviceStartedAt).toBe(started.serviceStartedAt);
     expect(reconciledBooking.serviceCompletedAt).toBe(completed.serviceCompletedAt);
   });
-});
+
+  test("multi-seller checkout failure rolls back the earlier seller order and stock", async ({ request }, testInfo) => {
+    test.setTimeout(120_000);
+    const runId = runScopedId(testInfo);
+    runIds.set(testKey(testInfo), runId);
+    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
+    const sellerId = syntheticId("E2E_FLOW_SELLER_ID");
+    const agentId = syntheticId("E2E_FLOW_DELIVERY_AGENT_ID");
+    const professionalId = syntheticId("E2E_FLOW_PROFESSIONAL_ID");
+    const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalId);
+
+    const beforeOrders = await getJson(request, "/buyers/me/orders", buyerToken);
+    const beforeIds = new Set(beforeOrders.map((order: any) => String(order.orderId)));
+    const validProducts = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerValidProductId), buyerToken);
+    const failProducts = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerFailProductId), buyerToken);
+    const validProduct = validProducts.find((item: any) => item.productId === fixture.multiSellerValidProductId);
+    const failProduct = failProducts.find((item: any) => item.productId === fixture.multiSellerFailProductId);
+    expect(validProduct).toBeTruthy();
+    expect(failProduct).toBeTruthy();
+    expect(validProduct.sellerId ?? validProduct.seller?.sellerId).not.toBe(failProduct.sellerId ?? failProduct.seller?.sellerId);
+    expect(Number(validProduct.stock ?? validProduct.stockQty)).toBe(2);
+    expect(Number(failProduct.stock ?? failProduct.stockQty)).toBe(0);
+
+    const response = await request.post(apiBase + "/buyers/orders/checkout", {
+      headers: taggedAuth(buyerToken, runId),
+      data: {
+        deliveryAddress: "E2E Test Address - do not deliver",
+        deliveryLocality: "Kurali",
+        paymentMethod: "COD",
+        fulfilmentMode: "DELIVERY",
+        distanceKm: 1,
+        items: [
+          { productId: fixture.multiSellerValidProductId, quantity: 1 },
+          { productId: fixture.multiSellerFailProductId, quantity: 1 },
+        ],
+      },
+      timeout: 30_000,
+    });
+    expect([400, 409], "the second seller's zero-stock product must fail the checkout").toContain(response.status());
+
+    const afterOrders = await getJson(request, "/buyers/me/orders", buyerToken);
+    expect(afterOrders.map((order: any) => String(order.orderId)).sort()).toEqual([...beforeIds].sort());
+    const validAfter = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerValidProductId), buyerToken);
+    const failAfter = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerFailProductId), buyerToken);
+    const validAfterProduct = validAfter.find((item: any) => item.productId === fixture.multiSellerValidProductId);
+    expect(Number(validAfterProduct.stock ?? validAfterProduct.stockQty),
+      "first seller stock must roll back after the later seller fails").toBe(2);
+    const failAfterProduct = failAfter.find((item: any) => item.productId === fixture.multiSellerFailProductId);
+    expect(Number(failAfterProduct.stock ?? failAfterProduct.stockQty)).toBe(0);
+  });
+
+  test("concurrent checkout cannot oversell the last synthetic stock", async ({ request }, testInfo) => {
+    test.setTimeout(120_000);
+    const runId = runScopedId(testInfo);
+    runIds.set(testKey(testInfo), runId);
+    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
+    const sellerId = syntheticId("E2E_FLOW_SELLER_ID");
+    const agentId = syntheticId("E2E_FLOW_DELIVERY_AGENT_ID");
+    const professionalId = syntheticId("E2E_FLOW_PROFESSIONAL_ID");
+    const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalId);
+    const productId = fixture.productId;
+    const products = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(productId), buyerToken);
+    const product = products.find((item: any) => item.productId === productId);
+    expect(product).toBeTruthy();
+    const price = Number(product.effectivePrice ?? product.price ?? product.sellerPrice);
+    expect(Number(product.stock ?? product.stockQty)).toBe(2);
+    const subtotal = Math.round(price * 2 * 100) / 100;
+    const payload = {
+      buyerName: "E2E Synthetic Buyer",
+      buyerPhone: required("E2E_FLOW_BUYER_PHONE"),
+      buyerEmail: required("E2E_FLOW_BUYER_EMAIL"),
+      deliveryAddress: "E2E Test Address - do not deliver",
+      deliveryLocality: "Kurali",
+      sellerId,
+      subtotal,
+      discountAmount: 0,
+      deliveryFee: 0,
+      finalPayable: subtotal,
+      paymentMethod: "COD",
+      distanceKm: 1,
+      items: [{ productId, quantity: 2 }],
+    };
+    const attempts = await Promise.all([1, 2].map(() =>
+      request.post(apiBase + "/buyers/orders", {
+        headers: taggedAuth(buyerToken, runId), data: payload, timeout: 30_000,
+      })
+    ));
+    const accepted = attempts.filter(response => response.status() === 200);
+    const rejected = attempts.filter(response => [400, 409].includes(response.status()));
+    expect(accepted, "one checkout may reserve the two available units").toHaveLength(1);
+    expect(rejected, "the competing checkout must be rejected after the stock lock").toHaveLength(1);
+    const placedBody = await accepted[0].json();
+    const placedOrder = placedBody.order ?? placedBody;
+    expect(placedOrder.status).toBe("PLACED");
+    expect(placedOrder.items).toHaveLength(1);
+    expect(Number(placedOrder.items[0].quantity)).toBe(2);
+
+    const after = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(productId), buyerToken);
+    const updatedProduct = after.find((item: any) => item.productId === productId);
+    expect(Number(updatedProduct.stock ?? updatedProduct.stockQty), "stock must be zero, never negative").toBe(0);
+    const history = await getJson(request, "/buyers/me/orders", buyerToken);
+    expect(history.filter((item: any) => item.orderId === placedOrder.orderId)).toHaveLength(1);
+
+    const oversell = await request.post(apiBase + "/buyers/orders", {
+      headers: taggedAuth(buyerToken, runId), data: { ...payload, items: [{ productId, quantity: 1 }], subtotal: price, finalPayable: price },
+      timeout: 20_000,
+    });
+    expect([400, 409], "a third checkout cannot consume depleted stock").toContain(oversell.status());
+    expect((await getJson(request, "/buyers/me/orders", buyerToken)).filter((item: any) => item.orderId === placedOrder.orderId)).toHaveLength(1);
+  });
+ });
 
 test.describe("Admin login, approval queues, and role restrictions", () => {
   test("root admin can read approval queues; buyer and seller sessions cannot", async ({ request }, testInfo) => {
     const trustedEvent = process.env.GITHUB_EVENT_NAME === "schedule"
-      || process.env.GITHUB_EVENT_NAME === "workflow_dispatch";
+      || process.env.GITHUB_EVENT_NAME === "workflow_dispatch"
+      || process.env.GITHUB_EVENT_NAME === "workflow_run";
     const configured = trustedEvent
       && process.env.E2E_ENVIRONMENT === "staging"
       && apiBase === "https://kuraliupdates-bazaar.onrender.com/api/v1"
