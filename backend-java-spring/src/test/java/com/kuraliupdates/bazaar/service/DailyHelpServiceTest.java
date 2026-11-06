@@ -79,6 +79,31 @@ class DailyHelpServiceTest {
     }
 
     @Test
+    void secondBookingAttemptCannotReuseTheSameReservedSlot() {
+        DailyHelpServiceEntity service = service();
+        DailyHelpProfessionalEntity professional = professional();
+        DailyHelpProfessionalSlotEntity slot = slot(professional, "AVAILABLE");
+        LocalDateTime start = slot.getSlotDate().atTime(slot.getStartTime());
+        when(serviceRepository.findById("DH-CLEAN")).thenReturn(Optional.of(service));
+        when(slotRepository.findLockedBySlotId("SLOT-1")).thenReturn(Optional.of(slot));
+        when(slotRepository.save(any(DailyHelpProfessionalSlotEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(bookingRepository.save(any(DailyHelpBookingEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        dailyHelpService.createBooking(request(start));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.createBooking(request(start)));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("BOOKED", slot.getStatus());
+        assertNotNull(slot.getBookingId());
+        verify(slotRepository, times(1)).save(slot);
+        verify(bookingRepository, times(1)).save(any(DailyHelpBookingEntity.class));
+    }
+
+    @Test
     void overlappingProfessionalSlotsAreRejected() {
         DailyHelpProfessionalEntity professional = professional();
         LocalDate date = LocalDate.now().plusDays(2);
