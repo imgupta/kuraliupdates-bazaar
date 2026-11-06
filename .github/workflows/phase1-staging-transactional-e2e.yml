@@ -1,0 +1,125 @@
+name: Phase 1 Staging Transactional E2E
+
+on:
+  workflow_run:
+    workflows: ["KuraliUpdates CI and E2E"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Share the single staging mutation lane with the main CI/E2E workflow.
+concurrency:
+  group: kuraliupdates-single-staging-e2e
+  cancel-in-progress: false
+
+jobs:
+  transactional-e2e:
+    name: Synthetic COD order and Daily Help lifecycle
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: "true"
+      E2E_ENVIRONMENT: staging
+      E2E_BASE_URL: https://bazaar.kuraliupdates.com
+      E2E_API_BASE_URL: https://kuraliupdates-bazaar.onrender.com/api/v1
+      E2E_STAGING_CONFIG_JSON: ${{ secrets.E2E_STAGING_CONFIG_JSON }}
+      E2E_TRANSACTIONAL_FLOWS_ENABLED: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: bun install
+      - name: Install Playwright test runner
+        run: bun add --dev @playwright/test
+      - name: Install Chromium
+        run: bunx playwright install --with-deps chromium
+      - name: Load and validate staging-only synthetic fixture configuration
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const raw = process.env.E2E_STAGING_CONFIG_JSON;
+          if (!raw?.trim()) throw new Error('Missing E2E_STAGING_CONFIG_JSON; no staging request was made.');
+          let config;
+          try { config = JSON.parse(raw); } catch { throw new Error('E2E_STAGING_CONFIG_JSON is not valid JSON.'); }
+          const api = new URL(process.env.E2E_API_BASE_URL);
+          if (config.E2E_ENVIRONMENT !== 'staging' || api.protocol !== 'https:' ||
+              api.hostname !== 'kuraliupdates-bazaar.onrender.com' || api.pathname !== '/api/v1') {
+            throw new Error('Refusing transactional tests against a non-designated staging target.');
+          }
+          const required = ['E2E_FLOW_AUTH_TOKEN','E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY',
+            'E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_FLOW_BUYER_PHONE','E2E_FLOW_BUYER_EMAIL',
+            'E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_PROFESSIONAL_ID'];
+          for (const key of required) if (!String(config[key] ?? '').trim()) throw new Error('Missing required staging E2E configuration key: ' + key);
+          if (String(config.E2E_FLOW_AUTH_TOKEN).length < 32) throw new Error('E2E_FLOW_AUTH_TOKEN must contain at least 32 characters.');
+          for (const key of ['E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_PROFESSIONAL_ID']) {
+            if (!/^E2E-[A-Za-z0-9_-]{3,80}$/.test(String(config[key]))) throw new Error(key + ' must be an E2E-prefixed synthetic profile ID.');
+          }
+          if (String(config.E2E_SELLER_IDENTITY).toLowerCase() === String(config.E2E_ADMIN_IDENTITY ?? '').toLowerCase()) {
+            throw new Error('Seller and admin E2E identities must be separate.');
+          }
+          const values = {
+            E2E_FLOW_AUTH_TOKEN: String(config.E2E_FLOW_AUTH_TOKEN),
+            E2E_BUYER_IDENTITY: String(config.E2E_BUYER_IDENTITY),
+            E2E_SELLER_IDENTITY: String(config.E2E_SELLER_IDENTITY),
+            E2E_DELIVERY_IDENTITY: String(config.E2E_DELIVERY_IDENTITY),
+            E2E_PROVIDER_IDENTITY: String(config.E2E_PROVIDER_IDENTITY),
+            E2E_ADMIN_IDENTITY: String(config.E2E_ADMIN_IDENTITY ?? ''),
+            E2E_FLOW_BUYER_PHONE: String(config.E2E_FLOW_BUYER_PHONE),
+            E2E_FLOW_BUYER_EMAIL: String(config.E2E_FLOW_BUYER_EMAIL),
+            E2E_FLOW_SELLER_ID: String(config.E2E_FLOW_SELLER_ID),
+            E2E_FLOW_DELIVERY_AGENT_ID: String(config.E2E_FLOW_DELIVERY_AGENT_ID),
+            E2E_FLOW_PROFESSIONAL_ID: String(config.E2E_FLOW_PROFESSIONAL_ID),
+            E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED: String(config.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED === true || config.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED === 'true'),
+            E2E_OTP_CAPTURE_TOKEN: String(config.E2E_OTP_CAPTURE_TOKEN ?? '')
+          };
+          for (const [key,value] of Object.entries(values)) {
+            if (value) console.log('::add-mask::' + value.replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A'));
+          }
+          const fs = await import('node:fs');
+          fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(values).map(([k,v]) => k + '=' + v).join('\n') + '\n');
+          console.log('Validated pinned staging target, strong flow token and E2E-prefixed role profiles. Secret values were masked.');
+          NODE
+      - name: Wait for database-backed staging readiness
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const url = process.env.E2E_API_BASE_URL + '/health';
+          const deadline = Date.now() + 6 * 60 * 1000;
+          let last = 'no response';
+          while (Date.now() < deadline) {
+            try {
+              const response = await fetch(url, { signal: AbortSignal.timeout(10000), headers: { 'Cache-Control': 'no-store' } });
+              const body = await response.json().catch(() => ({}));
+              if (response.ok && body.status === 'UP' && body.database === 'UP') {
+                console.log('PASS: staging API and database are ready.');
+                process.exit(0);
+              }
+              last = 'HTTP ' + response.status + ', database=' + String(body.database ?? 'unknown');
+            } catch { last = 'network or timeout'; }
+            await new Promise(resolve => setTimeout(resolve, 10000));
+          }
+          throw new Error('Database-backed staging readiness did not pass within six minutes; last result: ' + last);
+          NODE
+      - name: Run real application order and Daily Help lifecycle tests
+        run: bunx playwright test e2e/order-daily-help-lifecycle.spec.ts
+      - name: Upload transactional E2E report and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-staging-transactional-e2e
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
