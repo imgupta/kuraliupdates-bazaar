@@ -154,3 +154,13 @@ Seller onboarding lead updates/notes and registration OTP policy changes now rec
 ## Transaction/write-path inventory — 2026-11-06
 
 Added docs/PHASE-0-TRANSACTION-WRITE-INVENTORY.md. Static source review found transaction boundaries on the main grocery order, delivery claim, Daily Help, bargaining, seller inventory, address, OTP, onboarding, draft and cleanup write paths. Important remaining concurrency proofs include Oracle stock depletion and multi-seller rollback, two-rider claim races, Daily Help slot races, bargain acceptance idempotency, OTP resend cooldown races and address default consistency. V31 portal handoff atomic consume remains pending Oracle staging validation.
+
+
+## Latest head status — 2026-11-06
+
+- Current branch head: b98a4bae16043405b932c2bd58a55dc679807b5d.
+- Spring Boot/Maven verification passed on this head.
+- Frontend lint and production build passed on this head.
+- Full backend and frontend regression checks passed on the preceding code head; the intervening changes are audit actor identity and documentation. The latest quality workflow has rerun on b98 and passed.
+- The latest CI/E2E workflow is pending behind an older run that is still in Playwright Chromium installation. Read-only smoke and browser E2E have not completed on the latest head.
+- V31 portal handoff persistence is compiled and unit-tested, but not yet deployed or applied to Oracle. Do not merge until staging applies V31 and readiness plus handoff checks pass.

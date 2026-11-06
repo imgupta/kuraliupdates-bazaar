@@ -852,3 +852,8 @@ Public seller-lead endpoints and search analytics remain exposed to abuse/floodi
 ## Latest Phase 0 continuation verification — 2026-11-06
 
 Latest code head ddfaaceef90f482b2aba05c5e0fc3b01241b14b2 passed backend Maven verification, full backend tests, frontend lint/build and frontend regression checks. The read-only smoke/browser workflow is waiting at Chromium installation and has not completed on this head. V31 portal handoff persistence and the delivery ACTIVE-profile tracking fix are present in the branch but are not deployed. Do not treat the previous /health HTTP 200 smoke result as V31 migration validation.
+
+
+## Latest head CI update — 2026-11-06
+
+Current Phase 0 head b98a4bae16043405b932c2bd58a55dc679807b5d has successful Spring Boot/Maven verification and frontend lint/production build. Latest CI/E2E workflow remains pending behind an older Chromium installation job. V31 portal handoff migration remains unvalidated against Oracle staging.
