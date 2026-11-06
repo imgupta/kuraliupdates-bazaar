@@ -344,3 +344,17 @@ Buyer order controller authorization tests are being added for authenticated ord
 ## Next P1-A slice — seller controller boundary
 
 PR #262 adds controller-level tests that every seller portal operation forwards only the extracted bearer-session token to the service, and that absent/malformed bearer headers are rejected by the session-backed service before mutations. Existing `SellerServiceTest` already covers seller-scoped product/discount/order reads, cross-store product/discount/order mutation denial, approved-seller requirements and allowed order transitions. Controller tests complement, but do not replace, service ownership assertions or HTTP filter-chain tests.
+
+
+## PR #262 verification addendum — 6 November 2026
+
+- PR #262 merged to main at `30814af35c1b84a19e9f993482bd7c1a74a23b32` after exact-head CI passed.
+- Full backend Maven verification: **223 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS**. `SellerControllerAuthorizationTest`: 8 passed. Existing `SellerServiceTest` retains product/order/discount ownership and seller order-state coverage.
+- Frontend TypeScript, regression checks and production build: passed.
+- Read-only API smoke: **7 passed, 0 failed**, `databaseHealthChecked=false`; process liveness and anonymous guards only, not DB readiness.
+- Browser E2E: **3 passed, 9 skipped**; authenticated and transactional journeys remain skipped.
+- Seller-registration quality gates: passed; private Playwright report publication skipped by workflow policy.
+
+## Next P1-A slice — negotiation controller boundary
+
+PR #263 adds controller-level principal-propagation and fail-closed authentication tests for chat list/open, notifications, mark-read, messages and offer responses. Existing `NegotiationChatServiceTest` covers buyer/seller cross-account chat ownership and invalid role/action boundaries. Controller tests do not replace HTTP filter-chain or transactional bargain acceptance/idempotency proof.
