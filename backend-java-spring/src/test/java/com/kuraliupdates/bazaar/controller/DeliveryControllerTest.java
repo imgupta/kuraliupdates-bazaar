@@ -86,6 +86,24 @@ class DeliveryControllerTest {
         verifyNoMoreInteractions(deliveryService);
     }
 
+
+    @Test
+    void malformedUserPrincipalIsRejectedByEveryProtectedDeliveryOperation() {
+        Authentication malformed = new UsernamePasswordAuthenticationToken("not-a-user-principal", "token");
+
+        assertUnauthorized(() -> controller.currentAgent(malformed));
+        assertUnauthorized(() -> controller.updateAvailability(Map.of("available", true), malformed));
+        assertUnauthorized(() -> controller.getAvailableJobs(malformed));
+        assertUnauthorized(() -> controller.getMyAssignedJobs(malformed));
+        assertUnauthorized(() -> controller.claimJob("ORD-1", "AGENT-1", malformed));
+        assertUnauthorized(() -> controller.claimCheckoutGroup("CHK-1", "AGENT-1", malformed));
+        assertUnauthorized(() -> controller.confirmSellerPickup("ORD-1", malformed));
+        assertUnauthorized(() -> controller.resendDeliveryOtp("ORD-1", malformed));
+        assertUnauthorized(() -> controller.verifyDeliveryOtp("ORD-1", Map.of("otp", "1234"), malformed));
+
+        verifyNoInteractions(deliveryService);
+    }
+
     private void assertUnauthorized(org.junit.jupiter.api.function.Executable action) {
         ApiException error = assertThrows(ApiException.class, action);
         assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
