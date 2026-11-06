@@ -13,7 +13,7 @@ Each created fixture carries the current run ID in V32-added nullable columns. E
 
 1. PR/push workflows run backend/frontend verification and read-only smoke. They do not create orders or bookings.
 2. Trusted manual/scheduled runs may enable transactional E2E only against the pinned staging API and with a 32+ character flow token plus synthetic profile IDs.
-3. The tests use normal application APIs and service transitions: bargaining, COD checkout, seller acceptance/readiness, rider claim and delivery OTP; Daily Help booking, provider arrival/readiness, start OTP and completion.
+3. The trusted workflow waits for database-backed /health readiness, then uses normal application APIs and service transitions: bargaining, COD checkout, seller acceptance/readiness, rider claim and delivery OTP; Daily Help booking, provider arrival/readiness, start OTP and completion.
 4. Every test uses a unique run ID. Cleanup validates all run-tagged relationships before the first write, restores stock from that run's order items, then deletes only that run's chat, booking, order, product, slot, service and sessions.
 5. Seller, rider, professional and user profiles are never deleted or silently approved.
 

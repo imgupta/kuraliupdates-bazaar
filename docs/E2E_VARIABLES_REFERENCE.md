@@ -8,7 +8,7 @@ This document describes the single GitHub Actions JSON secret for testing/stagin
 2. **Render backend environment:** Render Dashboard → the KuraliUpdates Bazaar backend service → **Environment**. These settings control the protected staging-only OTP capture endpoint and email suppression.
 3. **Workflow-defined values:** Some values are hard-coded or derived in `.github/workflows/e2e-login.yml`; do not create duplicate repository settings for them unless this document explicitly says so.
 
-The workflow is pinned to the designated staging frontend `https://bazaar.kuraliupdates.com` and API `https://kuraliupdates-bazaar.onrender.com/api/v1`. Do not point E2E at real customer/production data.
+The main-branch transactional workflow runs after successful standard CI and is also manually dispatchable. It is pinned to the designated staging frontend `https://bazaar.kuraliupdates.com` and API `https://kuraliupdates-bazaar.onrender.com/api/v1`. Do not point E2E at real customer/production data.
 
 ## A. Single GitHub Actions staging/test setting
 
@@ -37,15 +37,9 @@ Use this JSON shape and replace placeholders with actual dedicated staging value
   "E2E_FLOW_PROVIDER_TOKEN": "<staging provider bearer token>",
   "E2E_FLOW_BUYER_PHONE": "<synthetic buyer phone>",
   "E2E_FLOW_BUYER_EMAIL": "<synthetic buyer email>",
-  "E2E_FLOW_PRODUCT_ID": "E2E-<synthetic-product-id>",
   "E2E_FLOW_SELLER_ID": "E2E-<synthetic-seller-id>",
   "E2E_FLOW_DELIVERY_AGENT_ID": "E2E-<synthetic-delivery-agent-id>",
-  "E2E_FLOW_ORDER_QUANTITY": "1",
-  "E2E_FLOW_DAILY_HELP_SERVICE_ID": "E2E-<synthetic-service-id>",
-  "E2E_FLOW_DAILY_HELP_SLOT_ID": "E2E-<synthetic-slot-id>",
   "E2E_FLOW_PROFESSIONAL_ID": "E2E-<synthetic-professional-id>",
-  "E2E_FLOW_DAILY_HELP_START": "<valid ISO-8601 available slot time>",
-  "E2E_FLOW_DAILY_HELP_HOURS": "1",
   "CLOUDFLARE_REPORT_ACCESS_CONFIGURED": false,
   "CLOUDFLARE_ACCOUNT_ID": "",
   "CLOUDFLARE_PAGES_PROJECT": "",
@@ -57,7 +51,7 @@ Safety behavior:
 - The workflow pins the frontend to `https://bazaar.kuraliupdates.com` and the API to `https://kuraliupdates-bazaar.onrender.com/api/v1`; the JSON cannot override these hosts.
 - OTP suppression confirmation and mutating lifecycle tests are effective only on trusted manual/scheduled runs. PR/push runs cannot enable them through JSON.
 - Set `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED` to `true` only after verifying the Render OTP capture token matches, the allowlist contains only synthetic test identities, and those identities receive no real OTP emails.
-- Keep all six fixture IDs prefixed with `E2E-`. Quantity and duration must be integers from 1 to 2. Slot time must match a valid available synthetic staging slot.
+- Keep the seller, delivery-agent and professional profile IDs prefixed with `E2E-`. The backend creates a fresh synthetic product (stock 2), service and future one-hour slot for each test run.
 - Tokens and identities are secret values. Never commit this JSON, print it in logs, or paste it into issues or chat.
 
 ## C. Render backend environment variables for OTP capture

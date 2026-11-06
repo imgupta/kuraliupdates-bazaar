@@ -412,3 +412,15 @@ At code head 14dd0167c61aefa5e307b65d7dcfdfe259292264, the Seller registration q
 - An initial compile failure in SellerRegistrationOtpConfigControllerSecurityTest was corrected by matching the history mock to its declared List return type. The successful 248-test result is from the corrected code head.
 
 This evidence is a first successful quality-gate run, not yet the final PR head after this documentation addendum. Re-run exact-head workflows after the documentation update.
+
+
+## PR #267 — consolidated run-scoped staging lifecycle harness
+
+- Added a token-protected staging-only fixture endpoint that requires existing E2E-prefixed approved seller, active delivery agent and verified/available Daily Help professional profiles.
+- V32 adds nullable E2E_RUN_ID markers for products, Daily Help services and professional slots. It does not tag or alter pre-existing rows.
+- Each Playwright lifecycle test provisions its own synthetic product, service and future slot. COD order and Daily Help lifecycle use the real application endpoints and generated OTPs.
+- Cleanup preflights all run-owned rows before writes and deletes only the run's synthetic product/service/slot/order/booking/chat/sessions. It refuses cross-run or non-synthetic relationships.
+- A separate trusted workflow_run workflow waits for database-backed staging readiness and executes transactional lifecycle E2E after successful main-branch CI. PR checks remain non-mutating. Manual dispatch is also available.
+- Backend fixture-service tests are included in the focused Maven regression command and full suite.
+
+**Status:** PR #267 is open. Exact-head CI is pending. The transactional staging workflow has not yet executed against the deployed V32 schema. Phase 1 remains IN PROGRESS; no closure claim is made until that workflow passes and the remaining IDOR, abuse/privacy and Oracle concurrency/rollback criteria are either proven or explicitly dispositioned.
