@@ -39,7 +39,7 @@ The current Phase 0 branch uses explicit public method/path matchers. All routes
 - Existing-lead lookup behavior can reveal that a matching email/phone pair has an active lead and returns its lead ID. Review enumeration and applicant-name update semantics before public launch.
 - Public search analytics remains susceptible to event flooding; add server-side throttling, payload size limits and retention policy.
 - Complete IDOR tests are still required for every buyer order, seller product/order, delivery assignment, professional booking/slot and chat/offer identifier.
-- Validate that admin audit actors use stable user IDs rather than Authentication.getName() where the principal is a UserEntity.
+- Admin seller-lead and registration OTP-policy audit events now record the stable authenticated UserEntity.userId rather than Authentication.getName().
 - Verify role semantics for multi-profile accounts: account-level authority is derived from the primary user role; resource ownership must remain the final authorization check.
 - E2E route permission is intentionally broad at the HTTP matcher but relies on controller-level fail-closed staging checks. Keep E2E secrets out of normal application environments and rotate them before production.
 - Confirm CORS preflight behavior against every deployed frontend origin and custom header, not just the local MockMvc test.
@@ -50,3 +50,8 @@ The current Phase 0 branch uses explicit public method/path matchers. All routes
 - Database-backed readiness smoke and anonymous-access probes have passed on the shared staging deployment before V31 was added.
 - V31 has not been applied to Oracle in this branch. Do not merge/deploy the new handoff persistence code until CI passes and the migration is validated through the normal staging deployment path.
 - Browser coverage currently includes public portal/login checks; authenticated and transactional flows remain skipped until OTP capture and synthetic fixture configuration are explicitly approved.
+
+
+## Admin audit actor refinement — 2026-11-06
+
+The seller-lead update/note and registration OTP-policy update controllers now require an authenticated UserEntity principal and persist its stable userId as the audit actor. They no longer fall back to the generic ADMIN string or Authentication.getName(), which may not be a stable identifier for this principal type.

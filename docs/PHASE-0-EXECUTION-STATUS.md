@@ -144,3 +144,8 @@ Residual risks remain: public seller lead and search analytics endpoints need ab
 - CORS now permits X-Active-Role and X-E2E-Run-Id. The preflight regression test checks these headers; test casing was aligned with Spring's lowercase response formatting.
 - Earlier test-only failures (missing shared TTL constant, CORS assertion case, Long-vs-Integer comparison and unnecessary Mockito stubbing) were corrected. The latest quality and backend test runs pass.
 - The latest shared staging smoke result still refers to main before V31: /health returned HTTP 200 and all seven read-only checks passed. It is not evidence that V31 has migrated or deployed.
+
+
+## Admin audit identity refinement — 2026-11-06
+
+Seller onboarding lead updates/notes and registration OTP policy changes now record the authenticated administrator's stable userId as the audit actor. The controllers fail closed if an authenticated UserEntity principal is unavailable. This change is on the latest branch head and awaits CI.
