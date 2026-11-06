@@ -32,13 +32,13 @@ class BuyerControllerOrderAuthorizationTest {
     void orderHistoryIsScopedToTheAuthenticatedUsersEmail() {
         UserEntity buyer = buyer("buyer@example.test");
         OrderResponse order = mock(OrderResponse.class);
-        when(orderService.history("buyer@example.test")).thenReturn(List.of(order));
+        when(orderService.history(buyer)).thenReturn(List.of(order));
 
         var response = controller.myOrders(authentication(buyer));
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(List.of(order), response.getBody());
-        verify(orderService).history("buyer@example.test");
+        verify(orderService).history(buyer);
         verifyNoInteractions(productService, authService, e2eRunTagging);
     }
 
@@ -83,17 +83,36 @@ class BuyerControllerOrderAuthorizationTest {
     }
 
     @Test
-    void nonBuyerPrincipalIsPassedToServiceForRoleRejectionAndCannotTrack() {
+    void nonBuyerPrincipalIsRejectedBeforeAnyBuyerOrderServiceAccess() {
         UserEntity seller = UserEntity.builder().userId("seller-user").name("Seller")
                 .email("seller@example.test").role("SELLER").build();
-        when(orderService.trackForBuyer("ORDER-1", seller))
-                .thenThrow(new ApiException(HttpStatus.FORBIDDEN, "Only the owning buyer can track this order"));
+        Authentication sellerAuthentication = authentication(seller);
 
-        ApiException error = assertThrows(ApiException.class,
-                () -> controller.trackOrder("ORDER-1", authentication(seller)));
+        assertForbidden(() -> controller.placeOrder(null, null, null, sellerAuthentication));
+        assertForbidden(() -> controller.placeMultiSellerOrder(null, null, null, sellerAuthentication));
+        assertForbidden(() -> controller.myOrders(sellerAuthentication));
+        assertForbidden(() -> controller.trackOrder("ORDER-1", sellerAuthentication));
+        assertForbidden(() -> controller.confirmStorePickup(
+                "ORDER-1", java.util.Map.of("otp", "0042"), sellerAuthentication));
 
+        verifyNoInteractions(orderService, e2eRunTagging, productService);
+    }
+
+    @Test
+    void publicProductSearchRemainsAvailableWithoutAuthentication() {
+        when(productService.search("milk", 0, 20)).thenReturn(List.of());
+
+        var response = controller.searchProducts("milk", 0, 20);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(response.getBody().isEmpty());
+        verify(productService).search("milk", 0, 20);
+        verifyNoMoreInteractions(productService);
+    }
+
+    private void assertForbidden(org.junit.jupiter.api.function.Executable action) {
+        ApiException error = assertThrows(ApiException.class, action);
         assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
-        verify(orderService).trackForBuyer("ORDER-1", seller);
     }
 
     @Test
