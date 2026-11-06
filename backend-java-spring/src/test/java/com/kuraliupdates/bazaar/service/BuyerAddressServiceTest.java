@@ -91,6 +91,19 @@ class BuyerAddressServiceTest {
     }
 
     @Test
+    void addressCannotBeMadeDefaultByAUserWhoDoesNotOwnIt() {
+        UserEntity user = UserEntity.builder().userId("requester-1").build();
+        when(userRepository.findById("requester-1")).thenReturn(Optional.of(user));
+        when(addressRepository.findByAddressIdAndUserId("addr-other", "requester-1")).thenReturn(Optional.empty());
+
+        assertTrue(addressService.setDefault("requester-1", "addr-other").isEmpty());
+
+        verify(addressRepository, never()).save(any(UserAddressEntity.class));
+        verify(addressRepository, never()).saveAll(any());
+        verify(userRepository, never()).save(any(UserEntity.class));
+    }
+
+    @Test
     void settingDefaultAddressClearsOldDefaultAndPersistsNewDefault() {
         UserEntity user = UserEntity.builder().userId("user-5").build();
         UserAddressEntity oldDefault = UserAddressEntity.builder().addressId("addr-old").userId("user-5")
