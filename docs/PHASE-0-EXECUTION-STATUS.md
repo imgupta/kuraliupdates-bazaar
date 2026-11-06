@@ -149,3 +149,8 @@ Residual risks remain: public seller lead and search analytics endpoints need ab
 ## Admin audit identity refinement — 2026-11-06
 
 Seller onboarding lead updates/notes and registration OTP policy changes now record the authenticated administrator's stable userId as the audit actor. The controllers fail closed if an authenticated UserEntity principal is unavailable. This change is on the latest branch head and awaits CI.
+
+
+## Transaction/write-path inventory — 2026-11-06
+
+Added docs/PHASE-0-TRANSACTION-WRITE-INVENTORY.md. Static source review found transaction boundaries on the main grocery order, delivery claim, Daily Help, bargaining, seller inventory, address, OTP, onboarding, draft and cleanup write paths. Important remaining concurrency proofs include Oracle stock depletion and multi-seller rollback, two-rider claim races, Daily Help slot races, bargain acceptance idempotency, OTP resend cooldown races and address default consistency. V31 portal handoff atomic consume remains pending Oracle staging validation.
