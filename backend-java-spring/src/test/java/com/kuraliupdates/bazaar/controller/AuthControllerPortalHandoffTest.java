@@ -41,7 +41,7 @@ class AuthControllerPortalHandoffTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("a".repeat(64), response.getBody().get("code"));
-        assertEquals(60, response.getBody().get("expiresInSeconds"));
+        assertEquals(60L, response.getBody().get("expiresInSeconds"));
         verify(handoffService).create("active-session", "SELLER");
     }
 
