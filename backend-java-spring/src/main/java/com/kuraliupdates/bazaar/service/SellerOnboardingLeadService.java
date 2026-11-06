@@ -22,6 +22,9 @@ public class SellerOnboardingLeadService {
 
     @Transactional
     public Map<String, Object> start(String ownerName, String rawEmail, String rawPhone) {
+        if (ownerName != null && ownerName.length() > 150) throw new ApiException(HttpStatus.BAD_REQUEST, "Owner name must be 150 characters or fewer");
+        if (rawEmail != null && rawEmail.length() > 254) throw new ApiException(HttpStatus.BAD_REQUEST, "Email address is too long");
+        if (rawPhone != null && rawPhone.length() > 30) throw new ApiException(HttpStatus.BAD_REQUEST, "Phone number is too long");
         String name = clean(ownerName, 150);
         String email = rawEmail == null ? "" : rawEmail.trim().toLowerCase();
         String phone = rawPhone == null ? "" : rawPhone.replaceAll("\\D", "");
@@ -78,6 +81,7 @@ public class SellerOnboardingLeadService {
     @Transactional
     public Map<String, Object> requestCallback(String leadId, boolean consent, String preferredTime) {
         if (!consent) throw new ApiException(HttpStatus.BAD_REQUEST, "Please provide consent before requesting a callback");
+        if (preferredTime != null && preferredTime.length() > 120) throw new ApiException(HttpStatus.BAD_REQUEST, "Preferred callback time must be 120 characters or fewer");
         Map<String, Object> lead = getLead(leadId);
         if (!contactRequirementSatisfied(lead, "email") || !contactRequirementSatisfied(lead, "phone")) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Complete the enabled contact verification steps before requesting a callback");

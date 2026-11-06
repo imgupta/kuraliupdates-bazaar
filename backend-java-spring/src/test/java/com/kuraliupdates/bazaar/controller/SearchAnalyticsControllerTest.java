@@ -17,14 +17,15 @@ class SearchAnalyticsControllerTest {
     @Test
     void rejectsMissingBlankAndOversizedSearchQueriesWithoutPersistence() {
         SearchTrendRepository repository = mock(SearchTrendRepository.class);
-        SearchAnalyticsController controller = new SearchAnalyticsController(repository);
+        ApiRateLimitService rateLimit = mock(ApiRateLimitService.class);
+        SearchAnalyticsController controller = new SearchAnalyticsController(repository, rateLimit);
 
         assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST,
-                controller.recordSearch(null, null).getStatusCode());
+                controller.recordSearch(null, null, null).getStatusCode());
         assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST,
-                controller.recordSearch(new SearchAnalyticsController.SearchEventRequest("   ", null), null).getStatusCode());
+                controller.recordSearch(new SearchAnalyticsController.SearchEventRequest("   ", null), null, null).getStatusCode());
         assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST,
-                controller.recordSearch(new SearchAnalyticsController.SearchEventRequest("x".repeat(256), null), null).getStatusCode());
+                controller.recordSearch(new SearchAnalyticsController.SearchEventRequest("x".repeat(256), null), null, null).getStatusCode());
 
         verifyNoInteractions(repository);
     }
@@ -35,7 +36,7 @@ class SearchAnalyticsControllerTest {
         SearchAnalyticsController controller = new SearchAnalyticsController(repository);
 
         var response = controller.recordSearch(
-                new SearchAnalyticsController.SearchEventRequest("  Milk   and   Bread  ", "spoofed-user"), null);
+                new SearchAnalyticsController.SearchEventRequest("  Milk   and   Bread  ", "spoofed-user"), null, null);
 
         assertEquals(org.springframework.http.HttpStatus.ACCEPTED, response.getStatusCode());
         var captor = org.mockito.ArgumentCaptor.forClass(SearchTrendEntity.class);
@@ -52,7 +53,7 @@ class SearchAnalyticsControllerTest {
 
         controller.recordSearch(
                 new SearchAnalyticsController.SearchEventRequest("milk", "attacker-controlled-user"),
-                null);
+                null, null);
 
         var captor = org.mockito.ArgumentCaptor.forClass(SearchTrendEntity.class);
         verify(repository).save(captor.capture());
@@ -69,7 +70,7 @@ class SearchAnalyticsControllerTest {
 
         controller.recordSearch(
                 new SearchAnalyticsController.SearchEventRequest("milk", "attacker-controlled-user"),
-                authentication);
+                authentication, null);
 
         var captor = org.mockito.ArgumentCaptor.forClass(SearchTrendEntity.class);
         verify(repository).save(captor.capture());
