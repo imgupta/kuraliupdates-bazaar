@@ -21,6 +21,7 @@ import java.util.Map;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -57,6 +58,20 @@ class SecurityConfigTest {
         mockMvc.perform(get("/sellers/me")).andExpect(status().is4xxClientError());
         mockMvc.perform(get("/delivery/me")).andExpect(status().is4xxClientError());
         mockMvc.perform(get("/new/unclassified/route")).andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    void corsAllowsHeadersUsedByNegotiationAndRunScopedE2eRequests() throws Exception {
+        mockMvc.perform(options("/negotiations")
+                .header(HttpHeaders.ORIGIN, "https://buyer.kuraliupdates.com")
+                .header("Access-Control-Request-Method", "POST")
+                .header("Access-Control-Request-Headers", "authorization,x-active-role,x-e2e-run-id,x-e2e-flow-token"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "https://buyer.kuraliupdates.com"))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
+                        org.hamcrest.Matchers.allOf(
+                                org.hamcrest.Matchers.containsString("X-Active-Role"),
+                                org.hamcrest.Matchers.containsString("X-E2E-Run-Id"))));
     }
 
     @Test

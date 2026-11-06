@@ -111,6 +111,8 @@ public class SecurityConfig {
             "Accept",
             "Origin",
             "X-Requested-With",
+            "X-Active-Role",
+            "X-E2E-Run-Id",
             "X-E2E-Flow-Token",
             "X-E2E-OTP-Token"
         ));
