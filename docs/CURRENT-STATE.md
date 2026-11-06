@@ -84,3 +84,13 @@ Until then, no broad code movement or persistence refactor. Next implementation 
 ## Historical implementation notes
 
 Earlier notes and linked domain maps describe observed source state and past CI/deployment runs. Revalidate exact main SHA and current provider status before treating any dated statement as current. CI passing does not prove migration application, live deployment or end-to-end transaction correctness.
+
+## Current consolidated Phase 1 batch — 6 November 2026
+
+A single consolidated branch, phase1/consolidated-security-regression-batch, is being used for the next related P1-A/P1-B/P1-D regression work. It carries the admin seller-lead security-filter test work from PR #265 and adds:
+- Daily Help missing/malformed principal coverage across protected controller operations.
+- Delivery malformed-principal coverage across every protected delivery operation.
+- Delivery tracking HTTP security-filter coverage for anonymous denial and verified bearer-session forwarding.
+- Seller-registration OTP settings privacy and ADMIN-only HTTP route coverage, including authenticated audit actor verification.
+
+Existing Daily Help profile ownership, DeliveryService ownership/OTP and SearchAnalytics user-attribution tests were inspected and are retained rather than duplicated. Exact-head CI has not yet verified the new batch. Do not infer runtime database readiness, browser authenticated-flow completion or Oracle transaction correctness from these tests.
