@@ -24,4 +24,5 @@ public class DailyHelpProfessionalSlotEntity {
     @Column(name = "BOOKING_ID", length = 64) private String bookingId;
     @Column(name = "CREATED_AT", nullable = false) private LocalDateTime createdAt;
     @Column(name = "UPDATED_AT", nullable = false) private LocalDateTime updatedAt;
+    @Column(name = "E2E_RUN_ID", length = 80) private String e2eRunId;
 }

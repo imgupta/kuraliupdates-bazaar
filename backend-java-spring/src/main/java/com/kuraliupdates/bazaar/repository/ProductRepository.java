@@ -18,6 +18,8 @@ public interface ProductRepository extends JpaRepository<ProductEntity, String> 
 
     List<ProductEntity> findBySeller_SellerId(String sellerId);
 
+    java.util.Optional<ProductEntity> findFirstByE2eRunId(String e2eRunId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from ProductEntity p join fetch p.seller where p.productId = :productId")
     Optional<ProductEntity> findLockedByProductId(@Param("productId") String productId);

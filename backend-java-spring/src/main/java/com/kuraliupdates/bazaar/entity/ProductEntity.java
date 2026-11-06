@@ -32,4 +32,5 @@ public class ProductEntity {
     @Column(name = "IS_FEATURED") private Integer isFeatured;
     @Column(name = "CREATED_AT") private LocalDateTime createdAt;
     @Column(name = "UPDATED_AT") private LocalDateTime updatedAt;
+    @Column(name = "E2E_RUN_ID", length = 80) private String e2eRunId;
 }

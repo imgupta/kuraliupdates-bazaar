@@ -59,6 +59,27 @@ function taggedAuth(token: string, runId: string) {
     "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"),
   };
 }
+async function prepareFixtures(request: APIRequestContext, runId: string, sellerId: string,
+  deliveryAgentId: string, professionalId: string) {
+  const response = await request.post(apiBase + "/e2e/fixtures/prepare/" + encodeURIComponent(runId), {
+    headers: { "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"), "Cache-Control": "no-store", "Content-Type": "application/json" },
+    data: { sellerId, deliveryAgentId, professionalId },
+    timeout: 20_000,
+  });
+  expect(response.status(), "backend should provision run-scoped synthetic fixtures").toBe(200);
+  const fixture = await response.json();
+  for (const key of ["productId", "sellerId", "deliveryAgentId", "serviceId", "slotId", "professionalId"]) {
+    expect(String(fixture[key] ?? ""), key + " must be synthetic").toMatch(/^E2E-[A-Za-z0-9_-]{3,80}$/);
+  }
+  expect(fixture.scheduledStart).toMatch(/^\\d{4}-\\d{2}-\\d{2}T10:00:00$/);
+  expect(Number(fixture.stock)).toBeGreaterThanOrEqual(1);
+  expect(Number(fixture.requestedHours)).toBe(1);
+  return fixture as {
+    productId: string; sellerId: string; deliveryAgentId: string; serviceId: string;
+    slotId: string; professionalId: string; scheduledStart: string;
+    requestedHours: number; stock: number; unitPrice: string;
+  };
+}
 
 test.afterEach(async ({ request }, testInfo) => {
   const key = testKey(testInfo);
@@ -72,7 +93,8 @@ test.afterEach(async ({ request }, testInfo) => {
   expect(cleanup.status(), "run-scoped cleanup must succeed without touching untagged records").toBe(200);
   const summary = await cleanup.json();
   expect(summary.runId).toBe(runId);
-  for (const count of [summary.orders, summary.orderItems, summary.dailyHelpBookings, summary.negotiationChats, summary.chatMessages, summary.sessions]) {
+  for (const count of [summary.orders, summary.orderItems, summary.dailyHelpBookings, summary.negotiationChats,
+    summary.chatMessages, summary.sessions, summary.products, summary.dailyHelpServices, summary.dailyHelpSlots]) {
     expect(Number.isInteger(count) && count >= 0).toBeTruthy();
   }
 });
@@ -88,10 +110,12 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
     const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY", runId);
     const deliveryToken = await flowToken(request, "DELIVERY", "E2E_DELIVERY_IDENTITY", runId);
-    const productId = syntheticId("E2E_FLOW_PRODUCT_ID");
     const sellerId = syntheticId("E2E_FLOW_SELLER_ID");
     const agentId = syntheticId("E2E_FLOW_DELIVERY_AGENT_ID");
-    const quantity = Number(required("E2E_FLOW_ORDER_QUANTITY"));
+    const professionalId = syntheticId("E2E_FLOW_PROFESSIONAL_ID");
+    const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalId);
+    const productId = fixture.productId;
+    const quantity = 1;
     expect(Number.isInteger(quantity) && quantity > 0 && quantity <= 2,
       "Keep E2E order quantities small and deterministic").toBeTruthy();
 
@@ -258,14 +282,17 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     runIds.set(testKey(testInfo), runId);
     const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
     const professionalToken = await flowToken(request, "PROVIDER", "E2E_PROVIDER_IDENTITY", runId);
-    const serviceId = syntheticId("E2E_FLOW_DAILY_HELP_SERVICE_ID");
-    const slotId = syntheticId("E2E_FLOW_DAILY_HELP_SLOT_ID");
+    const sellerId = syntheticId("E2E_FLOW_SELLER_ID");
+    const agentId = syntheticId("E2E_FLOW_DELIVERY_AGENT_ID");
     const professionalId = syntheticId("E2E_FLOW_PROFESSIONAL_ID");
+    const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalId);
+    const serviceId = fixture.serviceId;
+    const slotId = fixture.slotId;
     const buyerPhone = required("E2E_FLOW_BUYER_PHONE");
     const buyerName = "E2E Synthetic Buyer";
     const address = "E2E Test Address - do not visit";
-    const scheduledStart = required("E2E_FLOW_DAILY_HELP_START");
-    const requestedHours = Number(required("E2E_FLOW_DAILY_HELP_HOURS"));
+    const scheduledStart = fixture.scheduledStart;
+    const requestedHours = fixture.requestedHours;
     expect(Number.isFinite(Date.parse(scheduledStart))).toBeTruthy();
     expect(requestedHours >= 1 && requestedHours <= 2).toBeTruthy();
 
