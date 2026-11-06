@@ -34,6 +34,8 @@ class OtpAttemptServiceJdbcTest {
 
     @BeforeEach
     void createIsolatedOtpTables() {
+        jdbcTemplate.execute("DROP TABLE IF EXISTS OUTER_TX_MARKER");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS AUTH_OTPS");
         jdbcTemplate.execute("""
                 CREATE TABLE AUTH_OTPS (
                     OTP_ID VARCHAR(64) PRIMARY KEY,
