@@ -287,3 +287,26 @@ Source review found `OtpService.verify` saved an invalid-attempt counter and the
 ### Current Phase 1 disposition
 
 **IN PROGRESS — not production-ready.** Unit/full Maven and frontend CI reached 186 backend tests with zero failures/errors/skips at PR #248. The broader endpoint IDOR matrix remains incomplete; authenticated browser journeys remain 3 passed / 9 skipped on the previously observed workflow; public abuse controls remain open; Oracle concurrency, transaction rollback, restore and migration-recovery proof remain blocked until a dedicated isolated Oracle test database/schema and cleanup harness are available. Shared staging must not be used for mutating concurrency tests.
+
+## Phase 1 progress addendum — 6 November 2026 (PR #253)
+
+**Merged:** PR #253 at `7c3b154e85261fe4b01a53d9934b47fd35d13420`, based on main `b3814b90377efeead0b76c245f87e0e920b1c3da`.
+
+- Daily Help controller profile-ownership matrix now has eight passing controller tests. The new cases cover wrong-profile availability update, slot creation, booking-status mutation and service start, including spoofed professional IDs in request bodies; the service is not invoked after ownership rejection.
+- The previously merged OTP JDBC test now has an isolated H2 test-scoped dependency, an explicit H2 datasource, Flyway disabled for the H2 slice, and table reset between test methods.
+- Exact-head full Maven verification: **194 tests, 0 failures, 0 errors, 0 skipped**. `OtpAttemptServiceJdbcTest`: 3 passed; `DailyHelpControllerTest`: 8 passed.
+- Frontend checks and seller-registration quality gates: passed.
+- Browser E2E: **3 passed, 9 skipped**. Authenticated role login and transactional order/Daily Help lifecycle cases remain skipped. The workflow explicitly disabled transactional lifecycle tests on push/PR, so configuration presence must not be mistaken for execution.
+- Read-only API smoke: **7 passed, 0 failed**; `databaseHealthChecked=false`. This proves process liveness and anonymous-access guards only, not database readiness.
+- Private Playwright report publication was skipped by workflow policy. No mutating staging transaction or Oracle integration test ran.
+- H2 validates local JDBC transaction semantics only. It does not establish Oracle SQL compatibility, Oracle locking, simultaneous Oracle transactions or production/staging behavior.
+
+### Phase 0 status reconciliation
+
+PR #231 remains a merged security-hardening milestone, not Phase 0 completion. `CHATGPT-CONTINUATION.md`, `CURRENT-STATE.md` and this plan now state this consistently. Phase 0 exit criteria remain open.
+
+### Next P1-A slice
+
+Buyer address controller tests are being added for authenticated-session user resolution, list/create/update/default flows, foreign-address not-found behavior and missing/invalid-session fail-closed behavior. Existing service tests already cover wrong-owner update/default rejection and no-write behavior. This controller slice is not accepted until its exact-head CI passes.
+
+**Phase 1 remains IN PROGRESS.** The broader IDOR matrix, authenticated lifecycle E2E, Oracle concurrency/rollback, public abuse controls and P1-D operational/legal gates remain open.
