@@ -32,7 +32,7 @@ class BuyerAddressServiceTest {
                 .addressLine1("Flat 4, Main Bazaar").landmark("Near Clock Tower")
                 .formattedAddress("Kurali, Punjab").placeId("place-1").build();
         when(addressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc("user-1")).thenReturn(new ArrayList<>());
-        when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
+        when(userRepository.findLockedByUserId("user-1")).thenReturn(Optional.of(user));
         when(addressRepository.save(any(UserAddressEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
         List<AddressResponse> addresses = addressService.findByUserId("user-1");
         assertEquals(1, addresses.size());
@@ -47,7 +47,7 @@ class BuyerAddressServiceTest {
     void doesNotCreateLegacyAddressWhenUserHasNoPrimaryAddress() {
         UserEntity user = UserEntity.builder().userId("user-2").name("Buyer").build();
         when(addressRepository.findByUserIdOrderByIsDefaultDescUpdatedAtDesc("user-2")).thenReturn(new ArrayList<>());
-        when(userRepository.findById("user-2")).thenReturn(Optional.of(user));
+        when(userRepository.findLockedByUserId("user-2")).thenReturn(Optional.of(user));
         assertTrue(addressService.findByUserId("user-2").isEmpty());
         verify(addressRepository, never()).save(any(UserAddressEntity.class));
     }
@@ -61,7 +61,7 @@ class BuyerAddressServiceTest {
         List<AddressResponse> addresses = addressService.findByUserId("user-3");
         assertEquals(1, addresses.size());
         assertEquals("Office address", addresses.get(0).addressLine1());
-        verify(userRepository, never()).findById(anyString());
+        verify(userRepository, never()).findLockedByUserId(anyString());
         verify(addressRepository, never()).save(any(UserAddressEntity.class));
     }
 
@@ -83,7 +83,7 @@ class BuyerAddressServiceTest {
     @Test
     void addressCannotBeUpdatedByAUserWhoDoesNotOwnIt() {
         UserEntity user = UserEntity.builder().userId("owner-1").build();
-        when(userRepository.findById("owner-1")).thenReturn(Optional.of(user));
+        when(userRepository.findLockedByUserId("owner-1")).thenReturn(Optional.of(user));
         when(addressRepository.findByAddressIdAndUserId("addr-other", "owner-1")).thenReturn(Optional.empty());
         AddressRequest request = new AddressRequest("Home", "Changed address", null, null, null, null, null, false);
         assertTrue(addressService.update("owner-1", "addr-other", request).isEmpty());
