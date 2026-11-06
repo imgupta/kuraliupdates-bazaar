@@ -89,7 +89,7 @@ async function waitForApiLiveness() {
     // Render currently deploys main with PR previews disabled. Until the new
     // liveness route is deployed there, accept the existing public OpenAPI route
     // as a database-independent compatibility probe on the shared staging service.
-    if (!lastResult.ok && lastResult.status === 404) {
+    if (!lastResult.ok && [404, 500].includes(lastResult.status)) {
       const fallback = await request(
         "/v3/api-docs",
         success,

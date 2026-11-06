@@ -75,8 +75,18 @@ test("smoke runner uses process liveness and never calls database-backed probes"
   assert.ok(!requests.some(path => path.includes("/daily-help/availability")));
 });
 
-test("smoke runner falls back to existing OpenAPI endpoint before liveness route is deployed", async () => {
+test("smoke runner falls back to existing OpenAPI endpoint when liveness route is absent (404)", async () => {
   const { report, requests } = await runSmoke({ livenessStatus: 404 });
+
+  assert.equal(report.apiLive, true);
+  assert.equal(report.databaseHealthChecked, false);
+  assert.ok(requests.includes("/api/v1/health/live"));
+  assert.ok(requests.includes("/api/v1/v3/api-docs"));
+  assert.equal(report.failed, 0);
+});
+
+test("smoke runner also handles the framework generic-error response for an absent liveness route", async () => {
+  const { report, requests } = await runSmoke({ livenessStatus: 500 });
 
   assert.equal(report.apiLive, true);
   assert.equal(report.databaseHealthChecked, false);
