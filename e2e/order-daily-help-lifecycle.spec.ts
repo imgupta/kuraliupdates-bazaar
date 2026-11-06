@@ -45,6 +45,7 @@ async function getJson(request: APIRequestContext, path: string, token: string) 
 }
 
 const runIds = new Map<string, string>();
+const fixtureRuns = new Set<string>();
 function testKey(info: TestInfo): string { return info.titlePath.join("::"); }
 function runScopedId(info: TestInfo): string {
   const run = (process.env.GITHUB_RUN_ID ?? randomUUID().replace(/-/g, "").slice(0, 12)).replace(/[^A-Za-z0-9_-]/g, "");
@@ -73,6 +74,7 @@ async function prepareFixtures(request: APIRequestContext, runId: string, seller
   }
   expect(Number(fixture.stock)).toBeGreaterThanOrEqual(1);
   expect(Number(fixture.requestedHours)).toBe(1);
+  fixtureRuns.add(runId);
   return fixture as {
     productId: string; sellerId: string; deliveryAgentId: string; serviceId: string;
     slotId: string; professionalId: string; scheduledStart: string;
@@ -95,6 +97,15 @@ test.afterEach(async ({ request }, testInfo) => {
   for (const count of [summary.orders, summary.orderItems, summary.dailyHelpBookings, summary.negotiationChats,
     summary.chatMessages, summary.sessions, summary.products, summary.dailyHelpServices, summary.dailyHelpSlots]) {
     expect(Number.isInteger(count) && count >= 0).toBeTruthy();
+  }
+  if (fixtureRuns.delete(runId)) {
+    expect(summary.products, "exactly this run's synthetic product is deleted").toBe(1);
+    expect(summary.dailyHelpServices, "exactly this run's synthetic service is deleted").toBe(1);
+    expect(summary.dailyHelpSlots, "exactly this run's synthetic slot is deleted").toBe(1);
+  } else {
+    expect(summary.products).toBe(0);
+    expect(summary.dailyHelpServices).toBe(0);
+    expect(summary.dailyHelpSlots).toBe(0);
   }
 });
 
