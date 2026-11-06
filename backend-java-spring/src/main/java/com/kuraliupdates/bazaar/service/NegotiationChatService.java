@@ -161,8 +161,9 @@ public class NegotiationChatService {
             // failures retain the normal rollback behavior of this transaction.
             throw new BargainExpiredException();
         }
-        // Serialize offer decisions per conversation. Locking only the selected offer
-        // allows two different pending offers in the same chat to be accepted concurrently.
+        // The conversation row is locked above, serializing offer decisions per chat.
+        // Lock the selected message row as well so its PENDING status is stable while
+        // the selected offer and every competing pending offer are transitioned.
         List<Map<String, Object>> rows = jdbc.query("SELECT MESSAGE_ID,SENDER_ROLE,OFFER_PRICE,OFFER_STATUS FROM CHAT_MESSAGES WHERE CHAT_ID=? AND MESSAGE_ID=? FOR UPDATE",
                 (rs, row) -> {
                     Map<String, Object> item = new HashMap<>();
