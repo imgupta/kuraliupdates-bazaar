@@ -255,8 +255,11 @@ public class DailyHelpService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
         String role = user.getRole() == null ? "" : user.getRole().toUpperCase();
         boolean buyerOwns = "BUYER".equals(role) && samePhone(user.getPhone(), booking.getBuyerPhone());
-        boolean professionalOwns = "PROFESSIONAL".equals(role)
-                && booking.getProfessional() != null
+        // Daily Help is a secondary profile on an existing marketplace account;
+        // UserEntity roles do not include PROFESSIONAL. Resolve provider ownership
+        // through the phone verified at professional registration, independent of
+        // the account's primary marketplace role.
+        boolean professionalOwns = booking.getProfessional() != null
                 && samePhone(user.getPhone(), booking.getProfessional().getPhone());
         if (!buyerOwns && !professionalOwns) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You do not have access to this Daily Help booking");

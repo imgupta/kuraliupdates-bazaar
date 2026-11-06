@@ -8,6 +8,7 @@ import com.kuraliupdates.bazaar.entity.DailyHelpBookingEntity;
 import com.kuraliupdates.bazaar.entity.DailyHelpProfessionalEntity;
 import com.kuraliupdates.bazaar.entity.DailyHelpProfessionalSlotEntity;
 import com.kuraliupdates.bazaar.entity.DailyHelpServiceEntity;
+import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.repository.DailyHelpBookingRepository;
 import com.kuraliupdates.bazaar.repository.DailyHelpProfessionalRepository;
@@ -207,6 +208,72 @@ class DailyHelpServiceTest {
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
         verify(bookingRepository, never()).save(any());
         verify(slotRepository, never()).save(any());
+    }
+
+    @Test
+    void professionalProfileOwnerCanReadBookingWithBuyerPrimaryRole() {
+        LocalDateTime now = LocalDateTime.now();
+        DailyHelpBookingEntity booking = DailyHelpBookingEntity.builder()
+                .bookingId("BOOK-PROVIDER-1")
+                .service(service())
+                .professional(professional())
+                .buyerName("Booking Buyer")
+                .buyerPhone("9876543210")
+                .address("House 1")
+                .locality("Kurali")
+                .scheduledStart(now.plusDays(1))
+                .requestedHours(BigDecimal.ONE)
+                .hourlyRate(BigDecimal.valueOf(100))
+                .estimatedTotal(BigDecimal.valueOf(100))
+                .status("PROFESSIONAL_ASSIGNED")
+                .otpAttempts(0)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        UserEntity providerAccount = UserEntity.builder()
+                .userId("USER-PROVIDER-1")
+                .phone("98765-00000")
+                .role("BUYER")
+                .build();
+        when(bookingRepository.findById("BOOK-PROVIDER-1")).thenReturn(Optional.of(booking));
+
+        var response = dailyHelpService.getBookingForUser("BOOK-PROVIDER-1", providerAccount);
+
+        assertEquals("BOOK-PROVIDER-1", response.id());
+        assertEquals("DHP-1", response.professionalId());
+    }
+
+    @Test
+    void unrelatedBuyerCannotReadAnotherProfessionalsBooking() {
+        LocalDateTime now = LocalDateTime.now();
+        DailyHelpBookingEntity booking = DailyHelpBookingEntity.builder()
+                .bookingId("BOOK-PROVIDER-2")
+                .service(service())
+                .professional(professional())
+                .buyerName("Booking Buyer")
+                .buyerPhone("9876543210")
+                .address("House 1")
+                .locality("Kurali")
+                .scheduledStart(now.plusDays(1))
+                .requestedHours(BigDecimal.ONE)
+                .hourlyRate(BigDecimal.valueOf(100))
+                .estimatedTotal(BigDecimal.valueOf(100))
+                .status("PROFESSIONAL_ASSIGNED")
+                .otpAttempts(0)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        UserEntity unrelatedBuyer = UserEntity.builder()
+                .userId("USER-OTHER-1")
+                .phone("9876501111")
+                .role("BUYER")
+                .build();
+        when(bookingRepository.findById("BOOK-PROVIDER-2")).thenReturn(Optional.of(booking));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.getBookingForUser("BOOK-PROVIDER-2", unrelatedBuyer));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
     }
 
     private DailyHelpBookingRequest request(LocalDateTime start) {
