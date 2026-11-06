@@ -1,7 +1,7 @@
 # Current implementation status and remaining work
 
 **Last reconciled:** 6 November 2026  
-**Current main evidence checkpoint:** `7c3b154e85261fe4b01a53d9934b47fd35d13420` (PR #253 merged; includes Daily Help controller profile-ownership tests and isolated H2 OTP-attempt JDBC tests). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
+**Current main evidence checkpoint:** `c3e50040d9d40ec6452b9903c2fa1cff004fc934` (PR #255 merged; includes buyer address controller ownership tests, Daily Help controller profile-ownership tests and isolated H2 OTP-attempt JDBC tests). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
 
 **Phase 0 status reconciliation:** Phase 0 remains **in progress / not complete**. PR #231 is merged, but it is a security-hardening milestone only. Its PR scope explicitly excludes complete method-level IDOR coverage, full authenticated transactional E2E, backup/restore validation, India-only production residency, secret rotation and legal compliance sign-off. Do not treat the phrase “Phase 0 closeout PR” as Phase 0 exit approval; the exit criteria below remain binding.
 
