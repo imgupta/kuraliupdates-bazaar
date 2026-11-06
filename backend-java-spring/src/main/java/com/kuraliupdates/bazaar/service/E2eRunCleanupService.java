@@ -30,7 +30,8 @@ public class E2eRunCleanupService {
                                     AND (oi.PRODUCT_ID NOT LIKE 'E2E-%' OR oi.QUANTITY <= 0
                                          OR NOT EXISTS (SELECT 1 FROM PRODUCTS p
                                                         WHERE p.PRODUCT_ID = oi.PRODUCT_ID
-                                                          AND p.E2E_RUN_ID = o.E2E_RUN_ID))))
+                                                          AND p.E2E_RUN_ID = o.E2E_RUN_ID
+                                                          AND p.SELLER_ID = o.SELLER_ID))))
                 """, runId);
         long unsafeBookings = count("""
                 SELECT COUNT(*) FROM DAILY_HELP_BOOKINGS b
@@ -52,7 +53,8 @@ public class E2eRunCleanupService {
                   AND (c.PRODUCT_ID NOT LIKE 'E2E-%' OR c.SELLER_ID NOT LIKE 'E2E-%'
                        OR NOT EXISTS (SELECT 1 FROM PRODUCTS p
                                       WHERE p.PRODUCT_ID = c.PRODUCT_ID
-                                        AND p.E2E_RUN_ID = c.E2E_RUN_ID))
+                                        AND p.E2E_RUN_ID = c.E2E_RUN_ID
+                                        AND p.SELLER_ID = c.SELLER_ID))
                 """, runId);
         long unsafeProducts = count("""
                 SELECT COUNT(*) FROM PRODUCTS p
@@ -82,8 +84,10 @@ public class E2eRunCleanupService {
                 WHERE s.E2E_RUN_ID = ?
                   AND (s.SELLER_ID NOT LIKE 'E2E-%'
                        OR EXISTS (SELECT 1 FROM PRODUCTS p
-                                  WHERE p.SELLER_ID = s.SELLER_ID AND NVL(p.E2E_RUN_ID, '-') <> ?))
-                """, runId, runId);
+                                  WHERE p.SELLER_ID = s.SELLER_ID AND NVL(p.E2E_RUN_ID, '-') <> ?)
+                       OR EXISTS (SELECT 1 FROM ORDERS o
+                                  WHERE o.SELLER_ID = s.SELLER_ID AND NVL(o.E2E_RUN_ID, '-') <> ?))
+                """, runId, runId, runId);
         if (unsafeOrders != 0 || unsafeBookings != 0 || unsafeChats != 0
                 || unsafeProducts != 0 || unsafeServices != 0 || unsafeSlots != 0 || unsafeSellers != 0) {
             throw new ApiException(HttpStatus.CONFLICT,
