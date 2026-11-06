@@ -83,3 +83,19 @@ Phase 0 is still open because security authorization coverage, transaction/write
 **Phase 0 is NOT COMPLETE.** The Oracle V30 deployment blocker is resolved, but the source/security/transaction inventories and negative tests are not complete, and production residency/secret/compliance gates remain open.
 
 Do not authorize FE-1/BE-1 package extraction or broad service decomposition until the open engineering inventories and high-risk authorization tests have evidence, owners and disposition.
+
+## Security allowlist refinement — 2026-11-06
+
+A second source review found that the earlier authenticated-by-default change still retained broad `/buyers/**`, `/sellers/**` and `/delivery/**` permit rules. It also would have blocked public OTP login/registration and assisted seller lead onboarding because those routes sit outside the broad prefixes. The allowlist has now been narrowed to explicit method/path pairs.
+
+Public routes explicitly retained:
+- GET health and OpenAPI/Swagger documentation.
+- POST `/auth/send-otp`, `/auth/registration-check`, `/auth/verify-otp`, and `/auth/portal-handoff/redeem`.
+- GET buyer product search, Daily Help service/availability discovery, and registration OTP settings.
+- POST seller lead creation/contact OTP/callback, delivery registration, legacy seller registration (410 response), and search analytics.
+- `/e2e/**` only because each staging E2E controller separately validates strong custom shared-token headers, staging environment, and allowlisted synthetic identities where applicable.
+- Admin routes require `ROLE_ADMIN`; all other routes require an authenticated session.
+
+Added `SecurityConfigTest` to exercise public login/onboarding/discovery routes, authenticated-by-default buyer/seller/delivery/unknown paths, admin rejection for a BUYER role, valid bearer-session access and invalid-session rejection. Added `SessionAuthenticationFilterTest` for role authority construction and missing/invalid bearer behavior.
+
+Residual risks remain: public seller lead and search analytics endpoints need abuse/rate-limit review; E2E route custom-token behavior needs staging-only verification; method-level ownership/IDOR tests remain incomplete. The explicit allowlist reduces accidental anonymous exposure but does not close the complete security audit.
