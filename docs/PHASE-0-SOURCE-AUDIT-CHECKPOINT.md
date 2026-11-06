@@ -847,3 +847,8 @@ The detailed controller/method authorization inventory is now recorded in docs/P
 - CORS allows X-Active-Role and X-E2E-Run-Id and has a preflight regression test.
 
 Public seller-lead endpoints and search analytics remain exposed to abuse/flooding risks without endpoint-level rate limiting. Existing-lead lookup may reveal whether a matching contact pair has an active lead. Full IDOR coverage and authenticated lifecycle E2E remain open.
+
+
+## Latest Phase 0 continuation verification — 2026-11-06
+
+Latest code head ddfaaceef90f482b2aba05c5e0fc3b01241b14b2 passed backend Maven verification, full backend tests, frontend lint/build and frontend regression checks. The read-only smoke/browser workflow is waiting at Chromium installation and has not completed on this head. V31 portal handoff persistence and the delivery ACTIVE-profile tracking fix are present in the branch but are not deployed. Do not treat the previous /health HTTP 200 smoke result as V31 migration validation.

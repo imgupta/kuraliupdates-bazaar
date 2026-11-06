@@ -133,3 +133,14 @@ Residual risks remain: public seller lead and search analytics endpoints need ab
 - Added CORS support and a preflight regression test for X-Active-Role and X-E2E-Run-Id, which are used by negotiation and run-scoped test flows.
 - Added a detailed endpoint authorization/state inventory in docs/PHASE-0-ENDPOINT-AUTHORIZATION-MATRIX.md.
 - Latest head at this checkpoint: 8ab9236a518f55439e487304abff3050fbe640d6. CI is running; the previous portal handoff compile failure (missing shared TTL constant) was corrected in the subsequent head.
+
+
+## Latest continuation verification — 2026-11-06
+
+- Current source head for this snapshot: ddfaaceef90f482b2aba05c5e0fc3b01241b14b2. Backend Maven verification and frontend lint/production build passed. Full backend test job and frontend regression/build job also passed on this head.
+- The latest E2E/read-only smoke workflow is still installing Chromium; smoke and browser tests have not run for this head yet.
+- The portal handoff code is now persisted in AUTH_PORTAL_HANDOFFS via V31. The redeemable value is a 256-bit random code; only its SHA-256 digest is stored. The consume operation is a conditional update and commits in a REQUIRES_NEW transaction before session and role revalidation. V31 is not yet deployed or applied to Oracle.
+- Delivery live-location writes now require the associated delivery profile to be ACTIVE and owned by the session user.
+- CORS now permits X-Active-Role and X-E2E-Run-Id. The preflight regression test checks these headers; test casing was aligned with Spring's lowercase response formatting.
+- Earlier test-only failures (missing shared TTL constant, CORS assertion case, Long-vs-Integer comparison and unnecessary Mockito stubbing) were corrected. The latest quality and backend test runs pass.
+- The latest shared staging smoke result still refers to main before V31: /health returned HTTP 200 and all seven read-only checks passed. It is not evidence that V31 has migrated or deployed.
