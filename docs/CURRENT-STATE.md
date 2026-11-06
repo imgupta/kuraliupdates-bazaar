@@ -1,7 +1,9 @@
 # Current implementation status and remaining work
 
-**Last reconciled:** 3 November 2026  
-**Source baseline:** `main` at `840842662c03ae026c9ddd996b62b074784359a0`. Open PR branches are not part of this baseline unless GitHub confirms merge.
+**Last reconciled:** 6 November 2026  
+**Current main evidence checkpoint:** `b3814b90377efeead0b76c245f87e0e920b1c3da` (includes the isolated H2 OTP-attempt transaction tests). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
+
+**Phase 0 status reconciliation:** Phase 0 remains **in progress / not complete**. PR #231 is merged, but it is a security-hardening milestone only. Its PR scope explicitly excludes complete method-level IDOR coverage, full authenticated transactional E2E, backup/restore validation, India-only production residency, secret rotation and legal compliance sign-off. Do not treat the phrase “Phase 0 closeout PR” as Phase 0 exit approval; the exit criteria below remain binding.
 
 This page distinguishes source facts from CI, deployment, database and runtime evidence. See [Engineering Operating Standard](ENGINEERING-OPERATING-STANDARD.md), [Mandatory India PR Governance](INDIA-PR-GOVERNANCE.md) and [Continuation](CHATGPT-CONTINUATION.md).
 
