@@ -35,7 +35,55 @@ class OrderServiceTest {
     @Mock private SellerRepository sellerRepository;
     @Mock private ProductRepository productRepository;
     @Mock private JdbcTemplate jdbc;
+    @Mock private GoogleRoutesService googleRoutesService;
     @InjectMocks private OrderService orderService;
+
+    @Test
+    void sellerCannotPlaceSingleSellerOrderBeforeAnyRepositoryOrJdbcAccess() {
+        UserEntity seller = UserEntity.builder().userId("SELLER-USER")
+                .email("seller@example.test").role("SELLER").build();
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.placeOrder(null, seller));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verifyNoInteractions(orderRepository, sellerRepository, productRepository, jdbc, googleRoutesService);
+    }
+
+    @Test
+    void sellerCannotPlaceMultiSellerOrderBeforeAnyRepositoryOrJdbcAccess() {
+        UserEntity seller = UserEntity.builder().userId("SELLER-USER")
+                .email("seller@example.test").role("SELLER").build();
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.placeMultiSellerOrder(null, seller, null));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verifyNoInteractions(orderRepository, sellerRepository, productRepository, jdbc, googleRoutesService);
+    }
+
+    @Test
+    void sellerCannotReadBuyerOrderHistory() {
+        UserEntity seller = UserEntity.builder().userId("SELLER-USER")
+                .email("seller@example.test").role("SELLER").build();
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.history(seller));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verify(orderRepository, never()).findByBuyerEmail(anyString());
+    }
+
+    @Test
+    void buyerOrderHistoryUsesAuthenticatedBuyerEmail() {
+        when(orderRepository.findByBuyerEmail("authenticated@example.test")).thenReturn(List.of());
+
+        var history = orderService.history(buyer());
+
+        assertTrue(history.isEmpty());
+        verify(orderRepository).findByBuyerEmail("authenticated@example.test");
+        verifyNoMoreInteractions(orderRepository);
+    }
 
     @Test
     void placesOrderPersistsLineItemsAndReservesStockExactlyOnce() {
