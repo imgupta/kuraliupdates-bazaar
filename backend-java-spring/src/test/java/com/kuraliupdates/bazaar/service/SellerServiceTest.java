@@ -1,6 +1,8 @@
 package com.kuraliupdates.bazaar.service;
 
 import com.kuraliupdates.bazaar.entity.OrderEntity;
+import com.kuraliupdates.bazaar.entity.BillDiscountEntity;
+import com.kuraliupdates.bazaar.dto.seller.SellerProductRequest;
 import com.kuraliupdates.bazaar.dto.order.OrderResponse;
 import com.kuraliupdates.bazaar.entity.OrderItemEntity;
 import com.kuraliupdates.bazaar.entity.ProductEntity;
@@ -175,6 +177,82 @@ class SellerServiceTest {
         assertEquals("PLACED", actual.get(0).status());
         verify(orderRepository).findBySeller_SellerId("SELLER-1");
         verify(orderRepository, never()).findAll();
+    }
+
+    @Test
+    void sellerCannotUpdateAnotherStoresProduct() {
+        SellerEntity seller = approvedSeller("SELLER-1");
+        SellerEntity otherSeller = approvedSeller("SELLER-2");
+        ProductEntity product = ProductEntity.builder().productId("P-OTHER").seller(otherSeller)
+                .title("Other store product").category("GROCERY")
+                .mrp(BigDecimal.valueOf(100)).sellerPrice(BigDecimal.valueOf(90)).stock(4).build();
+        stubSeller(seller);
+        when(productRepository.findById("P-OTHER")).thenReturn(Optional.of(product));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> sellerService.updateProduct(TOKEN, "P-OTHER", productRequest()));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        assertEquals("Other store product", product.getTitle());
+        assertEquals(4, product.getStock());
+        verify(productRepository, never()).save(any());
+    }
+
+    @Test
+    void sellerCannotDeleteAnotherStoresProduct() {
+        SellerEntity seller = approvedSeller("SELLER-1");
+        SellerEntity otherSeller = approvedSeller("SELLER-2");
+        ProductEntity product = ProductEntity.builder().productId("P-OTHER").seller(otherSeller)
+                .title("Other store product").category("GROCERY")
+                .mrp(BigDecimal.valueOf(100)).sellerPrice(BigDecimal.valueOf(90)).stock(4).build();
+        stubSeller(seller);
+        when(productRepository.findById("P-OTHER")).thenReturn(Optional.of(product));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> sellerService.deleteProduct(TOKEN, "P-OTHER"));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verify(productRepository, never()).delete(any(ProductEntity.class));
+    }
+
+    @Test
+    void sellerCanUpdateOwnProduct() {
+        SellerEntity seller = approvedSeller("SELLER-1");
+        ProductEntity product = ProductEntity.builder().productId("P-OWN").seller(seller)
+                .title("Old title").category("GROCERY")
+                .mrp(BigDecimal.valueOf(100)).sellerPrice(BigDecimal.valueOf(90)).stock(2).build();
+        stubSeller(seller);
+        when(productRepository.findById("P-OWN")).thenReturn(Optional.of(product));
+        when(productRepository.save(any(ProductEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var updated = sellerService.updateProduct(TOKEN, "P-OWN", productRequest());
+
+        assertEquals("Updated product", updated.title());
+        assertEquals(7, product.getStock());
+        verify(productRepository).save(product);
+    }
+
+    @Test
+    void sellerCannotDeleteAnotherStoresDiscountRule() {
+        SellerEntity seller = approvedSeller("SELLER-1");
+        SellerEntity otherSeller = approvedSeller("SELLER-2");
+        BillDiscountEntity rule = BillDiscountEntity.builder().ruleId("DISC-OTHER")
+                .seller(otherSeller).minBillAmount(BigDecimal.valueOf(100))
+                .discountPercentage(BigDecimal.valueOf(10)).description("Other store offer").build();
+        stubSeller(seller);
+        when(billDiscountRepository.findById("DISC-OTHER")).thenReturn(Optional.of(rule));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> sellerService.deleteDiscount(TOKEN, "DISC-OTHER"));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verify(billDiscountRepository, never()).delete(any(BillDiscountEntity.class));
+    }
+
+    private SellerProductRequest productRequest() {
+        return new SellerProductRequest("Updated product", "GROCERY", "description", null,
+                BigDecimal.valueOf(100), BigDecimal.valueOf(90), BigDecimal.ZERO, 7,
+                "1 pc", List.of("test"), false);
     }
 
     private void stubSeller(SellerEntity seller) {
