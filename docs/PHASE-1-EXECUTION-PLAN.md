@@ -1,8 +1,8 @@
 # Phase 1 — End-to-End Functional and Security Validation
 
 **Status:** In progress  
-**Branch:** `phase1/security-e2e-validation`  
-**Base:** `main` at the Phase 0 closeout merge commit `77c493f3e741f4ce305c9187477e71b9943ecbee` (reconfirm exact head before merge)  
+**Execution branches:** short-lived `phase1/*` branches; changes are merged through reviewed PRs  
+**Base:** current `main`; last reconciled commit before this evidence update: `1bba148f504cad9c6e1f1dc1acc6904ed78ef543`  
 **Environment:** Owner-designated shared staging only; no mutating tests against shared or real business records.
 
 ## Objective
@@ -108,11 +108,11 @@ Acceptance: each High/Critical finding has containment, durable remediation, own
 
 **Finding:** `DailyHelpService.getBookingForUser` authorized the professional side only when `UserEntity.role == PROFESSIONAL`. The canonical `UserEntity` role model contains BUYER, SELLER, DELIVERY and ADMIN; Daily Help is a secondary profile attached to the existing account. The controller already resolves the caller's professional profile by the authenticated account phone. Consequently, a legitimate provider whose account primary role is BUYER could manage their own professional profile but could be denied access to their assigned booking.
 
-**Change on this branch:** provider booking ownership now uses the phone on the assigned professional profile, normalized to digits, independent of the account's primary marketplace role. Buyer-side access remains restricted to BUYER plus matching buyer phone. This does not grant access to an unrelated buyer or provider.
+**Merged in PR #232:** provider booking ownership now uses the phone on the assigned professional profile, normalized to digits, independent of the account's primary marketplace role. Buyer-side access remains restricted to BUYER plus matching buyer phone. This does not grant access to an unrelated buyer or provider.
 
 **Regression tests added:** a BUYER-primary account with a matching professional profile can read its own provider booking; an unrelated BUYER with a different phone is denied.
 
-**Status:** implementation committed on the Phase 1 branch; backend test execution and CI evidence are pending. No live staging data or transactional E2E was used. This is one targeted authorization fix, not completion of the IDOR matrix.
+**Status:** merged in PR #232 after backend/frontend CI passed. No live staging data or transactional E2E was used. This is one targeted authorization fix, not completion of the IDOR matrix.
 
 
 ## PR #232 verification addendum — 2026-11-06
@@ -145,3 +145,92 @@ All five substantive GitHub Actions checks completed successfully:
 - Private Playwright report publication was skipped by workflow policy.
 
 **Decision:** the narrow Daily Help ownership fix has passing unit/full backend CI. PR #232 may be reviewed for this bounded change. Do not infer that Phase 1 is complete, that authenticated transactional flows passed, or that a database-backed staging smoke was performed.
+---
+
+## Phase 1 progress addendum — 2026-11-06 (PRs #232–#240)
+
+This addendum supersedes the earlier pending status text above where newer merge/CI evidence is available. The original PR #232 historical evidence remains preserved.
+
+### Merged changes and exact backend CI evidence
+
+| PR | Merged change | Full backend test count | Result |
+|---|---|---:|---|
+| #232 | Fix Daily Help provider booking ownership for BUYER-primary accounts | 142 | Passed |
+| #233 | Bargaining chat participant ownership regression coverage | CI passed; see PR run | Passed |
+| #234 | Wrong provider cannot update/start/complete another provider's booking | 147 | Passed |
+| #235 | Daily Help controller profile ownership and buyer phone binding | 150 | Passed |
+| #236 | Sequential duplicate Daily Help slot reservation rejection | 151 | Passed |
+| #237 | Seller product update/delete and discount deletion ownership | 155 | Passed |
+| #238 | Delivery agent ID spoofing on claim and wrong-agent pickup confirmation | 157 | Passed |
+| #239 | Duplicate cart-line quantity aggregation before stock check/reservation | 159 | Passed |
+| #240 | Seller product and discount list scoping to authenticated seller | 161 | Passed |
+
+All listed PRs are merged to `main`. For PRs #234–#240, the full Maven verification and frontend lint/production-build checks completed successfully. The test counts above are the full backend suite totals from each PR head, not counts of only the new test cases.
+
+### What is now covered by automated tests
+
+- Daily Help: provider ownership for booking read/mutations; a correct OTP does not bypass provider ownership; controller profile-to-account phone binding; sequential rebooking of a reserved slot is rejected.
+- Bargaining: buyer/seller chat participant ownership coverage was merged in #233.
+- Seller: cross-store product update/delete and discount-rule deletion are denied; owning seller product update succeeds; product and discount list queries are scoped to the authenticated seller ID; seller order list and cross-store order mutation tests already exist.
+- Delivery: wrong-agent OTP completion and OTP resend protections already existed; new tests pin caller-supplied agent ID spoofing on claim and wrong-agent pickup confirmation.
+- Checkout: duplicate product IDs in a cart are aggregated before stock validation; aggregate quantity above stock is rejected without saving an order; valid duplicate lines decrement stock once and persist one consolidated line item.
+- Buyer orders: service tests already cover own-order tracking, another buyer's order hidden as not found, non-buyer role rejected for tracking, and wrong-buyer store-pickup confirmation.
+
+### Evidence boundaries — do not overstate
+
+- These are predominantly service/unit tests with mocked repositories. They do not prove real Oracle locking, isolation, commit/rollback, or simultaneous request behavior.
+- The Daily Help duplicate-slot test is sequential: it verifies that a second call after the first reservation is rejected. It is not a two-transaction race test.
+- The checkout duplicate-line tests aggregate repeated cart rows within one request. They are not a concurrent two-buyer oversell test.
+- The CI workflows' authenticated browser journeys have previously reported 3 passed and 9 skipped because trusted staging OTP capture and dedicated role identities were not enabled for the PR workflow. Skipped authenticated flows are not passes.
+- The prior smoke job reported 7 read-only API checks passing. Depending on the run, `databaseHealthChecked` was false; a process liveness response is not database readiness evidence.
+- No mutating E2E was run against shared staging. No real customer, seller, rider, provider, order or inventory data was used in these new unit tests.
+- PR #237–#240 contain test-only changes; they do not add schema migrations or change runtime business logic.
+
+### Oracle integration-test readiness and transaction proof
+
+The backend build currently includes Oracle JDBC/Flyway and Spring Boot test dependencies, but the repository test tree has no dedicated test datasource configuration, H2/Testcontainers dependency, or isolated Oracle test fixture/cleanup harness. Therefore Oracle-backed transaction tests are **blocked**, not passed. Do not run destructive or mutating tests against the shared staging Oracle schema.
+
+Before Oracle integration tests can be accepted, establish an owner-approved isolated schema/database with:
+1. isolated credentials and explicit schema identity verification before every test run;
+2. deterministic synthetic fixture creation and cleanup keyed by run ID;
+3. transaction/lock tests that run two independent transactions/threads and assert final persisted state;
+4. forced failure injection proving multi-seller checkout rolls back every suborder, stock decrement and associated bargain state;
+5. cleanup verification and a safe abort if the schema target is not the isolated test target.
+
+### Remaining P1-A authorization matrix
+
+Still open and must be checked against source before marking complete:
+- Buyer address list/create/update/delete/default-address ownership and single-default invariant.
+- Buyer order history and tracking controller authentication, cross-buyer order IDs, pickup/cancel/refund paths and response DTO data minimization.
+- Seller inventory/product reads and writes beyond the covered product/discount methods; seller order/document/download PII routes and onboarding lead ownership.
+- Delivery assigned-job listing, tracking/location update ownership, combined checkout claims, pickup/OTP paths at controller and service boundaries.
+- Daily Help slot/availability/job/earnings read scoping and accept/start/complete ownership at controller and service boundaries.
+- Negotiation chat, message, offer and bargain-accept nested IDs; ensure one participant cannot mutate/read another chat or replay acceptance.
+- Admin-only list/download/update routes and non-admin denial for every PII-bearing operation.
+- Anonymous, invalid, expired/revoked session, wrong role, suspended profile, spoofed header/body identity and deleted/reassigned resource cases.
+
+### Remaining P1-C transaction/concurrency matrix
+
+- Two buyers concurrently reserving the last stock unit; prove one winner and persisted stock never negative.
+- Multi-seller checkout failure after at least one seller order has been created; prove all order rows, stock and bargain state roll back.
+- Two delivery agents racing for one ready order and two agents racing to claim the same checkout group; prove one winner and no partial batch assignment.
+- Two buyers racing to reserve one Daily Help slot; prove one booking and one slot owner.
+- Provider acceptance race for one unassigned Daily Help booking.
+- Bargain acceptance replay/idempotency and checkout consuming the accepted offer once.
+- Portal handoff concurrent redemption, expiry and downstream failure consumption.
+- OTP resend cooldown and verification attempts across multiple application instances; current process-local cooldown behavior must not be represented as distributed/race-safe.
+- Address default changes under concurrent requests.
+- Cancellation/stock restoration and delivery/pickup OTP replay with persisted final-state assertions.
+
+### P1-B and P1-D release gates
+
+- Authenticated Playwright journeys remain blocked until trusted OTP capture, dedicated role identities, isolated run-scoped fixture creation and verified cleanup are configured. Do not turn on mutating E2E against shared staging.
+- Public seller lead/OTP lookup and search analytics require enumeration, rate-limit, flood and payload-boundary review.
+- Review admin/tracking DTO PII and delivery-location exposure, session revocation, audit/log redaction and E2E helper fail-closed behavior.
+- Backup/restore rehearsal, migration recovery, production India data residency, secret rotation and qualified Indian legal/tax/labour/payment review remain independent launch gates.
+
+### Latest deployment observation
+
+At the time of this addendum, Render had accepted the latest `main` commit `1bba148f504cad9c6e1f1dc1acc6904ed78ef543` for the backend and reported its build in progress; the frontend deployment for the same commit was live. These commits contain tests/documentation only. Recheck Render status before relying on a live-backend claim. No database migration was introduced by PRs #234–#240.
+
+**Phase 1 disposition remains: IN PROGRESS.** Passing unit/full Maven and frontend CI is valuable evidence, but the authorization matrix is incomplete, authenticated E2E is still skipped, and Oracle concurrency/rollback proof is blocked pending an isolated test database.
