@@ -69,3 +69,14 @@ Added `NegotiationChatServiceTest` regressions:
 - An authenticated seller cannot send a message to a conversation belonging to another seller store; the test verifies no lifecycle query or write occurs after denial.
 
 **Evidence boundary:** these are service-level negative ownership tests using synthetic JDBC results. They do not replace Oracle integration tests, full read/list/notification IDOR coverage, or authenticated browser journeys.
+
+
+### CI evidence — bargaining participant ownership tests
+
+- Tested code head: `7bb45e4551d8b64e0a27e7b52d23b8729ab20836`.
+- `NegotiationChatServiceTest`: 9 tests passed, 0 failures/errors/skips.
+- Full backend Maven verification: 142 tests passed, 0 failures/errors/skips.
+- Spring Boot verification, frontend lint/build and frontend regression checks passed.
+- Browser E2E: 3 passed, 9 skipped; authenticated/transactional flows were not enabled for the PR event.
+- Read-only smoke: 7 passed, 0 failed; `databaseHealthChecked=false`, so this run checked process liveness and anonymous guards only.
+- No database-backed bargaining transaction, staging mutation or live Oracle concurrency proof is claimed.
