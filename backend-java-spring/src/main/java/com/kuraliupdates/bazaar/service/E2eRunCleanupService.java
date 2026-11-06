@@ -36,11 +36,10 @@ public class E2eRunCleanupService {
                        OR b.PROFESSIONAL_ID IS NULL
                        OR b.PROFESSIONAL_ID NOT LIKE 'E2E-%'
                        OR NOT EXISTS (SELECT 1 FROM DAILY_HELP_PROFESSIONAL_SLOTS s
-                                      WHERE s.BOOKING_ID = b.BOOKING_ID
+                                      WHERE s.E2E_RUN_ID = ?
                                         AND s.SLOT_ID LIKE 'E2E-%'
-                                        AND s.STATUS = 'BOOKED'
                                         AND s.PROFESSIONAL_ID = b.PROFESSIONAL_ID))
-                """, runId);
+                """, runId, runId);
         long unsafeChats = count("""
                 SELECT COUNT(*) FROM NEGOTIATION_CHATS c
                 WHERE c.E2E_RUN_ID = ?
