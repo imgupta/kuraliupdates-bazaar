@@ -109,7 +109,7 @@ async function waitForApiLiveness() {
       lastResult.attempts = attempts;
       lastResult.waitedMs = Date.now() - startedAt;
       results.push(lastResult);
-      console.log(`${lastResult.label} succeeded after ${Math.round(lastResult.waitedMs / 1000)}s (${attempts} readiness cycle(s)); database health was not checked.`);
+      console.log(`${lastResult.label} succeeded after ${Math.round(lastResult.waitedMs / 1000)}s (${attempts} readiness cycle(s)); database health ${databaseHealthChecked ? "was checked" : "was not checked"}.`);
       return true;
     }
 

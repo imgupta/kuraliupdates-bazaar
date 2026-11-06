@@ -89,8 +89,8 @@ test("smoke runner also handles the framework generic-error response for an abse
   const { report, requests } = await runSmoke({ livenessStatus: 500 });
 
   assert.equal(report.apiLive, true);
-  assert.equal(report.databaseHealthChecked, false);
+  assert.equal(report.databaseHealthChecked, true);
   assert.ok(requests.includes("/api/v1/health/live"));
-  assert.ok(requests.includes("/api/v1/v3/api-docs"));
+  assert.ok(requests.includes("/api/v1/health"));
   assert.equal(report.failed, 0);
 });
