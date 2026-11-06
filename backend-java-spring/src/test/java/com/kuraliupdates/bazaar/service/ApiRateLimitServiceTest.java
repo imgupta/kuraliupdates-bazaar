@@ -64,4 +64,19 @@ class ApiRateLimitServiceTest {
 
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, error.getStatus());
     }
+    @Test
+    void probeCleanupDeletesOnlyTheHashedBucketKey() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        ApiRateLimitService service = new ApiRateLimitService(jdbc);
+
+        service.clearBucket("e2e-probe", "run-id:probe-key");
+
+        org.mockito.ArgumentCaptor<Object[]> arguments = org.mockito.ArgumentCaptor.forClass(Object[].class);
+        verify(jdbc).update(eq("DELETE FROM API_RATE_LIMIT_BUCKETS WHERE BUCKET_KEY = ?"), arguments.capture());
+        Object[] bound = arguments.getValue();
+        assertEquals(1, bound.length);
+        assertEquals(64, String.valueOf(bound[0]).length());
+        assertNotEquals("run-id:probe-key", bound[0]);
+    }
+
 }
