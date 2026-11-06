@@ -14,6 +14,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -28,11 +29,17 @@ class DeliveryControllerTest {
     private DeliveryController controller;
 
     @Test
-    void unauthenticatedClaimIsRejectedBeforeServiceAccess() {
-        ApiException error = assertThrows(ApiException.class,
-                () -> controller.claimJob("ORD-1", "AGENT-1", null));
+    void everyProtectedDeliveryEndpointRejectsMissingAuthenticationBeforeServiceAccess() {
+        assertUnauthorized(() -> controller.currentAgent(null));
+        assertUnauthorized(() -> controller.updateAvailability(Map.of("available", true), null));
+        assertUnauthorized(() -> controller.getAvailableJobs(null));
+        assertUnauthorized(() -> controller.getMyAssignedJobs(null));
+        assertUnauthorized(() -> controller.claimJob("ORD-1", "AGENT-1", null));
+        assertUnauthorized(() -> controller.claimCheckoutGroup("CHK-1", "AGENT-1", null));
+        assertUnauthorized(() -> controller.confirmSellerPickup("ORD-1", null));
+        assertUnauthorized(() -> controller.resendDeliveryOtp("ORD-1", null));
+        assertUnauthorized(() -> controller.verifyDeliveryOtp("ORD-1", Map.of("otp", "1234"), null));
 
-        assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
         verifyNoInteractions(deliveryService);
     }
 
@@ -43,7 +50,7 @@ class DeliveryControllerTest {
         ApiException claimError = assertThrows(ApiException.class,
                 () -> controller.claimJob("ORD-1", "AGENT-1", authentication));
         ApiException otpError = assertThrows(ApiException.class,
-                () -> controller.verifyDeliveryOtp("ORD-1", java.util.Map.of("otp", "1234"), authentication));
+                () -> controller.verifyDeliveryOtp("ORD-1", Map.of("otp", "1234"), authentication));
 
         assertEquals(HttpStatus.UNAUTHORIZED, claimError.getStatus());
         assertEquals(HttpStatus.UNAUTHORIZED, otpError.getStatus());
@@ -52,13 +59,7 @@ class DeliveryControllerTest {
 
     @Test
     void authenticatedPrincipalIsPassedToClaimAndClientAgentIdIsOnlyAServiceInput() {
-        UserEntity user = UserEntity.builder()
-                .userId("USER-RIDER-1")
-                .email("rider@example.com")
-                .phone("9876543210")
-                .name("Synthetic Rider")
-                .role("DELIVERY")
-                .build();
+        UserEntity user = rider();
         Authentication authentication = new UsernamePasswordAuthenticationToken(user, "token");
         when(deliveryService.claim("ORD-1", "AGENT-OTHER", user))
                 .thenReturn(OrderEntity.builder().orderId("ORD-1").build());
@@ -72,13 +73,7 @@ class DeliveryControllerTest {
 
     @Test
     void authenticatedPrincipalIsPassedToCombinedCheckoutClaim() {
-        UserEntity user = UserEntity.builder()
-                .userId("USER-RIDER-1")
-                .email("rider@example.com")
-                .phone("9876543210")
-                .name("Synthetic Rider")
-                .role("DELIVERY")
-                .build();
+        UserEntity user = rider();
         Authentication authentication = new UsernamePasswordAuthenticationToken(user, "token");
         when(deliveryService.claimCheckoutGroup("CHK-1", "AGENT-1", user))
                 .thenReturn(List.of(OrderEntity.builder().orderId("ORD-1").build()));
@@ -89,5 +84,20 @@ class DeliveryControllerTest {
         assertEquals("ORD-1", response.getBody().get(0).orderId());
         verify(deliveryService).claimCheckoutGroup("CHK-1", "AGENT-1", user);
         verifyNoMoreInteractions(deliveryService);
+    }
+
+    private void assertUnauthorized(org.junit.jupiter.api.function.Executable action) {
+        ApiException error = assertThrows(ApiException.class, action);
+        assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
+    }
+
+    private UserEntity rider() {
+        return UserEntity.builder()
+                .userId("USER-RIDER-1")
+                .email("rider@example.com")
+                .phone("9876543210")
+                .name("Synthetic Rider")
+                .role("DELIVERY")
+                .build();
     }
 }
