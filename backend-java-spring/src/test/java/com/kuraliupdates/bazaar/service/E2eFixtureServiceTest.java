@@ -63,7 +63,7 @@ class E2eFixtureServiceTest {
         verify(products, times(3)).save(argThat(p -> runId.equals(p.getE2eRunId())));
         verify(services).save(argThat(s -> runId.equals(s.getE2eRunId()) && s.getActive() == 1));
         verify(slots).save(argThat(s -> runId.equals(s.getE2eRunId())
-                && "AVAILABLE".equals(s.getStatus()) && LocalTime.of(10, 0).equals(s.getStartTime())));
+                && "AVAILABLE".equals(s.getStatus()) && s.getStartTime() != null && s.getEndTime().equals(s.getStartTime().plusHours(1))));
     }
 
     @Test
