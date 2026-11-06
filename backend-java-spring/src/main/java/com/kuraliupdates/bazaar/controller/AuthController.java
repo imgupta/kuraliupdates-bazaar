@@ -9,23 +9,19 @@ import com.kuraliupdates.bazaar.dto.auth.VerifyOtpRequest;
 import com.kuraliupdates.bazaar.service.AuthService;
 import com.kuraliupdates.bazaar.service.BuyerAddressService;
 import com.kuraliupdates.bazaar.entity.PortalHandoffEntity;
-import com.kuraliupdates.bazaar.repository.PortalHandoffRepository;
+import com.kuraliupdates.bazaar.service.PortalHandoffService;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.transaction.annotation.Transactional;
+
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.time.LocalDateTime;
-import java.security.SecureRandom;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
+
 
 
 @RestController
@@ -34,9 +30,7 @@ import java.util.HexFormat;
 public class AuthController {
     private final AuthService authService;
     private final BuyerAddressService addressService;
-    private final PortalHandoffRepository portalHandoffRepository;
-    private static final long PORTAL_HANDOFF_TTL_SECONDS = 60;
-    private static final SecureRandom HANDOFF_RANDOM = new SecureRandom();
+    private final PortalHandoffService portalHandoffService;
 
     @PostMapping("/send-otp")
     public ResponseEntity<Map<String, Object>> sendOtp(@Valid @RequestBody SendOtpRequest request) {
@@ -71,7 +65,6 @@ public class AuthController {
      * between the separate role portal origins. The bearer token is never placed
      * in the redirect URL.
      */
-    @Transactional
     @PostMapping("/portal-handoff")
     public ResponseEntity<Map<String, Object>> createPortalHandoff(
             @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -87,24 +80,12 @@ public class AuthController {
             throw new ApiException(HttpStatus.FORBIDDEN, "This account is not authorized for that profile");
         }
 
-        LocalDateTime now = LocalDateTime.now();
-        portalHandoffRepository.deleteByExpiresAtBefore(now);
-        byte[] randomCode = new byte[32];
-        HANDOFF_RANDOM.nextBytes(randomCode);
-        String code = HexFormat.of().formatHex(randomCode);
-        portalHandoffRepository.save(PortalHandoffEntity.builder()
-                .codeHash(sha256(code))
-                .sessionToken(token)
-                .role(role)
-                .createdAt(now)
-                .expiresAt(now.plusSeconds(PORTAL_HANDOFF_TTL_SECONDS))
-                .build());
+        String code = portalHandoffService.create(token, role);
         return ResponseEntity.ok(Map.of("success", true, "code", code, "role", role,
                 "expiresInSeconds", PORTAL_HANDOFF_TTL_SECONDS));
     }
 
     /** Redeems a handoff code once and returns the authenticated session to the target portal. */
-    @Transactional
     @PostMapping("/portal-handoff/redeem")
     public ResponseEntity<Map<String, Object>> redeemPortalHandoff(
             @RequestBody(required = false) Map<String, String> body) {
@@ -112,13 +93,8 @@ public class AuthController {
         if (code == null || code.isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "A portal handoff code is required");
         }
-        LocalDateTime consumedAt = LocalDateTime.now();
-        String codeHash = sha256(code);
-        if (portalHandoffRepository.consume(codeHash, consumedAt) != 1) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "This profile-switch link has expired or was already used");
-        }
-        PortalHandoffEntity handoff = portalHandoffRepository.findById(codeHash)
-                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "This profile-switch link is unavailable"));
+        PortalHandoffEntity handoff = portalHandoffService.consume(code)
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "This profile-switch link has expired or was already used"));
 
         List<String> roles = authService.registeredRoles(handoff.getSessionToken());
         if (!roles.contains(handoff.getRole())) {
@@ -134,15 +110,6 @@ public class AuthController {
                 "roles", roles,
                 "role", handoff.getRole()
         ));
-    }
-
-    private String sha256(String value) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 is unavailable", impossible);
-        }
     }
 
     @GetMapping("/me/roles")
