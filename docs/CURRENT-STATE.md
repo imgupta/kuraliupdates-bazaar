@@ -100,3 +100,13 @@ Existing Daily Help profile ownership, DeliveryService ownership/OTP and SearchA
 At code head 14dd0167c61aefa5e307b65d7dcfdfe259292264, Seller registration quality gates run 42218558945 passed: full backend Maven **248 tests, zero failures/errors/skips; BUILD SUCCESS**, and frontend TypeScript/production build passed. Focused counts: Daily Help 10, Delivery 5, Delivery Tracking security 3, OTP settings security 3, Admin seller leads security 4. An initial OTP history mock compile error was corrected before this successful run.
 
 Standard KuraliUpdates CI and E2E run 42218558947 is still pending with no jobs reported. This is not a pass. The documentation update requires a new exact-head workflow run before merge.
+
+
+## Staging cleanup verification finding — 6 November 2026
+
+- PR #268 exact-head workflow run `42232583085` verified all five staging role sessions (Buyer, Seller, Delivery, Provider and Admin), then failed because the run-scoped cleanup endpoint returned HTTP 500. No business transactions or fixture provisioning ran; the workflow explicitly skipped them for the PR event.
+- Render application logs at 2026-11-06T14:17:44Z identify the cause: Oracle `ORA-00904: "B"."SLOT_ID": invalid identifier` in `E2eRunCleanupService` during the cleanup preflight count query.
+- Source inspection confirms `DAILY_HELP_BOOKINGS` / `DailyHelpBookingEntity` has no `SLOT_ID` field. The authoritative relationship is `DAILY_HELP_PROFESSIONAL_SLOTS.BOOKING_ID` to `DAILY_HELP_BOOKINGS.BOOKING_ID`.
+- Fix in branch `phase1/fix-e2e-cleanup-booking-slot-link`: both cleanup preflight relationship checks now use `BOOKING_ID`; the new `E2eRunCleanupServiceTest` asserts the SQL never references `b.SLOT_ID` and verifies the booking/slot relationship in both directions.
+- The failed cleanup ran before the service's first write because all ownership checks precede mutations. The five sessions were created with the run tag and have the normal two-hour expiry. The run ID was not printed by the workflow, so no broad/manual cleanup is attempted.
+- Exact-head Maven/CI and a fresh staging preflight after the backend fix is deployed are required. PR #268 remains blocked until it passes. Do not infer Phase 1 completion from this fix alone.
