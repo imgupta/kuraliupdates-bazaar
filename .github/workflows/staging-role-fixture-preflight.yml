@@ -31,6 +31,7 @@ jobs:
         shell: bash
         run: |
           node --input-type=module <<'NODE'
+          import { randomUUID } from 'node:crypto';
           const raw = process.env.E2E_STAGING_CONFIG_JSON;
           if (!raw?.trim()) {
             console.error('Missing E2E_STAGING_CONFIG_JSON; no request was made.');
@@ -101,13 +102,15 @@ jobs:
             return response.json();
           }
 
+          const runId = 'E2E-PREFLIGHT-' + randomUUID();
+          const tokens = {};
+          const mismatches = [];
+          let failure = null;
           try {
-            const tokens = {};
-            const mismatches = [];
             for (const [role, identityKey, expectedRole] of expected) {
               const mismatchCountBeforeRole = mismatches.length;
               const identity = required(identityKey);
-              const session = await postJson('/e2e/auth/token', { 'X-E2E-Flow-Token': sharedToken }, { role, identifier: identity });
+              const session = await postJson('/e2e/auth/token', { 'X-E2E-Flow-Token': sharedToken, 'X-E2E-Run-Id': runId }, { role, identifier: identity });
               if (session?.authenticated !== true ||
                   String(session?.role ?? '').toUpperCase() !== expectedRole ||
                   typeof session?.token !== 'string' || session.token.length < 21) {
@@ -161,7 +164,34 @@ jobs:
               (transactionalFixturesEnabled ? ' Synthetic fixture checks also passed.' : ' Fixture checks skipped because transactional E2E is disabled.') +
               ' No orders, bookings, inventory changes, OTPs, or customer records were created. Session tokens were not printed.');
           } catch (error) {
-            console.error('PREFLIGHT FAILED: ' + (error?.message ?? 'unexpected failure') + '. No business transactions were attempted.');
+            failure = error;
+          } finally {
+            // Role token issuance persists short-lived sessions. Tag each one to this
+            // preflight run and remove only those sessions, even when a role check fails.
+            try {
+              const response = await fetch(apiBase + '/e2e/cleanup/' + encodeURIComponent(runId), {
+                method: 'POST',
+                headers: {
+                  'X-E2E-Flow-Token': sharedToken,
+                  'Cache-Control': 'no-store',
+                  'Accept': 'application/json'
+                },
+                signal: AbortSignal.timeout(20000)
+              });
+              if (!response.ok) throw new Error('Run-scoped preflight cleanup returned HTTP ' + response.status);
+              const cleanup = await response.json();
+              const expectedSessions = Object.keys(tokens).length;
+              if (Number(cleanup.sessions) !== expectedSessions) {
+                throw new Error('Expected to clean ' + expectedSessions + ' tagged preflight sessions, cleaned ' + String(cleanup.sessions));
+              }
+              console.log('PASS: run-scoped cleanup removed ' + cleanup.sessions + ' preflight sessions. No business records were created.');
+            } catch (cleanupError) {
+              failure = failure ?? cleanupError;
+              console.error('PREFLIGHT CLEANUP FAILED: ' + (cleanupError?.message ?? 'unexpected cleanup failure'));
+            }
+          }
+          if (failure) {
+            console.error('PREFLIGHT FAILED: ' + (failure?.message ?? 'unexpected failure') + '. No business transactions were attempted.');
             process.exit(1);
           }
           NODE
