@@ -21,6 +21,7 @@ public class SellerOnboardingLeadController {
     public Map<String,Object> start(@RequestBody Map<String,String> body) {
         String email = body == null || body.get("email") == null ? "" : body.get("email").trim().toLowerCase();
         String phone = body == null || body.get("phone") == null ? "" : body.get("phone").replaceAll("\\D", "");
+        if (phone.length() == 12 && phone.startsWith("91")) phone = phone.substring(2);
         rateLimit.requireAllowed("seller-lead-start", email + ":" + phone, 3, Duration.ofHours(1));
         return leads.start(body == null ? null : body.get("ownerName"), email, phone);
     }

@@ -28,6 +28,7 @@ public class SellerOnboardingLeadService {
         String name = clean(ownerName, 150);
         String email = rawEmail == null ? "" : rawEmail.trim().toLowerCase();
         String phone = rawPhone == null ? "" : rawPhone.replaceAll("\\D", "");
+        if (phone.length() == 12 && phone.startsWith("91")) phone = phone.substring(2);
         validate(name, email, phone);
         String existing = jdbc.query(
                 "SELECT LEAD_ID FROM SELLER_ONBOARDING_LEADS WHERE EMAIL=? AND PHONE=? AND STATUS NOT IN ('CONVERTED','NOT_INTERESTED') ORDER BY CREATED_AT DESC FETCH FIRST 1 ROWS ONLY",
