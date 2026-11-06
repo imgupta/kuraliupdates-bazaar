@@ -110,6 +110,75 @@ class DeliveryTrackingServiceTest {
         assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
     }
 
+    @Test
+    void deliveryLocationCannotBeUpdatedThroughAnotherRidersSession() {
+        when(sessionRepository.findBySessionToken("token")).thenReturn(Optional.of(session("user-1")));
+        when(userRepository.findById("user-1")).thenReturn(Optional.of(
+                UserEntity.builder().userId("user-1").email("other-rider@example.com").build()));
+        when(deliveryAgentRepository.findById("AGENT-1")).thenReturn(Optional.of(
+                DeliveryAgentEntity.builder().agentId("AGENT-1").email("rider@example.com")
+                        .status("ACTIVE").build()));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> trackingService.updateLocation("AGENT-1", 30.0, 76.5, "token"));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
+        verify(deliveryAgentRepository, never()).save(any());
+    }
+
+    @Test
+    void expiredDeliverySessionCannotUpdateLocation() {
+        UserSessionEntity expired = session("user-1");
+        expired.setExpiresAt(LocalDateTime.now().minusSeconds(1));
+        when(sessionRepository.findBySessionToken("expired-token")).thenReturn(Optional.of(expired));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> trackingService.updateLocation("AGENT-1", 30.0, 76.5, "expired-token"));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
+        verify(deliveryAgentRepository, never()).findById(anyString());
+        verify(deliveryAgentRepository, never()).save(any());
+    }
+
+    @Test
+    void assignedRiderCanTrackOwnOrderButDoesNotReceiveBuyerDeliveryOtp() {
+        DeliveryAgentEntity assigned = DeliveryAgentEntity.builder()
+                .agentId("AGENT-1").email("rider@example.com").fullName("Assigned Rider")
+                .currentLatitude(new java.math.BigDecimal("30.0"))
+                .currentLongitude(new java.math.BigDecimal("76.5")).build();
+        OrderEntity order = OrderEntity.builder().orderId("ORD-RIDER-OWN")
+                .buyerEmail("buyer@example.com").deliveryOtp("4821")
+                .status("OUT_FOR_DELIVERY").deliveryAgent(assigned).build();
+        when(orderRepository.findById("ORD-RIDER-OWN")).thenReturn(Optional.of(order));
+        when(sessionRepository.findBySessionToken("rider-token")).thenReturn(Optional.of(session("rider-id")));
+        when(userRepository.findById("rider-id")).thenReturn(Optional.of(
+                UserEntity.builder().userId("rider-id").email("rider@example.com").build()));
+
+        var result = trackingService.getOrderTracking("ORD-RIDER-OWN", "rider-token");
+
+        assertEquals("ORD-RIDER-OWN", result.get("orderId"));
+        assertEquals("AGENT-1", result.get("agentId"));
+        assertFalse(result.containsKey("deliveryOtp"));
+    }
+
+    @Test
+    void differentRiderCannotTrackAnOrderAssignedToAnotherRider() {
+        DeliveryAgentEntity assigned = DeliveryAgentEntity.builder()
+                .agentId("AGENT-1").email("assigned-rider@example.com").build();
+        OrderEntity order = OrderEntity.builder().orderId("ORD-RIDER-OTHER")
+                .buyerEmail("buyer@example.com").deliveryAgent(assigned).build();
+        when(orderRepository.findById("ORD-RIDER-OTHER")).thenReturn(Optional.of(order));
+        when(sessionRepository.findBySessionToken("other-rider-token"))
+                .thenReturn(Optional.of(session("other-rider-id")));
+        when(userRepository.findById("other-rider-id")).thenReturn(Optional.of(
+                UserEntity.builder().userId("other-rider-id").email("other-rider@example.com").build()));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> trackingService.getOrderTracking("ORD-RIDER-OTHER", "other-rider-token"));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+    }
+
     private UserSessionEntity session(String userId) {
         return UserSessionEntity.builder().sessionToken("token-" + userId).userId(userId)
                 .expiresAt(LocalDateTime.now().plusMinutes(30)).build();
