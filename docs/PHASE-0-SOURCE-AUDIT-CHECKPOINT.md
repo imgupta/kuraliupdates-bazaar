@@ -832,3 +832,8 @@ Historical statements in this checkpoint that V30 is currently failed, not deplo
 ## Current verification addendum — 2026-11-06
 
 PR #228 has been closed as superseded by PR #231. The current Phase 0 staging smoke check returned HTTP 200 from the database-backed `/health` endpoint, explicitly recorded `databaseHealthChecked=true`, and passed all seven checks including six anonymous-access guards (HTTP 401). The public portal/browser subset passed 3 tests; nine authenticated/transactional tests were skipped by the safe PR-run configuration. Latest backend and frontend checks passed on PR #231 head `9bcf15b45a5fbcd64b0bdc39bf6b1d178581c4e4`. The PR remains draft and Phase 0 remains open.
+
+
+## Current head addendum — 2026-11-06
+
+Current PR #231 head: `373c646f2587e3c29b913d413f755e8bf0ac7ed3`. Backend verification and frontend lint/production build passed. The public GET seller service-area route is explicitly allowlisted and tested; its administrative update remains protected. Search analytics ignores request-body user IDs and uses only the authenticated principal for attribution, with regression tests for anonymous spoofing and authenticated attribution. Latest E2E workflow is queued behind an earlier Playwright Chromium-install job; the completed smoke evidence is unchanged: /health returned 200, database readiness was checked, and all seven read-only smoke checks passed.

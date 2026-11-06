@@ -104,8 +104,8 @@ Residual risks remain: public seller lead and search analytics endpoints need ab
 ## Latest verification addendum — 2026-11-06
 
 - PR #228 is closed as superseded by PR #231. The old branch is not to be merged.
-- PR #231 is based on current main and remains a draft. Current head at this snapshot: `9bcf15b45a5fbcd64b0bdc39bf6b1d178581c4e4`.
-- Latest backend verification and frontend lint/build checks passed for the current head.
+- PR #231 is based on current main and remains a draft. Current head at this snapshot: `373c646f2587e3c29b913d413f755e8bf0ac7ed3`.
+- Latest backend verification and frontend lint/build checks passed for the current head, including the explicit seller service-area public-route matcher and test.
 - The Phase 0 staging smoke run against the shared staging API passed: `GET /api/v1/health` returned HTTP 200 in 379 ms; the report recorded `databaseHealthChecked=true`; six anonymous buyer/seller/delivery/Daily Help access probes returned HTTP 401; total 7 passed, 0 failed.
 - The browser run on the same smoke/security code passed 3 public portal/login-entry checks. Nine authenticated or transactional tests were skipped; no claim of full buyer/seller/delivery/provider/admin lifecycle E2E is made.
 - The latest follow-up commit additionally fixes search analytics attribution: client-supplied `userId` is ignored; only a verified `UserEntity` principal can be associated with a search. Tests cover anonymous spoofing and authenticated attribution.
@@ -116,3 +116,11 @@ Residual risks remain: public seller lead and search analytics endpoints need ab
 - `AuthController` keeps one-time portal handoff codes in a process-local `ConcurrentHashMap` with a 60-second TTL. Codes are lost on restart and are not shared across multiple application instances; replace with a durable, atomic, one-time store before horizontal scaling.
 - Public seller-lead onboarding and public search analytics still need abuse/rate-limit controls and enumeration review.
 - Search analytics no longer trusts request-body user IDs, but query retention, privacy minimization and abuse throttling remain open.
+
+
+## Latest head update — 2026-11-06
+
+- Current PR #231 head is `373c646f2587e3c29b913d413f755e8bf0ac7ed3`; backend verification and frontend lint/production build passed.
+- The public-route allowlist explicitly includes GET `/seller-service-area` because seller onboarding/checkout needs the configured service-radius view. Its PUT counterpart remains protected by the admin route policy.
+- The search analytics endpoint now ignores any user ID supplied in the request body and attributes a search only from the authenticated session principal. Tests cover both anonymous spoofing and authenticated attribution.
+- The latest E2E workflow run is queued behind an earlier Playwright job still waiting at Chromium installation. The previously completed staging smoke/browser run remains the latest completed staging evidence; it verified /health HTTP 200 and all 7 read-only checks, with 3 public browser checks passing and 9 authenticated/transactional checks skipped.
