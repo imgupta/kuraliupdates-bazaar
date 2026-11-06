@@ -71,7 +71,7 @@ class OtpServiceTest {
                 .attempts(0).isUsed(0)
                 .expiresAt(LocalDateTime.now().plusMinutes(5)).build();
         when(repository.findFirstByIdentifierAndOtpTypeAndIsUsedAndAttemptsLessThanAndExpiresAtAfterOrderByCreatedAtDesc(
-                "buyer@example.test", "BUYER_EMAIL", 0, 5, any(LocalDateTime.class)))
+                eq("buyer@example.test"), eq("BUYER_EMAIL"), eq(0), eq(5), any(LocalDateTime.class)))
                 .thenReturn(Optional.of(record));
 
         otpService.verify("buyer@example.test", "BUYER_EMAIL", "123456");
@@ -84,7 +84,7 @@ class OtpServiceTest {
     @Test
     void exhaustedOrExpiredOtpCannotBeVerifiedAgain() {
         when(repository.findFirstByIdentifierAndOtpTypeAndIsUsedAndAttemptsLessThanAndExpiresAtAfterOrderByCreatedAtDesc(
-                "buyer@example.test", "BUYER_EMAIL", 0, 5, any(LocalDateTime.class)))
+                eq("buyer@example.test"), eq("BUYER_EMAIL"), eq(0), eq(5), any(LocalDateTime.class)))
                 .thenReturn(Optional.empty());
 
         ApiException error = assertThrows(ApiException.class,
