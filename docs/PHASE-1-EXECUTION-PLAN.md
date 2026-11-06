@@ -330,3 +330,17 @@ Buyer address controller tests are being added for authenticated-session user re
 Buyer order controller authorization tests are being added for authenticated order history, tracking and store-pickup confirmation. Existing `OrderServiceTest` already verifies cross-buyer tracking/pickup rejection and non-buyer tracking denial. The new controller tests must prove the authenticated `UserEntity` is passed unchanged to the owner-scoped service and anonymous/malformed principals fail before service calls. This slice remains pending exact-head CI.
 
 **Phase 1 remains IN PROGRESS.** Full endpoint IDOR coverage, authenticated transactional E2E, Oracle concurrency/rollback, abuse controls and P1-D operational/legal gates remain open.
+
+
+## PR #259 verification addendum — 6 November 2026
+
+- PR #259 merged to main as `d8d838dbb9d250a0c1d0e409c3dca036e2fc3817` after exact-head checks passed.
+- Full backend Maven verification: **215 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS**. `BuyerControllerOrderAuthorizationTest`: 7 passed; `OrderServiceTest`: 17 passed.
+- Frontend TypeScript/regression/build checks: passed.
+- Read-only API smoke: **7 passed, 0 failed**, `databaseHealthChecked=false`; process liveness and anonymous guards only, not DB readiness.
+- Browser E2E: **3 passed, 9 skipped**. Authenticated/transactional role journeys remain skipped; skips are not passes.
+- Seller-registration quality gates: passed. Private Playwright report publication skipped by workflow policy.
+
+## Next P1-A slice — seller controller boundary
+
+PR #262 adds controller-level tests that every seller portal operation forwards only the extracted bearer-session token to the service, and that absent/malformed bearer headers are rejected by the session-backed service before mutations. Existing `SellerServiceTest` already covers seller-scoped product/discount/order reads, cross-store product/discount/order mutation denial, approved-seller requirements and allowed order transitions. Controller tests complement, but do not replace, service ownership assertions or HTTP filter-chain tests.
