@@ -4,6 +4,8 @@ import com.kuraliupdates.bazaar.entity.SearchTrendEntity;
 import com.kuraliupdates.bazaar.repository.SearchTrendRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import com.kuraliupdates.bazaar.entity.UserEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -18,7 +20,7 @@ public class SearchAnalyticsController {
     private final SearchTrendRepository searchTrendRepository;
 
     @PostMapping("/search")
-    public ResponseEntity<Void> recordSearch(@RequestBody SearchEventRequest request) {
+    public ResponseEntity<Void> recordSearch(@RequestBody SearchEventRequest request, Authentication authentication) {
         if (request == null || request.query() == null) {
             return ResponseEntity.badRequest().build();
         }
@@ -33,11 +35,18 @@ public class SearchAnalyticsController {
             displayQuery = displayQuery.substring(0, 255);
         }
 
+        // Never trust a client-supplied userId on this public endpoint. Attribute
+        // a search only when the session filter supplies a verified UserEntity.
+        String authenticatedUserId = authentication != null
+                && authentication.getPrincipal() instanceof UserEntity user
+                ? user.getUserId()
+                : null;
+
         searchTrendRepository.save(SearchTrendEntity.builder()
                 .searchId(UUID.randomUUID().toString())
                 .queryText(displayQuery)
                 .normalizedQuery(normalized)
-                .userId(request.userId())
+                .userId(authenticatedUserId)
                 .createdAt(LocalDateTime.now())
                 .build());
 
