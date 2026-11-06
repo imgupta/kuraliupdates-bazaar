@@ -5,6 +5,7 @@ import com.kuraliupdates.bazaar.controller.NegotiationChatController.RespondOffe
 import com.kuraliupdates.bazaar.controller.NegotiationChatController.SendMessageRequest;
 import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
+import com.kuraliupdates.bazaar.exception.BargainExpiredException;
 import com.kuraliupdates.bazaar.repository.SellerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -136,7 +137,7 @@ public class NegotiationChatService {
         return getChatForKnownParticipant(chatId);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = BargainExpiredException.class)
     public Map<String, Object> respond(UserEntity user, String requestedRole, String chatId, String offerId, RespondOfferRequest request) {
         if (request == null || request.action() == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Offer response is required");
         String role = normalizeActiveRole(requestedRole);
@@ -151,9 +152,14 @@ public class NegotiationChatService {
         }
         if ("EXPIRED".equalsIgnoreCase(Objects.toString(chat.get("bargainStatus"), ""))
                 || (chat.get("expiresAt") instanceof Timestamp expiry && expiry.toLocalDateTime().isBefore(LocalDateTime.now()))) {
-            jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS='EXPIRED', CLOSED_AT=?, CURRENT_AGREED_PRICE=NULL WHERE CHAT_ID=? AND BARGAIN_STATUS IN ('PENDING_SELLER','PENDING_BUYER')",
-                    Timestamp.valueOf(LocalDateTime.now()), chatId);
-            throw new ApiException(HttpStatus.CONFLICT, "This bargain has expired. The catalogue price applies.");
+            Timestamp expiredAt = Timestamp.valueOf(LocalDateTime.now());
+            jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS='EXPIRED', CLOSED_AT=?, CURRENT_AGREED_PRICE=NULL, LAST_UPDATED=? WHERE CHAT_ID=? AND BARGAIN_STATUS IN ('PENDING_SELLER','PENDING_BUYER')",
+                    expiredAt, expiredAt, chatId);
+            jdbc.update("UPDATE CHAT_MESSAGES SET OFFER_STATUS='EXPIRED' WHERE CHAT_ID=? AND OFFER_STATUS='PENDING'",
+                    chatId);
+            // This one conflict must commit the expiry transition. Other ApiException
+            // failures retain the normal rollback behavior of this transaction.
+            throw new BargainExpiredException();
         }
         // Serialize offer decisions per conversation. Locking only the selected offer
         // allows two different pending offers in the same chat to be accepted concurrently.
