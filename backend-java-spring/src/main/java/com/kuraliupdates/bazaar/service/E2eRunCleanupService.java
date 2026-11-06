@@ -112,8 +112,8 @@ public class E2eRunCleanupService {
                 products, services, slots);
     }
 
-    private long count(String sql, String runId) {
-        Long value = jdbc.queryForObject(sql, Long.class, runId);
+    private long count(String sql, String... params) {
+        Long value = jdbc.queryForObject(sql, Long.class, (Object[]) params);
         return value == null ? 0 : value;
     }
 
