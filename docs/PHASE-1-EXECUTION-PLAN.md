@@ -129,3 +129,19 @@ Acceptance: each High/Critical finding has containment, durable remediation, own
 - Private Playwright report publication was skipped by workflow policy; no report artifact is claimed.
 
 **P1-A disposition:** the targeted Daily Help provider booking ownership regression is covered by unit tests and full backend verification. The broader endpoint IDOR matrix remains open. No mutating staging journey, production deployment or database change occurred.
+
+
+## Latest PR head verification — 2026-11-06
+
+**Head:** `d8e14ff8a1714962c358bd935fea25ff0a96fbe4`
+
+All five substantive GitHub Actions checks completed successfully:
+- Spring Boot verification: success.
+- Frontend lint and production build: success.
+- Backend focused regressions and full Maven verification: success; 142 tests, 0 failures, 0 errors, 0 skipped. `DailyHelpServiceTest`: 11 tests, 0 failures/errors/skips.
+- Frontend checks: success.
+- Browser E2E/read-only smoke job: success. Browser suite: 3 passed, 9 skipped. The nine authenticated/transactional scenarios remain skipped because OTP capture is not enabled for PR events.
+- Read-only smoke: 7 passed, 0 failed, but `databaseHealthChecked=false`; it exercised process liveness and anonymous guards only. It does not prove DB readiness.
+- Private Playwright report publication was skipped by workflow policy.
+
+**Decision:** the narrow Daily Help ownership fix has passing unit/full backend CI. PR #232 may be reviewed for this bounded change. Do not infer that Phase 1 is complete, that authenticated transactional flows passed, or that a database-backed staging smoke was performed.
