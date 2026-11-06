@@ -455,3 +455,8 @@ All these scenarios use one run ID and are covered by the cleanup preflight. If 
 - Seller lead owner-name, email, phone and callback-preference lengths are rejected when oversized rather than silently truncated.
 
 **Status:** code and regression tests are included in PR #267. Exact-head CI and the deployed V33 migration are still required before claiming these controls are verified on staging.
+
+
+## Staging environment decision — 2026-11-06
+
+The owner confirmed that the current KuraliUpdates environment is staging-only and explicitly authorized synthetic test orders and backend-created mock data for end-to-end verification. There is no production environment to target at this stage. Accordingly, Phase 1 transaction/concurrency tests may run against the designated staging Oracle database only when every created business row is tagged to a unique E2E_RUN_ID, uses E2E-prefixed fixture identities/IDs, and is removed by the guarded run-scoped cleanup. No production target, real customer/seller records, global reset, table truncation, or broad cleanup is authorized. This approval does not close Phase 0 backup/restore, residency, secret-rotation or legal sign-off requirements, and it does not authorize a production relaunch.
