@@ -35,6 +35,7 @@ class OrderServiceTest {
     @Mock private SellerRepository sellerRepository;
     @Mock private ProductRepository productRepository;
     @Mock private JdbcTemplate jdbc;
+    @Mock private GoogleRoutesService googleRoutesService;
     @InjectMocks private OrderService orderService;
 
     @Test
