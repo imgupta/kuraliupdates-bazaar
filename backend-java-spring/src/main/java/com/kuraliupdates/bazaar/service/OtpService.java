@@ -24,6 +24,7 @@ public class OtpService {
     private final OtpDeliveryService deliveryService;
     private final E2eOtpCaptureService e2eOtpCaptureService;
     private final JdbcTemplate jdbcTemplate;
+    private final OtpAttemptService otpAttemptService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public int getResendCooldownSeconds() {
@@ -86,18 +87,13 @@ public class OtpService {
                         identifier, type, 0, 5, LocalDateTime.now());
 
         if (record.isEmpty() || !matches(otp, record.get().getOtpCode())) {
-            record.ifPresent(this::registerFailedAttempt);
+            record.ifPresent(entity -> otpAttemptService.registerFailedAttempt(entity.getOtpId(), LocalDateTime.now()));
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid or expired OTP. Please request a new code.");
         }
 
-        record.get().setIsUsed(1);
-        repository.save(record.get());
-    }
-
-    private void registerFailedAttempt(AuthOtpEntity entity) {
-        entity.setAttempts(entity.getAttempts() + 1);
-        if (entity.getAttempts() >= 5) entity.setIsUsed(1);
-        repository.save(entity);
+        if (!otpAttemptService.consume(record.get().getOtpId(), LocalDateTime.now())) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid or expired OTP. Please request a new code.");
+        }
     }
 
     private boolean matches(String entered, String storedHash) {
