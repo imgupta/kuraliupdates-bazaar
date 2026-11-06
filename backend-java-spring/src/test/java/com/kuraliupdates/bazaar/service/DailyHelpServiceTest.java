@@ -276,9 +276,76 @@ class DailyHelpServiceTest {
         assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
     }
 
+    @Test
+    void unassignedProfessionalCannotChangeBookingStatus() {
+        DailyHelpBookingEntity booking = booking("BOOK-STATUS-OWNER", "PROFESSIONAL_ASSIGNED");
+        when(bookingRepository.findById("BOOK-STATUS-OWNER")).thenReturn(Optional.of(booking));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.updateStatus("BOOK-STATUS-OWNER", "DHP-OTHER", "ARRIVING"));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verify(bookingRepository, never()).save(any());
+        assertEquals("PROFESSIONAL_ASSIGNED", booking.getStatus());
+    }
+
+    @Test
+    void unassignedProfessionalCannotStartBookingEvenWithCorrectOtp() {
+        DailyHelpBookingEntity booking = booking("BOOK-START-OWNER", "READY_TO_START");
+        booking.setStartOtp("1234");
+        booking.setOtpExpiresAt(LocalDateTime.now().plusMinutes(10));
+        booking.setOtpAttempts(0);
+        when(bookingRepository.findById("BOOK-START-OWNER")).thenReturn(Optional.of(booking));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.startBooking("BOOK-START-OWNER",
+                        new DailyHelpStartRequest("DHP-OTHER", "1234")));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verify(bookingRepository, never()).save(any());
+        assertEquals("READY_TO_START", booking.getStatus());
+        assertEquals("1234", booking.getStartOtp());
+        assertNull(booking.getOtpVerifiedAt());
+    }
+
+    @Test
+    void unassignedProfessionalCannotCompleteBooking() {
+        DailyHelpBookingEntity booking = booking("BOOK-COMPLETE-OWNER", "IN_PROGRESS");
+        when(bookingRepository.findById("BOOK-COMPLETE-OWNER")).thenReturn(Optional.of(booking));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.completeBooking("BOOK-COMPLETE-OWNER", "DHP-OTHER"));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verify(bookingRepository, never()).save(any());
+        assertEquals("IN_PROGRESS", booking.getStatus());
+        assertNull(booking.getServiceCompletedAt());
+    }
+
     private DailyHelpBookingRequest request(LocalDateTime start) {
         return new DailyHelpBookingRequest("DH-CLEAN", "Buyer", "9876543210", "House 1", "Kurali",
                 start, BigDecimal.valueOf(2), "SLOT-1");
+    }
+
+    private DailyHelpBookingEntity booking(String bookingId, String status) {
+        LocalDateTime now = LocalDateTime.now();
+        return DailyHelpBookingEntity.builder()
+                .bookingId(bookingId)
+                .service(service())
+                .professional(professional())
+                .buyerName("Booking Buyer")
+                .buyerPhone("9876543210")
+                .address("House 1")
+                .locality("Kurali")
+                .scheduledStart(now.plusDays(1))
+                .requestedHours(BigDecimal.ONE)
+                .hourlyRate(BigDecimal.valueOf(100))
+                .estimatedTotal(BigDecimal.valueOf(100))
+                .status(status)
+                .otpAttempts(0)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
     }
 
     private DailyHelpServiceEntity service() {
