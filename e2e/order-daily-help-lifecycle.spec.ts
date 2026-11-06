@@ -101,7 +101,7 @@ test.afterEach(async ({ request }, testInfo) => {
     expect(Number.isInteger(count) && count >= 0).toBeTruthy();
   }
   if (fixtureRuns.delete(runId)) {
-    expect(summary.products, "exactly this run's synthetic product is deleted").toBe(1);
+    expect(summary.products, "all three run-owned synthetic products are deleted").toBe(3);
     expect(summary.dailyHelpServices, "exactly this run's synthetic service is deleted").toBe(1);
     expect(summary.dailyHelpSlots, "exactly this run's synthetic slot is deleted").toBe(1);
     expect(summary.sellers, "exactly this run's synthetic rollback seller is deleted").toBe(1);
@@ -381,6 +381,53 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(reconciledBooking.status).toBe("COMPLETED");
     expect(reconciledBooking.serviceStartedAt).toBe(started.serviceStartedAt);
     expect(reconciledBooking.serviceCompletedAt).toBe(completed.serviceCompletedAt);
+  });
+
+  test("multi-seller checkout failure rolls back the earlier seller order and stock", async ({ request }, testInfo) => {
+    test.setTimeout(120_000);
+    const runId = runScopedId(testInfo);
+    runIds.set(testKey(testInfo), runId);
+    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
+    const sellerId = syntheticId("E2E_FLOW_SELLER_ID");
+    const agentId = syntheticId("E2E_FLOW_DELIVERY_AGENT_ID");
+    const professionalId = syntheticId("E2E_FLOW_PROFESSIONAL_ID");
+    const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalId);
+
+    const beforeOrders = await getJson(request, "/buyers/me/orders", buyerToken);
+    const beforeIds = new Set(beforeOrders.map((order: any) => String(order.orderId)));
+    const validProducts = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerValidProductId), buyerToken);
+    const failProducts = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerFailProductId), buyerToken);
+    const validProduct = validProducts.find((item: any) => item.productId === fixture.multiSellerValidProductId);
+    const failProduct = failProducts.find((item: any) => item.productId === fixture.multiSellerFailProductId);
+    expect(validProduct).toBeTruthy();
+    expect(failProduct).toBeTruthy();
+    expect(Number(validProduct.stock ?? validProduct.stockQty)).toBe(2);
+    expect(Number(failProduct.stock ?? failProduct.stockQty)).toBe(0);
+
+    const response = await request.post(apiBase + "/buyers/orders/checkout", {
+      headers: taggedAuth(buyerToken, runId),
+      data: {
+        deliveryAddress: "E2E Test Address - do not deliver",
+        deliveryLocality: "Kurali",
+        paymentMethod: "COD",
+        fulfilmentMode: "DELIVERY",
+        distanceKm: 1,
+        items: [
+          { productId: fixture.multiSellerValidProductId, quantity: 1 },
+          { productId: fixture.multiSellerFailProductId, quantity: 1 },
+        ],
+      },
+      timeout: 30_000,
+    });
+    expect([400, 409], "the second seller's zero-stock product must fail the checkout").toContain(response.status());
+
+    const afterOrders = await getJson(request, "/buyers/me/orders", buyerToken);
+    expect(afterOrders.map((order: any) => String(order.orderId)).sort()).toEqual([...beforeIds].sort());
+    const validAfter = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerValidProductId), buyerToken);
+    const failAfter = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerFailProductId), buyerToken);
+    expect(Number(validAfter.find((item: any) => item.productId === fixture.multiSellerValidProductId).stock),
+      "first seller stock must roll back after the later seller fails").toBe(2);
+    expect(Number(failAfter.find((item: any) => item.productId === fixture.multiSellerFailProductId).stock)).toBe(0);
   });
 
   test("concurrent checkout cannot oversell the last synthetic stock", async ({ request }, testInfo) => {
