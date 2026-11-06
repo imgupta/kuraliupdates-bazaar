@@ -401,3 +401,14 @@ Verification boundary:
 - Exact-head CI is required before merge. Browser E2E skips are not passes. Oracle transaction/rollback proof remains blocked until an isolated Oracle test target and cleanup harness are verified.
 
 **Status: IN PROGRESS.** Do not close P1-A, P1-B, P1-D or Phase 1 from these controller tests alone.
+
+### PR #266 first verification cycle — 6 November 2026
+
+At code head 14dd0167c61aefa5e307b65d7dcfdfe259292264, the Seller registration quality gates workflow run 42218558945 completed successfully:
+- Full backend Maven suite: **248 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS**.
+- Focused additions: DailyHelpControllerTest 10 passed; DeliveryControllerTest 5 passed; DeliveryTrackingControllerSecurityTest 3 passed; SellerRegistrationOtpConfigControllerSecurityTest 3 passed; AdminSellerOnboardingControllerSecurityTest 4 passed.
+- Frontend TypeScript checks and production build: passed.
+- The standard KuraliUpdates CI and E2E workflow run 42218558947 remains pending and has returned no jobs. It is not a pass; merge remains blocked until exact-head standard workflow evidence is available.
+- An initial compile failure in SellerRegistrationOtpConfigControllerSecurityTest was corrected by matching the history mock to its declared List return type. The successful 248-test result is from the corrected code head.
+
+This evidence is a first successful quality-gate run, not yet the final PR head after this documentation addendum. Re-run exact-head workflows after the documentation update.
