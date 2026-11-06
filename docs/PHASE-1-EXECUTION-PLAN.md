@@ -355,6 +355,16 @@ PR #262 adds controller-level tests that every seller portal operation forwards 
 - Browser E2E: **3 passed, 9 skipped**; authenticated and transactional journeys remain skipped.
 - Seller-registration quality gates: passed; private Playwright report publication skipped by workflow policy.
 
-## Next P1-A slice — negotiation controller boundary
 
-PR #263 adds controller-level principal-propagation and fail-closed authentication tests for chat list/open, notifications, mark-read, messages and offer responses. Existing `NegotiationChatServiceTest` covers buyer/seller cross-account chat ownership and invalid role/action boundaries. Controller tests do not replace HTTP filter-chain or transactional bargain acceptance/idempotency proof.
+## PR #263 verification addendum — 6 November 2026
+
+- PR #263 merged to main as `656ddd5bedc9d8b48a027ba574bb5263a284f633` after exact-head CI passed.
+- Full backend Maven verification: **230 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS**. `NegotiationChatControllerAuthorizationTest`: 7 passed.
+- Frontend checks, regression suite and production build: passed; seller-registration quality gates passed.
+- Read-only API smoke: **7 passed, 0 failed**, `databaseHealthChecked=false`; this is process liveness and anonymous guards, not database readiness.
+- Browser E2E: **3 passed, 9 skipped**. Authenticated/transactional journeys remain skipped; skips are not passes.
+- Private Playwright report publication skipped by workflow policy. No staging mutation or Oracle transaction test ran.
+
+### Next P1-A slice — seller-document access and PII handling
+
+PR #264 adds missing/invalid seller bearer-session and missing seller-profile negative tests, verifies anonymous admin document operations fail before repository access, verifies clean admin downloads carry private/no-store and nosniff headers, and verifies seller metadata does not expose raw document bytes. Existing tests already cover non-admin denial, seller-profile scoping, cross-seller document-path denial, malware quarantine and admin verification audit identity. This is a bounded controller test slice; full HTTP filter-chain multipart integration, encryption-at-rest, retention/deletion and storage-provider controls remain separate evidence requirements.
