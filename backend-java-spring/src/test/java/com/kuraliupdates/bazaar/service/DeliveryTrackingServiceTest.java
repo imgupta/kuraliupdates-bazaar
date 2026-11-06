@@ -56,8 +56,6 @@ class DeliveryTrackingServiceTest {
     @Test
     void locationUpdateRejectsDeliveryProfileThatIsNotApprovedActive() {
         when(sessionRepository.findBySessionToken("token")).thenReturn(Optional.of(session("user-1")));
-        when(userRepository.findById("user-1")).thenReturn(Optional.of(
-                UserEntity.builder().userId("user-1").email("rider@example.com").build()));
         when(deliveryAgentRepository.findById("AGENT-1")).thenReturn(Optional.of(
                 DeliveryAgentEntity.builder().agentId("AGENT-1").email("rider@example.com")
                         .status("PENDING").build()));

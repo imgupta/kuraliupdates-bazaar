@@ -70,8 +70,8 @@ class SecurityConfigTest {
                 .andExpect(header().string("Access-Control-Allow-Origin", "https://buyer.kuraliupdates.com"))
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
                         org.hamcrest.Matchers.allOf(
-                                org.hamcrest.Matchers.containsString("X-Active-Role"),
-                                org.hamcrest.Matchers.containsString("X-E2E-Run-Id"))));
+                                org.hamcrest.Matchers.containsString("x-active-role"),
+                                org.hamcrest.Matchers.containsString("x-e2e-run-id"))));
     }
 
     @Test
