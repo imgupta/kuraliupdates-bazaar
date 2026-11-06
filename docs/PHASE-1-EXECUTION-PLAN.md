@@ -3,7 +3,7 @@
 **Status:** In progress  
 **Execution branches:** short-lived `phase1/*` branches; changes are merged through reviewed PRs  
 **Base:** current `main`; latest reconciled commit: `ac3fcc3fd34c25cecdfb8b9ef40694a4f9341af9` (PR #267 merged, 6 November 2026)  
-**Environment:** Owner-designated shared staging only; no mutating tests against shared or real business records.
+**Environment:** Owner-designated shared staging only; mutating E2E is limited to owner-approved synthetic records tagged to a unique E2E_RUN_ID with guarded run-scoped cleanup. Real/shared business records are never mutated.
 
 ## Objective
 
