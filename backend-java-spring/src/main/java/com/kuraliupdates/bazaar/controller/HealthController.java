@@ -15,12 +15,32 @@ import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
-@Tag(name = "System Health", description = "Service and database connectivity health probe")
+@Tag(name = "System Health", description = "Service liveness and database readiness probes")
 public class HealthController {
     private final DataSource dataSource;
 
+    /**
+     * Process liveness only. Deliberately does not acquire a connection or
+     * report database health; safe for platform startup probes and source-only
+     * smoke checks when database verification is outside the test scope.
+     */
+    @GetMapping("/health/live")
+    @Operation(summary = "API process liveness; does not inspect database connectivity")
+    public ResponseEntity<Map<String, Object>> checkLiveness() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("service", "kuraliupdates-bazaar-api");
+        response.put("status", "UP");
+        response.put("probe", "liveness");
+        response.put("timestamp", System.currentTimeMillis());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Database readiness. This intentionally remains database-backed and must
+     * not be used as a process-liveness probe.
+     */
     @GetMapping("/health")
-    @Operation(summary = "System health check")
+    @Operation(summary = "Database readiness check")
     public ResponseEntity<Map<String, Object>> checkHealth() {
         Map<String, Object> resp = new HashMap<>();
         resp.put("service", "kuraliupdates-bazaar-api");

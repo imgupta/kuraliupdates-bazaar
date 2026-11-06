@@ -8,6 +8,8 @@ import com.kuraliupdates.bazaar.dto.auth.UserResponse;
 import com.kuraliupdates.bazaar.dto.auth.VerifyOtpRequest;
 import com.kuraliupdates.bazaar.service.AuthService;
 import com.kuraliupdates.bazaar.service.BuyerAddressService;
+import com.kuraliupdates.bazaar.entity.PortalHandoffEntity;
+import com.kuraliupdates.bazaar.service.PortalHandoffService;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,13 +17,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.time.Instant;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+
+
 
 @RestController
 @RequestMapping("/auth")
@@ -29,8 +30,7 @@ import java.util.concurrent.ConcurrentMap;
 public class AuthController {
     private final AuthService authService;
     private final BuyerAddressService addressService;
-    private final ConcurrentMap<String, PortalHandoff> portalHandoffs = new ConcurrentHashMap<>();
-    private static final long PORTAL_HANDOFF_TTL_SECONDS = 60;
+    private final PortalHandoffService portalHandoffService;
 
     @PostMapping("/send-otp")
     public ResponseEntity<Map<String, Object>> sendOtp(@Valid @RequestBody SendOtpRequest request) {
@@ -80,12 +80,9 @@ public class AuthController {
             throw new ApiException(HttpStatus.FORBIDDEN, "This account is not authorized for that profile");
         }
 
-        Instant now = Instant.now();
-        portalHandoffs.entrySet().removeIf(entry -> !entry.getValue().expiresAt().isAfter(now));
-        String code = UUID.randomUUID().toString().replace("-", "");
-        portalHandoffs.put(code, new PortalHandoff(token, role, now.plusSeconds(PORTAL_HANDOFF_TTL_SECONDS)));
+        String code = portalHandoffService.create(token, role);
         return ResponseEntity.ok(Map.of("success", true, "code", code, "role", role,
-                "expiresInSeconds", PORTAL_HANDOFF_TTL_SECONDS));
+                "expiresInSeconds", PortalHandoffService.TTL_SECONDS));
     }
 
     /** Redeems a handoff code once and returns the authenticated session to the target portal. */
@@ -96,28 +93,24 @@ public class AuthController {
         if (code == null || code.isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "A portal handoff code is required");
         }
-        PortalHandoff handoff = portalHandoffs.remove(code);
-        if (handoff == null || !handoff.expiresAt().isAfter(Instant.now())) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "This profile-switch link has expired or was already used");
-        }
+        PortalHandoffEntity handoff = portalHandoffService.consume(code)
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "This profile-switch link has expired or was already used"));
 
-        List<String> roles = authService.registeredRoles(handoff.token());
-        if (!roles.contains(handoff.role())) {
+        List<String> roles = authService.registeredRoles(handoff.getSessionToken());
+        if (!roles.contains(handoff.getRole())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "This account is no longer authorized for that profile");
         }
-        UserResponse user = authService.currentUser(handoff.token());
+        UserResponse user = authService.currentUser(handoff.getSessionToken());
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "authenticated", true,
-                "token", handoff.token(),
+                "token", handoff.getSessionToken(),
                 "user", user,
                 "addresses", user.addresses(),
                 "roles", roles,
-                "role", handoff.role()
+                "role", handoff.getRole()
         ));
     }
-
-    private record PortalHandoff(String token, String role, Instant expiresAt) {}
 
     @GetMapping("/me/roles")
     public ResponseEntity<Map<String, Object>> registeredRoles(

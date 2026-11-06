@@ -15,6 +15,19 @@ import static org.mockito.Mockito.*;
 class HealthControllerTest {
 
     @Test
+    void livenessProbeDoesNotTouchDatasource() throws Exception {
+        DataSource dataSource = mock(DataSource.class);
+
+        ResponseEntity<Map<String, Object>> response = new HealthController(dataSource).checkLiveness();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("UP", response.getBody().get("status"));
+        assertEquals("liveness", response.getBody().get("probe"));
+        assertFalse(response.getBody().containsKey("database"));
+        verifyNoInteractions(dataSource);
+    }
+
+    @Test
     void reportsUpOnlyWhenDatasourceConnectionIsValid() throws Exception {
         DataSource dataSource = mock(DataSource.class);
         Connection connection = mock(Connection.class);

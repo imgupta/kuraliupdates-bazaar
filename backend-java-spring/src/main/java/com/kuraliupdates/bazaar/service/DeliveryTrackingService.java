@@ -97,7 +97,9 @@ public class DeliveryTrackingService {
         return sessionRepository.findBySessionToken(token)
                 .filter(this::active)
                 .flatMap(session -> deliveryAgentRepository.findById(agentId)
-                        .map(agent -> agent.getEmail().equalsIgnoreCase(userEmail(session.getUserId()))))
+                        .filter(agent -> "ACTIVE".equalsIgnoreCase(agent.getStatus()))
+                        .map(agent -> agent.getEmail() != null
+                                && agent.getEmail().equalsIgnoreCase(userEmail(session.getUserId()))))
                 .orElse(false);
     }
 

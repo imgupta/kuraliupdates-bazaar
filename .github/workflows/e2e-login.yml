@@ -48,6 +48,8 @@ jobs:
         run: bun add --dev @playwright/test
       - name: TypeScript checks
         run: bun run lint
+      - name: Database-independent API smoke runner regression tests
+        run: node --test tests/productionSmoke.test.mjs
       - name: Frontend route registry regression tests
         run: node --import tsx --test tests/routeConfig.test.ts
       - name: Role route access policy regression tests
@@ -99,7 +101,7 @@ jobs:
   e2e:
     name: Browser E2E and read-only smoke checks
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       CI: "true"
       # Fixed allowlisted staging targets stay in workflow code; all E2E settings/identities/fixtures/secrets live in one Actions secret JSON.
@@ -210,6 +212,8 @@ jobs:
         if: env.KURALI_API_BASE_URL != ''
         run: |
           node --input-type=module -e "const u=new URL(process.env.KURALI_API_BASE_URL); if (u.protocol !== 'https:' || u.hostname !== 'kuraliupdates-bazaar.onrender.com' || u.pathname.replace(/\\/+$/, '') !== '/api/v1') { console.error('Refusing API smoke against a non-designated staging API'); process.exit(1); }"
+      - name: Validate read-only API smoke script syntax
+        run: node --check scripts/production-smoke.mjs
       - name: Run read-only API smoke checks
         if: env.KURALI_API_BASE_URL != ''
         run: node scripts/production-smoke.mjs
@@ -303,6 +307,7 @@ jobs:
         with:
           name: playwright-e2e-report
           path: |
+            smoke-report.json
             playwright-report/
             test-results/
           if-no-files-found: ignore

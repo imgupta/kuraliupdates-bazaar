@@ -1,6 +1,9 @@
 package com.kuraliupdates.bazaar.controller;
 
 import com.kuraliupdates.bazaar.service.SellerOnboardingLeadService;
+import com.kuraliupdates.bazaar.entity.UserEntity;
+import com.kuraliupdates.bazaar.exception.ApiException;
+import org.springframework.http.HttpStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -42,6 +45,9 @@ public class AdminSellerOnboardingController {
 
     private String actor() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return authentication == null || authentication.getName() == null ? "ADMIN" : authentication.getName();
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Authenticated administrator identity is required");
+        }
+        return user.getUserId();
     }
 }

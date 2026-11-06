@@ -44,12 +44,26 @@ class DeliveryTrackingServiceTest {
         when(userRepository.findById("user-1")).thenReturn(Optional.of(
                 UserEntity.builder().userId("user-1").email("rider@example.com").build()));
         when(deliveryAgentRepository.findById("AGENT-1")).thenReturn(Optional.of(
-                DeliveryAgentEntity.builder().agentId("AGENT-1").email("rider@example.com").build()));
+                DeliveryAgentEntity.builder().agentId("AGENT-1").email("rider@example.com").status("ACTIVE").build()));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> trackingService.updateLocation("AGENT-1", 91.0, 76.5, "token"));
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verify(deliveryAgentRepository, never()).save(any());
+    }
+
+    @Test
+    void locationUpdateRejectsDeliveryProfileThatIsNotApprovedActive() {
+        when(sessionRepository.findBySessionToken("token")).thenReturn(Optional.of(session("user-1")));
+        when(deliveryAgentRepository.findById("AGENT-1")).thenReturn(Optional.of(
+                DeliveryAgentEntity.builder().agentId("AGENT-1").email("rider@example.com")
+                        .status("PENDING").build()));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> trackingService.updateLocation("AGENT-1", 30.0, 76.5, "token"));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
         verify(deliveryAgentRepository, never()).save(any());
     }
 
