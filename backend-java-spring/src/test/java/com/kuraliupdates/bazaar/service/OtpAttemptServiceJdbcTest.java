@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -16,11 +17,13 @@ import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @JdbcTest(properties = {
         "spring.datasource.url=jdbc:h2:mem:otp_attempts;MODE=Oracle;DB_CLOSE_DELAY=-1",
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.datasource.username=sa",
-        "spring.datasource.password="
+        "spring.datasource.password=",
+        "spring.flyway.enabled=false"
 })
 @Import(OtpAttemptService.class)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -31,6 +34,8 @@ class OtpAttemptServiceJdbcTest {
 
     @BeforeEach
     void createIsolatedOtpTables() {
+        jdbcTemplate.execute("DROP TABLE IF EXISTS OUTER_TX_MARKER");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS AUTH_OTPS");
         jdbcTemplate.execute("""
                 CREATE TABLE AUTH_OTPS (
                     OTP_ID VARCHAR(64) PRIMARY KEY,

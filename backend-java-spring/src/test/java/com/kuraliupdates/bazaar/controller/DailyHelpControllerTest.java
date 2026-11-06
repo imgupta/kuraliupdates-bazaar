@@ -1,6 +1,10 @@
 package com.kuraliupdates.bazaar.controller;
 
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpBookingRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalAvailabilityRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpSlotRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpStatusRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpStartRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalResponse;
 import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
@@ -104,6 +108,45 @@ class DailyHelpControllerTest {
 
         assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
         verify(dailyHelpService, never()).cancelProfessionalSlot(anyString(), anyString());
+    }
+
+    @Test
+    void wrongProfessionalProfileIdCannotUpdateAvailabilityOrCreateSlots() {
+        Authentication authentication = authentication(user("9876500000", "BUYER"));
+        when(dailyHelpService.getProfessionalByPhone("9876500000"))
+                .thenReturn(profile("DHP-OWN", "9876500000"));
+
+        assertEquals(HttpStatus.FORBIDDEN, assertThrows(ApiException.class,
+                () -> controller.availability("DHP-OTHER",
+                        new DailyHelpProfessionalAvailabilityRequest("AVAILABLE", "Kurali"),
+                        authentication)).getStatus());
+        assertEquals(HttpStatus.FORBIDDEN, assertThrows(ApiException.class,
+                () -> controller.createProfessionalSlot("DHP-OTHER",
+                        new DailyHelpSlotRequest(LocalDate.now().plusDays(1),
+                                java.time.LocalTime.of(10, 0), java.time.LocalTime.of(11, 0)),
+                        authentication)).getStatus());
+
+        verify(dailyHelpService, never()).updateProfessionalAvailability(anyString(), any());
+        verify(dailyHelpService, never()).createProfessionalSlot(anyString(), any());
+    }
+
+    @Test
+    void wrongProfessionalProfileIdInBookingMutationBodyCannotChangeStatusOrStartService() {
+        Authentication authentication = authentication(user("9876500000", "BUYER"));
+        when(dailyHelpService.getProfessionalByPhone("9876500000"))
+                .thenReturn(profile("DHP-OWN", "9876500000"));
+
+        assertEquals(HttpStatus.FORBIDDEN, assertThrows(ApiException.class,
+                () -> controller.updateStatus("BOOK-1",
+                        new DailyHelpStatusRequest("DHP-OTHER", "ARRIVING"),
+                        authentication)).getStatus());
+        assertEquals(HttpStatus.FORBIDDEN, assertThrows(ApiException.class,
+                () -> controller.startBooking("BOOK-1",
+                        new DailyHelpStartRequest("DHP-OTHER", "123456"),
+                        authentication)).getStatus());
+
+        verify(dailyHelpService, never()).updateStatus(anyString(), anyString(), anyString());
+        verify(dailyHelpService, never()).startBooking(anyString(), any());
     }
 
     @Test
