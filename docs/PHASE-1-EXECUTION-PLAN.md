@@ -424,3 +424,22 @@ This evidence is a first successful quality-gate run, not yet the final PR head 
 - Backend fixture-service tests are included in the focused Maven regression command and full suite.
 
 **Status:** PR #267 is open. Exact-head CI is pending. The transactional staging workflow has not yet executed against the deployed V32 schema. Phase 1 remains IN PROGRESS; no closure claim is made until that workflow passes and the remaining IDOR, abuse/privacy and Oracle concurrency/rollback criteria are either proven or explicitly dispositioned.
+
+
+### PR #267 additional staging transaction cases
+
+The consolidated synthetic fixture now includes a second run-owned seller profile solely for multi-seller checkout rollback. The fixture creates:
+- a normal stock-2 product for the end-to-end delivery flow;
+- a stock-2 product assigned to whichever synthetic seller sorts first by seller ID;
+- a zero-stock product assigned to the second seller in deterministic checkout grouping order;
+- one run-owned rollback seller, one Daily Help service and one future slot.
+
+The transactional suite now includes:
+- two simultaneous single-seller checkouts against stock 2; exactly one may succeed and stock must end at zero;
+- a third checkout after depletion must be rejected;
+- a multi-seller checkout where the first seller suborder can reserve stock and the second seller fails for zero stock; buyer history and the first seller's stock must be unchanged after rollback;
+- two concurrent claims by the same active synthetic rider; exactly one claim may win;
+- two concurrent Daily Help bookings for the same slot; exactly one booking may reserve it;
+- replay of an already accepted bargaining offer must be rejected without applying it twice.
+
+All these scenarios use one run ID and are covered by the cleanup preflight. If a race exposes duplicate run-owned rows, cleanup is allowed to remove only those rows after verifying their seller/product/service/slot links remain within the same run. Cross-run links still abort before writes.
