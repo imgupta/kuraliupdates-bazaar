@@ -68,3 +68,12 @@ Open PR #84 concerns Oracle wallet/secret handling and explicitly prohibits merg
 ## Safety and evidence
 
 Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller documents. Do not enable mutating E2E until the database target, synthetic identities/data and cleanup are verified. Do not routinely run destructive reset migrations. Claim completion only when source, tests, CI and runtime evidence agree.
+
+## Current consolidated PR continuation
+
+- PR #265's standard CI workflow is still pending with no jobs reported by GitHub; its seller-registration quality gate passed (239 backend tests, zero failures/errors/skips; frontend checks/build passed). It is not merged.
+- The consolidated branch phase1/consolidated-security-regression-batch is based on PR #265's exact head so its admin seller-lead filter-chain tests are included with the next grouped regression batch.
+- The consolidated changes add Daily Help and Delivery malformed-principal rejection, Delivery Tracking HTTP session/filter-chain tests, and public/admin seller-registration OTP settings privacy/role tests.
+- Do not merge until the consolidated PR's exact-head standard CI and required quality gates complete successfully. The earlier PR #265 pending run must not be represented as a pass.
+- Continue only after inspecting test logs and failures. Keep authenticated browser E2E skips explicit; do not run destructive E2E or Oracle concurrency against shared staging.
+- Oracle concurrency/rollback, backup/restore, production India-region verification, secret rotation and professional legal/compliance sign-off remain separate Phase 0/P1 evidence gates.
