@@ -100,3 +100,12 @@ Existing Daily Help profile ownership, DeliveryService ownership/OTP and SearchA
 At code head 14dd0167c61aefa5e307b65d7dcfdfe259292264, Seller registration quality gates run 42218558945 passed: full backend Maven **248 tests, zero failures/errors/skips; BUILD SUCCESS**, and frontend TypeScript/production build passed. Focused counts: Daily Help 10, Delivery 5, Delivery Tracking security 3, OTP settings security 3, Admin seller leads security 4. An initial OTP history mock compile error was corrected before this successful run.
 
 Standard KuraliUpdates CI and E2E run 42218558947 is still pending with no jobs reported. This is not a pass. The documentation update requires a new exact-head workflow run before merge.
+
+
+## Phase 1 reconciliation — 6 November 2026 (PR #267)
+
+- Current main: `ac3fcc3fd34c25cecdfb8b9ef40694a4f9341af9`. PR #267 is merged and adds run-scoped synthetic staging fixtures/cleanup, Flyway V32/V33, public endpoint rate limits and transactional lifecycle/concurrency E2E coverage.
+- GitHub workflow-run lookup returned no Actions runs for the merge SHA. Combined commit statuses exposed successful Vercel deployments for Bazaar, Buyer, Seller, Admin and Daily Help, plus a Delivery Vercel build-rate-limit failure. These do not prove backend tests, migration application, DB readiness or staging transactions.
+- PR #268 remains open. It adds run-scoped cleanup for temporary staging preflight sessions and a PR trigger so the preflight can be verified before merge. Its latest commit is `83dda85d5d791df87b5b85f5abdd3e0fb293b87a`; no workflow run/status was returned at this check.
+- Phase 1 remains IN PROGRESS. Do not infer completion until the exact-head preflight, trusted transactional staging workflow, V32/V33 runtime, cleanup counts, remaining IDOR/privacy and Oracle concurrency/rollback evidence are verified.
+- Owner-approved staging mutations are limited to synthetic run-owned fixtures and exact run-scoped cleanup. No real business data, global reset, table truncation or broad cleanup is authorized.
