@@ -50,7 +50,7 @@ class SearchAnalyticsControllerTest {
     @Test
     void ignoresClientSuppliedUserIdForAnonymousSearch() {
         SearchTrendRepository repository = mock(SearchTrendRepository.class);
-        SearchAnalyticsController controller = new SearchAnalyticsController(repository);
+        SearchAnalyticsController controller = new SearchAnalyticsController(repository, mock(ApiRateLimitService.class));
 
         controller.recordSearch(
                 new SearchAnalyticsController.SearchEventRequest("milk", "attacker-controlled-user"),
@@ -64,7 +64,7 @@ class SearchAnalyticsControllerTest {
     @Test
     void attributesSearchToAuthenticatedPrincipalNotClientSuppliedUserId() {
         SearchTrendRepository repository = mock(SearchTrendRepository.class);
-        SearchAnalyticsController controller = new SearchAnalyticsController(repository);
+        SearchAnalyticsController controller = new SearchAnalyticsController(repository, mock(ApiRateLimitService.class));
         UserEntity user = UserEntity.builder().userId("verified-user-123").role("BUYER").build();
         var authentication = new UsernamePasswordAuthenticationToken(
                 user, null, List.of(new SimpleGrantedAuthority("ROLE_BUYER")));
