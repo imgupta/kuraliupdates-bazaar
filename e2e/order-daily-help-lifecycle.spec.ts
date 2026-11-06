@@ -401,6 +401,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const failProduct = failProducts.find((item: any) => item.productId === fixture.multiSellerFailProductId);
     expect(validProduct).toBeTruthy();
     expect(failProduct).toBeTruthy();
+    expect(validProduct.sellerId ?? validProduct.seller?.sellerId).not.toBe(failProduct.sellerId ?? failProduct.seller?.sellerId);
     expect(Number(validProduct.stock ?? validProduct.stockQty)).toBe(2);
     expect(Number(failProduct.stock ?? failProduct.stockQty)).toBe(0);
 
@@ -425,9 +426,11 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(afterOrders.map((order: any) => String(order.orderId)).sort()).toEqual([...beforeIds].sort());
     const validAfter = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerValidProductId), buyerToken);
     const failAfter = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerFailProductId), buyerToken);
-    expect(Number(validAfter.find((item: any) => item.productId === fixture.multiSellerValidProductId).stock),
+    const validAfterProduct = validAfter.find((item: any) => item.productId === fixture.multiSellerValidProductId);
+    expect(Number(validAfterProduct.stock ?? validAfterProduct.stockQty),
       "first seller stock must roll back after the later seller fails").toBe(2);
-    expect(Number(failAfter.find((item: any) => item.productId === fixture.multiSellerFailProductId).stock)).toBe(0);
+    const failAfterProduct = failAfter.find((item: any) => item.productId === fixture.multiSellerFailProductId);
+    expect(Number(failAfterProduct.stock ?? failAfterProduct.stockQty)).toBe(0);
   });
 
   test("concurrent checkout cannot oversell the last synthetic stock", async ({ request }, testInfo) => {
