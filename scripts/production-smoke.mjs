@@ -14,6 +14,7 @@ const readinessTimeoutMs = positiveInteger(process.env.SMOKE_READINESS_TIMEOUT_M
 const retryIntervalMs = positiveInteger(process.env.SMOKE_RETRY_INTERVAL_MS, 10000);
 const failures = [];
 const results = [];
+let databaseHealthChecked = false;
 
 function positiveInteger(raw, fallback) {
   const value = Number(raw);
@@ -86,18 +87,22 @@ async function waitForApiLiveness() {
       Math.min(timeoutMs, 15000),
     );
 
-    // Render currently deploys main with PR previews disabled. Until the new
-    // liveness route is deployed there, accept the existing public OpenAPI route
-    // as a database-independent compatibility probe on the shared staging service.
+    // Render deploys main with PR previews disabled. Until the liveness route
+    // reaches the shared service, use canonical database-backed readiness.
+    // Oracle V30 recovery is deployed, so this is now a meaningful staging check.
     if (!lastResult.ok && [404, 500].includes(lastResult.status)) {
       const fallback = await request(
-        "/v3/api-docs",
+        "/health",
         success,
-        "API HTTP liveness (OpenAPI compatibility fallback)",
+        "API and database readiness (compatibility fallback)",
         Math.min(timeoutMs, 15000),
       );
-      if (fallback.ok) lastResult = fallback;
-      else lastResult.fallbackProbe = { path: fallback.path, status: fallback.status, detail: fallback.detail };
+      if (fallback.ok) {
+        lastResult = fallback;
+        databaseHealthChecked = true;
+      } else {
+        lastResult.fallbackProbe = { path: fallback.path, status: fallback.status, detail: fallback.detail };
+      }
     }
 
     if (lastResult.ok) {
@@ -158,8 +163,10 @@ const report = {
   base,
   checkedAt: new Date().toISOString(),
   apiLive,
-  databaseHealthChecked: false,
-  checkScope: "API process liveness and pre-service anonymous-access guards only; database-backed catalogue and availability probes are intentionally skipped",
+  databaseHealthChecked,
+  checkScope: databaseHealthChecked
+    ? "API liveness with database-backed readiness fallback, plus pre-service anonymous-access guards; catalogue and availability probes are intentionally skipped"
+    : "API process liveness and pre-service anonymous-access guards only; database-backed catalogue and availability probes are intentionally skipped",
   readinessTimeoutMs,
   timeoutMs,
   passed: results.filter((result) => result.ok).length,

@@ -17,9 +17,9 @@ async function runSmoke({ livenessStatus = 200 } = {}) {
       response.end(JSON.stringify({ status: livenessStatus === 200 ? "UP" : "NOT_FOUND" }));
       return;
     }
-    if (path === "/api/v1/v3/api-docs") {
+    if (path === "/api/v1/health") {
       response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ openapi: "3.0.0" }));
+      response.end(JSON.stringify({ status: "UP", database: "UP" }));
       return;
     }
     response.writeHead(401, { "content-type": "application/json" });
@@ -75,17 +75,17 @@ test("smoke runner uses process liveness and never calls database-backed probes"
   assert.ok(!requests.some(path => path.includes("/daily-help/availability")));
 });
 
-test("smoke runner falls back to existing OpenAPI endpoint when liveness route is absent (404)", async () => {
+test("smoke runner falls back to database readiness endpoint when liveness route is absent (404)", async () => {
   const { report, requests } = await runSmoke({ livenessStatus: 404 });
 
   assert.equal(report.apiLive, true);
-  assert.equal(report.databaseHealthChecked, false);
+  assert.equal(report.databaseHealthChecked, true);
   assert.ok(requests.includes("/api/v1/health/live"));
-  assert.ok(requests.includes("/api/v1/v3/api-docs"));
+  assert.ok(requests.includes("/api/v1/health"));
   assert.equal(report.failed, 0);
 });
 
-test("smoke runner also handles the framework generic-error response for an absent liveness route", async () => {
+test("smoke runner also handles the framework generic-error response for an absent liveness route using database readiness", async () => {
   const { report, requests } = await runSmoke({ livenessStatus: 500 });
 
   assert.equal(report.apiLive, true);
