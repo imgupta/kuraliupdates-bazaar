@@ -30,8 +30,10 @@ class SellerOnboardingLeadControllerTest {
                 "phone", "+91 98765 00000"));
 
         assertEquals("STARTED", result.get("status"));
-        verify(rateLimit).requireAllowed("seller-lead-start", "owner@example.com:9876500000", 3,
+        verify(rateLimit).requireAllowed("seller-lead-start-contact", "owner@example.com:9876500000", 3,
                 Duration.ofHours(1));
+        verify(rateLimit).requireAllowed("seller-lead-start-email", "owner@example.com", 3, Duration.ofHours(1));
+        verify(rateLimit).requireAllowed("seller-lead-start-phone", "9876500000", 3, Duration.ofHours(1));
         verify(leads).start("Owner", "owner@example.com", "9876500000");
     }
 

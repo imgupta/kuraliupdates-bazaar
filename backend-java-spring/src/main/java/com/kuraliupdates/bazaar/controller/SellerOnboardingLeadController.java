@@ -30,7 +30,9 @@ public class SellerOnboardingLeadController {
         String email = rawEmail == null ? "" : rawEmail.trim().toLowerCase();
         String phone = rawPhone == null ? "" : rawPhone.replaceAll("\\D", "");
         if (phone.length() == 12 && phone.startsWith("91")) phone = phone.substring(2);
-        rateLimit.requireAllowed("seller-lead-start", email + ":" + phone, 3, Duration.ofHours(1));
+        rateLimit.requireAllowed("seller-lead-start-contact", email + ":" + phone, 3, Duration.ofHours(1));
+        rateLimit.requireAllowed("seller-lead-start-email", email, 3, Duration.ofHours(1));
+        rateLimit.requireAllowed("seller-lead-start-phone", phone, 3, Duration.ofHours(1));
         return leads.start(ownerName, email, phone);
     }
 
