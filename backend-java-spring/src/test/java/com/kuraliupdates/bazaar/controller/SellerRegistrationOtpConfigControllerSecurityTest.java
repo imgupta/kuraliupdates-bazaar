@@ -74,7 +74,7 @@ class SellerRegistrationOtpConfigControllerSecurityTest {
     void adminCanReadHistoryAndUpdatesAreAttributedToAuthenticatedPrincipal() throws Exception {
         when(authService.requireUser("admin-session")).thenReturn(user("admin-1", "ADMIN"));
         when(config.get()).thenReturn(Map.of("emailOtpEnabled", true, "mobileOtpEnabled", false));
-        when(config.history(20)).thenReturn(Map.of("items", List.of()));
+        when(config.history(20)).thenReturn(List.of());
         when(config.update(true, false, "admin-1")).thenReturn(Map.of("success", true));
 
         mockMvc.perform(get("/admin/seller-registration/otp-settings")
