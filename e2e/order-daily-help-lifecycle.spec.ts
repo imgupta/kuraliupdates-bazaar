@@ -287,6 +287,10 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
       headers: auth(deliveryToken), data: { otp: placement.deliveryOtp }, timeout: 20_000,
     });
     expect(validOtp.status(), "valid OTP completes the synthetic delivery").toBe(200);
+    const replayDeliveryOtp = await request.post(apiBase + "/delivery/jobs/" + encodeURIComponent(orderId) + "/verify-otp", {
+      headers: auth(deliveryToken), data: { otp: placement.deliveryOtp }, timeout: 20_000,
+    });
+    expect([400, 409], "delivery OTP replay must not complete or credit the trip twice").toContain(replayDeliveryOtp.status());
     const finalTrack = await getJson(request, "/buyers/orders/" + encodeURIComponent(orderId) + "/track", buyerToken);
     expect(finalTrack.status).toBe("DELIVERED");
     expect((await getJson(request, "/buyers/me/orders", buyerToken)).filter((x: any) => x.orderId === orderId)).toHaveLength(1);
@@ -355,6 +359,10 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(startResponse.status(), "valid OTP starts the service timer").toBe(200);
     const started = await startResponse.json();
     expect(started.serviceStartedAt).toBeTruthy();
+    const replayStart = await request.post(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId) + "/start", {
+      headers: auth(professionalToken), data: { professionalId, otp: startOtp }, timeout: 20_000,
+    });
+    expect([400, 409], "Daily Help start OTP replay must not restart or reset the timer").toContain(replayStart.status());
 
     const completeResponse = await request.post(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId) + "/complete?professionalId=" + encodeURIComponent(professionalId), {
       headers: auth(professionalToken), timeout: 20_000,
@@ -363,6 +371,10 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const completed = await completeResponse.json();
     expect(completed.status).toBe("COMPLETED");
     expect(completed.serviceCompletedAt).toBeTruthy();
+    const replayComplete = await request.post(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId) + "/complete?professionalId=" + encodeURIComponent(professionalId), {
+      headers: auth(professionalToken), timeout: 20_000,
+    });
+    expect([400, 409], "Daily Help completion replay must not duplicate the terminal transition").toContain(replayComplete.status());
 
     const buyerReadBack = await request.get(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId), {
       headers: auth(buyerToken), timeout: 20_000,
