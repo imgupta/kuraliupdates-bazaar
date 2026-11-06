@@ -1,6 +1,9 @@
 package com.kuraliupdates.bazaar.controller;
 
 import com.kuraliupdates.bazaar.service.SellerRegistrationOtpConfigService;
+import com.kuraliupdates.bazaar.entity.UserEntity;
+import com.kuraliupdates.bazaar.exception.ApiException;
+import org.springframework.http.HttpStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,7 +37,10 @@ public class SellerRegistrationOtpConfigController {
                 org.springframework.http.HttpStatus.BAD_REQUEST, "Both email and mobile OTP settings are required");
         }
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String actor = auth == null ? "ADMIN" : auth.getName();
+        if (auth == null || !(auth.getPrincipal() instanceof UserEntity user)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Authenticated administrator identity is required");
+        }
+        String actor = user.getUserId();
         return config.update(body.get("emailOtpEnabled"), body.get("mobileOtpEnabled"), actor);
     }
 }
