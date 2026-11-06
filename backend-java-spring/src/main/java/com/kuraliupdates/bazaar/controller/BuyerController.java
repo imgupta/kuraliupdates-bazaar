@@ -47,9 +47,7 @@ public class BuyerController {
             @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
             @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
             Authentication authentication) {
-        if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
-        }
+        UserEntity user = requireBuyer(authentication);
         String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
         return ResponseEntity.ok(orderService.placeOrder(request, user, e2eRunId));
     }
@@ -61,9 +59,7 @@ public class BuyerController {
             @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
             @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
             Authentication authentication) {
-        if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
-        }
+        UserEntity user = requireBuyer(authentication);
         String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
         return ResponseEntity.ok(orderService.placeMultiSellerOrder(request, user, e2eRunId));
     }
@@ -74,9 +70,7 @@ public class BuyerController {
             @PathVariable String orderId,
             @RequestBody java.util.Map<String, String> payload,
             Authentication authentication) {
-        if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
-        }
+        UserEntity user = requireBuyer(authentication);
         return ResponseEntity.ok(orderService.confirmStorePickup(orderId,
                 payload == null ? null : payload.get("otp"), user));
     }
@@ -84,18 +78,24 @@ public class BuyerController {
     @GetMapping("/me/orders")
     @Operation(summary = "Get order history for the authenticated buyer")
     public ResponseEntity<List<OrderResponse>> myOrders(Authentication authentication) {
-        if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
-        }
-        return ResponseEntity.ok(orderService.history(user.getEmail()));
+        UserEntity user = requireBuyer(authentication);
+        return ResponseEntity.ok(orderService.history(user));
     }
 
     @GetMapping("/orders/{orderId}/track")
     @Operation(summary = "Get current order tracking state for the authenticated owning buyer")
     public ResponseEntity<OrderResponse> trackOrder(@PathVariable String orderId, Authentication authentication) {
+        UserEntity user = requireBuyer(authentication);
+        return ResponseEntity.ok(orderService.trackForBuyer(orderId, user));
+    }
+
+    private UserEntity requireBuyer(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
         }
-        return ResponseEntity.ok(orderService.trackForBuyer(orderId, user));
+        if (!"BUYER".equalsIgnoreCase(user.getRole())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only a buyer account can access buyer order actions");
+        }
+        return user;
     }
 }
