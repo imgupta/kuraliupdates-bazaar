@@ -2,7 +2,7 @@
 
 **Status:** In progress  
 **Execution branches:** short-lived `phase1/*` branches; changes are merged through reviewed PRs  
-**Base:** current `main`; last reconciled commit before this evidence update: `1bba148f504cad9c6e1f1dc1acc6904ed78ef543`  
+**Base:** current `main`; last reconciled commit before this evidence update: `326bc7834eae891dffc99ff8e6d2bcfd1d831cf7`  
 **Environment:** Owner-designated shared staging only; no mutating tests against shared or real business records.
 
 ## Objective
@@ -234,3 +234,56 @@ Still open and must be checked against source before marking complete:
 At the time of this addendum, Render had accepted the latest `main` commit `1bba148f504cad9c6e1f1dc1acc6904ed78ef543` for the backend and reported its build in progress; the frontend deployment for the same commit was live. These commits contain tests/documentation only. Recheck Render status before relying on a live-backend claim. No database migration was introduced by PRs #234–#240.
 
 **Phase 1 disposition remains: IN PROGRESS.** Passing unit/full Maven and frontend CI is valuable evidence, but the authorization matrix is incomplete, authenticated E2E is still skipped, and Oracle concurrency/rollback proof is blocked pending an isolated test database.
+---
+
+## Phase 1 progress addendum — 2026-11-06 (PRs #242–#248)
+
+This addendum supersedes earlier test-count and deployment observations above where newer evidence is available.
+
+### Newly merged PRs and backend CI evidence
+
+| PR | Merged change | Full backend test count | Result |
+|---|---|---:|---|
+| #242 | Cross-user saved-address default change denied | 162 | Passed |
+| #243 | Delivery location write/read session ownership and rider OTP minimization | 166 | Passed |
+| #244 | Bargaining offer response ownership and notification-read recipient scoping | 169 | Passed |
+| #245 | Seller document admin authorization, seller metadata scoping and cross-seller document path guard | 172 | Passed |
+| #246 | Seller-lead audit actor bound to authenticated admin principal | 175 | Passed |
+| #247 | OTP attempt persistence and one-time consumption made independent of outer transaction rollback | 184 | Passed |
+| #248 | Public search analytics input validation and normalization | 186 | Passed |
+
+All PRs #242–#248 are merged to `main`. Each PR's Spring Boot/Maven verification and frontend lint/production-build checks passed. Counts are full backend suite totals at each PR head, not only new tests.
+
+### Additional coverage now present
+
+- Buyer addresses: cross-user `setDefault` is rejected before any address/default/profile write. There is no address-delete endpoint in the current controller/service tree; do not claim delete authorization has been tested or add an undocumented delete flow.
+- Delivery tracking: expired sessions cannot update location; one rider cannot update another rider's location or track another rider's assigned order; assigned riders can track their order but do not receive the buyer's delivery OTP.
+- Bargaining: wrong buyer/store cannot respond to an offer; notification-read updates include notification ID, recipient email and role in the predicate.
+- Seller documents: non-admin cannot list/download/rescan/verify; admin download is constrained by seller ID plus document ID; seller metadata is loaded from the seller profile linked to the authenticated user ID.
+- Admin seller-lead operations: update/note audit actor is taken from authenticated `UserEntity.userId`, not a request-body actor; missing principal fails closed. `/admin/**` role enforcement remains in `SecurityConfig`.
+- OTP: `OtpAttemptService` uses `REQUIRES_NEW` transactions and conditional database updates. Failed attempts increment atomically and the fifth marks the OTP used; successful consumption is accepted only when exactly one active, unexpired, non-exhausted row is updated.
+- Search analytics: missing, blank and overlong queries are rejected before persistence; whitespace normalization and principal-only user attribution are tested.
+
+### OTP transaction finding and residual risk
+
+Source review found `OtpService.verify` saved an invalid-attempt counter and then threw `ApiException` inside a transaction. That exception could roll back the attempt increment, including when called inside transactional `AuthService.verifyOtp` or `SellerOnboardingLeadService.verifyContact`. PR #247 moved failed-attempt increments and one-time consumption into independent `REQUIRES_NEW` operations using conditional Oracle UPDATE statements. Unit tests verify SQL predicates and transaction propagation.
+
+**Not yet Oracle-integration proven:** the SQL has not been executed under concurrent Oracle transactions in an isolated test schema. Unit tests and CI do not prove actual Oracle SQL execution, row-lock contention or transaction propagation. Do not run mutating concurrency tests against shared staging.
+
+**OTP cooldown residual:** resend cooldown still performs a recent-record check followed by a separate insert. PR #247 does not make that check-and-insert atomic; concurrent resend requests may still race. Multi-instance resend throttling and IP/device abuse limits remain open.
+
+### P1-D abuse/privacy residuals
+
+- Public search analytics still has no IP/device/database-backed rate limit or flood protection. PR #248 adds validation only; validation is not rate limiting.
+- Public seller-lead intake, OTP-send, verify and callback endpoints still need enumeration, flooding, payload-size and per-identity/IP abuse review. High-entropy lead UUIDs are not a substitute for rate limiting.
+- Review delivery-location retention/access logging, admin/tracking DTO minimization, seller-document encryption/retention, session revocation and audit-log redaction.
+
+### Updated deployment observation
+
+- PR #247 runtime commit `79c8d80cd117964339cff022ff23a2244b353549` passed backend build; its frontend deployment was live. At the latest check, the backend Render deployment was still `update_in_progress` after a new instance began starting. Do not call the OTP runtime fix live until Render reports `live` and startup/health evidence is checked.
+- PR #248 merge commit `326bc7834eae891dffc99ff8e6d2bcfd1d831cf7` triggered a newer backend deployment (`queued`) and frontend build (`build_in_progress`) at the time of the check. Recheck current deployment status; the newest main commit supersedes prior deployment IDs.
+- PRs #242–#248 introduced no schema migration. PR #247 adds runtime SQL against the existing `AUTH_OTPS` table only.
+
+### Current Phase 1 disposition
+
+**IN PROGRESS — not production-ready.** Unit/full Maven and frontend CI reached 186 backend tests with zero failures/errors/skips at PR #248. The broader endpoint IDOR matrix remains incomplete; authenticated browser journeys remain 3 passed / 9 skipped on the previously observed workflow; public abuse controls remain open; Oracle concurrency, transaction rollback, restore and migration-recovery proof remain blocked until a dedicated isolated Oracle test database/schema and cleanup harness are available. Shared staging must not be used for mutating concurrency tests.
