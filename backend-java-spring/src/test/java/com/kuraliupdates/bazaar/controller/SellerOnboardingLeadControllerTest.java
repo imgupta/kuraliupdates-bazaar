@@ -37,12 +37,12 @@ class SellerOnboardingLeadControllerTest {
 
     @Test
     void leadOtpAndCallbackActionsHaveIndependentLeadScopedBudgets() {
-        controller.sendContactOtps("lead-123");
-        controller.verifyContact("lead-123", Map.of("emailOtp", "123456", "phoneOtp", "654321"));
-        controller.callback("lead-123", Map.of("consent", true, "preferredTime", "Tomorrow morning"));
+        controller.sendContactOtps("11111111-1111-4111-8111-111111111111");
+        controller.verifyContact("11111111-1111-4111-8111-111111111111", Map.of("emailOtp", "123456", "phoneOtp", "654321"));
+        controller.callback("11111111-1111-4111-8111-111111111111", Map.of("consent", true, "preferredTime", "Tomorrow morning"));
 
-        verify(rateLimit).requireAllowed("seller-lead-send-otp", "lead-123", 3, Duration.ofHours(1));
-        verify(rateLimit).requireAllowed("seller-lead-verify", "lead-123", 10, Duration.ofMinutes(15));
-        verify(rateLimit).requireAllowed("seller-lead-callback", "lead-123", 2, Duration.ofDays(1));
+        verify(rateLimit).requireAllowed("seller-lead-send-otp", "11111111-1111-4111-8111-111111111111", 3, Duration.ofHours(1));
+        verify(rateLimit).requireAllowed("seller-lead-verify", "11111111-1111-4111-8111-111111111111", 10, Duration.ofMinutes(15));
+        verify(rateLimit).requireAllowed("seller-lead-callback", "11111111-1111-4111-8111-111111111111", 2, Duration.ofDays(1));
     }
 }
