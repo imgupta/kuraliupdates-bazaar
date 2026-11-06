@@ -61,6 +61,52 @@ class DailyHelpControllerTest {
     }
 
     @Test
+    void wrongProfessionalProfileIdCannotReadJobsOrEarnings() {
+        Authentication authentication = authentication(user("9876500000", "BUYER"));
+        when(dailyHelpService.getProfessionalByPhone("9876500000"))
+                .thenReturn(profile("DHP-OWN", "9876500000"));
+
+        assertEquals(HttpStatus.FORBIDDEN, assertThrows(ApiException.class,
+                () -> controller.professionalJobs("DHP-OTHER", authentication)).getStatus());
+        assertEquals(HttpStatus.FORBIDDEN, assertThrows(ApiException.class,
+                () -> controller.earnings("DHP-OTHER", authentication)).getStatus());
+        assertEquals(HttpStatus.FORBIDDEN, assertThrows(ApiException.class,
+                () -> controller.availableJobs("DHP-OTHER", authentication)).getStatus());
+
+        verify(dailyHelpService, never()).getProfessionalJobs(anyString());
+        verify(dailyHelpService, never()).getProfessionalEarnings(anyString());
+        verify(dailyHelpService, never()).getAvailableJobs(anyString());
+    }
+
+    @Test
+    void wrongProfessionalProfileIdCannotAcceptOrCompleteJobs() {
+        Authentication authentication = authentication(user("9876500000", "BUYER"));
+        when(dailyHelpService.getProfessionalByPhone("9876500000"))
+                .thenReturn(profile("DHP-OWN", "9876500000"));
+
+        assertEquals(HttpStatus.FORBIDDEN, assertThrows(ApiException.class,
+                () -> controller.acceptJob("DHP-OTHER", "BOOK-1", authentication)).getStatus());
+        assertEquals(HttpStatus.FORBIDDEN, assertThrows(ApiException.class,
+                () -> controller.completeBooking("BOOK-1", "DHP-OTHER", authentication)).getStatus());
+
+        verify(dailyHelpService, never()).acceptJob(anyString(), anyString());
+        verify(dailyHelpService, never()).completeBooking(anyString(), anyString());
+    }
+
+    @Test
+    void wrongProfessionalProfileIdCannotCancelAnotherProfilesSlot() {
+        Authentication authentication = authentication(user("9876500000", "BUYER"));
+        when(dailyHelpService.getProfessionalByPhone("9876500000"))
+                .thenReturn(profile("DHP-OWN", "9876500000"));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> controller.cancelProfessionalSlot("DHP-OTHER", "SLOT-OTHER", authentication));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verify(dailyHelpService, never()).cancelProfessionalSlot(anyString(), anyString());
+    }
+
+    @Test
     void buyerCannotCreateBookingForAnotherPhone() {
         UserEntity user = user("9876500000", "BUYER");
         Authentication authentication = authentication(user);
