@@ -287,3 +287,11 @@ Source review found `OtpService.verify` saved an invalid-attempt counter and the
 ### Current Phase 1 disposition
 
 **IN PROGRESS — not production-ready.** Unit/full Maven and frontend CI reached 186 backend tests with zero failures/errors/skips at PR #248. The broader endpoint IDOR matrix remains incomplete; authenticated browser journeys remain 3 passed / 9 skipped on the previously observed workflow; public abuse controls remain open; Oracle concurrency, transaction rollback, restore and migration-recovery proof remain blocked until a dedicated isolated Oracle test database/schema and cleanup harness are available. Shared staging must not be used for mutating concurrency tests.
+
+## PR #256 verification refresh — 6 November 2026
+
+- PR #257 merged to main at `463bfb64ed34135e49bf83e8044252e80a90936a`; PR #258 merged to main at `8fb5a16b357c86c9b2a49d29fa02e70fb7d3610b` after this branch was created.
+- PR #256 exact head before this refresh: `e865612396fee82f4313127ab4840166bdca259b`.
+- Seller-registration quality gates run `42214826119`: passed.
+- Main CI/E2E run `42214826172`: cancelled; it is not a pass and provides no merge authorization. A fresh exact-head CI run is required after this documentation refresh.
+- Scope remains BUYER role enforcement at controller and service boundaries for checkout and order history. Authenticated browser journeys and Oracle-backed checkout concurrency/rollback remain separate Phase 1 gates.
