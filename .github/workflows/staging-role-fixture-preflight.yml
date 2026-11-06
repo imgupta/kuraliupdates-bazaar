@@ -147,72 +147,10 @@ jobs:
             }
 
             if (transactionalFixturesEnabled) {
-              const productId = syntheticFixtureId('E2E_FLOW_PRODUCT_ID');
-              const sellerId = syntheticFixtureId('E2E_FLOW_SELLER_ID');
+              syntheticFixtureId('E2E_FLOW_SELLER_ID');
               syntheticFixtureId('E2E_FLOW_DELIVERY_AGENT_ID');
-              const quantity = Number(required('E2E_FLOW_ORDER_QUANTITY'));
-              if (!Number.isInteger(quantity) || quantity < 1 || quantity > 2) {
-                throw new Error('E2E_FLOW_ORDER_QUANTITY must be an integer between 1 and 2.');
-              }
-              const productResults = await getJson('/buyers/products/search?query=' + encodeURIComponent(productId), tokens.BUYER);
-              if (!Array.isArray(productResults)) throw new Error('Product search did not return a list.');
-              const product = productResults.find(item => item.productId === productId);
-              if (!product) {
-                mismatches.push('PRODUCT fixture missing/not visible to Buyer');
-              } else {
-                const actualSellerId = product.sellerId ?? product.seller?.sellerId;
-                const stock = Number(product.stock ?? product.stockQty);
-                const price = Number(product.effectivePrice ?? product.price ?? product.sellerPrice);
-                if (String(actualSellerId) !== sellerId) mismatches.push('PRODUCT seller ownership');
-                if (!Number.isFinite(stock) || stock < quantity) mismatches.push('PRODUCT stock quantity');
-                if (!Number.isFinite(price) || price <= 0) mismatches.push('PRODUCT catalogue price');
-                console.log('PASS: synthetic product is visible; ownership, stock and price checks completed.');
-              }
-  
-              const services = await getJson('/daily-help/services', tokens.BUYER);
-              if (!Array.isArray(services)) throw new Error('Daily Help services endpoint did not return a list.');
-              const serviceId = syntheticFixtureId('E2E_FLOW_DAILY_HELP_SERVICE_ID');
-              const service = services.find(item => item.id === serviceId);
-              if (!service || service.active !== true) mismatches.push('DAILY HELP service missing/inactive');
-  
-              const slotId = syntheticFixtureId('E2E_FLOW_DAILY_HELP_SLOT_ID');
-              const professionalId = syntheticFixtureId('E2E_FLOW_PROFESSIONAL_ID');
-              const scheduledStart = required('E2E_FLOW_DAILY_HELP_START');
-              const date = scheduledStart.slice(0, 10);
-              const validDate = /^\\d{4}-\\d{2}-\\d{2}$/.test(date) && !Number.isNaN(Date.parse(date + 'T00:00:00Z'));
-              if (!validDate) mismatches.push('DAILY HELP scheduled start must be ISO local datetime YYYY-MM-DDTHH:mm:ss');
-  
-              const hours = Number(required('E2E_FLOW_DAILY_HELP_HOURS'));
-              const validHours = Number.isFinite(hours) && hours >= 1 && hours <= 2;
-              if (!validHours) mismatches.push('DAILY HELP requested hours must be between 1 and 2');
-  
-              if (validDate && validHours) {
-                const slots = await getJson('/daily-help/availability?date=' + encodeURIComponent(date) +
-                  '&requestedHours=' + encodeURIComponent(String(hours)) + '&locality=Kurali', tokens.BUYER);
-                if (!Array.isArray(slots)) {
-                  mismatches.push('DAILY HELP availability response contract');
-                } else {
-                  const slot = slots.find(item => item.slotId === slotId);
-                  if (!slot) {
-                    mismatches.push('DAILY HELP slot availability');
-                  } else {
-                    if (String(slot.professionalId) !== professionalId) mismatches.push('DAILY HELP slot professional');
-                    if (String(slot.status ?? '').toUpperCase() !== 'AVAILABLE') mismatches.push('DAILY HELP slot status');
-                    const expectedTime = scheduledStart.slice(11, 16);
-                    if (!/^\\d{2}:\\d{2}$/.test(expectedTime) || String(slot.startTime ?? '').slice(0, 5) !== expectedTime) {
-                      mismatches.push('DAILY HELP slot start time');
-                    }
-                    const slotMinutes = (time) => {
-                      const match = /^(\\d{2}):(\\d{2})/.exec(String(time ?? ''));
-                      return match ? Number(match[1]) * 60 + Number(match[2]) : NaN;
-                    };
-                    if (slotMinutes(slot.endTime) - slotMinutes(slot.startTime) !== hours * 60) {
-                      mismatches.push('DAILY HELP slot duration');
-                    }
-                  }
-                }
-              }
-              console.log('Completed Daily Help service and slot preflight checks.');
+              syntheticFixtureId('E2E_FLOW_PROFESSIONAL_ID');
+              console.log('PASS: seller, delivery-agent and professional IDs are synthetic. Product, service and slot fixtures are provisioned per transaction run.');
             } else {
               console.log('SKIP: fixture/profile preflight because transactional E2E is disabled. No fixture reads or business mutations were attempted.');
             }
