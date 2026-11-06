@@ -310,3 +310,23 @@ PR #231 remains a merged security-hardening milestone, not Phase 0 completion. `
 Buyer address controller tests are being added for authenticated-session user resolution, list/create/update/default flows, foreign-address not-found behavior and missing/invalid-session fail-closed behavior. Existing service tests already cover wrong-owner update/default rejection and no-write behavior. This controller slice is not accepted until its exact-head CI passes.
 
 **Phase 1 remains IN PROGRESS.** The broader IDOR matrix, authenticated lifecycle E2E, Oracle concurrency/rollback, public abuse controls and P1-D operational/legal gates remain open.
+
+
+## Phase 1 progress addendum — 6 November 2026 (PR #255)
+
+**Merged:** PR #255 at `c3e50040d9d40ec6452b9903c2fa1cff004fc934`, based on main `7c3b154e85261fe4b01a53d9934b47fd35d13420`.
+
+- Added six `AuthControllerAddressTest` cases covering authenticated address list, create, update, default selection, foreign-address not-found and missing/blank bearer-session rejection.
+- Controller tests prove that create/update/default service calls receive the user ID resolved from the bearer session, and that the request DTO cannot select another user ID.
+- Existing `BuyerAddressServiceTest` wrong-owner update/default tests remain in place and assert no persistence writes for a foreign address.
+- Exact-head full Maven verification: **200 tests, 0 failures, 0 errors, 0 skipped**. `AuthControllerAddressTest`: 6 passed; `DailyHelpControllerTest`: 8 passed; `OtpAttemptServiceJdbcTest`: 3 passed.
+- Frontend checks and seller-registration quality gates: passed.
+- Browser E2E: **3 passed, 9 skipped**; transactional order/Daily Help lifecycle tests remain disabled on push/PR. Read-only API smoke: **7 passed, 0 failed**, `databaseHealthChecked=false`; no DB-readiness claim.
+- Private Playwright report publication was skipped by workflow policy. No staging mutation or Oracle integration test ran.
+- No address-delete endpoint exists in the inspected API; no delete behavior was invented.
+
+### Next P1-A slice
+
+Buyer order controller authorization tests are being added for authenticated order history, tracking and store-pickup confirmation. Existing `OrderServiceTest` already verifies cross-buyer tracking/pickup rejection and non-buyer tracking denial. The new controller tests must prove the authenticated `UserEntity` is passed unchanged to the owner-scoped service and anonymous/malformed principals fail before service calls. This slice remains pending exact-head CI.
+
+**Phase 1 remains IN PROGRESS.** Full endpoint IDOR coverage, authenticated transactional E2E, Oracle concurrency/rollback, abuse controls and P1-D operational/legal gates remain open.
