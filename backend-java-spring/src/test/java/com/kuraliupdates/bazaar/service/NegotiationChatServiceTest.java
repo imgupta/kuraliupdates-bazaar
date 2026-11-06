@@ -166,6 +166,71 @@ class NegotiationChatServiceTest {
     }
 
     @Test
+    void buyerCannotRespondToAnOfferInAnotherBuyersConversation() {
+        Map<String, Object> chat = Map.of(
+                "id", "chat-foreign",
+                "buyerEmail", "owner@example.test",
+                "sellerId", "seller-1",
+                "sellerStatus", "APPROVED");
+        when(jdbc.query(
+                ArgumentMatchers.anyString(),
+                ArgumentMatchers.<RowMapper<Map<String, Object>>>any(),
+                ArgumentMatchers.<Object[]>any()))
+                .thenReturn(List.of(chat));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> service.respond(buyer, "BUYER", "chat-foreign", "offer-foreign",
+                        new RespondOfferRequest("ACCEPT", null)));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        org.mockito.Mockito.verify(jdbc, org.mockito.Mockito.never())
+                .queryForMap(ArgumentMatchers.anyString(), ArgumentMatchers.<Object[]>any());
+        org.mockito.Mockito.verify(jdbc, org.mockito.Mockito.never())
+                .update(ArgumentMatchers.anyString(), ArgumentMatchers.<Object[]>any());
+    }
+
+    @Test
+    void sellerCannotRespondToAnOfferInAnotherStoresConversation() {
+        UserEntity seller = UserEntity.builder()
+                .userId("seller-user-1").email("seller@example.test")
+                .name("Test Seller").role("SELLER").build();
+        when(sellerRepository.findByEmailIgnoreCase("seller@example.test"))
+                .thenReturn(Optional.of(SellerEntity.builder().sellerId("seller-2")
+                        .email("seller@example.test").status("APPROVED").build()));
+        Map<String, Object> chat = Map.of(
+                "id", "chat-other-store",
+                "buyerEmail", "buyer@example.test",
+                "sellerId", "seller-1",
+                "sellerStatus", "APPROVED");
+        when(jdbc.query(
+                ArgumentMatchers.anyString(),
+                ArgumentMatchers.<RowMapper<Map<String, Object>>>any(),
+                ArgumentMatchers.<Object[]>any()))
+                .thenReturn(List.of(chat));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> service.respond(seller, "SELLER", "chat-other-store", "offer-foreign",
+                        new RespondOfferRequest("ACCEPT", null)));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        org.mockito.Mockito.verify(jdbc, org.mockito.Mockito.never())
+                .queryForMap(ArgumentMatchers.anyString(), ArgumentMatchers.<Object[]>any());
+        org.mockito.Mockito.verify(jdbc, org.mockito.Mockito.never())
+                .update(ArgumentMatchers.anyString(), ArgumentMatchers.<Object[]>any());
+    }
+
+    @Test
+    void buyerNotificationReadIsScopedToTheAuthenticatedRecipientAndRole() {
+        service.markNotificationRead(buyer, "BUYER", "notification-1");
+
+        org.mockito.Mockito.verify(jdbc).update(
+                ArgumentMatchers.contains("WHERE NOTIFICATION_ID=? AND LOWER(RECIPIENT_EMAIL)=? AND RECIPIENT_ROLE=?"),
+                ArgumentMatchers.eq("notification-1"),
+                ArgumentMatchers.eq("buyer@example.test"),
+                ArgumentMatchers.eq("BUYER"));
+    }
+
+    @Test
     void chatRejectsRolesOtherThanBuyerAndSellerBeforeDatabaseAccess() {
         ApiException error = assertThrows(ApiException.class,
                 () -> service.list(buyer, "ADMIN"));
