@@ -39,6 +39,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/health",
+                    "/health/live",
                     "/v3/api-docs/**",
                     "/swagger-ui/**",
                     "/swagger-ui.html",
@@ -47,7 +48,7 @@ public class SecurityConfig {
                     "/delivery/**"
                 ).permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
-                .requestMatchers("/**").permitAll()
+                .anyRequest().authenticated()
             );
 
         return http.build();
