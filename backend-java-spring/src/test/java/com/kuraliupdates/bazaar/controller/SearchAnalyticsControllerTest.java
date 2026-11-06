@@ -9,6 +9,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.util.List;
+import java.time.Duration;
+import jakarta.servlet.http.HttpServletRequest;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -28,7 +30,7 @@ class SearchAnalyticsControllerTest {
         assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST,
                 controller.recordSearch(new SearchAnalyticsController.SearchEventRequest("x".repeat(256), null), null, null).getStatusCode());
 
-        verifyNoInteractions(repository);
+        verifyNoInteractions(repository, rateLimit);
     }
 
     @Test
@@ -77,4 +79,32 @@ class SearchAnalyticsControllerTest {
         verify(repository).save(captor.capture());
         assertEquals("verified-user-123", captor.getValue().getUserId());
     }
+    @Test
+    void appliesAnonymousIpRateLimitBeforePersistingAnalytics() {
+        SearchTrendRepository repository = mock(SearchTrendRepository.class);
+        ApiRateLimitService rateLimit = mock(ApiRateLimitService.class);
+        SearchAnalyticsController controller = new SearchAnalyticsController(repository, rateLimit);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("203.0.113.10");
+
+        controller.recordSearch(new SearchAnalyticsController.SearchEventRequest("milk", null), null, request);
+
+        verify(rateLimit).requireAllowed("search-analytics", "ip:203.0.113.10", 600, Duration.ofMinutes(1));
+        verify(repository).save(any(SearchTrendEntity.class));
+    }
+
+    @Test
+    void appliesLowerAuthenticatedUserRateLimitUsingVerifiedPrincipal() {
+        SearchTrendRepository repository = mock(SearchTrendRepository.class);
+        ApiRateLimitService rateLimit = mock(ApiRateLimitService.class);
+        SearchAnalyticsController controller = new SearchAnalyticsController(repository, rateLimit);
+        UserEntity user = UserEntity.builder().userId("verified-user-123").role("BUYER").build();
+        var authentication = new UsernamePasswordAuthenticationToken(
+                user, null, List.of(new SimpleGrantedAuthority("ROLE_BUYER")));
+
+        controller.recordSearch(new SearchAnalyticsController.SearchEventRequest("milk", null), authentication, null);
+
+        verify(rateLimit).requireAllowed("search-analytics", "user:verified-user-123", 300, Duration.ofMinutes(1));
+    }
+
 }
