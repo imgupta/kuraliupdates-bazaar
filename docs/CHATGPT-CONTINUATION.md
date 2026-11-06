@@ -18,10 +18,10 @@ Before every coding, refactoring, review, test or release task, read [ENGINEERIN
 
 ## Latest execution checkpoint
 
-- Main after PR #263: `656ddd5bedc9d8b48a027ba574bb5263a284f633`.
-- PR #263 merged after exact-head CI: 230 backend tests, zero failures/errors/skips; frontend checks/build and seller-registration quality gates passed; read-only smoke 7/0 with `databaseHealthChecked=false`; browser E2E 3 passed / 9 skipped.
+- Main after PR #264: `4dc3a9219c6f55a869d468c0d33b79ec19f7bced`.
+- PR #264 merged after exact-head CI: 235 backend tests, zero failures/errors/skips; `SellerDocumentControllerTest` 14 passed; frontend checks/build and seller-registration quality gates passed; read-only smoke 7/0 with `databaseHealthChecked=false`; browser E2E 3 passed / 9 skipped.
 - Phase 0 formal register: `PHASE-0-FORMAL-EVIDENCE-REGISTER.md`; milestone merged, formal closure remains open pending Oracle/backup/restore, hosting residency, secret rotation and qualified professional sign-offs.
-- Phase 1 remains in progress. Next PR #264 covers seller-document access negative cases, admin download response privacy headers and metadata data minimization.
+- Phase 1 remains in progress. Next PR #265 adds real MockMvc/filter-chain coverage for admin seller-lead list, notes and write routes.
 
 ## Locked architecture decision
 
