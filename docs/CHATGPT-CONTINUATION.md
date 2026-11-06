@@ -18,10 +18,11 @@ Before every coding, refactoring, review, test or release task, read [ENGINEERIN
 
 ## Latest execution checkpoint
 
-- Main after PR #264: `4dc3a9219c6f55a869d468c0d33b79ec19f7bced`.
-- PR #264 merged after exact-head CI: 235 backend tests, zero failures/errors/skips; `SellerDocumentControllerTest` 14 passed; frontend checks/build and seller-registration quality gates passed; read-only smoke 7/0 with `databaseHealthChecked=false`; browser E2E 3 passed / 9 skipped.
-- Phase 0 formal register: `PHASE-0-FORMAL-EVIDENCE-REGISTER.md`; milestone merged, formal closure remains open pending Oracle/backup/restore, hosting residency, secret rotation and qualified professional sign-offs.
-- Phase 1 remains in progress. Next PR #265 adds real MockMvc/filter-chain coverage for admin seller-lead list, notes and write routes.
+- Main after PR #267: `ac3fcc3fd34c25cecdfb8b9ef40694a4f9341af9` (6 November 2026).
+- PRs #264, #266 and #267 are merged. PR #267 adds run-scoped synthetic staging fixtures, V32/V33 migrations, Oracle-backed API rate limits, abuse-input bounds and transactional lifecycle/concurrency E2E coverage.
+- The GitHub Actions workflow-run lookup for merge commit `ac3fcc3fd34c25cecdfb8b9ef40694a4f9341af9` returned no PR workflow runs; combined commit statuses showed five successful Vercel app deployments and one Delivery Vercel build-rate-limit failure. Do not treat these deployment statuses as backend CI or transactional staging proof.
+- Phase 0 formal closure remains open pending Oracle/backup/restore, production India residency, secret rotation and qualified professional sign-offs.
+- Phase 1 remains IN PROGRESS. PR #268 is the open follow-up for run-tagged staging preflight session cleanup and PR-triggered verification.
 
 ## Locked architecture decision
 
@@ -84,3 +85,11 @@ Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller
 - Focused tests passed: Daily Help 10, Delivery 5, Delivery Tracking HTTP security 3, OTP settings HTTP security 3, Admin seller-lead HTTP security 4.
 - The first attempt exposed a compile error in the OTP settings history mock. It was corrected to return the declared List type; the 248-test pass is from the corrected head.
 - Standard CI/E2E run 42218558947 remains pending with no jobs returned. Do not merge or report the PR fully verified until a new exact-head standard workflow completes after this documentation update.
+
+
+## 6 November 2026 — latest Phase 1 continuation
+
+- PR #267 is merged at main SHA `ac3fcc3fd34c25cecdfb8b9ef40694a4f9341af9`. Its source scope includes guarded synthetic fixtures/cleanup, concurrency and rollback E2E cases, V32/V33 migrations and public endpoint rate limits.
+- No GitHub Actions workflow runs were returned for the merge SHA. The combined status only exposed Vercel deployments: Buyer, Seller, Admin, Daily Help and Bazaar succeeded; Delivery failed because of the Vercel build-rate limit. These are not backend CI or transactional E2E results.
+- PR #268 remains open on `phase1/tag-and-clean-preflight-sessions`. Follow-up commit `83dda85d5d791df87b5b85f5abdd3e0fb293b87a` adds a scoped `pull_request` trigger to the staging role preflight workflow. PR-triggered runs issue only temporary role sessions, keep transactional fixture mode disabled, and remove sessions using the run ID in a `finally` cleanup. The commit currently has no reported workflow run/status; verification is pending.
+- Next: obtain exact-head PR #268 preflight evidence; then verify the trusted transactional workflow, V32/V33 deployment and guarded cleanup on the designated staging environment. Continue the remaining IDOR/privacy/address/portal-handoff review and Oracle-specific rollback evidence. Phase 1 is not complete.
