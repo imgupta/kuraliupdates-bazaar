@@ -55,3 +55,28 @@ The current Phase 0 branch uses explicit public method/path matchers. All routes
 ## Admin audit actor refinement — 2026-11-06
 
 The seller-lead update/note and registration OTP-policy update controllers now require an authenticated UserEntity principal and persist its stable userId as the audit actor. They no longer fall back to the generic ADMIN string or Authentication.getName(), which may not be a stable identifier for this principal type.
+
+
+## Phase 1 — Bargaining chat ownership regression coverage (2026-11-06)
+
+The bargaining service resolves each conversation by `CHAT_ID` and then compares the authenticated participant identity against the persisted owner:
+- Buyer role: normalized authenticated account email must match `NEGOTIATION_CHATS.BUYER_EMAIL`.
+- Seller role: authenticated email must resolve to an approved seller profile whose `SELLER_ID` matches the conversation's `SELLER_ID`.
+- Only after participant ownership passes may message/offer lifecycle locks and writes occur.
+
+Added `NegotiationChatServiceTest` regressions:
+- An authenticated buyer cannot send a message to a conversation owned by a different buyer; the test verifies no lifecycle query or write occurs after denial.
+- An authenticated seller cannot send a message to a conversation belonging to another seller store; the test verifies no lifecycle query or write occurs after denial.
+
+**Evidence boundary:** these are service-level negative ownership tests using synthetic JDBC results. They do not replace Oracle integration tests, full read/list/notification IDOR coverage, or authenticated browser journeys.
+
+
+### CI evidence — bargaining participant ownership tests
+
+- Tested code head: `7bb45e4551d8b64e0a27e7b52d23b8729ab20836`.
+- `NegotiationChatServiceTest`: 9 tests passed, 0 failures/errors/skips.
+- Full backend Maven verification: 142 tests passed, 0 failures/errors/skips.
+- Spring Boot verification, frontend lint/build and frontend regression checks passed.
+- Browser E2E: 3 passed, 9 skipped; authenticated/transactional flows were not enabled for the PR event.
+- Read-only smoke: 7 passed, 0 failed; `databaseHealthChecked=false`, so this run checked process liveness and anonymous guards only.
+- No database-backed bargaining transaction, staging mutation or live Oracle concurrency proof is claimed.

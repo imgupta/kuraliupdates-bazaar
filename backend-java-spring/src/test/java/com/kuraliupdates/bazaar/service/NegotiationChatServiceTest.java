@@ -4,8 +4,15 @@ import com.kuraliupdates.bazaar.controller.NegotiationChatController.OpenChatReq
 import com.kuraliupdates.bazaar.controller.NegotiationChatController.RespondOfferRequest;
 import com.kuraliupdates.bazaar.controller.NegotiationChatController.SendMessageRequest;
 import com.kuraliupdates.bazaar.entity.UserEntity;
+import com.kuraliupdates.bazaar.entity.SellerEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.repository.SellerRepository;
+import org.springframework.jdbc.core.RowMapper;
+import org.mockito.ArgumentMatchers;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,6 +24,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class NegotiationChatServiceTest {
@@ -96,6 +104,65 @@ class NegotiationChatServiceTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
         verifyNoInteractions(jdbc, sellerRepository);
+    }
+
+    @Test
+    void buyerCannotSendMessageToAnotherBuyersConversation() {
+        Map<String, Object> chat = Map.of(
+                "id", "chat-1",
+                "buyerEmail", "owner@example.test",
+                "sellerId", "seller-1",
+                "sellerStatus", "APPROVED");
+        when(jdbc.query(
+                ArgumentMatchers.anyString(),
+                ArgumentMatchers.<RowMapper<Map<String, Object>>>any(),
+                ArgumentMatchers.<Object[]>any()))
+                .thenReturn(List.of(chat));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> service.send(buyer, "BUYER", "chat-1", new SendMessageRequest("hello", null)));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verifyNoInteractions(sellerRepository);
+        org.mockito.Mockito.verify(jdbc, org.mockito.Mockito.never())
+                .queryForMap(ArgumentMatchers.anyString(), ArgumentMatchers.<Object[]>any());
+        org.mockito.Mockito.verify(jdbc, org.mockito.Mockito.never())
+                .update(ArgumentMatchers.anyString(), ArgumentMatchers.<Object[]>any());
+    }
+
+    @Test
+    void sellerCannotSendMessageToAnotherStoresConversation() {
+        UserEntity seller = UserEntity.builder()
+                .userId("seller-user-1")
+                .email("seller@example.test")
+                .name("Test Seller")
+                .role("SELLER")
+                .build();
+        when(sellerRepository.findByEmailIgnoreCase("seller@example.test"))
+                .thenReturn(Optional.of(SellerEntity.builder()
+                        .sellerId("seller-2")
+                        .email("seller@example.test")
+                        .status("APPROVED")
+                        .build()));
+        Map<String, Object> chat = Map.of(
+                "id", "chat-2",
+                "buyerEmail", "buyer@example.test",
+                "sellerId", "seller-1",
+                "sellerStatus", "APPROVED");
+        when(jdbc.query(
+                ArgumentMatchers.anyString(),
+                ArgumentMatchers.<RowMapper<Map<String, Object>>>any(),
+                ArgumentMatchers.<Object[]>any()))
+                .thenReturn(List.of(chat));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> service.send(seller, "SELLER", "chat-2", new SendMessageRequest("hello", null)));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        org.mockito.Mockito.verify(jdbc, org.mockito.Mockito.never())
+                .queryForMap(ArgumentMatchers.anyString(), ArgumentMatchers.<Object[]>any());
+        org.mockito.Mockito.verify(jdbc, org.mockito.Mockito.never())
+                .update(ArgumentMatchers.anyString(), ArgumentMatchers.<Object[]>any());
     }
 
     @Test
