@@ -69,7 +69,8 @@ async function prepareFixtures(request: APIRequestContext, runId: string, seller
   });
   expect(response.status(), "backend should provision run-scoped synthetic fixtures").toBe(200);
   const fixture = await response.json();
-  for (const key of ["productId", "sellerId", "deliveryAgentId", "serviceId", "slotId", "professionalId"]) {
+  for (const key of ["productId", "sellerId", "deliveryAgentId", "serviceId", "slotId", "professionalId",
+    "rollbackSellerId", "multiSellerValidProductId", "multiSellerFailProductId"]) {
     expect(String(fixture[key] ?? ""), key + " must be synthetic").toMatch(/^E2E-[A-Za-z0-9_-]{3,80}$/);
   }
   expect(Number(fixture.stock)).toBeGreaterThanOrEqual(1);
@@ -79,6 +80,7 @@ async function prepareFixtures(request: APIRequestContext, runId: string, seller
     productId: string; sellerId: string; deliveryAgentId: string; serviceId: string;
     slotId: string; professionalId: string; scheduledStart: string;
     requestedHours: number; stock: number; unitPrice: string;
+    rollbackSellerId: string; multiSellerValidProductId: string; multiSellerFailProductId: string;
   };
 }
 
@@ -95,17 +97,19 @@ test.afterEach(async ({ request }, testInfo) => {
   const summary = await cleanup.json();
   expect(summary.runId).toBe(runId);
   for (const count of [summary.orders, summary.orderItems, summary.dailyHelpBookings, summary.negotiationChats,
-    summary.chatMessages, summary.sessions, summary.products, summary.dailyHelpServices, summary.dailyHelpSlots]) {
+    summary.chatMessages, summary.sessions, summary.products, summary.dailyHelpServices, summary.dailyHelpSlots, summary.sellers]) {
     expect(Number.isInteger(count) && count >= 0).toBeTruthy();
   }
   if (fixtureRuns.delete(runId)) {
     expect(summary.products, "exactly this run's synthetic product is deleted").toBe(1);
     expect(summary.dailyHelpServices, "exactly this run's synthetic service is deleted").toBe(1);
     expect(summary.dailyHelpSlots, "exactly this run's synthetic slot is deleted").toBe(1);
+    expect(summary.sellers, "exactly this run's synthetic rollback seller is deleted").toBe(1);
   } else {
     expect(summary.products).toBe(0);
     expect(summary.dailyHelpServices).toBe(0);
     expect(summary.dailyHelpSlots).toBe(0);
+    expect(summary.sellers).toBe(0);
   }
 });
 

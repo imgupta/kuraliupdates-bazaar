@@ -58,8 +58,22 @@ public class E2eFixtureService {
                 .toString().replace("-", "").substring(0, 24).toUpperCase();
         String productId = "E2E-P-" + suffix;
         String serviceId = "E2E-S-" + suffix;
+        String rollbackSellerId = "E2E-S2-" + suffix;
+        String multiSellerValidProductId = "E2E-MV-" + suffix;
+        String multiSellerFailProductId = "E2E-MF-" + suffix;
         String slotId = "E2E-T-" + suffix;
         LocalDateTime now = LocalDateTime.now();
+        SellerEntity rollbackSeller = sellerRepository.findById(rollbackSellerId).orElseGet(() ->
+                sellerRepository.save(SellerEntity.builder()
+                        .sellerId(rollbackSellerId).storeName("E2E Synthetic Rollback Store")
+                        .ownerName("E2E Synthetic Owner").email("e2e-" + suffix.toLowerCase() + "@example.test")
+                        .phone("999" + suffix.substring(0, 7).replaceAll("[A-F]", "0"))
+                        .category("E2E TEST").address("E2E synthetic address - do not deliver")
+                        .locality("Kurali").status("APPROVED").storeOpen(true)
+                        .registeredAt(now).approvedAt(now).e2eRunId(runId).build()));
+        if (!runId.equals(rollbackSeller.getE2eRunId())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Rollback seller fixture is not owned by this run");
+        }
         LocalDate slotDate = LocalDate.now(ZoneId.of("Asia/Kolkata")).plusDays(2);
         LocalTime start = LocalTime.of(10, 0);
         LocalTime end = LocalTime.of(11, 0);
@@ -72,8 +86,33 @@ public class E2eFixtureService {
                         .mrp(TEST_PRICE).sellerPrice(TEST_PRICE).stock(2).unit("piece")
                         .tags("E2E,SYNTHETIC,DO-NOT-DELIVER").isFeatured(0)
                         .createdAt(now).updatedAt(now).e2eRunId(runId).build()));
-        if (!productId.equals(product.getProductId()) || !sellerId.equals(product.getSeller().getSellerId())) {
+        if (!productId.equals(product.getProductId()) || !sellerId.equals(product.getSeller().getSellerId())
+                || !runId.equals(product.getE2eRunId())) {
             throw new ApiException(HttpStatus.CONFLICT, "Run product fixture does not match the synthetic seller");
+        }
+
+        SellerEntity firstSeller = sellerId.compareTo(rollbackSellerId) <= 0 ? seller : rollbackSeller;
+        SellerEntity secondSeller = sellerId.compareTo(rollbackSellerId) <= 0 ? rollbackSeller : seller;
+        ProductEntity multiSellerValid = productRepository.findById(multiSellerValidProductId).orElseGet(() ->
+                productRepository.save(ProductEntity.builder()
+                        .productId(multiSellerValidProductId).seller(firstSeller)
+                        .title("E2E Multi Seller Valid " + suffix.substring(0, 6))
+                        .category("E2E TEST").description("Synthetic rollback test product.")
+                        .mrp(TEST_PRICE).sellerPrice(TEST_PRICE).stock(2).unit("piece")
+                        .tags("E2E,SYNTHETIC,ROLLBACK-VALID").isFeatured(0)
+                        .createdAt(now).updatedAt(now).e2eRunId(runId).build()));
+        ProductEntity multiSellerFail = productRepository.findById(multiSellerFailProductId).orElseGet(() ->
+                productRepository.save(ProductEntity.builder()
+                        .productId(multiSellerFailProductId).seller(secondSeller)
+                        .title("E2E Multi Seller Failure " + suffix.substring(0, 6))
+                        .category("E2E TEST").description("Synthetic zero-stock rollback test product.")
+                        .mrp(TEST_PRICE).sellerPrice(TEST_PRICE).stock(0).unit("piece")
+                        .tags("E2E,SYNTHETIC,ROLLBACK-FAIL").isFeatured(0)
+                        .createdAt(now).updatedAt(now).e2eRunId(runId).build()));
+        if (!runId.equals(multiSellerValid.getE2eRunId()) || !runId.equals(multiSellerFail.getE2eRunId())
+                || !firstSeller.getSellerId().equals(multiSellerValid.getSeller().getSellerId())
+                || !secondSeller.getSellerId().equals(multiSellerFail.getSeller().getSellerId())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Multi-seller rollback fixtures do not belong to this run");
         }
 
         DailyHelpServiceEntity service = serviceRepository.findFirstByE2eRunId(runId).orElseGet(() ->
@@ -97,7 +136,8 @@ public class E2eFixtureService {
         }
 
         return new FixtureResult(productId, sellerId, agentId, serviceId, slotId, professionalId,
-                slotDate.atTime(start).toString(), 1, 2, TEST_PRICE.toPlainString());
+                slotDate.atTime(start).toString(), 1, 2, TEST_PRICE.toPlainString(),
+                rollbackSellerId, multiSellerValidProductId, multiSellerFailProductId);
     }
 
     private String syntheticId(String value, String field) {
@@ -110,5 +150,7 @@ public class E2eFixtureService {
     public record PrepareRequest(String sellerId, String deliveryAgentId, String professionalId) {}
     public record FixtureResult(String productId, String sellerId, String deliveryAgentId,
                                 String serviceId, String slotId, String professionalId,
-                                String scheduledStart, int requestedHours, int stock, String unitPrice) {}
+                                String scheduledStart, int requestedHours, int stock, String unitPrice,
+                                String rollbackSellerId, String multiSellerValidProductId,
+                                String multiSellerFailProductId) {}
 }
