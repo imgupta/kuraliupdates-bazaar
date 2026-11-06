@@ -62,7 +62,7 @@ public class E2eRunCleanupService {
                                   WHERE oi.PRODUCT_ID = p.PRODUCT_ID AND NVL(o.E2E_RUN_ID, '-') <> ?)
                        OR EXISTS (SELECT 1 FROM NEGOTIATION_CHATS nc
                                   WHERE nc.PRODUCT_ID = p.PRODUCT_ID AND NVL(nc.E2E_RUN_ID, '-') <> ?))
-                """, runId, runId);
+                """, runId, runId, runId);
         long unsafeServices = count("""
                 SELECT COUNT(*) FROM DAILY_HELP_SERVICES s
                 WHERE s.E2E_RUN_ID = ?
