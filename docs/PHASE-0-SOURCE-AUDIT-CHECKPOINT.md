@@ -837,3 +837,13 @@ PR #228 has been closed as superseded by PR #231. The current Phase 0 staging sm
 ## Current head addendum — 2026-11-06
 
 Current PR #231 head: `373c646f2587e3c29b913d413f755e8bf0ac7ed3`. Backend verification and frontend lint/production build passed. The public GET seller service-area route is explicitly allowlisted and tested; its administrative update remains protected. Search analytics ignores request-body user IDs and uses only the authenticated principal for attribution, with regression tests for anonymous spoofing and authenticated attribution. Latest E2E workflow is queued behind an earlier Playwright Chromium-install job; the completed smoke evidence is unchanged: /health returned 200, database readiness was checked, and all seven read-only smoke checks passed.
+
+
+## Endpoint and state audit continuation — 2026-11-06
+
+The detailed controller/method authorization inventory is now recorded in docs/PHASE-0-ENDPOINT-AUTHORIZATION-MATRIX.md. Additional source-level fixes on the Phase 0 branch:
+- Portal handoff codes no longer rely on a process-local map. V31 persists only a digest of a high-entropy code and atomically consumes it. This migration is pending validation and has not been deployed.
+- Delivery tracking location writes now require an ACTIVE delivery profile matching the authenticated user; pending/suspended profiles cannot update location.
+- CORS allows X-Active-Role and X-E2E-Run-Id and has a preflight regression test.
+
+Public seller-lead endpoints and search analytics remain exposed to abuse/flooding risks without endpoint-level rate limiting. Existing-lead lookup may reveal whether a matching contact pair has an active lead. Full IDOR coverage and authenticated lifecycle E2E remain open.

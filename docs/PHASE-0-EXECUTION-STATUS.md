@@ -124,3 +124,12 @@ Residual risks remain: public seller lead and search analytics endpoints need ab
 - The public-route allowlist explicitly includes GET `/seller-service-area` because seller onboarding/checkout needs the configured service-radius view. Its PUT counterpart remains protected by the admin route policy.
 - The search analytics endpoint now ignores any user ID supplied in the request body and attributes a search only from the authenticated session principal. Tests cover both anonymous spoofing and authenticated attribution.
 - The latest E2E workflow run is queued behind an earlier Playwright job still waiting at Chromium installation. The previously completed staging smoke/browser run remains the latest completed staging evidence; it verified /health HTTP 200 and all 7 read-only checks, with 3 public browser checks passing and 9 authenticated/transactional checks skipped.
+
+
+## Current continuation — 2026-11-06
+
+- Added durable portal handoff implementation on the Phase 0 branch: V31 creates AUTH_PORTAL_HANDOFFS; only the SHA-256 digest of a 256-bit random code is stored; redemption uses an atomic conditional update in a separate REQUIRES_NEW transaction. This removes process-local state and makes handoff work across restarts/instances. V31 is pending CI and staging migration validation; it is not yet deployed.
+- Added a delivery tracking authorization fix: a session can update live location only when its matching delivery profile is in ACTIVE status. Regression coverage includes pending-profile rejection.
+- Added CORS support and a preflight regression test for X-Active-Role and X-E2E-Run-Id, which are used by negotiation and run-scoped test flows.
+- Added a detailed endpoint authorization/state inventory in docs/PHASE-0-ENDPOINT-AUTHORIZATION-MATRIX.md.
+- Latest head at this checkpoint: 8ab9236a518f55439e487304abff3050fbe640d6. CI is running; the previous portal handoff compile failure (missing shared TTL constant) was corrected in the subsequent head.
