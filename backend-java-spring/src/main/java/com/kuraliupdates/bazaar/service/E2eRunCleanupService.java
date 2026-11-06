@@ -63,7 +63,10 @@ public class E2eRunCleanupService {
                        OR EXISTS (SELECT 1 FROM ORDER_ITEMS oi JOIN ORDERS o ON o.ORDER_ID = oi.ORDER_ID
                                   WHERE oi.PRODUCT_ID = p.PRODUCT_ID AND NVL(o.E2E_RUN_ID, '-') <> ?)
                        OR EXISTS (SELECT 1 FROM NEGOTIATION_CHATS nc
-                                  WHERE nc.PRODUCT_ID = p.PRODUCT_ID AND NVL(nc.E2E_RUN_ID, '-') <> ?))
+                                  WHERE nc.PRODUCT_ID = p.PRODUCT_ID AND NVL(nc.E2E_RUN_ID, '-') <> ?)
+                       OR NOT EXISTS (SELECT 1 FROM SELLERS s
+                                      WHERE s.SELLER_ID = p.SELLER_ID
+                                        AND (s.E2E_RUN_ID IS NULL OR s.E2E_RUN_ID = p.E2E_RUN_ID)))
                 """, runId, runId, runId);
         long unsafeServices = count("""
                 SELECT COUNT(*) FROM DAILY_HELP_SERVICES s

@@ -6,6 +6,12 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      confirm_staging_mutations:
+        description: 'I confirm this run may create and clean up synthetic staging orders and Daily Help bookings'
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -18,7 +24,7 @@ concurrency:
 jobs:
   transactional-e2e:
     name: Synthetic COD order and Daily Help lifecycle
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main')
+    if: (github.event_name == 'workflow_dispatch' && inputs.confirm_staging_mutations == true) || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
