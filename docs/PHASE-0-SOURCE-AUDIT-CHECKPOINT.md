@@ -827,3 +827,8 @@ The preflight deliberately does not invoke `flyway repair`, delete or insert Fly
 Phase 0 remains **OPEN**. Oracle V30 recovery and deployment are resolved. Remaining engineering gates include exhaustive endpoint authorization and ownership mapping, negative security tests, transaction/write ownership mapping, async/process-local state inventory, frontend storage/auth/route mapping and approved authenticated staging lifecycle E2E. India-only production residency, secret rotation and professional legal/compliance review remain release gates.
 
 Historical statements in this checkpoint that V30 is currently failed, not deployed, or preventing startup describe the 2026-11-03 state only.
+
+
+## Current verification addendum — 2026-11-06
+
+PR #228 has been closed as superseded by PR #231. The current Phase 0 staging smoke check returned HTTP 200 from the database-backed `/health` endpoint, explicitly recorded `databaseHealthChecked=true`, and passed all seven checks including six anonymous-access guards (HTTP 401). The public portal/browser subset passed 3 tests; nine authenticated/transactional tests were skipped by the safe PR-run configuration. Latest backend and frontend checks passed on PR #231 head `9bcf15b45a5fbcd64b0bdc39bf6b1d178581c4e4`. The PR remains draft and Phase 0 remains open.

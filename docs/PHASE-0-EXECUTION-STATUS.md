@@ -73,7 +73,7 @@ Phase 0 is still open because security authorization coverage, transaction/write
 ## CI and PR disposition
 
 - PR #230 is merged; its Oracle recovery deployment is live.
-- PR #228 remains an old draft/open branch and is not suitable for merging as-is because it diverged from main and contains a stale V30 migration diff.
+- PR #228 has been closed as superseded. It diverged from main and contained a stale V30 migration diff.
 - The old PR #228 CI has successful backend/frontend checks. Its previous smoke failure was caused by the then-unavailable staging API. The failed smoke job has been rerun after the Oracle recovery deployment; result is pending at the time of this status snapshot.
 - This branch carries forward the source-only liveness/smoke improvements and the default-deny fallback. The next CI run must pass before merge.
 - No authenticated transactional E2E is claimed: the current PR/push workflow deliberately disables transactional flows unless a trusted scheduled/manual run explicitly enables them with synthetic fixtures and cleanup.
@@ -99,3 +99,20 @@ Public routes explicitly retained:
 Added `SecurityConfigTest` to exercise public login/onboarding/discovery routes, authenticated-by-default buyer/seller/delivery/unknown paths, admin rejection for a BUYER role, valid bearer-session access and invalid-session rejection. Added `SessionAuthenticationFilterTest` for role authority construction and missing/invalid bearer behavior.
 
 Residual risks remain: public seller lead and search analytics endpoints need abuse/rate-limit review; E2E route custom-token behavior needs staging-only verification; method-level ownership/IDOR tests remain incomplete. The explicit allowlist reduces accidental anonymous exposure but does not close the complete security audit.
+
+
+## Latest verification addendum — 2026-11-06
+
+- PR #228 is closed as superseded by PR #231. The old branch is not to be merged.
+- PR #231 is based on current main and remains a draft. Current head at this snapshot: `9bcf15b45a5fbcd64b0bdc39bf6b1d178581c4e4`.
+- Latest backend verification and frontend lint/build checks passed for the current head.
+- The Phase 0 staging smoke run against the shared staging API passed: `GET /api/v1/health` returned HTTP 200 in 379 ms; the report recorded `databaseHealthChecked=true`; six anonymous buyer/seller/delivery/Daily Help access probes returned HTTP 401; total 7 passed, 0 failed.
+- The browser run on the same smoke/security code passed 3 public portal/login-entry checks. Nine authenticated or transactional tests were skipped; no claim of full buyer/seller/delivery/provider/admin lifecycle E2E is made.
+- The latest follow-up commit additionally fixes search analytics attribution: client-supplied `userId` is ignored; only a verified `UserEntity` principal can be associated with a search. Tests cover anonymous spoofing and authenticated attribution.
+- The current latest-head E2E workflow run is queued behind an older Playwright Chromium-install job. The smoke and browser suite evidence above is from the immediately preceding code head, which contains the same smoke/security changes; the latest change is isolated to analytics attribution and its unit tests.
+
+### Newly recorded source-level risks
+
+- `AuthController` keeps one-time portal handoff codes in a process-local `ConcurrentHashMap` with a 60-second TTL. Codes are lost on restart and are not shared across multiple application instances; replace with a durable, atomic, one-time store before horizontal scaling.
+- Public seller-lead onboarding and public search analytics still need abuse/rate-limit controls and enumeration review.
+- Search analytics no longer trusts request-body user IDs, but query retention, privacy minimization and abuse throttling remain open.
