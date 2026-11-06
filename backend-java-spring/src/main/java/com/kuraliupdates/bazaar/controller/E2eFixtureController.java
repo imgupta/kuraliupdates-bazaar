@@ -37,15 +37,21 @@ public class E2eFixtureController {
             @RequestHeader(value = "X-E2E-Flow-Token", required = false) String token) {
         runTagging.requireAuthorized(runId, token);
         String probeKey = runId + ":" + UUID.randomUUID();
-        rateLimit.requireAllowed("e2e-rate-limit-probe", probeKey, 1, Duration.ofMinutes(1));
+        boolean verified = false;
         try {
             rateLimit.requireAllowed("e2e-rate-limit-probe", probeKey, 1, Duration.ofMinutes(1));
-        } catch (ApiException expected) {
-            if (expected.getStatus() == HttpStatus.TOO_MANY_REQUESTS) {
-                return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                        .body(Map.of("success", true, "rateLimitVerified", true));
+            try {
+                rateLimit.requireAllowed("e2e-rate-limit-probe", probeKey, 1, Duration.ofMinutes(1));
+            } catch (ApiException expected) {
+                if (expected.getStatus() == HttpStatus.TOO_MANY_REQUESTS) verified = true;
+                else throw expected;
             }
-            throw expected;
+        } finally {
+            rateLimit.clearBucket("e2e-rate-limit-probe", probeKey);
+        }
+        if (verified) {
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                    .body(Map.of("success", true, "rateLimitVerified", true));
         }
         throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Rate limit probe did not enforce the configured bucket");
     }
