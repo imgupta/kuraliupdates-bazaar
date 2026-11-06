@@ -18,9 +18,10 @@
 | Isolated H2 OTP-attempt JDBC transaction tests | PR #253 | Merged; local H2 evidence only, not Oracle proof |
 | Buyer address controller session/ownership tests | PR #255 | Merged; CI passed |
 | Buyer order history, tracking and pickup controller authorization tests | PR #257 | Merged; exact-head CI passed |
-| Delivery controller authenticated-principal guard tests | PR #258 | Merged; PR records 204 Maven tests passed, frontend checks passed, read-only smoke 7/0; browser E2E 3 passed / 9 skipped |
+| Delivery controller authenticated-principal guard tests | PR #258 | Merged; 204 Maven tests passed, frontend checks passed, read-only smoke 7/0 with databaseHealthChecked=false; browser E2E 3 passed / 9 skipped |
+| Buyer checkout and order-history BUYER-role enforcement at controller and service boundaries | PR #259 | Merged; 215 Maven tests passed, frontend and seller-registration quality gates passed; read-only smoke 7/0 with databaseHealthChecked=false; browser E2E 3 passed / 9 skipped |
 
-**Important boundary:** PRs #253, #255, #257 and #258 are subsequent Phase 1 authorization/test slices. They improve the evidence base but do not retroactively prove that every Phase 0 exit criterion has been met.
+**Important boundary:** PRs #253, #255, #257, #258 and #259 are subsequent Phase 1 authorization/test slices. They improve the evidence base but do not retroactively prove that every Phase 0 exit criterion has been met.
 
 ## 2. Formal exit checklist
 
@@ -29,7 +30,7 @@ Use only these dispositions: **PASS — evidence attached**, **PARTIAL — bound
 | Exit criterion | Current disposition | Evidence / missing proof |
 |---|---|---|
 | Every HTTP endpoint mapped to method, path, public/authenticated role and resource owner | PARTIAL | Endpoint authorization inventory exists; exhaustive method-level matrix and proof for every sensitive route not demonstrated |
-| Every sensitive endpoint has anonymous, wrong-role, wrong-owner and correct-owner tests | PARTIAL | PR #231 and Phase 1 PRs #253/#255/#257/#258 cover specific slices; full seller, delivery, Daily Help, negotiation, admin and nested-resource matrix remains open |
+| Every sensitive endpoint has anonymous, wrong-role, wrong-owner and correct-owner tests | PARTIAL | PR #231 and Phase 1 PRs #253/#255/#257/#258/#259 cover specific slices; full seller, delivery, Daily Help, negotiation, admin and nested-resource matrix remains open |
 | Every repository/entity/table/native SQL writer has a domain owner and call path | PARTIAL | Transaction/write inventory exists; current-state doc says full call graph and all writers remain incomplete |
 | All transaction boundaries, propagation, isolation, rollback rules and cross-domain participants inventoried | PARTIAL | Known transaction observations recorded; exhaustive proof and failure/rollback tests remain open |
 | All Flyway migrations and DDL mapped, applied versions/FKs/triggers verified against live Oracle | NOT VERIFIED | Source migration inventory exists; current live schema/applied version evidence is not attached to this register |
@@ -51,6 +52,7 @@ Use only these dispositions: **PASS — evidence attached**, **PARTIAL — bound
 - PR #255 — buyer address ownership/session tests: https://github.com/imgupta/kuraliupdates-bazaar/pull/255
 - PR #257 — buyer order history/tracking/pickup controller tests: https://github.com/imgupta/kuraliupdates-bazaar/pull/257
 - PR #258 — delivery controller principal guards: https://github.com/imgupta/kuraliupdates-bazaar/pull/258
+- PR #259 — buyer checkout and order-history role enforcement: https://github.com/imgupta/kuraliupdates-bazaar/pull/259
 - PR #84 — Oracle wallet/secret remediation gate: https://github.com/imgupta/kuraliupdates-bazaar/pull/84
 - Canonical source inventory: `PHASE-0-ENDPOINT-AUTHORIZATION-MATRIX.md`, `PHASE-0-TRANSACTION-WRITE-INVENTORY.md`, `SERVICE-DEPENDENCY-MAP.md`, `DATA-OWNERSHIP-MATRIX.md`, `INDIA-LEGAL-REGULATORY-AND-SECURITY-REGISTER.md`, `CURRENT-STATE.md`.
 
@@ -90,6 +92,6 @@ No reviewer identity, approval, legal opinion, restore result, region or secret 
 
 ## 6. Relationship to Phase 1
 
-Phase 1 continues independently as functional/security validation. Current Phase 1 merged authorization slices include PRs #232–#258 as recorded in `PHASE-1-EXECUTION-PLAN.md`. Remaining work includes the broader IDOR matrix, authenticated role journeys with isolated identities/OTP/cleanup, Oracle-backed concurrency and rollback, abuse/privacy controls, and operational recovery proof. Phase 1 test progress must not be used to declare Phase 0 legal, residency, backup or secret-management gates complete.
+Phase 1 continues independently as functional/security validation. Current Phase 1 merged authorization slices include PRs #232–#259 as recorded in `PHASE-1-EXECUTION-PLAN.md`. Remaining work includes the broader IDOR matrix, authenticated role journeys with isolated identities/OTP/cleanup, Oracle-backed concurrency and rollback, abuse/privacy controls, and operational recovery proof. Phase 1 test progress must not be used to declare Phase 0 legal, residency, backup or secret-management gates complete.
 
 **Formal disposition as of 6 November 2026: Phase 0 milestone delivered; formal exit not evidenced. Keep Phase 0 closure and production release gates open until the closure evidence pack is complete and approved.**
