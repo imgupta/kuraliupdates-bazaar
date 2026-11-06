@@ -64,7 +64,7 @@ jobs:
             throw new Error('Refusing transactional tests against a non-designated staging target.');
           }
           const required = ['E2E_FLOW_AUTH_TOKEN','E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY',
-            'E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_FLOW_BUYER_PHONE','E2E_FLOW_BUYER_EMAIL',
+            'E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY','E2E_FLOW_BUYER_PHONE','E2E_FLOW_BUYER_EMAIL',
             'E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_PROFESSIONAL_ID'];
           for (const key of required) if (!String(config[key] ?? '').trim()) throw new Error('Missing required staging E2E configuration key: ' + key);
           if (String(config.E2E_FLOW_AUTH_TOKEN).length < 32) throw new Error('E2E_FLOW_AUTH_TOKEN must contain at least 32 characters.');
