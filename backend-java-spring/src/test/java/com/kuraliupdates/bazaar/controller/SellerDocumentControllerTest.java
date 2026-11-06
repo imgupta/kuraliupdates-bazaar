@@ -146,6 +146,47 @@ class SellerDocumentControllerTest {
         verify(docs, never()).save(any(SellerDocumentEntity.class));
     }
 
+    @Test
+    void nonAdminCannotListDownloadRescanOrVerifySellerDocuments() {
+        var seller = new UsernamePasswordAuthenticationToken(
+                "seller-user", "n/a", List.of(new SimpleGrantedAuthority("ROLE_SELLER")));
+
+        assertEquals(HttpStatus.FORBIDDEN,
+                assertThrows(ApiException.class, () -> controller.adminList(SELLER_ID, seller)).getStatus());
+        assertEquals(HttpStatus.FORBIDDEN,
+                assertThrows(ApiException.class, () -> controller.download(SELLER_ID, DOCUMENT_ID, seller)).getStatus());
+        assertEquals(HttpStatus.FORBIDDEN,
+                assertThrows(ApiException.class, () -> controller.rescan(SELLER_ID, DOCUMENT_ID, seller)).getStatus());
+        assertEquals(HttpStatus.FORBIDDEN,
+                assertThrows(ApiException.class, () -> controller.verify(
+                        SELLER_ID, DOCUMENT_ID, "VERIFIED", null, seller)).getStatus());
+
+        verifyNoInteractions(docs);
+    }
+
+    @Test
+    void adminCannotDownloadDocumentThroughAnotherSellersPathId() {
+        when(docs.findByDocumentIdAndSellerId(DOCUMENT_ID, "SELLER-OTHER"))
+                .thenReturn(Optional.empty());
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> controller.download("SELLER-OTHER", DOCUMENT_ID, admin));
+
+        assertEquals(HttpStatus.NOT_FOUND, error.getStatus());
+        verify(docs).findByDocumentIdAndSellerId(DOCUMENT_ID, "SELLER-OTHER");
+    }
+
+    @Test
+    void sellerDocumentMetadataIsScopedToTheSellerLinkedToTheSessionUser() {
+        when(docs.findBySellerIdOrderByUploadedAtDesc(SELLER_ID)).thenReturn(List.of());
+
+        var response = controller.mine("Bearer seller-token");
+
+        assertTrue(response.isEmpty());
+        verify(sellerRepository).findByUserId("E2E-USER-UNIT");
+        verify(docs).findBySellerIdOrderByUploadedAtDesc(SELLER_ID);
+    }
+
     private SellerDocumentEntity cleanDocument() {
         return SellerDocumentEntity.builder()
                 .documentId(DOCUMENT_ID).sellerId(SELLER_ID).documentType("SHOP_FRONT_PHOTO")
