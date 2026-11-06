@@ -41,6 +41,7 @@ public class OrderService {
     @Transactional
     public com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse placeMultiSellerOrder(
             MultiSellerCheckoutRequest request, UserEntity buyer, String e2eRunId) {
+        requireBuyer(buyer);
         if (!"COD".equalsIgnoreCase(request.paymentMethod())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Online payment is not enabled yet. Please select Cash on Delivery.");
         }
@@ -143,6 +144,7 @@ public class OrderService {
 
     @Transactional
     public OrderPlacementResponse placeOrder(PlaceOrderRequest request, UserEntity buyer, String e2eRunId) {
+        requireBuyer(buyer);
         if (!"COD".equalsIgnoreCase(request.paymentMethod())) {
             throw new ApiException(HttpStatus.BAD_REQUEST,
                     "Online payment is not enabled yet. Please select Cash on Delivery.");
@@ -336,11 +338,12 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrderResponse> history(String buyerEmail) {
-        if (buyerEmail == null || buyerEmail.isBlank()) {
+    public List<OrderResponse> history(UserEntity buyer) {
+        requireBuyer(buyer);
+        if (buyer.getEmail() == null || buyer.getEmail().isBlank()) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
         }
-        return orderRepository.findByBuyerEmail(buyerEmail.trim().toLowerCase())
+        return orderRepository.findByBuyerEmail(buyer.getEmail().trim().toLowerCase(Locale.ROOT))
                 .stream().map(OrderResponse::from).toList();
     }
 
@@ -355,6 +358,15 @@ public class OrderService {
                         && candidate.getBuyerEmail().equalsIgnoreCase(buyer.getEmail().trim()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
         return OrderResponse.from(order);
+    }
+
+    private void requireBuyer(UserEntity buyer) {
+        if (buyer == null) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
+        }
+        if (!"BUYER".equalsIgnoreCase(buyer.getRole())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only a buyer account can place or view buyer orders");
+        }
     }
 
     private BigDecimal configuredDecimal(String column, BigDecimal fallback) {
