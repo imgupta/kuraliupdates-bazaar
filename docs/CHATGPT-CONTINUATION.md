@@ -112,3 +112,10 @@ Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller
 - Render confirms PR #269 backend deployment `dep-dbmu5k6c6qcc73biqedg` is live. Render app logs show the service process restarted around `2026-11-06T19:16:14Z`, but the available log window contains only early Spring Boot startup lines and no request-level evidence. Request logs returned no entries, so the precise endpoint/startup cause is not yet proven.
 - Updated the preflight workflow to emit a progress line before each role request and cleanup, increased request timeout from 20 to 60 seconds, and increased job timeout from 8 to 12 minutes to tolerate Render cold start and make the next failure diagnosable. This does not change transactional gating or cleanup scope.
 - New workflow commit: `231f43ddd1f49d99f441129a2ef77f462cd0e67c`. A fresh PR head run is required. Do not treat the previous timeout as proof that cleanup is fixed or broken; it is an inconclusive network/availability failure.
+
+
+## 7 November 2026 — dedicated branch preflight trigger
+
+- PR #270 did not produce a new staging preflight run after the timeout/diagnostic commit. To make verification deterministic without depending on pull-request workflow-definition loading, the preflight workflow now also triggers on pushes to the exact dedicated branch `phase1/staging-preflight-after-cleanup-fix`.
+- This push-triggered run remains non-transactional: `trustedRun` is true only for explicit `workflow_dispatch`; all push/PR events skip transactional fixture provisioning and business mutations. Only five temporary tagged role sessions can be issued and exact run-scoped cleanup is attempted.
+- Workflow trigger commit: `9d6ce8dd68044893f1a5a7642cbb56304570685d`. Check its push-triggered workflow run before merging PR #270. No pass is claimed yet.
