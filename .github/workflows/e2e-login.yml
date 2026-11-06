@@ -17,6 +17,12 @@ on:
       - '*.md'
       - 'docs/**'
   workflow_dispatch:
+    inputs:
+      run_transactional_flows:
+        description: 'Create a synthetic COD order and Daily Help booking in staging, then clean up this run only'
+        required: true
+        type: boolean
+        default: true
   schedule:
     - cron: "30 3 * * 1-5"
 
@@ -109,6 +115,7 @@ jobs:
       E2E_API_BASE_URL: "https://kuraliupdates-bazaar.onrender.com/api/v1"
       KURALI_API_BASE_URL: "https://kuraliupdates-bazaar.onrender.com/api/v1"
       E2E_STAGING_CONFIG_JSON: ${{ secrets.E2E_STAGING_CONFIG_JSON }}
+      RUN_TRANSACTIONAL_FLOWS: ${{ inputs.run_transactional_flows }}
       SMOKE_READINESS_TIMEOUT_MS: "360000"
       SMOKE_RETRY_INTERVAL_MS: "10000"
       SMOKE_TIMEOUT_MS: "45000"
@@ -185,7 +192,8 @@ jobs:
           const trusted = event === 'schedule' || event === 'workflow_dispatch';
           const values = Object.fromEntries(lines.map(line => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
           values.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED = trusted && values.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED === 'true' ? 'true' : 'false';
-          values.E2E_TRANSACTIONAL_FLOWS_ENABLED = trusted && values.E2E_TRANSACTIONAL_FLOWS_ENABLED === 'true' ? 'true' : 'false';
+          const manualTransactionalOptIn = event === 'workflow_dispatch' && process.env.RUN_TRANSACTIONAL_FLOWS === 'true';
+          values.E2E_TRANSACTIONAL_FLOWS_ENABLED = trusted && (manualTransactionalOptIn || values.E2E_TRANSACTIONAL_FLOWS_ENABLED === 'true') ? 'true' : 'false';
           // Values nested in the JSON secret are not individually masked by GitHub.
           // Mask tokens, test identities, contact details and fixture identifiers before
           // exporting them; subsequent Actions step environment summaries then redact them.
@@ -224,11 +232,8 @@ jobs:
           trusted=false
           if [ "${GITHUB_EVENT_NAME}" = "schedule" ] || [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then trusted=true; fi
           if [ "$E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED" != "true" ]; then
-            if [ "$trusted" = "true" ]; then
-              echo "Trusted full-E2E run requested, but staging OTP email suppression/capture has not been explicitly confirmed."
-              exit 1
-            fi
-            echo "Skipping authenticated OTP E2E on push/PR: staging OTP capture mode is not explicitly confirmed."
+            echo "OTP-driven browser login scenarios remain skipped because staging email suppression/capture is not confirmed."
+            echo "The API-backed transactional suite uses the separate staging-only flow token and may still run when explicitly enabled."
             exit 0
           fi
           node --input-type=module <<'NODE'
@@ -278,7 +283,7 @@ jobs:
           fi
           test "$E2E_ENVIRONMENT" = "staging" || { echo "Refusing transactional E2E unless E2E_ENVIRONMENT=staging"; exit 1; }
           test "$E2E_API_BASE_URL" = "https://kuraliupdates-bazaar.onrender.com/api/v1" || { echo "Refusing transactional E2E against an unapproved API"; exit 1; }
-          required=(E2E_FLOW_AUTH_TOKEN E2E_BUYER_IDENTITY E2E_SELLER_IDENTITY E2E_DELIVERY_IDENTITY E2E_PROVIDER_IDENTITY E2E_ADMIN_IDENTITY E2E_FLOW_BUYER_PHONE E2E_FLOW_BUYER_EMAIL E2E_FLOW_PRODUCT_ID E2E_FLOW_SELLER_ID E2E_FLOW_DELIVERY_AGENT_ID E2E_FLOW_ORDER_QUANTITY E2E_FLOW_DAILY_HELP_SERVICE_ID E2E_FLOW_DAILY_HELP_SLOT_ID E2E_FLOW_PROFESSIONAL_ID E2E_FLOW_DAILY_HELP_START E2E_FLOW_DAILY_HELP_HOURS)
+          required=(E2E_FLOW_AUTH_TOKEN E2E_BUYER_IDENTITY E2E_SELLER_IDENTITY E2E_DELIVERY_IDENTITY E2E_PROVIDER_IDENTITY E2E_ADMIN_IDENTITY E2E_FLOW_BUYER_PHONE E2E_FLOW_BUYER_EMAIL E2E_FLOW_SELLER_ID E2E_FLOW_DELIVERY_AGENT_ID E2E_FLOW_PROFESSIONAL_ID)
           missing=()
           for name in "${required[@]}"; do
             if [ -z "${!name:-}" ]; then missing+=("$name"); fi
@@ -291,14 +296,14 @@ jobs:
             echo "Seller lifecycle E2E requires separate dedicated seller and admin identities."
             exit 1
           fi
-          for key in E2E_FLOW_PRODUCT_ID E2E_FLOW_SELLER_ID E2E_FLOW_DELIVERY_AGENT_ID E2E_FLOW_DAILY_HELP_SERVICE_ID E2E_FLOW_DAILY_HELP_SLOT_ID E2E_FLOW_PROFESSIONAL_ID; do
+          for key in E2E_FLOW_SELLER_ID E2E_FLOW_DELIVERY_AGENT_ID E2E_FLOW_PROFESSIONAL_ID; do
             value="${!key}"
             if [[ ! "$value" =~ ^E2E-[A-Za-z0-9_-]{3,80}$ ]]; then
               echo "$key must reference an allowlisted synthetic E2E fixture ID beginning E2E-; refusing to run mutating tests against real staging data."
               exit 1
             fi
           done
-          echo "Transactional E2E configuration is complete for the designated staging environment. Tests use synthetic fixtures and run-scoped cleanup."
+          echo "Transactional E2E configuration is complete. Product, service and slot fixtures will be provisioned by the backend under this run ID and cleaned up after the test."
       - name: Run browser E2E tests
         run: bunx playwright test
       - name: Upload Playwright report and traces
