@@ -165,6 +165,41 @@ class SellerServiceTest {
     }
 
     @Test
+    void sellerProductListIsScopedToAuthenticatedStore() {
+        SellerEntity seller = approvedSeller("SELLER-1");
+        ProductEntity ownProduct = ProductEntity.builder().productId("P-OWN").seller(seller)
+                .title("Own product").category("GROCERY").stock(2).build();
+        stubSeller(seller);
+        when(productRepository.findBySeller_SellerId("SELLER-1")).thenReturn(List.of(ownProduct));
+
+        var products = sellerService.getProducts(TOKEN);
+
+        assertEquals(1, products.size());
+        assertEquals("P-OWN", products.get(0).productId());
+        assertEquals("SELLER-1", products.get(0).sellerId());
+        verify(productRepository).findBySeller_SellerId("SELLER-1");
+        verify(productRepository, never()).findAll();
+    }
+
+    @Test
+    void sellerDiscountListIsScopedToAuthenticatedStore() {
+        SellerEntity seller = approvedSeller("SELLER-1");
+        BillDiscountEntity ownRule = BillDiscountEntity.builder().ruleId("DISC-OWN")
+                .seller(seller).minBillAmount(BigDecimal.valueOf(100))
+                .discountPercentage(BigDecimal.valueOf(10)).description("Own store offer").build();
+        stubSeller(seller);
+        when(billDiscountRepository.findBySeller_SellerIdOrderByMinBillAmountAsc("SELLER-1"))
+                .thenReturn(List.of(ownRule));
+
+        var discounts = sellerService.getDiscounts(TOKEN);
+
+        assertEquals(1, discounts.size());
+        assertEquals("DISC-OWN", discounts.get(0).getRuleId());
+        verify(billDiscountRepository).findBySeller_SellerIdOrderByMinBillAmountAsc("SELLER-1");
+        verify(billDiscountRepository, never()).findAll();
+    }
+
+    @Test
     void sellerOrderListIsScopedToAuthenticatedStore() {
         SellerEntity seller = approvedSeller("SELLER-1");
         List<OrderEntity> expected = List.of(order(seller, "PLACED"));
