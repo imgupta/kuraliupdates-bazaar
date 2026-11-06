@@ -18,10 +18,10 @@ Before every coding, refactoring, review, test or release task, read [ENGINEERIN
 
 ## Latest execution checkpoint
 
-- Main after PR #263: `656ddd5bedc9d8b48a027ba574bb5263a284f633`.
-- PR #263 merged after exact-head CI: 230 backend tests, zero failures/errors/skips; frontend checks/build and seller-registration quality gates passed; read-only smoke 7/0 with `databaseHealthChecked=false`; browser E2E 3 passed / 9 skipped.
+- Main after PR #264: `4dc3a9219c6f55a869d468c0d33b79ec19f7bced`.
+- PR #264 merged after exact-head CI: 235 backend tests, zero failures/errors/skips; `SellerDocumentControllerTest` 14 passed; frontend checks/build and seller-registration quality gates passed; read-only smoke 7/0 with `databaseHealthChecked=false`; browser E2E 3 passed / 9 skipped.
 - Phase 0 formal register: `PHASE-0-FORMAL-EVIDENCE-REGISTER.md`; milestone merged, formal closure remains open pending Oracle/backup/restore, hosting residency, secret rotation and qualified professional sign-offs.
-- Phase 1 remains in progress. Next PR #264 covers seller-document access negative cases, admin download response privacy headers and metadata data minimization.
+- Phase 1 remains in progress. Next PR #265 adds real MockMvc/filter-chain coverage for admin seller-lead list, notes and write routes.
 
 ## Locked architecture decision
 
@@ -68,3 +68,19 @@ Open PR #84 concerns Oracle wallet/secret handling and explicitly prohibits merg
 ## Safety and evidence
 
 Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller documents. Do not enable mutating E2E until the database target, synthetic identities/data and cleanup are verified. Do not routinely run destructive reset migrations. Claim completion only when source, tests, CI and runtime evidence agree.
+
+## Current consolidated PR continuation
+
+- PR #265's standard CI workflow is still pending with no jobs reported by GitHub; its seller-registration quality gate passed (239 backend tests, zero failures/errors/skips; frontend checks/build passed). It is not merged.
+- The consolidated branch phase1/consolidated-security-regression-batch is based on PR #265's exact head so its admin seller-lead filter-chain tests are included with the next grouped regression batch.
+- The consolidated changes add Daily Help and Delivery malformed-principal rejection, Delivery Tracking HTTP session/filter-chain tests, and public/admin seller-registration OTP settings privacy/role tests.
+- Do not merge until the consolidated PR's exact-head standard CI and required quality gates complete successfully. The earlier PR #265 pending run must not be represented as a pass.
+- Continue only after inspecting test logs and failures. Keep authenticated browser E2E skips explicit; do not run destructive E2E or Oracle concurrency against shared staging.
+- Oracle concurrency/rollback, backup/restore, production India-region verification, secret rotation and professional legal/compliance sign-off remain separate Phase 0/P1 evidence gates.
+
+### PR #266 verification update
+
+- At code head 14dd0167c61aefa5e307b65d7dcfdfe259292264, seller-registration quality gates run 42218558945 passed: backend Maven 248 tests, zero failures/errors/skips; frontend TypeScript and production build passed.
+- Focused tests passed: Daily Help 10, Delivery 5, Delivery Tracking HTTP security 3, OTP settings HTTP security 3, Admin seller-lead HTTP security 4.
+- The first attempt exposed a compile error in the OTP settings history mock. It was corrected to return the declared List type; the 248-test pass is from the corrected head.
+- Standard CI/E2E run 42218558947 remains pending with no jobs returned. Do not merge or report the PR fully verified until a new exact-head standard workflow completes after this documentation update.

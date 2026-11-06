@@ -368,3 +368,47 @@ PR #262 adds controller-level tests that every seller portal operation forwards 
 ### Next P1-A slice — seller-document access and PII handling
 
 PR #264 adds missing/invalid seller bearer-session and missing seller-profile negative tests, verifies anonymous admin document operations fail before repository access, verifies clean admin downloads carry private/no-store and nosniff headers, and verifies seller metadata does not expose raw document bytes. Existing tests already cover non-admin denial, seller-profile scoping, cross-seller document-path denial, malware quarantine and admin verification audit identity. This is a bounded controller test slice; full HTTP filter-chain multipart integration, encryption-at-rest, retention/deletion and storage-provider controls remain separate evidence requirements.
+
+
+
+## PR #264 verification addendum — 6 November 2026
+
+- PR #264 merged to main as `4dc3a9219c6f55a869d468c0d33b79ec19f7bced` after exact-head CI passed.
+- Full backend Maven verification: **235 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS**. `SellerDocumentControllerTest`: 14 passed (5 new cases).
+- Frontend checks and production build: passed; seller-registration quality gates passed.
+- Read-only API smoke: **7 passed, 0 failed**, `databaseHealthChecked=false`; not database readiness.
+- Browser E2E: **3 passed, 9 skipped**. Authenticated/transactional flows remain skipped.
+- First CI attempt exposed a missing test import (`HttpHeaders`); fixed on the PR branch, and all checks passed on the final exact head. No runtime behavior changed.
+
+## Next P1-A slice — admin seller-lead route enforcement
+
+PR #265 adds a MockMvc security-filter-chain test for actual `/admin/seller-leads` list, notes, update and add-note routes. It verifies anonymous and authenticated BUYER requests are denied, ADMIN can read, and write audit actor is sourced from the authenticated session rather than request-body `actor`. Existing controller unit tests cover the principal guard and spoofed actor rejection. No public lead intake behavior or business data is changed.
+
+## Consolidated P1-A / P1-B / P1-D regression batch — PR #266 (in progress)
+
+PR #266 consolidates the next related authorization, authenticated-route and privacy-boundary test work on one branch, including the superseded PR #265 admin seller-lead filter-chain tests.
+
+Added in this batch:
+- Daily Help controller negative coverage for missing and malformed principals across booking, professional profile, slots, jobs, earnings, status, start and completion operations. Tests assert protected service methods are not reached when the principal is invalid.
+- Delivery controller malformed-principal coverage across all protected delivery operations, complementing the existing missing-authentication and service ownership tests.
+- Delivery tracking HTTP filter-chain coverage for anonymous denial and bearer-session forwarding on order tracking and rider location updates. Existing DeliveryTrackingServiceTest already covers expired sessions, unrelated buyers/riders, assigned-rider ownership, and buyer-only delivery OTP disclosure.
+- Seller-registration OTP settings HTTP security and privacy coverage: public settings expose only the two required boolean flags; anonymous and BUYER sessions cannot access admin settings/history or mutate configuration; ADMIN updates are attributed to the authenticated principal.
+
+Verification boundary:
+- These are test additions; they do not claim that rate limiting, encryption-at-rest, retention/deletion, consent or vendor-region controls are implemented.
+- No real user, seller, buyer, rider, OTP or order data is used. MockMvc tests use synthetic identities and mocked service boundaries.
+- No database mutation, Oracle concurrency run, deployment or production secret change is part of this batch.
+- Exact-head CI is required before merge. Browser E2E skips are not passes. Oracle transaction/rollback proof remains blocked until an isolated Oracle test target and cleanup harness are verified.
+
+**Status: IN PROGRESS.** Do not close P1-A, P1-B, P1-D or Phase 1 from these controller tests alone.
+
+### PR #266 first verification cycle — 6 November 2026
+
+At code head 14dd0167c61aefa5e307b65d7dcfdfe259292264, the Seller registration quality gates workflow run 42218558945 completed successfully:
+- Full backend Maven suite: **248 tests, 0 failures, 0 errors, 0 skipped; BUILD SUCCESS**.
+- Focused additions: DailyHelpControllerTest 10 passed; DeliveryControllerTest 5 passed; DeliveryTrackingControllerSecurityTest 3 passed; SellerRegistrationOtpConfigControllerSecurityTest 3 passed; AdminSellerOnboardingControllerSecurityTest 4 passed.
+- Frontend TypeScript checks and production build: passed.
+- The standard KuraliUpdates CI and E2E workflow run 42218558947 remains pending and has returned no jobs. It is not a pass; merge remains blocked until exact-head standard workflow evidence is available.
+- An initial compile failure in SellerRegistrationOtpConfigControllerSecurityTest was corrected by matching the history mock to its declared List return type. The successful 248-test result is from the corrected code head.
+
+This evidence is a first successful quality-gate run, not yet the final PR head after this documentation addendum. Re-run exact-head workflows after the documentation update.

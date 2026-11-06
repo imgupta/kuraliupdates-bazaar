@@ -164,6 +164,60 @@ class DailyHelpControllerTest {
         verifyNoInteractions(dailyHelpService, e2eRunTagging);
     }
 
+
+    @Test
+    void protectedDailyHelpRoutesRejectMissingAndMalformedUserPrincipalsBeforeServiceAccess() {
+        Authentication malformed = mock(Authentication.class);
+        when(malformed.getPrincipal()).thenReturn("not-a-user-principal");
+        DailyHelpBookingRequest booking = new DailyHelpBookingRequest(
+                "DH-CLEAN", "Buyer", "9876500000", "House 1", "Kurali",
+                LocalDateTime.now().plusDays(1), BigDecimal.ONE, "SLOT-1");
+
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.createBooking(booking, null, null, null)).getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.createBooking(booking, null, null, malformed)).getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.professionalByPhone("9876500000", malformed)).getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.professionalSlots("DHP-1", LocalDate.now(), malformed)).getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.earnings("DHP-1", malformed)).getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.getLatestBooking("9876500000", malformed)).getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.getBooking("BOOK-1", malformed)).getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.updateStatus("BOOK-1",
+                        new DailyHelpStatusRequest("DHP-1", "ARRIVING"), malformed)).getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.startBooking("BOOK-1",
+                        new DailyHelpStartRequest("DHP-1", "123456"), malformed)).getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.completeBooking("BOOK-1", "DHP-1", malformed)).getStatus());
+
+        verifyNoInteractions(dailyHelpService, e2eRunTagging);
+    }
+
+    @Test
+    void missingAuthenticationCannotAccessDailyHelpProfessionalMutationRoutes() {
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.availability("DHP-1",
+                        new DailyHelpProfessionalAvailabilityRequest("AVAILABLE", "Kurali"), null)).getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.createProfessionalSlot("DHP-1",
+                        new DailyHelpSlotRequest(LocalDate.now().plusDays(1),
+                                java.time.LocalTime.of(10, 0), java.time.LocalTime.of(11, 0)), null)).getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.cancelProfessionalSlot("DHP-1", "SLOT-1", null)).getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.availableJobs("DHP-1", null)).getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.acceptJob("DHP-1", "BOOK-1", null)).getStatus());
+
+        verifyNoInteractions(dailyHelpService);
+    }
+
     private Authentication authentication(UserEntity user) {
         Authentication authentication = mock(Authentication.class);
         when(authentication.getPrincipal()).thenReturn(user);

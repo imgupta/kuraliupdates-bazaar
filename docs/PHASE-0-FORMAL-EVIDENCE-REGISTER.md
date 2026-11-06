@@ -1,7 +1,7 @@
 # Phase 0 — Formal Evidence and Exit Register
 
 **Prepared:** 6 November 2026  
-**Repository baseline:** `main` at `656ddd5bedc9d8b48a027ba574bb5263a284f633` (PR #263 merged)  
+**Repository baseline:** `main` at `4dc3a9219c6f55a869d468c0d33b79ec19f7bced` (PR #264 merged)  
 **Purpose:** Reconcile Phase 0 work, evidence and exit formalities without converting missing evidence into a pass.  
 **Decision:** **Formal closure is not evidenced by the current repository record.** The completed security-hardening milestone is acknowledged; the exit register remains open until the blocking evidence below is attached and independently reviewed.
 
@@ -94,6 +94,6 @@ No reviewer identity, approval, legal opinion, restore result, region or secret 
 
 ## 6. Relationship to Phase 1
 
-Phase 1 continues independently as functional/security validation. Current Phase 1 merged authorization slices include PRs #232–#263 as recorded in `PHASE-1-EXECUTION-PLAN.md`. Remaining work includes the broader IDOR matrix, authenticated role journeys with isolated identities/OTP/cleanup, Oracle-backed concurrency and rollback, abuse/privacy controls, and operational recovery proof. Phase 1 test progress must not be used to declare Phase 0 legal, residency, backup or secret-management gates complete.
+Phase 1 continues independently as functional/security validation. Current Phase 1 merged authorization slices include PRs #232–#264 as recorded in `PHASE-1-EXECUTION-PLAN.md`. Remaining work includes the broader IDOR matrix, authenticated role journeys with isolated identities/OTP/cleanup, Oracle-backed concurrency and rollback, abuse/privacy controls, and operational recovery proof. Phase 1 test progress must not be used to declare Phase 0 legal, residency, backup or secret-management gates complete.
 
 **Formal disposition as of 6 November 2026: Phase 0 milestone delivered; formal exit not evidenced. Keep Phase 0 closure and production release gates open until the closure evidence pack is complete and approved.**
