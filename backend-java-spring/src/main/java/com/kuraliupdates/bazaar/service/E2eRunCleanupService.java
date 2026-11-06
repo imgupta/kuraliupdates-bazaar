@@ -27,7 +27,10 @@ public class E2eRunCleanupService {
                            OR UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%RETURN%')
                        OR EXISTS (SELECT 1 FROM ORDER_ITEMS oi
                                   WHERE oi.ORDER_ID = o.ORDER_ID
-                                    AND (oi.PRODUCT_ID NOT LIKE 'E2E-%' OR oi.QUANTITY <= 0)))
+                                    AND (oi.PRODUCT_ID NOT LIKE 'E2E-%' OR oi.QUANTITY <= 0
+                                         OR NOT EXISTS (SELECT 1 FROM PRODUCTS p
+                                                        WHERE p.PRODUCT_ID = oi.PRODUCT_ID
+                                                          AND p.E2E_RUN_ID = o.E2E_RUN_ID))))
                 """, runId);
         long unsafeBookings = count("""
                 SELECT COUNT(*) FROM DAILY_HELP_BOOKINGS b
@@ -35,22 +38,30 @@ public class E2eRunCleanupService {
                   AND (b.SERVICE_ID NOT LIKE 'E2E-%'
                        OR b.PROFESSIONAL_ID IS NULL
                        OR b.PROFESSIONAL_ID NOT LIKE 'E2E-%'
+                       OR NOT EXISTS (SELECT 1 FROM DAILY_HELP_SERVICES ds
+                                      WHERE ds.SERVICE_ID = b.SERVICE_ID
+                                        AND ds.E2E_RUN_ID = b.E2E_RUN_ID)
                        OR NOT EXISTS (SELECT 1 FROM DAILY_HELP_PROFESSIONAL_SLOTS s
-                                      WHERE s.E2E_RUN_ID = ?
+                                      WHERE s.E2E_RUN_ID = b.E2E_RUN_ID
                                         AND s.SLOT_ID LIKE 'E2E-%'
                                         AND s.PROFESSIONAL_ID = b.PROFESSIONAL_ID))
-                """, runId, runId);
+                """, runId);
         long unsafeChats = count("""
                 SELECT COUNT(*) FROM NEGOTIATION_CHATS c
                 WHERE c.E2E_RUN_ID = ?
-                  AND (c.PRODUCT_ID NOT LIKE 'E2E-%' OR c.SELLER_ID NOT LIKE 'E2E-%')
+                  AND (c.PRODUCT_ID NOT LIKE 'E2E-%' OR c.SELLER_ID NOT LIKE 'E2E-%'
+                       OR NOT EXISTS (SELECT 1 FROM PRODUCTS p
+                                      WHERE p.PRODUCT_ID = c.PRODUCT_ID
+                                        AND p.E2E_RUN_ID = c.E2E_RUN_ID))
                 """, runId);
         long unsafeProducts = count("""
                 SELECT COUNT(*) FROM PRODUCTS p
                 WHERE p.E2E_RUN_ID = ?
                   AND (p.PRODUCT_ID NOT LIKE 'E2E-%' OR p.SELLER_ID NOT LIKE 'E2E-%'
                        OR EXISTS (SELECT 1 FROM ORDER_ITEMS oi JOIN ORDERS o ON o.ORDER_ID = oi.ORDER_ID
-                                  WHERE oi.PRODUCT_ID = p.PRODUCT_ID AND NVL(o.E2E_RUN_ID, '-') <> ?))
+                                  WHERE oi.PRODUCT_ID = p.PRODUCT_ID AND NVL(o.E2E_RUN_ID, '-') <> ?)
+                       OR EXISTS (SELECT 1 FROM NEGOTIATION_CHATS nc
+                                  WHERE nc.PRODUCT_ID = p.PRODUCT_ID AND NVL(nc.E2E_RUN_ID, '-') <> ?))
                 """, runId, runId);
         long unsafeServices = count("""
                 SELECT COUNT(*) FROM DAILY_HELP_SERVICES s
@@ -94,9 +105,10 @@ public class E2eRunCleanupService {
                     WHERE o.E2E_RUN_ID = ? AND oi.PRODUCT_ID = p.PRODUCT_ID
                 )
                 WHERE p.PRODUCT_ID LIKE 'E2E-%'
+                  AND p.E2E_RUN_ID = ?
                   AND EXISTS (SELECT 1 FROM ORDER_ITEMS oi JOIN ORDERS o ON o.ORDER_ID = oi.ORDER_ID
                               WHERE o.E2E_RUN_ID = ? AND oi.PRODUCT_ID = p.PRODUCT_ID)
-                """, runId, runId);
+                """, runId, runId, runId);
         int orderItems = jdbc.update("""
                 DELETE FROM ORDER_ITEMS
                 WHERE ORDER_ID IN (SELECT ORDER_ID FROM ORDERS WHERE E2E_RUN_ID = ?)
