@@ -2,7 +2,7 @@
 
 **Status:** In progress  
 **Execution branches:** short-lived `phase1/*` branches; changes are merged through reviewed PRs  
-**Base:** current `main`; last reconciled commit before this evidence update: `326bc7834eae891dffc99ff8e6d2bcfd1d831cf7`  
+**Base:** current `main`; last reconciled commit before this evidence update: `d8d838dbb9d250a0c1d0e409c3dca036e2fc3817`  
 **Environment:** Owner-designated shared staging only; no mutating tests against shared or real business records.
 
 ## Objective
@@ -13,7 +13,7 @@ Prove that the core marketplace actors can access only their own resources and t
 
 - Phase 0 security-hardening milestone PR #231 is merged. It added default-deny route policy, an explicit public method/path allowlist, admin role enforcement, persistent one-time portal handoff storage (Flyway V31), active-delivery-profile tracking checks, CORS regression coverage and source/write-path inventories. **PR #231 did not close Phase 0**: its own release notes explicitly left complete method-level IDOR coverage, authenticated transactional E2E, backup/restore, India-only production residency, secret rotation and legal/compliance review open. Phase 0 exit criteria in CHATGPT-CONTINUATION.md and CURRENT-STATE.md therefore remain authoritative and open.
 - The Phase 0 staging deployment was reported live; Render startup logs confirmed V31 applied. Recheck exact deployment and CI evidence for any runtime-dependent test before relying on it.
-- The latest reported post-merge read-only API smoke was 7 passed / 0 failed, with database readiness checked and `/health` HTTP 200.
+- The latest exact-head read-only API smoke (PR #259) was 7 passed / 0 failed with databaseHealthChecked=false; scope was process liveness and anonymous guards only. Do not claim database readiness from this run.
 - Browser E2E reported 3 passed / 9 skipped. Authenticated/transactional flows were skipped because dedicated role identities and trusted OTP capture were not configured for that run. Skips are not passes.
 - The current endpoint authorization and transaction inventories explicitly leave complete IDOR and Oracle concurrency/rollback proofs open.
 - Staging region and vendor data-flow evidence do not establish India-only production residency. Production residency, secret rotation and professional legal/compliance review remain separate release gates.
@@ -201,9 +201,9 @@ Before Oracle integration tests can be accepted, establish an owner-approved iso
 
 Still open and must be checked against source before marking complete:
 - Buyer address list/create/update/delete/default-address ownership and single-default invariant.
-- Buyer order history and tracking controller authentication, cross-buyer order IDs, pickup/cancel/refund paths and response DTO data minimization.
-- Seller inventory/product reads and writes beyond the covered product/discount methods; seller order/document/download PII routes and onboarding lead ownership.
-- Delivery assigned-job listing, tracking/location update ownership, combined checkout claims, pickup/OTP paths at controller and service boundaries.
+- Buyer order history/tracking/pickup controller session propagation is covered by PR #257; BUYER-role enforcement for checkout and order history at controller/service layers is covered by PR #259. Remaining: cancellation/refund paths where implemented, cross-buyer nested-ID coverage beyond existing service tests, response DTO minimization and HTTP filter-chain integration.
+- Seller product/discount list and selected product/order/document/onboarding ownership slices are covered by PRs #237/#240/#245/#246. Remaining: seller profile read and availability, product/discount create and own-delete paths, inventory boundary validation, controller bearer-session propagation, document PII minimization and full seller-lead ownership/abuse matrix.
+- Delivery protected-route controller principal guards are covered by PR #258; service tests cover spoofed agent-ID claim denial and wrong-agent pickup confirmation. Remaining: assigned-job and combined-checkout claim owner-state assertions, location/OTP replay under real transactions, filter-chain role integration and two-agent concurrency.
 - Daily Help slot/availability/job/earnings read scoping and accept/start/complete ownership at controller and service boundaries.
 - Negotiation chat, message, offer and bargain-accept nested IDs; ensure one participant cannot mutate/read another chat or replay acceptance.
 - Admin-only list/download/update routes and non-admin denial for every PII-bearing operation.
@@ -330,3 +330,30 @@ Buyer address controller tests are being added for authenticated-session user re
 Buyer order controller authorization tests are being added for authenticated order history, tracking and store-pickup confirmation. Existing `OrderServiceTest` already verifies cross-buyer tracking/pickup rejection and non-buyer tracking denial. The new controller tests must prove the authenticated `UserEntity` is passed unchanged to the owner-scoped service and anonymous/malformed principals fail before service calls. This slice remains pending exact-head CI.
 
 **Phase 1 remains IN PROGRESS.** Full endpoint IDOR coverage, authenticated transactional E2E, Oracle concurrency/rollback, abuse controls and P1-D operational/legal gates remain open.
+
+
+## Phase 1 progress addendum — 6 November 2026 (PRs #257–#259)
+
+This addendum records the buyer-order and delivery-controller work merged after the PR #255 checkpoint. Exact test counts below are full backend Maven suite totals at each PR head.
+
+| PR | Merged change | Full backend suite | CI evidence |
+|---|---|---:|---|
+| #257 | Buyer order history, tracking and pickup controller principal propagation; malformed/anonymous rejection | 206 passed; 0 failures/errors/skips | CI run 42214592336; seller-registration quality gate 42214592254 |
+| #258 | Delivery controller guard matrix across current profile, availability, available/assigned jobs, single/group claim, pickup and OTP routes | 204 passed; 0 failures/errors/skips | CI run 42214731184 |
+| #259 | BUYER-role enforcement at BuyerController and OrderService for checkout, multi-seller checkout and order history; history now accepts authenticated UserEntity | 215 passed; 0 failures/errors/skips | CI run 42215386929; seller-registration quality gate 42215386946 |
+
+### Evidence boundaries
+
+- PR #257 verifies controller principal propagation and malformed/anonymous rejection; existing service tests continue to prove cross-buyer tracking and wrong-buyer pickup denial.
+- PR #258 is controller-only test coverage with mocked DeliveryService. It complements existing service-level spoofed agent-ID and wrong-agent pickup checks; it is not a database-backed concurrent claim test.
+- PR #259 closes a concrete role gap: authenticated non-BUYER accounts were previously able to reach checkout and order-history service paths because those paths did not consistently enforce the BUYER primary role. The controller now rejects non-BUYER principals before E2E tagging/service access; OrderService independently guards single-seller checkout, multi-seller checkout and history before repository/JDBC access. Public product search remains public.
+- PR #259 full backend suite: 215 passed, 0 failures, 0 errors, 0 skipped. Frontend checks and seller-registration quality gates passed.
+- For PRs #257–#259, browser E2E remained 3 passed, 9 skipped. Authenticated role journeys and transactional order/Daily Help lifecycle tests were not executed; transactional lifecycle E2E is disabled on push/PR.
+- The latest read-only API smoke was 7 passed, 0 failed, databaseHealthChecked=false. It proves API process liveness and pre-service anonymous guards only; it does not prove database readiness.
+- No shared staging business data, Oracle database or production data was mutated. No schema migration or deployment change was introduced by PRs #257–#259; PR #259 changes runtime authorization code and therefore its Render deployment must be checked before relying on the live runtime.
+
+### Updated next P1-A slice
+
+Seller-side coverage is now the next focused authorization slice: profile read, store availability, product/discount create and own-delete paths, inventory validation and controller bearer-session propagation. Preserve the existing seller-owned product/discount list, cross-store update/delete, seller order ownership and seller-document/admin guards. Add tests only after confirming exact source behavior and avoid inventing undocumented endpoints.
+
+Phase 1 remains IN PROGRESS. Authenticated browser lifecycle journeys remain skipped, Oracle concurrency/rollback proof remains blocked pending an isolated Oracle schema and cleanup harness, and seller authorization/abuse coverage is incomplete.
