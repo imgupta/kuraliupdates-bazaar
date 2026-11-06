@@ -102,3 +102,14 @@ Acceptance: each High/Critical finding has containment, durable remediation, own
 ## Initial Phase 1 disposition
 
 **Started, not complete.** This plan is the execution contract. No Phase 1 authorization, concurrency or authenticated lifecycle acceptance criterion is marked passed until its implementation and exact test evidence are attached here.
+
+
+## First source finding and remediation — P1-A
+
+**Finding:** `DailyHelpService.getBookingForUser` authorized the professional side only when `UserEntity.role == PROFESSIONAL`. The canonical `UserEntity` role model contains BUYER, SELLER, DELIVERY and ADMIN; Daily Help is a secondary profile attached to the existing account. The controller already resolves the caller's professional profile by the authenticated account phone. Consequently, a legitimate provider whose account primary role is BUYER could manage their own professional profile but could be denied access to their assigned booking.
+
+**Change on this branch:** provider booking ownership now uses the phone on the assigned professional profile, normalized to digits, independent of the account's primary marketplace role. Buyer-side access remains restricted to BUYER plus matching buyer phone. This does not grant access to an unrelated buyer or provider.
+
+**Regression tests added:** a BUYER-primary account with a matching professional profile can read its own provider booking; an unrelated BUYER with a different phone is denied.
+
+**Status:** implementation committed on the Phase 1 branch; backend test execution and CI evidence are pending. No live staging data or transactional E2E was used. This is one targeted authorization fix, not completion of the IDOR matrix.
