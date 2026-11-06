@@ -61,7 +61,8 @@ public class SecurityConfig {
                     "/daily-help/services",
                     "/daily-help/availability",
                     "/seller-registration/otp-settings",
-                    "/registration/otp-settings"
+                    "/registration/otp-settings",
+                    "/seller-service-area"
                 ).permitAll()
 
                 // Assisted seller lead capture and verification are intentionally public onboarding entry points.

@@ -43,6 +43,7 @@ class SecurityConfigTest {
         mockMvc.perform(get("/buyers/products/search")).andExpect(status().isOk());
         mockMvc.perform(get("/daily-help/services")).andExpect(status().isOk());
         mockMvc.perform(get("/daily-help/availability")).andExpect(status().isOk());
+        mockMvc.perform(get("/seller-service-area")).andExpect(status().isOk());
         mockMvc.perform(post("/auth/send-otp")).andExpect(status().isOk());
         mockMvc.perform(post("/seller-registration/leads")).andExpect(status().isCreated());
         mockMvc.perform(post("/delivery/register")).andExpect(status().isOk());
@@ -98,6 +99,9 @@ class SecurityConfigTest {
 
         @GetMapping("/daily-help/availability")
         String publicDailyHelpAvailability() { return "public"; }
+
+        @GetMapping("/seller-service-area")
+        String publicSellerServiceArea() { return "public"; }
 
         @PostMapping("/auth/send-otp")
         String publicSendOtp() { return "public"; }
