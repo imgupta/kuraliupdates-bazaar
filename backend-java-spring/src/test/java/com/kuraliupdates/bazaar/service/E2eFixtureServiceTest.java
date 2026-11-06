@@ -38,7 +38,7 @@ class E2eFixtureServiceTest {
         when(sellers.save(any(SellerEntity.class))).thenAnswer(i -> i.getArgument(0));
         when(agents.findById("E2E-agent-1")).thenReturn(Optional.of(agent));
         when(professionals.findById("E2E-provider-1")).thenReturn(Optional.of(professional));
-        when(products.findFirstByE2eRunId(runId)).thenReturn(Optional.empty());
+        when(products.findById(argThat(id -> id != null && id.startsWith("E2E-P-")))).thenReturn(Optional.empty());
         when(services.findFirstByE2eRunId(runId)).thenReturn(Optional.empty());
         when(slots.findFirstByE2eRunId(runId)).thenReturn(Optional.empty());
         when(products.findById(argThat(id -> id != null && id.startsWith("E2E-MV-")))).thenReturn(Optional.empty());

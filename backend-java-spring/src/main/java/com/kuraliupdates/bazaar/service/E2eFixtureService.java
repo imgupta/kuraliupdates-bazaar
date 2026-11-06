@@ -78,7 +78,7 @@ public class E2eFixtureService {
         LocalTime start = LocalTime.of(10, 0);
         LocalTime end = LocalTime.of(11, 0);
 
-        ProductEntity product = productRepository.findFirstByE2eRunId(runId).orElseGet(() ->
+        ProductEntity product = productRepository.findById(productId).orElseGet(() ->
                 productRepository.save(ProductEntity.builder()
                         .productId(productId).seller(seller)
                         .title("E2E Synthetic Grocery " + productId)
