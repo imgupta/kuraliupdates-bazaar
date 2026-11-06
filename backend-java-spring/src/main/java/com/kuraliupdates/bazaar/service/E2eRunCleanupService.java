@@ -46,7 +46,7 @@ public class E2eRunCleanupService {
                                       WHERE s.E2E_RUN_ID = b.E2E_RUN_ID
                                         AND s.SLOT_ID LIKE 'E2E-%'
                                         AND s.PROFESSIONAL_ID = b.PROFESSIONAL_ID
-                                        AND s.SLOT_ID = b.SLOT_ID))
+                                        AND s.BOOKING_ID = b.BOOKING_ID))
                 """, runId);
         long unsafeChats = count("""
                 SELECT COUNT(*) FROM NEGOTIATION_CHATS c
@@ -81,7 +81,7 @@ public class E2eRunCleanupService {
                 WHERE s.E2E_RUN_ID = ?
                   AND (s.SLOT_ID NOT LIKE 'E2E-%' OR s.PROFESSIONAL_ID NOT LIKE 'E2E-%'
                        OR EXISTS (SELECT 1 FROM DAILY_HELP_BOOKINGS b
-                                  WHERE (b.BOOKING_ID = s.BOOKING_ID OR b.SLOT_ID = s.SLOT_ID)
+                                  WHERE b.BOOKING_ID = s.BOOKING_ID
                                     AND NVL(b.E2E_RUN_ID, '-') <> ?))
                 """, runId, runId);
         long unsafeSellers = count("""
