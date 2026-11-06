@@ -3,6 +3,7 @@ package com.kuraliupdates.bazaar.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
@@ -37,16 +38,46 @@ public class SecurityConfig {
             )
             .addFilterBefore(sessionAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
+                // Public health and API documentation endpoints.
+                .requestMatchers(HttpMethod.GET,
                     "/health",
                     "/health/live",
                     "/v3/api-docs/**",
                     "/swagger-ui/**",
-                    "/swagger-ui.html",
-                    "/buyers/**",
-                    "/sellers/**",
-                    "/delivery/**"
+                    "/swagger-ui.html"
                 ).permitAll()
+
+                // Public sign-in, registration verification and one-time portal handoff redemption.
+                .requestMatchers(HttpMethod.POST,
+                    "/auth/send-otp",
+                    "/auth/registration-check",
+                    "/auth/verify-otp",
+                    "/auth/portal-handoff/redeem"
+                ).permitAll()
+
+                // Public catalogue and Daily Help discovery only; all buyer data/actions require a session.
+                .requestMatchers(HttpMethod.GET,
+                    "/buyers/products/search",
+                    "/daily-help/services",
+                    "/daily-help/availability",
+                    "/seller-registration/otp-settings",
+                    "/registration/otp-settings"
+                ).permitAll()
+
+                // Assisted seller lead capture and verification are intentionally public onboarding entry points.
+                .requestMatchers(HttpMethod.POST,
+                    "/seller-registration/leads",
+                    "/seller-registration/leads/*/send-contact-otps",
+                    "/seller-registration/leads/*/verify-contact",
+                    "/seller-registration/leads/*/callback",
+                    "/delivery/register",
+                    "/sellers/register",
+                    "/analytics/search"
+                ).permitAll()
+
+                // These staging-only controllers independently enforce strong, constant-time shared-token checks.
+                .requestMatchers("/e2e/**").permitAll()
+
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             );
