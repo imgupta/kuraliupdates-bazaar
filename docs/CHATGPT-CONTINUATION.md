@@ -77,3 +77,10 @@ Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller
 - Do not merge until the consolidated PR's exact-head standard CI and required quality gates complete successfully. The earlier PR #265 pending run must not be represented as a pass.
 - Continue only after inspecting test logs and failures. Keep authenticated browser E2E skips explicit; do not run destructive E2E or Oracle concurrency against shared staging.
 - Oracle concurrency/rollback, backup/restore, production India-region verification, secret rotation and professional legal/compliance sign-off remain separate Phase 0/P1 evidence gates.
+
+### PR #266 verification update
+
+- At code head 14dd0167c61aefa5e307b65d7dcfdfe259292264, seller-registration quality gates run 42218558945 passed: backend Maven 248 tests, zero failures/errors/skips; frontend TypeScript and production build passed.
+- Focused tests passed: Daily Help 10, Delivery 5, Delivery Tracking HTTP security 3, OTP settings HTTP security 3, Admin seller-lead HTTP security 4.
+- The first attempt exposed a compile error in the OTP settings history mock. It was corrected to return the declared List type; the 248-test pass is from the corrected head.
+- Standard CI/E2E run 42218558947 remains pending with no jobs returned. Do not merge or report the PR fully verified until a new exact-head standard workflow completes after this documentation update.
