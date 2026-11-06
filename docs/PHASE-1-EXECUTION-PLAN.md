@@ -188,7 +188,7 @@ All listed PRs are merged to `main`. For PRs #234–#240, the full Maven verific
 
 ### Oracle integration-test readiness and transaction proof
 
-The backend build currently includes Oracle JDBC/Flyway and Spring Boot test dependencies, but the repository test tree has no dedicated test datasource configuration, H2/Testcontainers dependency, or isolated Oracle test fixture/cleanup harness. Therefore Oracle-backed transaction tests are **blocked**, not passed. Do not run destructive or mutating tests against the shared staging Oracle schema.
+The backend build includes Oracle JDBC/Flyway and Spring Boot test dependencies. An isolated in-memory H2 JDBC slice (`OtpAttemptServiceJdbcTest`) now exercises independent OTP-attempt commit behavior, one-time consumption and expiry without touching Oracle or shared staging. H2 is test-scoped and Flyway is disabled for this slice so Oracle migrations are not run against H2. This provides local JDBC transaction evidence only; it does **not** prove Oracle SQL dialect compatibility, Oracle row locks, concurrent Oracle transactions or staging behavior. Oracle-backed transaction tests remain **blocked**, not passed, until a dedicated isolated Oracle schema/database and cleanup harness are approved. Do not run destructive or mutating tests against the shared staging Oracle schema.
 
 Before Oracle integration tests can be accepted, establish an owner-approved isolated schema/database with:
 1. isolated credentials and explicit schema identity verification before every test run;
