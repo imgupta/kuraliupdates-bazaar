@@ -16,6 +16,12 @@ Before every coding, refactoring, review, test or release task, read [ENGINEERIN
 - Frontend: Render/Vercel topology must be verified from provider configuration before relying on historical notes.
 - Environment: owner-designated shared staging; no transactional tests against real/shared business records.
 
+## Latest execution checkpoint
+
+- Main after PR #253: `7c3b154e85261fe4b01a53d9934b47fd35d13420`.
+- PR #253 reconciled Phase 0 status: PR #231 is a security-hardening milestone, not Phase 0 completion.
+- Phase 1 remains in progress; latest merged evidence and remaining test limits are in [Phase 1 execution plan](PHASE-1-EXECUTION-PLAN.md).
+
 ## Locked architecture decision
 
 - Frontend: five independently buildable portals — Buyer, Seller, Delivery, Daily Help Provider, Admin — in one monorepo. Low-cost target is one combined static deployment, subject to route/base/fallback verification.
