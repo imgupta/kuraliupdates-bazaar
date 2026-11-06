@@ -2,7 +2,7 @@
 
 **Status:** In progress  
 **Execution branches:** short-lived `phase1/*` branches; changes are merged through reviewed PRs  
-**Base:** current `main`; last reconciled commit before this evidence update: `326bc7834eae891dffc99ff8e6d2bcfd1d831cf7`  
+**Base:** current `main`; latest reconciled commit: `ac3fcc3fd34c25cecdfb8b9ef40694a4f9341af9` (PR #267 merged, 6 November 2026)  
 **Environment:** Owner-designated shared staging only; no mutating tests against shared or real business records.
 
 ## Objective
@@ -93,7 +93,7 @@ Acceptance: each High/Critical finding has containment, durable remediation, own
 ## Guardrails and non-goals
 
 - No production deployment, real customer data, destructive reset, manual SQL mutation, secret rotation, payment/refund redesign, hosting-region change or schema change without separate explicit approval.
-- Do not enable mutating E2E on the shared staging dataset. A dedicated schema/fixture namespace and verified cleanup are prerequisites.
+- Owner approval dated 6 November 2026 permits synthetic-only transactional E2E on the designated staging database, provided every created row is tagged to a unique E2E_RUN_ID, identities/IDs are E2E-prefixed, cleanup validates every relationship before its first write, and only that run's records are removed. Real/shared business records, global reset, truncation and broad cleanup remain prohibited. Oracle-specific evidence must still be tied to the actual deployed schema and verified final state.
 - Do not add tests that merely assert status codes while leaving ownership/data state unverified.
 - Do not refactor into new services/modules during Phase 1.
 - Keep API contracts and the confirmed seller-direct payment/refund decisions unchanged.
@@ -460,3 +460,12 @@ All these scenarios use one run ID and are covered by the cleanup preflight. If 
 ## Staging environment decision — 2026-11-06
 
 The owner confirmed that the current KuraliUpdates environment is staging-only and explicitly authorized synthetic test orders and backend-created mock data for end-to-end verification. There is no production environment to target at this stage. Accordingly, Phase 1 transaction/concurrency tests may run against the designated staging Oracle database only when every created business row is tagged to a unique E2E_RUN_ID, uses E2E-prefixed fixture identities/IDs, and is removed by the guarded run-scoped cleanup. No production target, real customer/seller records, global reset, table truncation, or broad cleanup is authorized. This approval does not close Phase 0 backup/restore, residency, secret-rotation or legal sign-off requirements, and it does not authorize a production relaunch.
+
+
+## Latest reconciliation — 6 November 2026 (PR #267 merged)
+
+- Main baseline: `ac3fcc3fd34c25cecdfb8b9ef40694a4f9341af9`. PR #267's source changes are merged: V32 run tags, V33 API rate-limit buckets, guarded fixture provisioning/cleanup, seller-lead/search abuse limits, and synthetic transactional E2E for bargaining, COD checkout, delivery OTP, Daily Help booking/start/completion, concurrency and multi-seller rollback.
+- Verification status is deliberately conservative: GitHub returned no workflow runs for the merge SHA. Combined commit statuses show five Vercel apps successful and the Delivery Vercel build blocked by a build-rate-limit failure; these statuses do not establish backend CI, V32/V33 migration application, database readiness or transactional staging success.
+- PR #268 adds a PR-triggered, non-transactional staging role preflight. Its follow-up commit is `83dda85d5d791df87b5b85f5abdd3e0fb293b87a`; no workflow run/status was returned at reconciliation time. It must pass before merge.
+- Phase 1 remains IN PROGRESS. Required next evidence: exact-head preflight CI; trusted staging workflow run; V32/V33 migration confirmation; exact run-scoped cleanup counts; remaining endpoint IDOR/privacy/portal-handoff/address concurrency disposition; Oracle-backed concurrency and rollback evidence. Skips and missing workflow results are not passes.
+- Separate Phase 0 release gates remain open: backup/restore, verified India production resource residency, secret rotation and qualified Indian legal/tax/labour/payment sign-offs.
