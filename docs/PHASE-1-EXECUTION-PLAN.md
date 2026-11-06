@@ -113,3 +113,19 @@ Acceptance: each High/Critical finding has containment, durable remediation, own
 **Regression tests added:** a BUYER-primary account with a matching professional profile can read its own provider booking; an unrelated BUYER with a different phone is denied.
 
 **Status:** implementation committed on the Phase 1 branch; backend test execution and CI evidence are pending. No live staging data or transactional E2E was used. This is one targeted authorization fix, not completion of the IDOR matrix.
+
+
+## PR #232 verification addendum — 2026-11-06
+
+**Verified head:** `0001c44f48bdf9212ee843d5aa3d509b4b64a8ec`
+
+- Spring Boot/Maven verification: passed (workflow run `42205811178`).
+- Frontend lint and production build: passed (workflow run `42205811178`).
+- Backend focused regressions: passed; `DailyHelpServiceTest` ran 11 tests with 0 failures/errors/skips.
+- Full backend Maven verification: passed; 142 tests, 0 failures, 0 errors, 0 skips (workflow run `42205811214`).
+- Frontend checks: passed (workflow run `42205811214`).
+- Browser E2E: 3 passed, 9 skipped. Authenticated/transactional flows were skipped because trusted staging OTP capture was not explicitly enabled for the PR event. This is not authenticated lifecycle proof.
+- Read-only smoke: 7 passed, 0 failed. The report explicitly recorded `databaseHealthChecked=false` and limited scope to API process liveness plus anonymous-access guards; it is not a database-readiness result.
+- Private Playwright report publication was skipped by workflow policy; no report artifact is claimed.
+
+**P1-A disposition:** the targeted Daily Help provider booking ownership regression is covered by unit tests and full backend verification. The broader endpoint IDOR matrix remains open. No mutating staging journey, production deployment or database change occurred.
