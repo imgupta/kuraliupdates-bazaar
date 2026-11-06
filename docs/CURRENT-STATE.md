@@ -1,7 +1,7 @@
 # Current implementation status and remaining work
 
 **Last reconciled:** 6 November 2026  
-**Current main evidence checkpoint:** `c3e50040d9d40ec6452b9903c2fa1cff004fc934` (PR #255 merged; includes buyer address controller ownership tests, Daily Help controller profile-ownership tests and isolated H2 OTP-attempt JDBC tests). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
+**Current main evidence checkpoint:** `30814af35c1b84a19e9f993482bd7c1a74a23b32` (PR #262 merged; includes PR #253 H2 OTP/Daily Help guards, PR #255 buyer address ownership, PR #257 buyer order controller tests, PR #258 delivery controller guards, PR #259 buyer-role enforcement and PR #262 seller controller bearer-session tests). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
 
 **Phase 0 formal evidence disposition (6 Nov 2026):** The security-hardening milestone and subsequent authorization slices are merged, but the repository still lacks evidence to sign off all formal exit gates. See [Phase 0 Formal Evidence and Exit Register](PHASE-0-FORMAL-EVIDENCE-REGISTER.md) for completed evidence, partial/blocked items, required closure pack and sign-off form. Do not infer backup/restore, Oracle live-schema, India residency, secret rotation or qualified legal review from CI.
 
