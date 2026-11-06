@@ -11,7 +11,7 @@ Prove that the core marketplace actors can access only their own resources and t
 
 ## Baseline evidence and known limitations
 
-- Phase 0 closeout PR #231 is merged. The merge added default-deny route policy, explicit public method/path allowlist, admin role enforcement, persistent one-time portal handoff storage (Flyway V31), active-delivery-profile tracking checks, CORS regression coverage and source/write-path inventories.
+- Phase 0 security-hardening milestone PR #231 is merged. It added default-deny route policy, an explicit public method/path allowlist, admin role enforcement, persistent one-time portal handoff storage (Flyway V31), active-delivery-profile tracking checks, CORS regression coverage and source/write-path inventories. **PR #231 did not close Phase 0**: its own release notes explicitly left complete method-level IDOR coverage, authenticated transactional E2E, backup/restore, India-only production residency, secret rotation and legal/compliance review open. Phase 0 exit criteria in CHATGPT-CONTINUATION.md and CURRENT-STATE.md therefore remain authoritative and open.
 - The Phase 0 staging deployment was reported live; Render startup logs confirmed V31 applied. Recheck exact deployment and CI evidence for any runtime-dependent test before relying on it.
 - The latest reported post-merge read-only API smoke was 7 passed / 0 failed, with database readiness checked and `/health` HTTP 200.
 - Browser E2E reported 3 passed / 9 skipped. Authenticated/transactional flows were skipped because dedicated role identities and trusted OTP capture were not configured for that run. Skips are not passes.
