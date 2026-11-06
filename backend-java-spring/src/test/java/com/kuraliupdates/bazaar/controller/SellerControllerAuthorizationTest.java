@@ -54,7 +54,7 @@ class SellerControllerAuthorizationTest {
     @Test
     void productReadAndCreateUseTheBearerSessionToken() {
         when(sellerService.getProducts("seller-session")).thenReturn(List.of());
-        when(sellerService.addProduct(eq("seller-session"), any())).thenReturn(mock(ProductResponse.class));
+        when(sellerService.addProduct(eq("seller-session"), isNull())).thenReturn(mock(ProductResponse.class));
 
         assertTrue(controller.getMyProducts(AUTHORIZATION).getBody().isEmpty());
         assertNotNull(controller.addMyProduct(AUTHORIZATION, null).getBody());
@@ -65,7 +65,7 @@ class SellerControllerAuthorizationTest {
 
     @Test
     void productUpdateAndDeleteUseTheBearerSessionToken() {
-        when(sellerService.updateProduct(eq("seller-session"), eq("PRODUCT-1"), any()))
+        when(sellerService.updateProduct(eq("seller-session"), eq("PRODUCT-1"), isNull()))
                 .thenReturn(mock(ProductResponse.class));
 
         assertNotNull(controller.updateMyProduct(AUTHORIZATION, "PRODUCT-1", null).getBody());
@@ -94,7 +94,7 @@ class SellerControllerAuthorizationTest {
     void discountReadCreateAndDeleteUseTheBearerSessionToken() {
         BillDiscountEntity discount = mock(BillDiscountEntity.class);
         when(sellerService.getDiscounts("seller-session")).thenReturn(List.of(discount));
-        when(sellerService.addDiscount(eq("seller-session"), any())).thenReturn(discount);
+        when(sellerService.addDiscount(eq("seller-session"), isNull())).thenReturn(discount);
 
         assertEquals(List.of(discount), controller.getMyDiscounts(AUTHORIZATION).getBody());
         assertSame(discount, controller.addMyDiscount(AUTHORIZATION, null).getBody());
@@ -109,7 +109,7 @@ class SellerControllerAuthorizationTest {
     void missingOrMalformedBearerHeaderIsRejectedByTheSessionBackedServiceBeforeMutation() {
         when(sellerService.updateStoreAvailability(null, true))
                 .thenThrow(new ApiException(HttpStatus.UNAUTHORIZED, "No active token"));
-        when(sellerService.addProduct(eq(null), any()))
+        when(sellerService.addProduct(isNull(), isNull()))
                 .thenThrow(new ApiException(HttpStatus.UNAUTHORIZED, "No active token"));
 
         assertThrows(ApiException.class,
