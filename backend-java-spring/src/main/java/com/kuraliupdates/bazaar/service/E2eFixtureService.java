@@ -37,19 +37,19 @@ public class E2eFixtureService {
         String sellerId = stagingProfileId(request.sellerId(), "sellerId");
         String agentId = stagingProfileId(request.deliveryAgentId(), "deliveryAgentId");
         String professionalId = stagingProfileId(request.professionalId(), "professionalId");
-        UserEntity stagingUser = resolveStagingUser(request.professionalIdentity());
 
         SellerEntity seller = sellerRepository.findById(sellerId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Synthetic seller profile was not found"));
         if (!"APPROVED".equalsIgnoreCase(seller.getStatus()) || !Boolean.TRUE.equals(seller.getStoreOpen())) {
             throw new ApiException(HttpStatus.CONFLICT, "Synthetic seller must be approved and its store must be open");
         }
-        requireSameAccount(stagingUser, seller.getUserId(), "seller");
         DeliveryAgentEntity agent = deliveryAgentRepository.findById(agentId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Synthetic delivery profile was not found"));
         if (!"ACTIVE".equalsIgnoreCase(agent.getStatus()) || !Boolean.TRUE.equals(agent.getAvailableForJobs())) {
             throw new ApiException(HttpStatus.CONFLICT, "Synthetic delivery agent must be ACTIVE and available");
         }
+        UserEntity stagingUser = resolveStagingUser(request.professionalIdentity());
+        requireSameAccount(stagingUser, seller.getUserId(), "seller");
         requireSameAccount(stagingUser, agent.getUserId(), "delivery-agent");
         // Resolve from the same allowlisted provider identity used by E2E auth.
         // This avoids a stale manually copied profile ID drifting from the account.
