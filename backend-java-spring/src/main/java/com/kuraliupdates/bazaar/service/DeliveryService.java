@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.nio.charset.StandardCharsets;
@@ -54,30 +53,6 @@ public class DeliveryService {
 
     private final AtomicInteger resendGuardCleanupCounter = new AtomicInteger();
     private final SecureRandom secureRandom = new SecureRandom();
-
-    @Transactional
-    public DeliveryAgentEntity register(DeliveryAgentEntity request) {
-        if (request.getPhone() == null || request.getEmail() == null || request.getFullName() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Name, phone and email are required");
-        }
-        if (!VEHICLE_TYPES.contains(request.getVehicleType())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported vehicle type");
-        }
-        if (agentRepository.findByPhone(request.getPhone()).isPresent()
-                || agentRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new ApiException(HttpStatus.CONFLICT, "A delivery partner already exists with this phone or email");
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        request.setAgentId("agent-" + UUID.randomUUID().toString().substring(0, 8));
-        request.setStatus("PENDING");
-        request.setRating(BigDecimal.ZERO);
-        request.setTotalTrips(0);
-        request.setTodayEarnings(BigDecimal.ZERO);
-        request.setTotalEarnings(BigDecimal.ZERO);
-        request.setRegisteredAt(now);
-        return agentRepository.save(request);
-    }
 
     @Transactional
     public DeliveryAgentEntity updateAvailability(com.kuraliupdates.bazaar.entity.UserEntity user, boolean available) {
@@ -436,13 +411,21 @@ public class DeliveryService {
         if (user == null) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated user is required");
         }
-        Optional<DeliveryAgentEntity> agent = user.getEmail() == null
-                ? Optional.empty()
-                : agentRepository.findByEmail(user.getEmail().trim().toLowerCase());
-        if (agent.isEmpty() && user.getPhone() != null) {
-            agent = agentRepository.findByPhone(user.getPhone().trim().replaceAll("\\D", ""));
+        String userId = user.getUserId();
+        if (userId != null && !userId.isBlank()) {
+            Optional<DeliveryAgentEntity> linked = agentRepository.findByUserId(userId);
+            if (linked.isPresent()) return linked.get();
+            // Email fallback is reserved for legacy profiles without a stable account link.
+            return user.getEmail() == null ? Optional.<DeliveryAgentEntity>empty()
+                    : agentRepository.findByEmail(user.getEmail().trim().toLowerCase())
+                            .filter(profile -> profile.getUserId() == null || profile.getUserId().isBlank());
         }
-        return agent.orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "No delivery profile is linked to this account"));
+        Optional<DeliveryAgentEntity> legacy = user.getEmail() == null
+                ? Optional.empty()
+                : agentRepository.findByEmail(user.getEmail().trim().toLowerCase())
+                        .filter(profile -> profile.getUserId() == null || profile.getUserId().isBlank());
+        return legacy.orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN,
+                "No delivery profile is linked to this account"));
     }
 
     private void requireAvailable(DeliveryAgentEntity agent) {
