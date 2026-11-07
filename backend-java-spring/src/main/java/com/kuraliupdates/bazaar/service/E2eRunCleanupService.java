@@ -19,6 +19,14 @@ public class E2eRunCleanupService {
      */
     @Transactional
     public CleanupResult cleanup(String runId) {
+        // Serialize cleanup transactions across run IDs. Oracle can otherwise
+        // deadlock concurrent deletes that modify adjacent index leaf blocks
+        // even though each request is restricted to a different E2E_RUN_ID.
+        // V36 seeds this singleton row; the lock is held until this transaction commits.
+        jdbc.queryForObject(
+                "SELECT LOCK_NAME FROM E2E_CLEANUP_MUTEX WHERE LOCK_NAME = 'GLOBAL' FOR UPDATE",
+                String.class);
+
         long unsafeOrders = count("""
                 SELECT COUNT(*) FROM ORDERS o
                 WHERE o.E2E_RUN_ID = ?
