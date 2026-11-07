@@ -7,6 +7,7 @@ import java.sql.SQLException;
 import lombok.RequiredArgsConstructor;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -14,10 +15,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequiredArgsConstructor
 @Tag(name = "System Health", description = "Service liveness and database readiness probes")
 public class HealthController {
     private final DataSource dataSource;
+    private final String renderGitCommit;
+
+    public HealthController(DataSource dataSource,
+            @Value("${RENDER_GIT_COMMIT:unknown}") String renderGitCommit) {
+        this.dataSource = dataSource;
+        this.renderGitCommit = renderGitCommit;
+    }
 
     /**
      * Process liveness only. Deliberately does not acquire a connection or
@@ -44,6 +51,7 @@ public class HealthController {
     public ResponseEntity<Map<String, Object>> checkHealth() {
         Map<String, Object> resp = new HashMap<>();
         resp.put("service", "kuraliupdates-bazaar-api");
+        resp.put("commit", renderGitCommit);
         resp.put("timestamp", System.currentTimeMillis());
         try (Connection connection = dataSource.getConnection()) {
             boolean valid = connection.isValid(3);
