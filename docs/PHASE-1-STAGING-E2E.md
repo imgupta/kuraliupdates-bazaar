@@ -56,3 +56,8 @@ These mocked service tests are not Oracle concurrency evidence. A two-distinct-a
 ## Daily Help completion precision finding — 7 November 2026
 
 A staging rerun found a one-microsecond mismatch in `serviceCompletedAt` between the completion response and the next read. Oracle stores `TIMESTAMP(6)`; completion had returned a nanosecond-precision local timestamp. The completion service now normalizes the timestamp to microseconds before save/response, with a focused regression test. The failed staging run is retained as a failure (4 passed plus one flaky test); a fresh exact-commit run is required after deployment.
+
+
+## Staging readiness runtime reduction — 7 November 2026
+
+The actual main-push run `42365076271` showed that the database readiness gate consumed about 1 minute 55 seconds because it required 12 consecutive successful `/health` responses at 10-second intervals, after the exact Render backend SHA and `database=UP` were already verified. The workflow now requires three consecutive successful probes at 5-second intervals (approximately 10–15 seconds after the first successful response). Every probe must still return HTTP success, API `UP`, database `UP`, and the exact expected backend commit. The eight-minute outer deadline remains to accommodate Render cold starts; a failed or mismatched probe resets the consecutive counter. This reduces repeated DB load without removing database or deployment identity verification. Transactional Playwright tests remain serial because they share staging role identities and exercise overlapping account-level history and cleanup behavior.
