@@ -68,6 +68,8 @@ jobs:
         run: node --import tsx --test tests/userProfile.test.ts
       - name: Seller product mapping regression tests
         run: node --import tsx --test tests/sellerProduct.test.ts
+      - name: Buyer checkout grouping and cancellation regression tests
+        run: node --import tsx --test tests/orderGrouping.test.ts
       - name: Frontend module-boundary regression tests
         run: node --import tsx --test tests/moduleBoundaries.test.ts
       - name: Public role-portal entry point regression tests
