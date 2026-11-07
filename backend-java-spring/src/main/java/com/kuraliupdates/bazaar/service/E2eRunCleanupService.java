@@ -22,8 +22,7 @@ public class E2eRunCleanupService {
         long unsafeOrders = count("""
                 SELECT COUNT(*) FROM ORDERS o
                 WHERE o.E2E_RUN_ID = ?
-                  AND (o.SELLER_ID NOT LIKE 'E2E-%'
-                       OR (UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%CANCEL%' OR UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%REFUND%'
+                  AND ((UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%CANCEL%' OR UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%REFUND%'
                            OR UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%RETURN%')
                        OR EXISTS (SELECT 1 FROM ORDER_ITEMS oi
                                   WHERE oi.ORDER_ID = o.ORDER_ID
@@ -38,7 +37,6 @@ public class E2eRunCleanupService {
                 WHERE b.E2E_RUN_ID = ?
                   AND (b.SERVICE_ID NOT LIKE 'E2E-%'
                        OR b.PROFESSIONAL_ID IS NULL
-                       OR b.PROFESSIONAL_ID NOT LIKE 'E2E-%'
                        OR NOT EXISTS (SELECT 1 FROM DAILY_HELP_SERVICES ds
                                       WHERE ds.SERVICE_ID = b.SERVICE_ID
                                         AND ds.E2E_RUN_ID = b.E2E_RUN_ID)
@@ -51,7 +49,7 @@ public class E2eRunCleanupService {
         long unsafeChats = count("""
                 SELECT COUNT(*) FROM NEGOTIATION_CHATS c
                 WHERE c.E2E_RUN_ID = ?
-                  AND (c.PRODUCT_ID NOT LIKE 'E2E-%' OR c.SELLER_ID NOT LIKE 'E2E-%'
+                  AND (c.PRODUCT_ID NOT LIKE 'E2E-%'
                        OR NOT EXISTS (SELECT 1 FROM PRODUCTS p
                                       WHERE p.PRODUCT_ID = c.PRODUCT_ID
                                         AND p.E2E_RUN_ID = c.E2E_RUN_ID
@@ -60,7 +58,7 @@ public class E2eRunCleanupService {
         long unsafeProducts = count("""
                 SELECT COUNT(*) FROM PRODUCTS p
                 WHERE p.E2E_RUN_ID = ?
-                  AND (p.PRODUCT_ID NOT LIKE 'E2E-%' OR p.SELLER_ID NOT LIKE 'E2E-%'
+                  AND (p.PRODUCT_ID NOT LIKE 'E2E-%'
                        OR EXISTS (SELECT 1 FROM ORDER_ITEMS oi JOIN ORDERS o ON o.ORDER_ID = oi.ORDER_ID
                                   WHERE oi.PRODUCT_ID = p.PRODUCT_ID AND NVL(o.E2E_RUN_ID, '-') <> ?)
                        OR EXISTS (SELECT 1 FROM NEGOTIATION_CHATS nc
@@ -79,7 +77,7 @@ public class E2eRunCleanupService {
         long unsafeSlots = count("""
                 SELECT COUNT(*) FROM DAILY_HELP_PROFESSIONAL_SLOTS s
                 WHERE s.E2E_RUN_ID = ?
-                  AND (s.SLOT_ID NOT LIKE 'E2E-%' OR s.PROFESSIONAL_ID NOT LIKE 'E2E-%'
+                  AND (s.SLOT_ID NOT LIKE 'E2E-%'
                        OR EXISTS (SELECT 1 FROM DAILY_HELP_BOOKINGS b
                                   WHERE b.BOOKING_ID = s.BOOKING_ID
                                     AND NVL(b.E2E_RUN_ID, '-') <> ?))

@@ -83,11 +83,12 @@ public class E2eFixtureService {
         if (!runId.equals(rollbackSeller.getE2eRunId())) {
             throw new ApiException(HttpStatus.CONFLICT, "Rollback seller fixture is not owned by this run");
         }
-        int dayOffset = 2 + Math.floorMod(suffix.hashCode(), 24);
-        int hourOffset = Math.floorMod(suffix.substring(0, 6).hashCode(), 8);
-        LocalDate slotDate = LocalDate.now(ZoneId.of("Asia/Kolkata")).plusDays(dayOffset);
-        LocalTime start = LocalTime.of(9 + hourOffset, 0);
-        LocalTime end = start.plusHours(1);
+        SlotSchedule slotSchedule = slotRepository.findFirstByE2eRunId(runId)
+                .map(existing -> new SlotSchedule(existing.getSlotDate(), existing.getStartTime(), existing.getEndTime()))
+                .orElseGet(() -> findUnoccupiedSlot(resolvedProfessionalId, suffix));
+        LocalDate slotDate = slotSchedule.date();
+        LocalTime start = slotSchedule.start();
+        LocalTime end = slotSchedule.end();
 
         ProductEntity product = productRepository.findById(productId).orElseGet(() ->
                 productRepository.save(ProductEntity.builder()
@@ -150,6 +151,35 @@ public class E2eFixtureService {
                 slotDate.atTime(start).toString(), 1, 2, TEST_PRICE.toPlainString(),
                 rollbackSellerId, multiSellerValidProductId, multiSellerFailProductId);
     }
+
+    /**
+     * Pick a genuinely free future hour for this provider. The previous fixture
+     * derived a date from a small hash space, which collided with real staging
+     * availability and failed Oracle's UK_DH_PROF_SLOT unique constraint.
+     * Search is read-only and never edits or reserves an existing provider slot.
+     */
+    private SlotSchedule findUnoccupiedSlot(String professionalId, String suffix) {
+        LocalDate firstDate = LocalDate.now(ZoneId.of("Asia/Kolkata"))
+                .plusDays(2 + Math.floorMod(suffix.hashCode(), 30));
+        int firstHour = 9 + Math.floorMod(suffix.substring(0, 6).hashCode(), 8);
+        for (int day = 0; day < 366; day++) {
+            LocalDate candidateDate = firstDate.plusDays(day);
+            var existingSlots = slotRepository.findByProfessionalProfessionalIdAndSlotDateOrderByStartTimeAsc(
+                    professionalId, candidateDate);
+            for (int offset = 0; offset < 8; offset++) {
+                LocalTime candidateStart = LocalTime.of(9 + ((firstHour - 9 + offset) % 8), 0);
+                LocalTime candidateEnd = candidateStart.plusHours(1);
+                boolean overlaps = existingSlots.stream().anyMatch(existing ->
+                        candidateStart.isBefore(existing.getEndTime())
+                                && candidateEnd.isAfter(existing.getStartTime()));
+                if (!overlaps) return new SlotSchedule(candidateDate, candidateStart, candidateEnd);
+            }
+        }
+        throw new ApiException(HttpStatus.CONFLICT,
+                "No unoccupied future Daily Help slot could be allocated for the staging professional");
+    }
+
+    private record SlotSchedule(LocalDate date, LocalTime start, LocalTime end) {}
 
     private DailyHelpProfessionalEntity resolveProfessional(String identity, String configuredProfileId) {
         if (identity != null && !identity.isBlank()) {
