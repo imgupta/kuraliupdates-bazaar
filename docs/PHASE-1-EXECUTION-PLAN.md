@@ -611,3 +611,10 @@ Added node:test coverage for mixed cancelled/active checkout groups and fully ca
 Staging run `42381776750` had exact-commit/database readiness success, four scenarios passed, and one Daily Help scenario that failed once on HTTP 500 from the E2E Oracle rate-limit probe before passing on retry. The overall workflow is failed/flaky, not a pass. `ApiRateLimitService` currently performs expired-bucket cleanup inline every 100 successful calls; a cleanup database exception can therefore escape an otherwise successful limiter decision. The precise Oracle exception was not present in the Actions output, so this is a plausible source-level trigger, not a confirmed runtime root cause.
 
 The PR wraps only the periodic cleanup in best-effort exception handling and logs the exception class. MERGE-based enforcement, 429 behavior, duplicate-key retry and fail-closed 503 behavior are unchanged. A regression test injects cleanup failure on call 100 and verifies the request remains allowed. Exact-head Maven CI and a rerun of the synthetic staging suite are required before closing this reliability gap.
+
+
+## 7 November 2026 — Vercel build-scope reduction (PR in progress)
+
+The existing ignore-build helper failed to classify `backend-java-spring/` as non-runtime and omitted `src/components/Buyer` / role-specific component and API folders. That caused backend-only changes and buyer-only changes to be treated as shared frontend runtime changes, risking unnecessary builds across six Vercel projects. The PR maps known role-owned files to the corresponding portal and excludes backend source from frontend build impact. Unknown runtime paths still build all portals; unavailable commit metadata still fails open.
+
+CI tests cover backend-only skip, buyer-only and other role-only builds, shared runtime fan-out and docs/test/workflow-only skip. After merge, Vercel project-level Ignore Build Step settings must be configured for each project and verified against root-directory settings; code changes alone do not activate those settings.
