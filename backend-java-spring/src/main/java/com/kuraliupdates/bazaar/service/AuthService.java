@@ -533,7 +533,7 @@ public class AuthService {
                 "Staging E2E session issued");
     }
 
-    private String createStagingE2eSessionToken(UserEntity user, String e2eRunId) {
+    private String createStagingE2eSessionToken(UserEntity user, String e2eRunId, String activeRole) {
         String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
         LocalDateTime now = LocalDateTime.now();
         sessionRepository.save(UserSessionEntity.builder()
