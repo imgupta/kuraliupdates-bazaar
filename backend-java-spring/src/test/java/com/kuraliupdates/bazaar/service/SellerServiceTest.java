@@ -81,6 +81,7 @@ class SellerServiceTest {
 
         assertEquals("CANCELLED", updated.status());
         assertEquals("CANCELLED", order.getFulfilmentStatus());
+        assertEquals("CANCELLED", order.getPaymentStatus());
         verify(orderRepository).save(order);
     }
 
@@ -111,6 +112,24 @@ class SellerServiceTest {
         verify(orderRepository, never()).findById("ORD-1");
     }
 
+
+
+    @Test
+    void paidOrderCannotBeCancelledWithoutRefundWorkflow() {
+        SellerEntity seller = approvedSeller("SELLER-1");
+        OrderEntity order = order(seller, "PLACED");
+        order.setPaymentStatus("PAID");
+        stubSeller(seller);
+        when(orderRepository.findLockedByOrderId("ORD-1")).thenReturn(Optional.of(order));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> sellerService.updateOrderStatus(TOKEN, "ORD-1", "CANCELLED"));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("PLACED", order.getStatus());
+        verify(productRepository, never()).findLockedByProductId(anyString());
+        verify(orderRepository, never()).save(any());
+    }
 
     @Test
     void cancellationAggregatesRepeatedLinesAndLocksProductsInSortedOrder() {
