@@ -2,20 +2,20 @@
 
 The transactional Playwright suite now provisions a short-lived synthetic product, Daily Help service and one-hour future slot through the protected staging-only fixture endpoint. It does not create accounts or promote role profiles.
 
-Required pre-existing dedicated profiles:
-- approved and open seller with an E2E-prefixed seller ID;
-- ACTIVE and available delivery agent with an E2E-prefixed agent ID;
-- verified and AVAILABLE Daily Help professional with an E2E-prefixed professional ID.
+Required pre-existing dedicated account and profiles:
+- one shared email identity configured for BUYER, SELLER, DELIVERY, PROFESSIONAL and ADMIN; the API must return all five roles for that same account;
+- approved and open seller profile, ACTIVE and available delivery-agent profile, and verified and AVAILABLE Daily Help professional profile;
+- all three profiles must resolve to the same `USERS.USER_ID` as the shared email. Seller and delivery IDs are checked against authenticated `/sellers/me` and `/delivery/me` responses; the professional profile is resolved from the shared account at runtime. Profile IDs do not need an artificial `E2E-` prefix.
 
 Each created fixture carries the current run ID in V32-added nullable columns. Existing business rows remain NULL and are not eligible for test cleanup.
 
 ## Execution contract
 
 1. PR/push workflows run backend/frontend verification and read-only smoke. They do not create orders or bookings.
-2. Trusted manual/scheduled runs may enable transactional E2E only against the pinned staging API and with a 32+ character flow token plus synthetic profile IDs.
+2. Trusted manual/scheduled runs may enable transactional E2E only against the pinned staging API, with the same five-role email, a 32+ character flow token, and the dedicated profile ownership/readiness checks above. The dedicated Phase 1 workflow requires `confirm_staging_mutations=true`; its default is false.
 3. The trusted workflow waits for database-backed /health readiness, then uses normal application APIs and service transitions: bargaining, COD checkout, seller acceptance/readiness, rider claim and delivery OTP; Daily Help booking, provider arrival/readiness, start OTP and completion.
 4. Every test uses a unique run ID. Cleanup validates all run-tagged relationships before the first write, restores stock from that run's order items, then deletes only that run's chat, booking, order, product, slot, service and sessions.
-5. Seller, rider, professional and user profiles are never deleted or silently approved.
+5. Seller, rider, professional and user profiles are never deleted or silently approved. Issuing a staging ADMIN-scoped session must not mutate the account's primary role or persistent admin flag.
 
 ## Boundaries
 
@@ -23,7 +23,7 @@ Each created fixture carries the current run ID in V32-added nullable columns. E
 - OTPs are generated and verified by the normal application logic. No global OTP bypass is introduced.
 - Test addresses are explicitly synthetic/do-not-deliver; no physical service visit is initiated.
 - If a profile is missing or not approved/active/verified, provisioning fails closed.
-- A sequential staging journey is not proof of Oracle concurrency/race safety.
+- A sequential staging journey is not proof of Oracle concurrency/race safety. The transactional suite separately checks concurrent rider claims, competing Daily Help slot bookings, concurrent last-stock checkout and multi-seller rollback.
 
 
 ## Public endpoint throttling
