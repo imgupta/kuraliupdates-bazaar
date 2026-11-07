@@ -190,7 +190,7 @@ jobs:
           const values = Object.fromEntries(lines.map(line => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
           const identityKeys = ['E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY','E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY'];
           const normalizedIdentities = identityKeys.map(key => String(values[key] ?? '').trim().toLowerCase());
-          if (normalizedIdentities.some(value => !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)) ||
+          if (normalizedIdentities.some(value => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) ||
               new Set(normalizedIdentities).size !== 1) {
             console.error('All five role identity settings must be the same email account; no identity values were printed.');
             process.exit(1);
