@@ -1,7 +1,7 @@
 # Current implementation status and remaining work
 
 **Last reconciled:** 7 November 2026  
-**Current main evidence checkpoint:** `2c3c33c58087e1e9bae46303c576fb23391f6bb9` (PRs #285–#289, #294 staging-readiness optimization, #295 seller-contact verification hardening, #296 delivery-tracking ownership hardening, #297 E2E warm-up/read-only parallelization and #299 Daily Help OTP/lifecycle hardening are merged; exact deployed backend SHA is separately verified as `b491795f9b7a7b0d91d21a3835cc6287e190573f`). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
+**Current main evidence checkpoint:** `e5e04298f1616b9c026288a824d2c8b559b77b7d` (PRs #285–#289, #294 staging-readiness optimization, #295 seller-contact verification hardening, #296 delivery-tracking ownership hardening, #297 E2E warm-up/read-only parallelization and #299 Daily Help OTP/lifecycle hardening are merged; exact deployed backend SHA is separately verified as `b491795f9b7a7b0d91d21a3835cc6287e190573f`). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
 
 **Phase 0 formal evidence disposition (6 Nov 2026):** The security-hardening milestone and subsequent authorization slices are merged, but the repository still lacks evidence to sign off all formal exit gates. See [Phase 0 Formal Evidence and Exit Register](PHASE-0-FORMAL-EVIDENCE-REGISTER.md) for completed evidence, partial/blocked items, required closure pack and sign-off form. Do not infer backup/restore, Oracle live-schema, India residency, secret rotation or qualified legal review from CI.
 
