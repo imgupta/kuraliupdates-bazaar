@@ -94,6 +94,6 @@ Runtime evidence: staging run [42365076271](https://github.com/imgupta/kuraliupd
 
 ## Combined delivery checkout-group claim authorization — 7 November 2026
 
-`POST /delivery/checkout-groups/{checkoutGroupId}/claim` (route path subject to current controller mapping) resolves the delivery profile from the authenticated user and requires the caller-supplied agent ID to match that profile before locking or mutating seller orders. `DeliveryService.claimCheckoutGroup` locks all orders in the checkout group and requires every seller order to be ready, unassigned and eligible for delivery before assigning the group.
+`POST /delivery/jobs/checkout/{checkoutGroupId}/claim` resolves the delivery profile from the authenticated user and requires the caller-supplied agent ID to match that profile before locking or mutating seller orders. `DeliveryService.claimCheckoutGroup` locks all orders in the checkout group and requires every seller order to be ready, unassigned and eligible for delivery before assigning the group.
 
 New `DeliveryServiceTest` coverage verifies spoofed agent ID rejection before JDBC/order access, successful all-order assignment with shared OTP/single payout snapshot, and no mutation when one seller order is not ready. This is service-level mocked coverage only; the distinct-agent Oracle lock race remains unverified.
