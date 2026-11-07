@@ -349,6 +349,12 @@ public class OrderService {
         Map<String, Integer> restoreQuantities = new TreeMap<>();
         for (OrderEntity order : group) {
             String status = order.getStatus() == null ? "" : order.getStatus().trim().toUpperCase(Locale.ROOT);
+            // A seller may already have cancelled one suborder in this checkout.
+            // Its stock was restored by that command, so leave it untouched and
+            // continue only if every remaining suborder is still cancellable.
+            if ("CANCELLED".equals(status)) {
+                continue;
+            }
             if (!Set.of("PLACED", "ACCEPTED_BY_SELLER").contains(status)) {
                 throw new ApiException(HttpStatus.CONFLICT,
                         "Checkout can no longer be cancelled after seller fulfilment or delivery has started");
@@ -395,6 +401,9 @@ public class OrderService {
         }
         LocalDateTime now = LocalDateTime.now();
         for (OrderEntity order : group) {
+            if ("CANCELLED".equalsIgnoreCase(order.getStatus())) {
+                continue;
+            }
             order.setStatus("CANCELLED");
             order.setFulfilmentStatus("CANCELLED");
             order.setPaymentStatus("CANCELLED");
