@@ -68,7 +68,7 @@ jobs:
           if (String(config.E2E_OTP_CAPTURE_TOKEN ?? '').length < 32) throw new Error('E2E_OTP_CAPTURE_TOKEN must contain at least 32 characters.');
           if (String(config.E2E_FLOW_AUTH_TOKEN).length < 32) throw new Error('E2E_FLOW_AUTH_TOKEN must contain at least 32 characters.');
           const profileIds = ['E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID'].map(key => String(config[key]).trim());
-          if (new Set(profileIds).size !== profileIds.length) throw new Error('Seller, delivery-agent and professional staging test profile IDs must be distinct.');
+          if (new Set(profileIds).size !== profileIds.length) throw new Error('Seller and delivery-agent staging test profile IDs must be distinct.');
           if (profileIds.some(id => id.length > 128)) throw new Error('Staging test profile IDs must be 128 characters or fewer.');
           // A single dedicated staging login may be issued distinct role-scoped E2E tokens.
           // The lifecycle spec verifies authorization using the ADMIN and SELLER role claims separately.
