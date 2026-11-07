@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.math.BigDecimal;
@@ -162,7 +163,7 @@ class NegotiationChatControllerAuthorizationTest {
     private Authentication authentication(UserEntity user, String activeRole) {
         Authentication authentication = mock(Authentication.class);
         when(authentication.getPrincipal()).thenReturn(user);
-        when(authentication.getAuthorities()).thenReturn(List.of(new SimpleGrantedAuthority("ROLE_" + activeRole)));
+        when(authentication.getAuthorities()).thenReturn(List.<GrantedAuthority>of(new SimpleGrantedAuthority("ROLE_" + activeRole)));
         return authentication;
     }
 
