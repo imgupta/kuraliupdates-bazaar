@@ -1,14 +1,10 @@
 name: Phase 1 Staging Transactional E2E
 
 on:
-  workflow_run:
-    workflows: ["KuraliUpdates CI and E2E"]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
     inputs:
       confirm_staging_mutations:
-        description: 'I confirm this run may create and clean up synthetic staging orders and Daily Help bookings'
+        description: 'I confirm these dedicated staging test accounts may create and clean up staging orders and Daily Help bookings'
         required: true
         type: boolean
         default: false
@@ -24,7 +20,7 @@ concurrency:
 jobs:
   transactional-e2e:
     name: Synthetic COD order and Daily Help lifecycle
-    if: (github.event_name == 'workflow_dispatch' && inputs.confirm_staging_mutations == true) || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main')
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_staging_mutations == true
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -71,9 +67,9 @@ jobs:
           if (config.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED !== true) throw new Error('Refusing to start: synthetic OTP email suppression has not been explicitly confirmed.');
           if (String(config.E2E_OTP_CAPTURE_TOKEN ?? '').length < 32) throw new Error('E2E_OTP_CAPTURE_TOKEN must contain at least 32 characters.');
           if (String(config.E2E_FLOW_AUTH_TOKEN).length < 32) throw new Error('E2E_FLOW_AUTH_TOKEN must contain at least 32 characters.');
-          for (const key of ['E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_PROFESSIONAL_ID']) {
-            if (!/^E2E-[A-Za-z0-9_-]{3,80}$/.test(String(config[key]))) throw new Error(key + ' must be an E2E-prefixed synthetic profile ID.');
-          }
+          const profileIds = ['E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_PROFESSIONAL_ID'].map(key => String(config[key]).trim());
+          if (new Set(profileIds).size !== profileIds.length) throw new Error('Seller, delivery-agent and professional staging test profile IDs must be distinct.');
+          if (profileIds.some(id => id.length > 128)) throw new Error('Staging test profile IDs must be 128 characters or fewer.');
           if (String(config.E2E_SELLER_IDENTITY).toLowerCase() === String(config.E2E_ADMIN_IDENTITY ?? '').toLowerCase()) {
             throw new Error('Seller and admin E2E identities must be separate.');
           }
@@ -97,7 +93,7 @@ jobs:
           }
           const fs = await import('node:fs');
           fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(values).map(([k,v]) => k + '=' + v).join('\n') + '\n');
-          console.log('Validated pinned staging target, strong flow token and E2E-prefixed role profiles. Secret values were masked.');
+          console.log('Validated pinned staging target, strong flow token and three distinct owner-confirmed dedicated staging test profiles. Secret values were masked.');
           NODE
       - name: Wait for database-backed staging readiness
         shell: bash
