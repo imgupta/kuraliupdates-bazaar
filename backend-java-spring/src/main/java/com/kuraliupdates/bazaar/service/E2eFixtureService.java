@@ -73,6 +73,12 @@ public class E2eFixtureService {
                         .phone("999" + suffix.substring(0, 7).replaceAll("[A-F]", "0"))
                         .category("E2E TEST").address("E2E synthetic address - do not deliver")
                         .locality("Kurali").status("APPROVED").storeOpen(true)
+                        // Oracle migration V22_1 makes both compliance states NOT NULL.
+                        // Synthetic fixtures have no submitted documents, so use the
+                        // truthful non-submitted state instead of relying on DB defaults
+                        // that Hibernate bypasses when it explicitly inserts NULL.
+                        .gstVerificationStatus("NOT_SUBMITTED")
+                        .fssaiVerificationStatus("NOT_SUBMITTED")
                         .registeredAt(now).approvedAt(now).e2eRunId(runId).build()));
         if (!runId.equals(rollbackSeller.getE2eRunId())) {
             throw new ApiException(HttpStatus.CONFLICT, "Rollback seller fixture is not owned by this run");
