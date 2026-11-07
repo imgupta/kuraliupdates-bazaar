@@ -109,7 +109,9 @@ public class E2eRunCleanupService {
                             + ". No records were changed.");
         }
 
-        // Oracle may choose parallel DML even when cleanup requests are serialized.\n        // Keep every run-scoped delete serial to avoid ORA-12860 sibling-row locks.\n        int chats = jdbc.update("""
+        // Oracle may choose parallel DML even when cleanup requests are serialized.
+        // Keep every run-scoped delete serial to avoid ORA-12860 sibling-row locks.
+        int chats = jdbc.update("""
                 DELETE /*+ NO_PARALLEL */ FROM CHAT_MESSAGES
                 WHERE CHAT_ID IN (SELECT CHAT_ID FROM NEGOTIATION_CHATS WHERE E2E_RUN_ID = ?)
                 """, runId);
