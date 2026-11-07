@@ -1,7 +1,7 @@
 # Current implementation status and remaining work
 
 **Last reconciled:** 7 November 2026  
-**Current main evidence checkpoint:** `3297899541d640c90f93561fbba37092fd9c8b3f` (PRs #285–#289, #294 staging-readiness optimization and #295 seller-contact verification hardening are merged; exact deployed backend SHA is separately verified as `b491795f9b7a7b0d91d21a3835cc6287e190573f`). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
+**Current main evidence checkpoint:** `550c2916fdfa9d672a1ec930dee8a0371d288d00` (PRs #285–#289, #294 staging-readiness optimization, #295 seller-contact verification hardening and #296 delivery-tracking ownership hardening are merged; exact deployed backend SHA is separately verified as `b491795f9b7a7b0d91d21a3835cc6287e190573f`). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
 
 **Phase 0 formal evidence disposition (6 Nov 2026):** The security-hardening milestone and subsequent authorization slices are merged, but the repository still lacks evidence to sign off all formal exit gates. See [Phase 0 Formal Evidence and Exit Register](PHASE-0-FORMAL-EVIDENCE-REGISTER.md) for completed evidence, partial/blocked items, required closure pack and sign-off form. Do not infer backup/restore, Oracle live-schema, India residency, secret rotation or qualified legal review from CI.
 
@@ -179,3 +179,11 @@ PR #295 merged as `3297899541d640c90f93561fbba37092fd9c8b3f`. The change require
 - The change makes a populated `USER_ID` authoritative for rider/session matching, retains email matching only for legacy rows with no user link, requires ACTIVE status for rider tracking/location, limits rider reads to `ASSIGNED_TO_DELIVERY` and `PICKED_UP` jobs, and treats missing session expiry/user ID as invalid. Buyer tracking and buyer-only delivery OTP behavior remain unchanged.
 - Regression coverage added for stable user-ID matching, conflicting user-ID/email mismatch, inactive assigned rider denial, email-independent location update, malformed session expiry/user ID, preservation of buyer tracking when a rider profile is inactive, and denial of rider tracking after delivery completion.
 - Validation is pending on this PR head. No staging/business records, schema, credentials or deployment settings are changed.
+
+
+## 7 November 2026 — measured Phase 1 staging E2E latency and warm-up improvement
+
+- Main commit under test: `3297899541d640c90f93561fbba37092fd9c8b3f`; run [#42367988439](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/42367988439) completed successfully with 5/5 transactional tests.
+- Measured from job logs: setup (checkout/runtime/dependencies/browser) about 24 seconds; first healthy API+DB response took about 92 seconds after readiness began; the three consecutive exact-commit/API/database probes then completed in about 11 seconds; the five Playwright tests took 3m04s. The job ran about 5m17s; workflow creation-to-completion was about 6m34s including roughly 77 seconds before the job started.
+- This distinguishes Render cold-start latency from the stability gate. The new three-probe gate itself is about 11 seconds after the first healthy response; the observed end-to-end readiness interval was about 1m43s, versus the prior measured 1m55s. The observed total improvement in that run was about 12 seconds, not the earlier projected 1m40s. Cold-start variability explains why the end-to-end saving is smaller than the gate reduction.
+- Follow-up branch `ci/overlap-staging-warmup-with-e2e-setup` adds a secret-free, read-only, best-effort warm-up job that runs alongside browser setup, plus parallelizes independent read-only E2E assertions. The exact-commit readiness gate remains authoritative. Any additional saving is a target only until a fresh main run measures it.
