@@ -13,7 +13,7 @@ test('seller, delivery, admin and Daily Help component changes stay within their
   assert.deepEqual(affectedPortals(['src/components/Seller/SellerDashboard.tsx']), ['seller']);
   assert.deepEqual(affectedPortals(['src/components/Delivery/DeliveryDashboard.tsx']), ['delivery']);
   assert.deepEqual(affectedPortals(['src/components/Admin/AdminDashboard.tsx']), ['admin']);
-  assert.deepEqual(affectedPortals(['src/components/DailyHelp/ProfessionalHome.tsx']), ['daily-help']);
+  assert.deepEqual(affectedPortals(['src/components/DailyHelpProfessional/ProfessionalHome.tsx']), ['daily-help']);
 });
 
 test('backend-only changes do not trigger frontend portal builds', () => {
