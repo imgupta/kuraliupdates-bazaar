@@ -20,6 +20,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -539,6 +540,77 @@ class DeliveryServiceTest {
                 .thenReturn(java.util.List.of(ready, notReady));
 
         assertTrue(deliveryService.availableJobs(user()).isEmpty());
+    }
+
+    @Test
+    void combinedCheckoutClaimAssignsEverySellerOrderToAuthenticatedAgentWithSharedOtpAndSinglePayout() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity first = OrderEntity.builder().orderId("GROUP-ORDER-1").checkoutGroupId("CHK-GROUP-1")
+                .status("READY_FOR_PICKUP").fulfilmentMode("DELIVERY").build();
+        OrderEntity second = OrderEntity.builder().orderId("GROUP-ORDER-2").checkoutGroupId("CHK-GROUP-1")
+                .status("READY_FOR_PICKUP").fulfilmentMode("DELIVERY").build();
+        java.util.List<OrderEntity> group = java.util.List.of(first, second);
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(jdbc.queryForObject(org.mockito.ArgumentMatchers.contains("BATCH_ENABLED"), eq(Integer.class)))
+                .thenReturn(1);
+        when(jdbc.queryForObject(org.mockito.ArgumentMatchers.contains("MAX_SELLERS_PER_BATCH"), eq(Integer.class)))
+                .thenReturn(3);
+        when(jdbc.queryForObject(org.mockito.ArgumentMatchers.contains("MAX_ROUTE_KM"), eq(BigDecimal.class)))
+                .thenReturn(new BigDecimal("8"));
+        when(orderRepository.findLockedByCheckoutGroupId("CHK-GROUP-1")).thenReturn(group);
+        when(googleRoutesService.calculateCombinedRouteKm(group)).thenReturn(new BigDecimal("2.5"));
+        when(orderRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var claimed = deliveryService.claimCheckoutGroup("CHK-GROUP-1", "AGENT-1", user());
+
+        assertEquals(2, claimed.size());
+        assertTrue(claimed.stream().allMatch(order -> order.getDeliveryAgent() == agent));
+        assertTrue(claimed.stream().allMatch(order -> "ASSIGNED_TO_DELIVERY".equals(order.getStatus())));
+        assertTrue(claimed.stream().allMatch(order -> "CHK-GROUP-1".equals(order.getCombinedDeliveryBatchId())));
+        assertNotNull(first.getDeliveryOtp());
+        assertTrue(first.getDeliveryOtp().matches("\\d{4}"));
+        assertEquals(first.getDeliveryOtp(), second.getDeliveryOtp());
+        assertEquals(0, new BigDecimal("100.00").compareTo(first.getRiderPayoutSnapshot()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(second.getRiderPayoutSnapshot()));
+        verify(orderRepository).findLockedByCheckoutGroupId("CHK-GROUP-1");
+        verify(orderRepository).saveAll(group);
+    }
+
+    @Test
+    void combinedCheckoutClaimRejectsSpoofedDeliveryAgentBeforeDatabaseOrOrderAccess() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.claimCheckoutGroup("CHK-GROUP-1", "AGENT-OTHER", user()));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verifyNoInteractions(jdbc, orderRepository, googleRoutesService);
+    }
+
+    @Test
+    void combinedCheckoutClaimRejectsPartiallyReadyGroupWithoutMutatingAnySellerOrder() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity ready = OrderEntity.builder().orderId("GROUP-READY-1").checkoutGroupId("CHK-GROUP-2")
+                .status("READY_FOR_PICKUP").fulfilmentMode("DELIVERY").build();
+        OrderEntity waiting = OrderEntity.builder().orderId("GROUP-WAITING-2").checkoutGroupId("CHK-GROUP-2")
+                .status("ACCEPTED_BY_SELLER").fulfilmentMode("DELIVERY").build();
+        java.util.List<OrderEntity> group = java.util.List.of(ready, waiting);
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(jdbc.queryForObject(org.mockito.ArgumentMatchers.contains("BATCH_ENABLED"), eq(Integer.class)))
+                .thenReturn(1);
+        when(orderRepository.findLockedByCheckoutGroupId("CHK-GROUP-2")).thenReturn(group);
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.claimCheckoutGroup("CHK-GROUP-2", "AGENT-1", user()));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("READY_FOR_PICKUP", ready.getStatus());
+        assertEquals("ACCEPTED_BY_SELLER", waiting.getStatus());
+        assertNull(ready.getDeliveryAgent());
+        assertNull(waiting.getDeliveryAgent());
+        verify(orderRepository, never()).saveAll(any());
+        verify(googleRoutesService, never()).calculateCombinedRouteKm(any());
     }
 
     @Test
