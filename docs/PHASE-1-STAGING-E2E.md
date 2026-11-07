@@ -40,3 +40,15 @@ The main-branch transactional workflow now has a successful exact-backend-commit
 - Test fixtures are run-scoped and cleanup is executed by the suite. The test report is evidence for the exercised synthetic staging scenarios, not for a separate isolated Oracle schema or every P1-C race.
 
 The admin test is now enabled for the `push` event, with the existing staging URL, staging environment and configured role-identity checks retained. PR #289 is merged.
+
+## Combined checkout group claim coverage — bounded unit evidence
+
+The current staging Playwright suite verifies a concurrent claim race on a single seller order using the configured active delivery identity. It does not currently provision a second active delivery profile or exercise the combined-checkout-group claim endpoint.
+
+Service-level regression tests now cover:
+- authenticated delivery profile ownership for combined group claims;
+- rejection before DB/order access when the caller supplies another agent ID;
+- assignment of all seller orders to one authenticated agent with a shared OTP and one group payout snapshot;
+- rejection of partially ready groups without mutation.
+
+These mocked service tests are not Oracle concurrency evidence. A two-distinct-agent combined-group race remains blocked until a dedicated isolated Oracle target and two approved synthetic active delivery identities are available.
