@@ -109,21 +109,29 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           const url = process.env.E2E_API_BASE_URL + '/health';
-          const deadline = Date.now() + 6 * 60 * 1000;
+          const deadline = Date.now() + 8 * 60 * 1000;
+          const requiredStableChecks = 12; // two minutes of continuous health after Render finishes swapping instances
+          let stableChecks = 0;
           let last = 'no response';
           while (Date.now() < deadline) {
             try {
               const response = await fetch(url, { signal: AbortSignal.timeout(10000), headers: { 'Cache-Control': 'no-store' } });
               const body = await response.json().catch(() => ({}));
               if (response.ok && body.status === 'UP' && body.database === 'UP') {
-                console.log('PASS: staging API and database are ready.');
-                process.exit(0);
+                stableChecks++;
+                if (stableChecks >= requiredStableChecks) {
+                  console.log('PASS: staging API and database remained healthy for two continuous minutes after deployment.');
+                  process.exit(0);
+                }
+                console.log('Staging healthy (' + stableChecks + '/' + requiredStableChecks + '); waiting for deployment stability.');
+              } else {
+                stableChecks = 0;
+                last = 'HTTP ' + response.status + ', database=' + String(body.database ?? 'unknown');
               }
-              last = 'HTTP ' + response.status + ', database=' + String(body.database ?? 'unknown');
-            } catch { last = 'network or timeout'; }
+            } catch { stableChecks = 0; last = 'network or timeout'; }
             await new Promise(resolve => setTimeout(resolve, 10000));
           }
-          throw new Error('Database-backed staging readiness did not pass within six minutes; last result: ' + last);
+          throw new Error('Database-backed staging readiness did not remain healthy for two minutes within eight minutes; last result: ' + last);
           NODE
       - name: Run real application order and Daily Help lifecycle tests
         run: bunx playwright test e2e/order-daily-help-lifecycle.spec.ts

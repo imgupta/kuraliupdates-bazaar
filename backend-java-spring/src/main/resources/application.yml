@@ -30,6 +30,8 @@ spring:
       initialization-fail-timeout: 30000
       max-lifetime: 1200000
       pool-name: KuraliHikariPool
+      # Oracle session setting must be applied before Spring opens a transaction.
+      connection-init-sql: ALTER SESSION DISABLE PARALLEL DML
       data-source-properties:
         oracle.net.wallet_location: (SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=/app/wallet)))
         oracle.net.tns_admin: /app/wallet

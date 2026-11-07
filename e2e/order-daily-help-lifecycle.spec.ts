@@ -170,6 +170,10 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const professionalIdentity = required("E2E_PROVIDER_IDENTITY");
     const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalIdentity);
     const productId = fixture.productId;
+    // PlaceOrderRequest validates a ten-digit local mobile number; normalize the
+    // owner-approved staging value so +91 / 91-prefixed secrets remain valid.
+    const buyerPhone = required("E2E_FLOW_BUYER_PHONE").replace(/\D/g, "").slice(-10);
+    expect(buyerPhone, "staging buyer phone must resolve to a ten-digit local number").toMatch(/^\d{10}$/);
     const quantity = 1;
     expect(Number.isInteger(quantity) && quantity > 0 && quantity <= 2,
       "Keep E2E order quantities small and deterministic").toBeTruthy();
@@ -263,7 +267,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const placedResponse = await request.post(apiBase + "/buyers/orders", {
       headers: taggedAuth(buyerToken, runId),
       data: {
-        buyerName: "E2E Synthetic Buyer", buyerPhone: required("E2E_FLOW_BUYER_PHONE"),
+        buyerName: "E2E Synthetic Buyer", buyerPhone,
         buyerEmail: required("E2E_FLOW_BUYER_EMAIL"), deliveryAddress: "E2E Test Address - do not deliver",
         deliveryLocality: "Kurali", sellerId, subtotal: expectedSubtotal,
         discountAmount: expectedDiscount, deliveryFee: expectedDeliveryFee,
@@ -272,8 +276,10 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
       },
       timeout: 20_000,
     });
-    expect(placedResponse.status(), "synthetic COD checkout should succeed").toBe(200);
-    const placement = await placedResponse.json();
+    const placedBodyText = await placedResponse.text();
+    expect(placedResponse.status(), "synthetic COD checkout should succeed; backend response: " + placedBodyText).toBe(200);
+    const placement = JSON.parse(placedBodyText);
+
     const order = placement.order ?? placement;
     const orderId = String(order.orderId ?? "");
     expect(orderId).toMatch(/^ORD-KUR-[A-F0-9-]+$/i);

@@ -32,6 +32,7 @@ import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import java.util.Optional;
@@ -307,7 +308,9 @@ public class DailyHelpService {
         if (booking.getOtpVerifiedAt() != null || booking.getStartOtp() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Service start OTP has already been used");
         }
-        LocalDateTime now = LocalDateTime.now();
+        // Oracle TIMESTAMP(6) stores microseconds; normalize before returning the first response
+        // so an idempotent replay reads back the exact same persisted timestamp.
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
         if (booking.getOtpExpiresAt() == null || now.isAfter(booking.getOtpExpiresAt())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Service start OTP has expired");
         }

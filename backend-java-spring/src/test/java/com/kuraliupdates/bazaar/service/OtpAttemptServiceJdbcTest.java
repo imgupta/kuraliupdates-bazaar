@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.datasource.username=sa",
         "spring.datasource.password=",
+        "spring.datasource.hikari.connection-init-sql=",
         "spring.flyway.enabled=false"
 })
 @Import(OtpAttemptService.class)
