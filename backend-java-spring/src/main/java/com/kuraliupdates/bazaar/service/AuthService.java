@@ -374,18 +374,11 @@ public class AuthService {
     }
 
     private Optional<DeliveryAgentEntity> findDeliveryProfile(UserEntity user) {
-        if (user.getUserId() != null && !user.getUserId().isBlank()) {
-            Optional<DeliveryAgentEntity> linked = deliveryAgentRepository.findByUserId(user.getUserId());
-            if (linked.isPresent()) return linked;
-        }
-        // Email fallback exists only for legacy delivery profiles that have no
-        // USER_ID link. A profile linked to another account must never grant a role
-        // because its email or phone happens to match this session.
-        if (user.getEmail() != null) {
-            return deliveryAgentRepository.findByEmailIgnoreCase(user.getEmail())
-                    .filter(profile -> profile.getUserId() == null || profile.getUserId().isBlank());
-        }
-        return Optional.empty();
+        // Delivery access is granted only through the immutable account/profile link.
+        // Legacy unlinked rows require an explicit admin relink; email/phone matching
+        // must never create a delivery role or authorize a rider session.
+        if (user.getUserId() == null || user.getUserId().isBlank()) return Optional.empty();
+        return deliveryAgentRepository.findByUserId(user.getUserId());
     }
 
     private boolean deliveryProfileExists(UserEntity user) {
