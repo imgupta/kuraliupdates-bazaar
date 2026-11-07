@@ -61,13 +61,13 @@ jobs:
           }
           const required = ['E2E_FLOW_AUTH_TOKEN','E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY',
             'E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY','E2E_FLOW_BUYER_PHONE','E2E_FLOW_BUYER_EMAIL',
-            'E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_PROFESSIONAL_ID'];
+            'E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID'];
           for (const key of required) if (!String(config[key] ?? '').trim()) throw new Error('Missing required staging E2E configuration key: ' + key);
           if (config.E2E_TRANSACTIONAL_FLOWS_ENABLED !== true) throw new Error('Transactional staging tests are not explicitly enabled in the owner-approved secret.');
           if (config.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED !== true) throw new Error('Refusing to start: synthetic OTP email suppression has not been explicitly confirmed.');
           if (String(config.E2E_OTP_CAPTURE_TOKEN ?? '').length < 32) throw new Error('E2E_OTP_CAPTURE_TOKEN must contain at least 32 characters.');
           if (String(config.E2E_FLOW_AUTH_TOKEN).length < 32) throw new Error('E2E_FLOW_AUTH_TOKEN must contain at least 32 characters.');
-          const profileIds = ['E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_PROFESSIONAL_ID'].map(key => String(config[key]).trim());
+          const profileIds = ['E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID'].map(key => String(config[key]).trim());
           if (new Set(profileIds).size !== profileIds.length) throw new Error('Seller, delivery-agent and professional staging test profile IDs must be distinct.');
           if (profileIds.some(id => id.length > 128)) throw new Error('Staging test profile IDs must be 128 characters or fewer.');
           // A single dedicated staging login may be issued distinct role-scoped E2E tokens.
@@ -83,7 +83,6 @@ jobs:
             E2E_FLOW_BUYER_EMAIL: String(config.E2E_FLOW_BUYER_EMAIL),
             E2E_FLOW_SELLER_ID: String(config.E2E_FLOW_SELLER_ID),
             E2E_FLOW_DELIVERY_AGENT_ID: String(config.E2E_FLOW_DELIVERY_AGENT_ID),
-            E2E_FLOW_PROFESSIONAL_ID: String(config.E2E_FLOW_PROFESSIONAL_ID),
             E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED: String(config.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED === true || config.E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED === 'true'),
             E2E_OTP_CAPTURE_TOKEN: String(config.E2E_OTP_CAPTURE_TOKEN ?? '')
           };
