@@ -73,6 +73,19 @@ export const buyerOrdersApi = {
     }
   },
 
+  async cancelOrder(orderId: string): Promise<void> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) throw new Error('Please sign in again to cancel this order.');
+    const response = await fetch(`${API_BASE_URL}/buyers/orders/${encodeURIComponent(orderId)}/cancel`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(typeof body?.message === 'string' ? body.message : `Unable to cancel order (HTTP ${response.status}).`);
+    }
+  },
+
   async trackOrder(orderId: string): Promise<any> {
     try {
       const token = localStorage.getItem('kurali_auth_token');
