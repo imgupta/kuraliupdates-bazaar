@@ -146,7 +146,7 @@ class DailyHelpServiceTest {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
-        when(bookingRepository.findById("BOOK-1")).thenReturn(Optional.of(booking));
+        when(bookingRepository.findLockedByBookingId("BOOK-1")).thenReturn(Optional.of(booking));
         when(bookingRepository.save(any(DailyHelpBookingEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -304,7 +304,7 @@ class DailyHelpServiceTest {
     @Test
     void unassignedProfessionalCannotChangeBookingStatus() {
         DailyHelpBookingEntity booking = booking("BOOK-STATUS-OWNER", "PROFESSIONAL_ASSIGNED");
-        when(bookingRepository.findById("BOOK-STATUS-OWNER")).thenReturn(Optional.of(booking));
+        when(bookingRepository.findLockedByBookingId("BOOK-STATUS-OWNER")).thenReturn(Optional.of(booking));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> dailyHelpService.updateStatus("BOOK-STATUS-OWNER", "DHP-OTHER", "ARRIVING"));
@@ -320,7 +320,7 @@ class DailyHelpServiceTest {
         booking.setStartOtp("1234");
         booking.setOtpExpiresAt(LocalDateTime.now().plusMinutes(10));
         booking.setOtpAttempts(0);
-        when(bookingRepository.findById("BOOK-START-OWNER")).thenReturn(Optional.of(booking));
+        when(bookingRepository.findLockedByBookingId("BOOK-START-OWNER")).thenReturn(Optional.of(booking));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> dailyHelpService.startBooking("BOOK-START-OWNER",
@@ -341,7 +341,7 @@ class DailyHelpServiceTest {
         booking.setOtpExpiresAt(null);
         booking.setOtpVerifiedAt(startedAt);
         booking.setServiceStartedAt(startedAt);
-        when(bookingRepository.findById("BOOK-START-REPLAY")).thenReturn(Optional.of(booking));
+        when(bookingRepository.findLockedByBookingId("BOOK-START-REPLAY")).thenReturn(Optional.of(booking));
 
         var response = dailyHelpService.startBooking("BOOK-START-REPLAY",
                 new DailyHelpStartRequest("DHP-1", "1234"));
@@ -356,7 +356,7 @@ class DailyHelpServiceTest {
     @Test
     void completionTimestampIsNormalizedToOracleMicrosecondPrecision() {
         DailyHelpBookingEntity booking = booking("BOOK-COMPLETE-PRECISION", "IN_PROGRESS");
-        when(bookingRepository.findById("BOOK-COMPLETE-PRECISION")).thenReturn(Optional.of(booking));
+        when(bookingRepository.findLockedByBookingId("BOOK-COMPLETE-PRECISION")).thenReturn(Optional.of(booking));
         when(bookingRepository.save(any(DailyHelpBookingEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -373,7 +373,7 @@ class DailyHelpServiceTest {
     @Test
     void unassignedProfessionalCannotCompleteBooking() {
         DailyHelpBookingEntity booking = booking("BOOK-COMPLETE-OWNER", "IN_PROGRESS");
-        when(bookingRepository.findById("BOOK-COMPLETE-OWNER")).thenReturn(Optional.of(booking));
+        when(bookingRepository.findLockedByBookingId("BOOK-COMPLETE-OWNER")).thenReturn(Optional.of(booking));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> dailyHelpService.completeBooking("BOOK-COMPLETE-OWNER", "DHP-OTHER"));
@@ -382,6 +382,54 @@ class DailyHelpServiceTest {
         verify(bookingRepository, never()).save(any());
         assertEquals("IN_PROGRESS", booking.getStatus());
         assertNull(booking.getServiceCompletedAt());
+    }
+
+ 
+    @Test
+    void professionalStatusMutationNeverReturnsBuyerStartOtp() {
+        DailyHelpBookingEntity booking = booking("BOOK-STATUS-OTP", "PROFESSIONAL_ASSIGNED");
+        booking.setStartOtp("4821");
+        when(bookingRepository.findLockedByBookingId("BOOK-STATUS-OTP")).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any(DailyHelpBookingEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = dailyHelpService.updateStatus("BOOK-STATUS-OTP", "DHP-1", "ARRIVING");
+
+        assertEquals("ARRIVING", response.status());
+        assertNull(response.startOtp(), "the professional must not receive the buyer-held service-start OTP");
+        verify(bookingRepository).findLockedByBookingId("BOOK-STATUS-OTP");
+        verify(bookingRepository).save(booking);
+    }
+
+    @Test
+    void statusTransitionCannotSkipArrivingOrReopenCompletedBooking() {
+        DailyHelpBookingEntity assigned = booking("BOOK-SKIP-ARRIVING", "PROFESSIONAL_ASSIGNED");
+        when(bookingRepository.findLockedByBookingId("BOOK-SKIP-ARRIVING")).thenReturn(Optional.of(assigned));
+        ApiException skipped = assertThrows(ApiException.class,
+                () -> dailyHelpService.updateStatus("BOOK-SKIP-ARRIVING", "DHP-1", "READY_TO_START"));
+        assertEquals(HttpStatus.CONFLICT, skipped.getStatus());
+        assertEquals("PROFESSIONAL_ASSIGNED", assigned.getStatus());
+
+        DailyHelpBookingEntity completed = booking("BOOK-REOPEN", "COMPLETED");
+        when(bookingRepository.findLockedByBookingId("BOOK-REOPEN")).thenReturn(Optional.of(completed));
+        ApiException reopened = assertThrows(ApiException.class,
+                () -> dailyHelpService.updateStatus("BOOK-REOPEN", "DHP-1", "ARRIVING"));
+        assertEquals(HttpStatus.CONFLICT, reopened.getStatus());
+        assertEquals("COMPLETED", completed.getStatus());
+        verify(bookingRepository, never()).save(any());
+    }
+
+    @Test
+    void repeatedCurrentStatusIsIdempotentAndDoesNotExposeOtp() {
+        DailyHelpBookingEntity booking = booking("BOOK-STATUS-REPLAY", "READY_TO_START");
+        booking.setStartOtp("4821");
+        when(bookingRepository.findLockedByBookingId("BOOK-STATUS-REPLAY")).thenReturn(Optional.of(booking));
+
+        var response = dailyHelpService.updateStatus("BOOK-STATUS-REPLAY", "DHP-1", "ready_to_start");
+
+        assertEquals("READY_TO_START", response.status());
+        assertNull(response.startOtp());
+        verify(bookingRepository, never()).save(any());
     }
 
     private DailyHelpBookingRequest request(LocalDateTime start) {
