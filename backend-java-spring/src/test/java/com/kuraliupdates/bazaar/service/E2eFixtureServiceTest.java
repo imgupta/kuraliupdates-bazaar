@@ -64,7 +64,9 @@ class E2eFixtureServiceTest {
         assertTrue(result.rollbackSellerId().startsWith("E2E-S2-"));
         assertTrue(result.multiSellerValidProductId().startsWith("E2E-MV-"));
         assertTrue(result.multiSellerFailProductId().startsWith("E2E-MF-"));
-        verify(sellers).save(argThat(s -> runId.equals(s.getE2eRunId()) && s.getSellerId().startsWith("E2E-S2-")));
+        verify(sellers).save(argThat(s -> runId.equals(s.getE2eRunId()) && s.getSellerId().startsWith("E2E-S2-")
+                && "NOT_SUBMITTED".equals(s.getGstVerificationStatus())
+                && "NOT_SUBMITTED".equals(s.getFssaiVerificationStatus())));
         verify(products, times(3)).save(argThat(p -> runId.equals(p.getE2eRunId())));
         verify(services).save(argThat(s -> runId.equals(s.getE2eRunId()) && s.getActive() == 1));
         verify(slots).save(argThat(s -> runId.equals(s.getE2eRunId())
