@@ -270,6 +270,40 @@ class DeliveryTrackingServiceTest {
         verifyNoInteractions(deliveryAgentRepository);
     }
 
+
+    @Test
+    void buyerCanStillTrackOrderWhenAssignedRiderProfileIsInactive() {
+        DeliveryAgentEntity inactiveRider = DeliveryAgentEntity.builder()
+                .agentId("AGENT-INACTIVE").userId("rider-id").email("rider@example.com")
+                .status("SUSPENDED").build();
+        OrderEntity order = OrderEntity.builder().orderId("ORD-BUYER-TRACK")
+                .buyerEmail("buyer@example.com").deliveryOtp("7314")
+                .deliveryAgent(inactiveRider).build();
+        when(orderRepository.findById("ORD-BUYER-TRACK")).thenReturn(Optional.of(order));
+        when(sessionRepository.findBySessionToken("buyer-track-token"))
+                .thenReturn(Optional.of(session("buyer-id")));
+        when(userRepository.findById("buyer-id")).thenReturn(Optional.of(
+                UserEntity.builder().userId("buyer-id").email("buyer@example.com").build()));
+
+        var result = trackingService.getOrderTracking("ORD-BUYER-TRACK", "buyer-track-token");
+
+        assertEquals("ORD-BUYER-TRACK", result.get("orderId"));
+        assertEquals("7314", result.get("deliveryOtp"));
+    }
+
+    @Test
+    void sessionWithoutUserIdIsRejectedBeforeProfileLookup() {
+        UserSessionEntity malformed = session("rider-id");
+        malformed.setUserId(" ");
+        when(sessionRepository.findBySessionToken("missing-user-id-token")).thenReturn(Optional.of(malformed));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> trackingService.updateLocation("AGENT-1", 30.0, 76.5, "missing-user-id-token"));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
+        verifyNoInteractions(deliveryAgentRepository);
+    }
+
     private UserSessionEntity session(String userId) {
         return UserSessionEntity.builder().sessionToken("token-" + userId).userId(userId)
                 .expiresAt(LocalDateTime.now().plusMinutes(30)).build();
