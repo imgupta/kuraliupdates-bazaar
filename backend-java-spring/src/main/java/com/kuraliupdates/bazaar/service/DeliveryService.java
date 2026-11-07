@@ -416,9 +416,12 @@ public class DeliveryService {
             Optional<DeliveryAgentEntity> linked = agentRepository.findByUserId(userId);
             if (linked.isPresent()) return linked.get();
             // Email fallback is reserved for legacy profiles without a stable account link.
-            return user.getEmail() == null ? Optional.<DeliveryAgentEntity>empty()
+            Optional<DeliveryAgentEntity> legacy = user.getEmail() == null
+                    ? Optional.empty()
                     : agentRepository.findByEmail(user.getEmail().trim().toLowerCase())
                             .filter(profile -> profile.getUserId() == null || profile.getUserId().isBlank());
+            return legacy.orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN,
+                    "No delivery profile is linked to this account"));
         }
         Optional<DeliveryAgentEntity> legacy = user.getEmail() == null
                 ? Optional.empty()
