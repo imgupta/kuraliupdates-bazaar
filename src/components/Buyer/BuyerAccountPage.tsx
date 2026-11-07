@@ -3,12 +3,14 @@ import { ArrowLeft, CheckCircle2, ChevronRight, HelpCircle, MapPin, Package, Pen
 import { useApp, SavedAddress } from '../../context/AppContext';
 import { LocationPicker, DeliveryLocation } from '../Auth/LocationPicker';
 import { OrderTrackingModal } from './OrderTrackingModal';
+import { buyerOrdersApi } from '../../services/domains/buyerOrdersApi';
 
 const emptyLocation = null;
 
 export const BuyerAccountPage: React.FC = () => {
-  const { user, orders, updateUserProfile, createBuyerAddress, updateBuyerAddress, setDefaultBuyerAddress, showToast } = useApp();
+  const { user, orders, updateUserProfile, createBuyerAddress, updateBuyerAddress, setDefaultBuyerAddress, showToast, syncWithBackend } = useApp();
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [section, setSection] = useState<'overview' | 'profile' | 'addresses' | 'orders' | 'current' | 'help'>('overview');
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileName, setProfileName] = useState(user.name);
@@ -96,6 +98,26 @@ export const BuyerAccountPage: React.FC = () => {
     }
   };
 
+  const cancelBuyerOrder = async (order: any) => {
+    const status = String(order.status || '').trim().toLowerCase();
+    if (!['placed', 'accepted_by_seller'].includes(status) || cancellingOrderId) return;
+    const isCheckoutGroup = Boolean(order.checkoutGroupId);
+    const confirmation = isCheckoutGroup
+      ? `Cancel checkout ${order.id}? This cancels all remaining eligible seller orders in this checkout and restores their stock.`
+      : `Cancel order ${order.id}? The store reservation will be released.`;
+    if (!window.confirm(confirmation)) return;
+    setCancellingOrderId(order.id);
+    try {
+      await buyerOrdersApi.cancelOrder(order.trackingOrderId || order.id);
+      showToast(isCheckoutGroup ? 'Checkout cancelled successfully.' : 'Order cancelled successfully.', 'success');
+      await syncWithBackend();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to cancel this order.', 'error');
+    } finally {
+      setCancellingOrderId(null);
+    }
+  };
+
   const setDefaultAddress = async (id: string) => {
     const saved = await setDefaultBuyerAddress(id);
     if (saved) showToast('Default delivery address updated.', 'success');
@@ -133,8 +155,8 @@ export const BuyerAccountPage: React.FC = () => {
             {section === 'overview' && <Overview user={user} addresses={addresses} currentOrders={currentOrders} onSection={setSection} />}
             {section === 'profile' && <section><Title icon={<User />} title="Update profile" /><div className="max-w-xl space-y-4"><Field label="Full name" value={profileName} onChange={setProfileName} /><Field label="Mobile number" value={profilePhone} onChange={setProfilePhone} /><div><label className="text-xs font-bold text-slate-700">Email</label><input value={user.email || ''} disabled className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500" /></div><button onClick={saveProfile} disabled={savingProfile} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 text-white px-4 py-2.5 text-xs font-black disabled:opacity-60 disabled:cursor-not-allowed"><Save className="w-4 h-4" /> {savingProfile ? 'Saving...' : 'Save profile'}</button></div></section>}
             {section === 'addresses' && <Addresses addresses={addresses} isAddingAddress={isAddingAddress} editingAddress={editingAddress} label={label} setLabel={setLabel} addressLine={addressLine} setAddressLine={setAddressLine} landmark={landmark} setLandmark={setLandmark} location={location} setLocation={setLocation} onNew={openNewAddress} onEdit={openEditAddress} onSave={saveAddress} savingAddress={savingAddress} onDefault={setDefaultAddress} onCancel={() => { setEditingAddress(null); setIsAddingAddress(false); setLocation(null); setAddressLine(''); setLandmark(''); }} />}
-            {section === 'orders' && <Orders orders={buyerOrders} onTrack={setTrackingOrderId} title="Order history" />}
-            {section === 'current' && <Orders orders={currentOrders} onTrack={setTrackingOrderId} title="Current order" current />}
+            {section === 'orders' && <Orders orders={buyerOrders} onTrack={setTrackingOrderId} onCancel={cancelBuyerOrder} cancellingOrderId={cancellingOrderId} title="Order history" />}
+            {section === 'current' && <Orders orders={currentOrders} onTrack={setTrackingOrderId} onCancel={cancelBuyerOrder} cancellingOrderId={cancellingOrderId} title="Current order" current />}
             {section === 'help' && <section><Title icon={<HelpCircle />} title="Help" /><div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center"><HelpCircle className="w-10 h-10 mx-auto text-slate-300" /><h3 className="mt-3 font-black text-slate-900">Help center coming soon</h3><p className="mt-1 text-xs text-slate-500">Support, FAQs, refunds and order assistance will be added here.</p></div></section>}
           </main>
         </div>
@@ -164,4 +186,4 @@ const Addresses = (p: any) => <section><div className="flex items-center justify
   <div className="space-y-3">{p.addresses.map((a: SavedAddress) => <div key={a.id} className="rounded-2xl border border-slate-200 p-4 flex gap-3"><MapPin className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" /><div className="flex-1 min-w-0"><div className="flex items-center gap-2"><b className="text-sm">{a.label}</b>{a.isDefault && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">DEFAULT</span>}</div><p className="mt-1 text-xs text-slate-600">{[a.addressLine1, a.landmark, a.formattedAddress].filter(Boolean).join(', ')}</p><div className="mt-3 flex gap-2"><button onClick={() => p.onEdit(a)} className="inline-flex items-center gap-1 text-[11px] font-black text-amber-700"><Pencil className="w-3 h-3" /> Edit</button>{!a.isDefault && <button onClick={() => p.onDefault(a.id)} className="text-[11px] font-black text-slate-600">Make default</button>}</div></div></div>)}</div>
 </section>;
 
-const Orders = ({ orders, onTrack, title, current }: { orders: any[]; onTrack: (id: string) => void; title: string; current?: boolean }) => <section><Title icon={<Package />} title={title} />{orders.length === 0 ? <div className="rounded-2xl bg-slate-50 p-8 text-center text-xs text-slate-500">{current ? 'No active order right now.' : 'No orders found.'}</div> : <div className="space-y-3">{orders.map(o => <div key={o.id} className="rounded-2xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-black">{o.id}</p><p className="text-xs text-slate-500">{o.sellerName} • {o.placedAt}</p></div><span className="rounded-full bg-amber-100 text-amber-800 px-2 py-1 text-[10px] font-black uppercase">{o.status.replace(/_/g, ' ')}</span></div><p className="mt-3 text-xs text-slate-600">{o.items?.length || 0} item(s) • ₹{o.totalAmount}</p>{current && <button onClick={() => onTrack(o.id)} className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-slate-950 text-white px-3 py-2 text-[11px] font-black"><MapPin className="w-3.5 h-3.5" /> Track order</button>}</div>)}</div>}</section>;
+const Orders = ({ orders, onTrack, onCancel, cancellingOrderId, title, current }: { orders: any[]; onTrack: (id: string) => void; onCancel: (order: any) => void; cancellingOrderId: string | null; title: string; current?: boolean }) => <section><Title icon={<Package />} title={title} />{orders.length === 0 ? <div className="rounded-2xl bg-slate-50 p-8 text-center text-xs text-slate-500">{current ? 'No active order right now.' : 'No orders found.'}</div> : <div className="space-y-3">{orders.map(o => { const cancellable = ['placed', 'accepted_by_seller'].includes(String(o.status || '').toLowerCase()); return <div key={o.id} className="rounded-2xl border border-slate-200 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-black">{o.id}</p><p className="text-xs text-slate-500">{o.sellerName} • {o.placedAt}</p></div><span className="rounded-full bg-amber-100 text-amber-800 px-2 py-1 text-[10px] font-black uppercase">{String(o.status || '').replace(/_/g, ' ')}</span></div><p className="mt-3 text-xs text-slate-600">{o.items?.length || 0} item(s) • ₹{o.totalAmount}</p><div className="mt-3 flex flex-wrap gap-2">{current && <button onClick={() => onTrack(o.id)} className="inline-flex items-center gap-1.5 rounded-xl bg-slate-950 text-white px-3 py-2 text-[11px] font-black"><MapPin className="w-3.5 h-3.5" /> Track order</button>}{cancellable && <button type="button" onClick={() => onCancel(o)} disabled={cancellingOrderId !== null} className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 py-2 text-[11px] font-black text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60">{cancellingOrderId === o.id ? 'Cancelling…' : 'Cancel order'}</button>}</div></div>; })}</div>}</section>;
