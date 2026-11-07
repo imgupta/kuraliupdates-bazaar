@@ -277,3 +277,10 @@ Exact PR head `ff11e6f7845f6ec93df381b197ed53f6a0ba7309` passed the full CI/E2E 
 Post-merge main commit `0d50ee68a39c85d0fbadffeae92e74a0bc187fa2` has backend Maven, frontend checks and Seller quality gates passed. The post-merge staging transactional workflow #42 completed successfully: three consecutive exact-commit/API/database readiness probes passed for the deployed backend SHA ed69c9f4f6289cba6c38b71c364d6f4f1700df29, followed by 5 passed / 0 failed / 0 skipped lifecycle/admin scenarios in 2.0 minutes. The merge commit contains no backend changes, so the deployed Render backend correctly remained at the prior backend SHA. This verifies the post-merge main staging workflow for the covered synthetic scenarios. Vercel has no deployment record for the merge SHA; no production deployment was triggered and no Vercel project settings were changed.
 
 Phase 1 and Phase 0 remain IN PROGRESS. The build optimization is not operationally activated until all six Vercel project roots and Ignore Build Step commands are authoritatively verified.
+
+
+## PR #314 merged — public abuse-control regression evidence — 7 November 2026
+
+PR #314 was squash-merged to main as `8dbe3371c29a8785e04f4755fe0f531e06682680`. Exact PR head `d64ac5d2795f258bbfb8a8405882796293c549fa` passed full CI/E2E and Seller registration quality gates. The backend suite passed 327 tests with zero failures/errors/skips; the new SearchAnalyticsControllerTest passed 7/7 and SellerOnboardingLeadControllerTest passed 4/4. Frontend checks and browser E2E passed; OTP-driven authenticated journeys remain skipped where staging capture/suppression is not confirmed.
+
+The next P1-A slice extends bargaining chat ownership regression coverage to list and notification read paths. Phase 1 and Phase 0 remain IN PROGRESS.

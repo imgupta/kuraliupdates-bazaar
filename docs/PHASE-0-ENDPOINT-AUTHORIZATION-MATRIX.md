@@ -109,3 +109,15 @@ This PR adds explicit negative-path controller tests:
 - Search analytics budget rejection stops before SearchTrendRepository.save.
 
 These tests prove controller ordering with mocked limiter/repository dependencies; the Oracle limiter's independent-session contention and actual reverse-proxy remote-address behavior remain separate runtime questions. This update does not close P1-D.
+
+
+## Bargaining chat read/list ownership evidence — 7 November 2026
+
+The service scopes buyer chat listing by normalized authenticated buyer email and seller chat listing by the approved seller profile resolved from the authenticated account. Notification listing is scoped by normalized recipient email and active role; marking a notification read uses the notification ID together with recipient email and role.
+
+The follow-up regression slice adds query-boundary tests for:
+- Buyer chat listing uses only the authenticated buyer email.
+- Seller chat listing uses only the approved store resolved from the authenticated seller email.
+- Notification listing uses the authenticated recipient and active role.
+
+Existing tests already cover cross-buyer and cross-store denial for message sends and offer responses, plus recipient-scoped notification read updates. These remain mocked JDBC/service tests: they do not prove Oracle execution plans, row-level database policies, or full authenticated browser journeys. The broader IDOR matrix remains open.

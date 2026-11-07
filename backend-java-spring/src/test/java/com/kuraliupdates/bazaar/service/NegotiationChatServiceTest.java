@@ -240,4 +240,65 @@ class NegotiationChatServiceTest {
         assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
         verifyNoInteractions(jdbc, sellerRepository);
     }
+
+    @Test
+    void buyerChatListIsRestrictedToTheAuthenticatedBuyerEmail() {
+        org.mockito.Mockito.doReturn(List.of()).when(jdbc).query(
+                ArgumentMatchers.anyString(),
+                ArgumentMatchers.<RowMapper<String>>any(),
+                ArgumentMatchers.anyString());
+
+        assertEquals(List.of(), service.list(buyer, "BUYER"));
+
+        org.mockito.Mockito.verify(jdbc).query(
+                ArgumentMatchers.contains("WHERE LOWER(c.BUYER_EMAIL)=?"),
+                ArgumentMatchers.<RowMapper<String>>any(),
+                ArgumentMatchers.eq("buyer@example.test"));
+    }
+
+    @Test
+    void sellerChatListIsRestrictedToTheAuthenticatedApprovedStore() {
+        SellerEntity sellerEntity = SellerEntity.builder()
+                .sellerId("seller-1")
+                .email("seller@example.test")
+                .status("APPROVED")
+                .build();
+        UserEntity seller = UserEntity.builder()
+                .userId("seller-user-1")
+                .email("seller@example.test")
+                .name("Test Seller")
+                .role("SELLER")
+                .build();
+        when(sellerRepository.findByEmailIgnoreCase("seller@example.test"))
+                .thenReturn(Optional.of(sellerEntity));
+        org.mockito.Mockito.doReturn(List.of()).when(jdbc).query(
+                ArgumentMatchers.anyString(),
+                ArgumentMatchers.<RowMapper<String>>any(),
+                ArgumentMatchers.<Object[]>any());
+
+        assertEquals(List.of(), service.list(seller, "SELLER"));
+
+        org.mockito.Mockito.verify(jdbc).query(
+                ArgumentMatchers.contains("WHERE c.SELLER_ID=?"),
+                ArgumentMatchers.<RowMapper<String>>any(),
+                ArgumentMatchers.eq("seller-1"));
+    }
+
+    @Test
+    void notificationListIsScopedToTheAuthenticatedRecipientAndActiveRole() {
+        org.mockito.Mockito.doReturn(List.of()).when(jdbc).query(
+                ArgumentMatchers.anyString(),
+                ArgumentMatchers.<RowMapper<Map<String, Object>>>any(),
+                ArgumentMatchers.anyString(),
+                ArgumentMatchers.anyString());
+
+        assertEquals(List.of(), service.notifications(buyer, "BUYER"));
+
+        org.mockito.Mockito.verify(jdbc).query(
+                ArgumentMatchers.contains("WHERE LOWER(RECIPIENT_EMAIL)=? AND RECIPIENT_ROLE=? AND IS_READ=0"),
+                ArgumentMatchers.<RowMapper<Map<String, Object>>>any(),
+                ArgumentMatchers.eq("buyer@example.test"),
+                ArgumentMatchers.eq("BUYER"));
+    }
+
 }
