@@ -95,7 +95,7 @@ class OtpServiceTest {
     }
 
     @Test
-    void successfulResendUsesHashedIdentifierAndPersistsOtpAfterCooldownReservation() {
+    void successfulResendUsesHashedIdentifierAndPersistsOtpAfterCooldownReservation() throws Exception {
         when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class))).thenReturn(30);
         when(jdbcTemplate.update(startsWith("MERGE INTO API_RATE_LIMIT_BUCKETS"), any(), anyInt(), anyInt()))
                 .thenReturn(1);
