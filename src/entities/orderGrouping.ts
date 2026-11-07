@@ -21,8 +21,15 @@ export const groupCheckoutOrders = (orders: Order[]): Order[] => {
   const grouped: Order[] = [...groups.entries()].map(([checkoutGroupId, children]) => {
     const sorted = [...children].sort((a,b) => new Date(a.placedAt || 0).getTime() - new Date(b.placedAt || 0).getTime() || a.id.localeCompare(b.id));
     const first = sorted[0];
-    const status = sorted.reduce((least, current) =>
-      STATUS_RANK[current.status] < STATUS_RANK[least] ? current.status : least, first.status);
+    // A seller can cancel one suborder independently. Do not hide the entire
+    // checkout while other seller orders are still active; only mark the group
+    // cancelled when every child order is cancelled.
+    const activeChildren = sorted.filter(order => order.status !== 'cancelled');
+    const status = activeChildren.length === 0
+      ? 'cancelled'
+      : activeChildren.reduce((least, current) =>
+          STATUS_RANK[current.status] < STATUS_RANK[least] ? current.status : least,
+          activeChildren[0].status);
     const sellerIds = [...new Set(sorted.map(order => order.sellerId).filter(Boolean))];
     const sellerNames = [...new Set(sorted.map(order => order.sellerName).filter(Boolean))];
     return {
