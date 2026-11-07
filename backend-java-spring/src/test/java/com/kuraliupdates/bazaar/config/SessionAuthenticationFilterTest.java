@@ -25,6 +25,7 @@ class SessionAuthenticationFilterTest {
         AuthService authService = mock(AuthService.class);
         UserEntity user = UserEntity.builder().userId("user-1").role("SELLER").build();
         when(authService.requireUser("valid-session")).thenReturn(user);
+        when(authService.requireSessionRole("valid-session")).thenReturn("BUYER");
         SessionAuthenticationFilter filter = new SessionAuthenticationFilter(authService);
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer valid-session");
@@ -35,8 +36,9 @@ class SessionAuthenticationFilterTest {
         assertNotNull(authentication);
         assertSame(user, authentication.getPrincipal());
         assertTrue(authentication.getAuthorities().stream()
-                .anyMatch(authority -> "ROLE_SELLER".equals(authority.getAuthority())));
+                .anyMatch(authority -> "ROLE_BUYER".equals(authority.getAuthority())));
         verify(authService).requireUser("valid-session");
+        verify(authService).requireSessionRole("valid-session");
     }
 
     @Test
