@@ -166,6 +166,32 @@ class OrderServiceTest {
     }
 
     @Test
+    void buyerCancellationDoesNotRestoreStockAgainForSellerCancelledSuborder() {
+        ProductEntity alreadyRestored = ProductEntity.builder().productId("P-OLD").stock(3).build();
+        ProductEntity stillReserved = ProductEntity.builder().productId("P-NEW").stock(1).build();
+        OrderEntity cancelled = OrderEntity.builder().orderId("ORD-MIX-1").checkoutGroupId("CHK-MIX")
+                .buyerEmail("authenticated@example.test").status("CANCELLED").paymentStatus("CANCELLED")
+                .items(new java.util.ArrayList<>(List.of(com.kuraliupdates.bazaar.entity.OrderItemEntity.builder()
+                        .itemId("I-OLD").product(alreadyRestored).quantity(2).build()))).build();
+        OrderEntity active = OrderEntity.builder().orderId("ORD-MIX-2").checkoutGroupId("CHK-MIX")
+                .buyerEmail("authenticated@example.test").status("PLACED").paymentStatus("PENDING_COD")
+                .items(new java.util.ArrayList<>(List.of(com.kuraliupdates.bazaar.entity.OrderItemEntity.builder()
+                        .itemId("I-NEW").product(stillReserved).quantity(3).build()))).build();
+        when(orderRepository.findById("ORD-MIX-1")).thenReturn(Optional.of(cancelled));
+        when(orderRepository.findLockedByCheckoutGroupId("CHK-MIX")).thenReturn(List.of(cancelled, active));
+        when(productRepository.findLockedByProductId("P-NEW")).thenReturn(Optional.of(stillReserved));
+        when(orderRepository.saveAll(any(Iterable.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        orderService.cancelOrderForBuyer("ORD-MIX-1", buyer());
+
+        assertEquals(3, alreadyRestored.getStock());
+        assertEquals(4, stillReserved.getStock());
+        assertEquals("CANCELLED", active.getStatus());
+        verify(productRepository, never()).findLockedByProductId("P-OLD");
+        verify(productRepository).findLockedByProductId("P-NEW");
+    }
+
+    @Test
     void placesOrderPersistsLineItemsAndReservesStockExactlyOnce() {
         SellerEntity seller = seller();
         ProductEntity product = ProductEntity.builder().productId("P-1").seller(seller)
