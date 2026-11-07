@@ -604,3 +604,10 @@ Added node:test coverage for mixed cancelled/active checkout groups and fully ca
 
 
 **PR #304 verification:** exact PR head `fe486b41b8e5832783f6702f5c072e717386c020`, merged as `cf21ae0b5d711c8e472a7a50afb2d4f4155e1ca8`. Full backend: 317 tests, zero failures/errors/skips. Frontend lint/build and staging role/fixture preflight passed. Browser E2E was 3 passed / 6 skipped. Read-only API smoke was 7/7, but `databaseHealthChecked=false`; it is not a database readiness test. Post-merge staging transactional E2E and Oracle two-session contention remain separate evidence gates.
+
+
+## 7 November 2026 — atomic OTP resend cooldown (P1-C, implementation in progress)
+
+`OtpService.send` previously used `existsRecentOtp` as a read-before-write cooldown check. Two requests on separate application instances could both pass before either saved its OTP. The implementation now atomically reserves a domain-separated SHA-256 bucket in the existing Oracle `API_RATE_LIMIT_BUCKETS` table using a sentinel window and `SYSTIMESTAMP` expiry. It retries an Oracle duplicate-key first-insert race once, returns 429 when another request owns the cooldown, and fails closed with 503 when the guard cannot be persisted. The existing OTP-row check remains as a compatibility guard. Reservation and OTP persistence participate in the existing transaction; the explicit allowlisted staging E2E bypass remains unchanged. No schema migration or API contract change.
+
+Regression tests cover active cooldown denial, duplicate-key retry, database outage, successful hashed reservation and legacy OTP-row compatibility. These are mocked service tests, not Oracle multi-session proof. Exact-head CI, an isolated Oracle two-session race/rollback test and a clean staging transactional rerun remain acceptance gates. See [OTP resend cooldown design](OTP-RESEND-COOLDOWN.md). Phase 1 remains IN PROGRESS.
