@@ -354,6 +354,23 @@ class DailyHelpServiceTest {
     }
 
     @Test
+    void completionTimestampIsNormalizedToOracleMicrosecondPrecision() {
+        DailyHelpBookingEntity booking = booking("BOOK-COMPLETE-PRECISION", "IN_PROGRESS");
+        when(bookingRepository.findById("BOOK-COMPLETE-PRECISION")).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any(DailyHelpBookingEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = dailyHelpService.completeBooking("BOOK-COMPLETE-PRECISION", "DHP-1");
+
+        assertEquals("COMPLETED", response.status());
+        assertNotNull(response.serviceCompletedAt());
+        assertEquals(0, response.serviceCompletedAt().getNano() % 1_000,
+                "completion timestamp must be representable by Oracle TIMESTAMP(6)");
+        assertEquals(booking.getServiceCompletedAt(), response.serviceCompletedAt());
+        verify(bookingRepository).save(booking);
+    }
+
+    @Test
     void unassignedProfessionalCannotCompleteBooking() {
         DailyHelpBookingEntity booking = booking("BOOK-COMPLETE-OWNER", "IN_PROGRESS");
         when(bookingRepository.findById("BOOK-COMPLETE-OWNER")).thenReturn(Optional.of(booking));
