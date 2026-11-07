@@ -314,16 +314,29 @@ public class OrderService {
         if (buyer == null || buyer.getEmail() == null || buyer.getEmail().isBlank()) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
         }
-        OrderEntity requested = orderRepository.findLockedByOrderId(orderId)
+        // Read only to discover the group key. For a checkout group, acquire all
+        // order locks in the repository's stable placedAt order; never lock one
+        // arbitrary member first, or two concurrent cancellations can deadlock.
+        OrderEntity snapshot = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
+        List<OrderEntity> group;
+        OrderEntity requested;
+        if (snapshot.getCheckoutGroupId() == null || snapshot.getCheckoutGroupId().isBlank()) {
+            requested = orderRepository.findLockedByOrderId(orderId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
+            group = List.of(requested);
+        } else {
+            group = orderRepository.findLockedByCheckoutGroupId(snapshot.getCheckoutGroupId());
+            requested = group == null ? null : group.stream()
+                    .filter(order -> orderId.equals(order.getOrderId())).findFirst().orElse(null);
+            if (requested == null) {
+                throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
+            }
+        }
         String buyerEmail = buyer.getEmail().trim().toLowerCase(Locale.ROOT);
         if (requested.getBuyerEmail() == null || !requested.getBuyerEmail().equalsIgnoreCase(buyerEmail)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
         }
-        List<OrderEntity> group = requested.getCheckoutGroupId() == null
-                || requested.getCheckoutGroupId().isBlank()
-                ? List.of(requested)
-                : orderRepository.findLockedByCheckoutGroupId(requested.getCheckoutGroupId());
         if (group == null || group.isEmpty()
                 || group.stream().anyMatch(order -> order.getBuyerEmail() == null
                     || !order.getBuyerEmail().equalsIgnoreCase(buyerEmail))) {
