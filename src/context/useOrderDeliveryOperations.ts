@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { CartItem, DeliveryAgent, Order, OrderStatus } from '../types';
+import type { UserProfile } from '../entities/userProfile';
 import { bazaarApi } from '../services/api';
 import { deliveryApi } from '../services/domains/deliveryApi';
 import { groupCheckoutOrders } from '../entities/orderGrouping';
