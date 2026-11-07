@@ -110,3 +110,36 @@ Standard KuraliUpdates CI and E2E run 42218558947 is still pending with no jobs 
 - Fix in branch `phase1/fix-e2e-cleanup-booking-slot-link`: both cleanup preflight relationship checks now use `BOOKING_ID`; the new `E2eRunCleanupServiceTest` asserts the SQL never references `b.SLOT_ID` and verifies the booking/slot relationship in both directions.
 - The failed cleanup ran before the service's first write because all ownership checks precede mutations. The five sessions were created with the run tag and have the normal two-hour expiry. The run ID was not printed by the workflow, so no broad/manual cleanup is attempted.
 - Exact-head Maven/CI and a fresh staging preflight after the backend fix is deployed are required. PR #268 remains blocked until it passes. Do not infer Phase 1 completion from this fix alone.
+
+
+## 7 November 2026 — cleanup fix deployed; preflight retest required
+
+- PR #269 merged as `6d9b85b85869d00563b736040fdca6b053e327f7`. Render deployment `dep-dbmu5k6c6qcc73biqedg` is confirmed `live` on the backend service. The fix changes invalid Daily Help cleanup relationship checks to use `BOOKING_ID` and includes a regression test.
+- Exact-head PR #269 CI completed successfully: backend suite 263 tests, 0 failures/errors/skips; frontend checks/build passed; read-only staging smoke passed 7/0; browser E2E 3 passed, 11 skipped. The skipped browser tests are not counted as authenticated transaction coverage.
+- The earlier PR #268 preflight run `42232583085` remains a failed historical run: five role sessions authenticated, but cleanup returned HTTP 500 from the now-fixed invalid `B.SLOT_ID` reference. It is not a pass.
+- The old PR #268 branch is one commit behind main after PR #269. A fresh branch `phase1/staging-preflight-after-cleanup-fix` was created from current main and the safe, non-transactional preflight workflow was reapplied as commit `49a43fe74676c21ac4c20380b9e1d3b3f41dfa7e` to trigger a clean PR event against the deployed fix.
+- Next: open/review the fresh PR and verify its exact-head workflow run confirms all five role sessions and exact run-scoped cleanup count. Do not merge until green. Then run the separately trusted transactional staging workflow with owner-approved synthetic fixtures, verify V32/V33 migrations and Oracle-backed cleanup/rollback, and continue remaining authorization/privacy checks. Phase 1 remains IN PROGRESS.
+
+
+## 7 November 2026 — preflight timeout investigation
+
+- Fresh PR #270 preflight run `42278065698` failed again, but the failure differs from the earlier Oracle SQL defect: the workflow log ends with Node fetch `AbortSignal.timeout` after 20 seconds. No Oracle `B.SLOT_ID` error was observed in this run. No business transactions or fixture mutations were attempted.
+- The same exact-head standard CI run `42278065492` is still in progress at this checkpoint; frontend checks passed, backend suite completed successfully, and read-only smoke/browser E2E remained running. Seller registration quality gates `42278065917` passed.
+- Render confirms PR #269 backend deployment `dep-dbmu5k6c6qcc73biqedg` is live. Render app logs show the service process restarted around `2026-11-06T19:16:14Z`, but the available log window contains only early Spring Boot startup lines and no request-level evidence. Request logs returned no entries, so the precise endpoint/startup cause is not yet proven.
+- Updated the preflight workflow to emit a progress line before each role request and cleanup, increased request timeout from 20 to 60 seconds, and increased job timeout from 8 to 12 minutes to tolerate Render cold start and make the next failure diagnosable. This does not change transactional gating or cleanup scope.
+- New workflow commit: `231f43ddd1f49d99f441129a2ef77f462cd0e67c`. A fresh PR head run is required. Do not treat the previous timeout as proof that cleanup is fixed or broken; it is an inconclusive network/availability failure.
+
+
+## 7 November 2026 — dedicated branch preflight trigger
+
+- PR #270 did not produce a new staging preflight run after the timeout/diagnostic commit. To make verification deterministic without depending on pull-request workflow-definition loading, the preflight workflow now also triggers on pushes to the exact dedicated branch `phase1/staging-preflight-after-cleanup-fix`.
+- This push-triggered run remains non-transactional: `trustedRun` is true only for explicit `workflow_dispatch`; all push/PR events skip transactional fixture provisioning and business mutations. Only five temporary tagged role sessions can be issued and exact run-scoped cleanup is attempted.
+- Workflow trigger commit: `9d6ce8dd68044893f1a5a7642cbb56304570685d`. Check its push-triggered workflow run before merging PR #270. No pass is claimed yet.
+
+
+## 7 November 2026 — Render cold-start diagnosis and role preflight passed
+
+- Confirmed Render workspace `My Workspace` and inspected backend service `kuraliupdates-bazaar` logs. The 6 November 04:43 UTC preflight coincided with a cold start: Spring Boot took 113.099 seconds to start; the Oracle pool connected successfully and Flyway validated all 35 migrations (schema version 34). This explains why the first Buyer token request exceeded its 60-second client timeout. The cleanup request arrived after startup and removed one run-tagged session even though the client had received no token response.
+- Corrected the workflow in commit `2c5a922cf88ff28a14a07dad9be59e156202e809`: it now polls `/health/live` for up to six minutes before requesting role sessions. Cleanup count validation now accepts only the safe interval from successfully returned tokens through attempted requests, accounting for a server-side session whose HTTP response was lost. Cleanup remains scoped to the unique run ID only.
+- Push-triggered preflight run `42340528387` passed. Logs confirm liveness was UP on the first probe; Buyer, Seller, Delivery, Provider and Admin sessions all passed; cleanup removed exactly 5 sessions from 5 attempted requests and 5 returned tokens. No orders, bookings, inventory changes, OTPs, customer records, or synthetic fixture mutations were performed. Transactional fixture/profile checks were intentionally skipped because this was a push/PR event, not trusted `workflow_dispatch`.
+- The PR-triggered preflight and standard CI for this exact head must also complete successfully before merge. Phase 1 remains IN PROGRESS; transactional lifecycle and OTP-driven tests remain outstanding.

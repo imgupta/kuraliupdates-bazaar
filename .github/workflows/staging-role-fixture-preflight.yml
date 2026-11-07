@@ -1,8 +1,16 @@
 name: Staging Role and Fixture Preflight
 
 on:
-  push:
+  pull_request:
     branches: [main]
+    paths:
+      - '.github/workflows/staging-role-fixture-preflight.yml'
+      - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/E2eAuthController.java'
+      - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/AuthService.java'
+      - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/BuyerController.java'
+      - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/DailyHelpController.java'
+  push:
+    branches: [main, phase1/staging-preflight-verified]
     paths:
       - '.github/workflows/staging-role-fixture-preflight.yml'
       - 'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/E2eAuthController.java'
@@ -22,7 +30,7 @@ jobs:
   role-and-fixture-preflight:
     name: Verify role sessions and synthetic fixtures without business mutations
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     env:
       E2E_STAGING_CONFIG_JSON: ${{ secrets.E2E_STAGING_CONFIG_JSON }}
       E2E_API_BASE_URL: https://kuraliupdates-bazaar.onrender.com/api/v1
@@ -31,6 +39,7 @@ jobs:
         shell: bash
         run: |
           node --input-type=module <<'NODE'
+          import { randomUUID } from 'node:crypto';
           const raw = process.env.E2E_STAGING_CONFIG_JSON;
           if (!raw?.trim()) {
             console.error('Missing E2E_STAGING_CONFIG_JSON; no request was made.');
@@ -87,7 +96,7 @@ jobs:
               method: 'POST',
               headers: { ...headers, 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Accept': 'application/json' },
               body: JSON.stringify(body),
-              signal: AbortSignal.timeout(20000)
+              signal: AbortSignal.timeout(60000)
             });
             if (!response.ok) throw new Error(path + ' returned HTTP ' + response.status);
             return response.json();
@@ -95,19 +104,59 @@ jobs:
           async function getJson(path, token) {
             const response = await fetch(apiBase + path, {
               headers: { 'Authorization': 'Bearer ' + token, 'Cache-Control': 'no-store', 'Accept': 'application/json' },
-              signal: AbortSignal.timeout(20000)
+              signal: AbortSignal.timeout(60000)
             });
             if (!response.ok) throw new Error(path + ' returned HTTP ' + response.status);
             return response.json();
           }
 
+          async function waitForApiLiveness() {
+            const deadline = Date.now() + 360000;
+            let attempt = 0;
+            let lastStatus = 'no response';
+            while (Date.now() < deadline) {
+              attempt += 1;
+              try {
+                const response = await fetch(apiBase + '/health/live', {
+                  headers: { 'Cache-Control': 'no-store', 'Accept': 'application/json' },
+                  signal: AbortSignal.timeout(15000)
+                });
+                lastStatus = 'HTTP ' + response.status;
+                if (response.ok) {
+                  const body = await response.json();
+                  if (String(body?.status ?? '').toUpperCase() === 'UP') {
+                    console.log('PASS: staging API liveness is UP after ' + attempt + ' readiness probe(s).');
+                    return;
+                  }
+                  lastStatus = 'health payload did not report UP';
+                }
+              } catch (error) {
+                lastStatus = error?.name === 'TimeoutError' || error?.name === 'AbortError'
+                  ? 'readiness probe timed out'
+                  : (error?.message ?? 'request failed');
+              }
+              console.log('Waiting for staging API startup; readiness probe ' + attempt + ' not ready (' + lastStatus + ').');
+              await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+            throw new Error('Staging API did not become live within 6 minutes; last probe: ' + lastStatus);
+          }
+
+          const runId = 'E2E-PREFLIGHT-' + randomUUID();
+          console.log('Starting non-transactional staging role preflight.');
+          const tokens = {};
+          let sessionRequestsStarted = 0;
+          const mismatches = [];
+          let failure = null;
           try {
-            const tokens = {};
-            const mismatches = [];
+            // Render's free instance can cold-start for ~2 minutes. Never send
+            // role-token requests until the deployed API has completed startup.
+            await waitForApiLiveness();
             for (const [role, identityKey, expectedRole] of expected) {
               const mismatchCountBeforeRole = mismatches.length;
               const identity = required(identityKey);
-              const session = await postJson('/e2e/auth/token', { 'X-E2E-Flow-Token': sharedToken }, { role, identifier: identity });
+              console.log('Starting role session check: ' + role + '.');
+              sessionRequestsStarted += 1;
+              const session = await postJson('/e2e/auth/token', { 'X-E2E-Flow-Token': sharedToken, 'X-E2E-Run-Id': runId }, { role, identifier: identity });
               if (session?.authenticated !== true ||
                   String(session?.role ?? '').toUpperCase() !== expectedRole ||
                   typeof session?.token !== 'string' || session.token.length < 21) {
@@ -161,7 +210,46 @@ jobs:
               (transactionalFixturesEnabled ? ' Synthetic fixture checks also passed.' : ' Fixture checks skipped because transactional E2E is disabled.') +
               ' No orders, bookings, inventory changes, OTPs, or customer records were created. Session tokens were not printed.');
           } catch (error) {
-            console.error('PREFLIGHT FAILED: ' + (error?.message ?? 'unexpected failure') + '. No business transactions were attempted.');
+            failure = error;
+          } finally {
+            // Role token issuance persists short-lived sessions. Tag each one to this
+            // preflight run and remove only those sessions, even when a role check fails.
+            if (sessionRequestsStarted > 0) {
+              try {
+                console.log('Starting exact run-scoped cleanup for ' + sessionRequestsStarted + ' attempted session request(s); ' + Object.keys(tokens).length + ' response token(s) received.');
+                const response = await fetch(apiBase + '/e2e/cleanup/' + encodeURIComponent(runId), {
+                  method: 'POST',
+                  headers: {
+                    'X-E2E-Flow-Token': sharedToken,
+                    'Cache-Control': 'no-store',
+                    'Accept': 'application/json'
+                  },
+                  signal: AbortSignal.timeout(60000)
+                });
+                if (!response.ok) throw new Error('Run-scoped preflight cleanup returned HTTP ' + response.status);
+                const cleanup = await response.json();
+                const cleanedSessions = Number(cleanup.sessions);
+                const receivedTokens = Object.keys(tokens).length;
+                if (!Number.isInteger(cleanedSessions) ||
+                    cleanedSessions < receivedTokens ||
+                    cleanedSessions > sessionRequestsStarted) {
+                  throw new Error('Run-scoped cleanup count ' + String(cleanup.sessions) +
+                    ' is outside the safe expected range ' + receivedTokens + '..' + sessionRequestsStarted +
+                    ' (successful responses..attempted requests).');
+                }
+                console.log('PASS: run-scoped cleanup removed ' + cleanedSessions +
+                  ' session(s); ' + receivedTokens + ' response token(s) received from ' +
+                  sessionRequestsStarted + ' attempted request(s). Only this unique run ID was cleaned.');
+              } catch (cleanupError) {
+                failure = failure ?? cleanupError;
+                console.error('PREFLIGHT CLEANUP FAILED: ' + (cleanupError?.message ?? 'unexpected cleanup failure'));
+              }
+            } else {
+              console.log('SKIP: no role-session request was attempted; no run-scoped cleanup was necessary.');
+            }
+          }
+          if (failure) {
+            console.error('PREFLIGHT FAILED: ' + (failure?.message ?? 'unexpected failure') + '. No business transactions were attempted.');
             process.exit(1);
           }
           NODE
