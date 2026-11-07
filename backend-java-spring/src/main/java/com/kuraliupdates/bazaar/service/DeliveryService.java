@@ -39,15 +39,18 @@ public class DeliveryService {
     private static final String DELIVERY_OTP_RESEND_GUARD_MERGE = """
             MERGE INTO API_RATE_LIMIT_BUCKETS target
             USING (
-                SELECT ? AS BUCKET_KEY, TIMESTAMP '1970-01-01 00:00:00' AS WINDOW_START FROM DUAL
+                SELECT ? AS BUCKET_KEY,
+                       TIMESTAMP '1970-01-01 00:00:00' AS WINDOW_START,
+                       FLOOR((CAST(SYSTIMESTAMP AS DATE) - DATE '1970-01-01') * 86400) AS NOW_EPOCH
+                FROM DUAL
             ) source
             ON (target.BUCKET_KEY = source.BUCKET_KEY AND target.WINDOW_START = source.WINDOW_START)
             WHEN MATCHED THEN UPDATE SET
-                target.REQUEST_COUNT = 1,
-                target.EXPIRES_AT = SYSTIMESTAMP + INTERVAL '60' SECOND
-                WHERE target.EXPIRES_AT <= SYSTIMESTAMP
+                target.REQUEST_COUNT = source.NOW_EPOCH,
+                target.EXPIRES_AT = SYSTIMESTAMP + INTERVAL '2' DAY
+                WHERE target.REQUEST_COUNT <= source.NOW_EPOCH - 60
             WHEN NOT MATCHED THEN INSERT (BUCKET_KEY, WINDOW_START, REQUEST_COUNT, EXPIRES_AT)
-                VALUES (source.BUCKET_KEY, source.WINDOW_START, 1, SYSTIMESTAMP + INTERVAL '60' SECOND)
+                VALUES (source.BUCKET_KEY, source.WINDOW_START, source.NOW_EPOCH, SYSTIMESTAMP + INTERVAL '2' DAY)
             """;
     private static final String DELIVERY_OTP_RESEND_GUARD_CLEANUP =
             "DELETE FROM API_RATE_LIMIT_BUCKETS WHERE EXPIRES_AT < SYSTIMESTAMP";
