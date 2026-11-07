@@ -10,6 +10,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -33,6 +35,7 @@ class OtpServiceTest {
     @Test
     void resendWithinConfiguredCooldownIsRejectedBeforeDeliveryOrPersistence() {
         when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class))).thenReturn(30);
+        when(jdbcTemplate.update(startsWith("MERGE INTO API_RATE_LIMIT_BUCKETS"), any(), anyInt(), anyInt())).thenReturn(1);
         when(repository.existsRecentOtp(eq("buyer@example.test"), eq("BUYER_EMAIL"), any(LocalDateTime.class)))
                 .thenReturn(true);
 
