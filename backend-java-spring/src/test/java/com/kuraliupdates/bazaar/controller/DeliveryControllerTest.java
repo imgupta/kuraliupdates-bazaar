@@ -87,6 +87,43 @@ class DeliveryControllerTest {
     }
 
 
+
+    @Test
+    void availableJobsUseLocalityOnlyPreviewUntilClaim() {
+        UserEntity user = rider();
+        Authentication authentication = new UsernamePasswordAuthenticationToken(user, "token");
+        OrderEntity order = OrderEntity.builder().orderId("ORD-PREVIEW")
+                .buyerName("Buyer Name").buyerPhone("Buyer Phone")
+                .deliveryAddress("Exact Buyer Address").deliveryLocality("Kurali")
+                .status("READY_FOR_PICKUP").build();
+        when(deliveryService.availableJobs(user)).thenReturn(List.of(order));
+
+        var response = controller.getAvailableJobs(authentication);
+
+        assertEquals("ORD-PREVIEW", response.getBody().get(0).orderId());
+        assertEquals("Kurali", response.getBody().get(0).deliveryLocality());
+        verify(deliveryService).availableJobs(user);
+        verifyNoMoreInteractions(deliveryService);
+    }
+
+    @Test
+    void assignedJobsReturnBuyerContactOnlyForTheAuthenticatedRider() {
+        UserEntity user = rider();
+        Authentication authentication = new UsernamePasswordAuthenticationToken(user, "token");
+        OrderEntity order = OrderEntity.builder().orderId("ORD-ASSIGNED")
+                .buyerName("Buyer Name").buyerPhone("Buyer Phone")
+                .deliveryAddress("Exact Buyer Address").deliveryLocality("Kurali")
+                .status("ASSIGNED_TO_DELIVERY").build();
+        when(deliveryService.assignedJobs(user)).thenReturn(List.of(order));
+
+        var response = controller.getMyAssignedJobs(authentication);
+
+        assertEquals("Buyer Phone", response.getBody().get(0).buyerPhone());
+        assertEquals("Exact Buyer Address", response.getBody().get(0).deliveryAddress());
+        verify(deliveryService).assignedJobs(user);
+        verifyNoMoreInteractions(deliveryService);
+    }
+
     @Test
     void malformedUserPrincipalIsRejectedByEveryProtectedDeliveryOperation() {
         Authentication malformed = new UsernamePasswordAuthenticationToken("not-a-user-principal", "token");
