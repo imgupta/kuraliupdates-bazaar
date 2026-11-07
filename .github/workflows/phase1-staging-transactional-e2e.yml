@@ -32,6 +32,7 @@ jobs:
       E2E_API_BASE_URL: https://kuraliupdates-bazaar.onrender.com/api/v1
       E2E_STAGING_CONFIG_JSON: ${{ secrets.E2E_STAGING_CONFIG_JSON }}
       E2E_TRANSACTIONAL_FLOWS_ENABLED: "true"
+      EXPECTED_STAGING_COMMIT: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -110,14 +111,17 @@ jobs:
           node --input-type=module <<'NODE'
           const url = process.env.E2E_API_BASE_URL + '/health';
           const deadline = Date.now() + 8 * 60 * 1000;
-          const requiredStableChecks = 12; // two minutes of continuous health after Render finishes swapping instances
+          const expectedCommit = process.env.EXPECTED_STAGING_COMMIT;
+          if (!/^[0-9a-f]{40}$/i.test(expectedCommit ?? '')) throw new Error('Expected staging commit SHA is missing or invalid.');
+          const requiredStableChecks = 12; // two minutes on the exact requested Render commit after old instances are drained
           let stableChecks = 0;
           let last = 'no response';
           while (Date.now() < deadline) {
             try {
               const response = await fetch(url, { signal: AbortSignal.timeout(10000), headers: { 'Cache-Control': 'no-store' } });
               const body = await response.json().catch(() => ({}));
-              if (response.ok && body.status === 'UP' && body.database === 'UP') {
+              if (response.ok && body.status === 'UP' && body.database === 'UP'
+                  && String(body.commit ?? '').toLowerCase() === expectedCommit.toLowerCase()) {
                 stableChecks++;
                 if (stableChecks >= requiredStableChecks) {
                   console.log('PASS: staging API and database remained healthy for two continuous minutes after deployment.');
@@ -126,7 +130,8 @@ jobs:
                 console.log('Staging healthy (' + stableChecks + '/' + requiredStableChecks + '); waiting for deployment stability.');
               } else {
                 stableChecks = 0;
-                last = 'HTTP ' + response.status + ', database=' + String(body.database ?? 'unknown');
+                last = 'HTTP ' + response.status + ', database=' + String(body.database ?? 'unknown')
+                  + ', commit=' + String(body.commit ?? 'unknown');
               }
             } catch { stableChecks = 0; last = 'network or timeout'; }
             await new Promise(resolve => setTimeout(resolve, 10000));
