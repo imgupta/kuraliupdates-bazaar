@@ -35,9 +35,9 @@ The current Phase 0 branch uses explicit public method/path matchers. All routes
 
 ## Outstanding authorization and abuse controls
 
-- Public seller lead endpoints have no demonstrated per-IP/request throttling or CAPTCHA. OTP service has an identifier cooldown and five-attempt verification cap, but this is not a substitute for endpoint-level abuse protection.
+- Public seller lead endpoints now apply persistent, identifier-scoped Oracle rate budgets: lead creation is limited to 3/hour for the normalized email+phone pair and independently for email and phone; OTP send is 3/hour per lead; verification is 10/15 minutes per lead; callback requests are 2/day per lead. ApiRateLimitService stores only a SHA-256 bucket key. These are not per-IP limits or CAPTCHA, so network-level abuse controls remain an open follow-up. Controller tests assert that a rejected budget prevents the lead/OTP service from being invoked.
 - Existing-lead lookup behavior can reveal that a matching email/phone pair has an active lead and returns its lead ID. Review enumeration and applicant-name update semantics before public launch.
-- Public search analytics remains susceptible to event flooding; add server-side throttling, payload size limits and retention policy.
+- Public search analytics now applies a persistent fixed-window budget of 600 events/minute per anonymous remote IP and 300/minute per authenticated user. Query text is normalized and capped at 255 characters, and the client-supplied userId is ignored. Controller regression tests assert that a rejected rate-limit decision prevents persistence. The anonymous budget is still relatively permissive, and retention/deletion policy plus proxy-aware source-IP validation remain open.
 - Complete IDOR tests are still required for every buyer order, seller product/order, delivery assignment, professional booking/slot and chat/offer identifier.
 - Admin seller-lead and registration OTP-policy audit events now record the stable authenticated UserEntity.userId rather than Authentication.getName().
 - Verify role semantics for multi-profile accounts: account-level authority is derived from the primary user role; resource ownership must remain the final authorization check.
@@ -97,3 +97,15 @@ Runtime evidence: staging run [42365076271](https://github.com/imgupta/kuraliupd
 `POST /delivery/jobs/checkout/{checkoutGroupId}/claim` resolves the delivery profile from the authenticated user and requires the caller-supplied agent ID to match that profile before locking or mutating seller orders. `DeliveryService.claimCheckoutGroup` locks all orders in the checkout group and requires every seller order to be ready, unassigned and eligible for delivery before assigning the group.
 
 New `DeliveryServiceTest` coverage verifies spoofed agent ID rejection before JDBC/order access, successful all-order assignment with shared OTP/single payout snapshot, and no mutation when one seller order is not ready. This is service-level mocked coverage only; the distinct-agent Oracle lock race remains unverified.
+
+
+## Public endpoint abuse-control evidence update — 7 November 2026
+
+Source review of SellerOnboardingLeadController and SearchAnalyticsController confirms persistent Oracle-backed rate-limit calls execute before service persistence. The shared limiter hashes scope and identifier before storing a bucket, so raw email, phone, lead ID, IP or user ID is not stored in API_RATE_LIMIT_BUCKETS.
+
+This PR adds explicit negative-path controller tests:
+- Seller lead creation budget rejection stops before SellerOnboardingLeadService.start and before the independent email/phone budgets are evaluated.
+- Seller OTP-send budget rejection stops before the lead service is invoked.
+- Search analytics budget rejection stops before SearchTrendRepository.save.
+
+These tests prove controller ordering with mocked limiter/repository dependencies; the Oracle limiter's independent-session contention and actual reverse-proxy remote-address behavior remain separate runtime questions. This update does not close P1-D.

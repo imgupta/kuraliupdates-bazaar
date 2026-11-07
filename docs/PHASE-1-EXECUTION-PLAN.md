@@ -636,3 +636,12 @@ Additional regression coverage pins Windows-style path normalization, backend/bu
 Operational activation remains separate: inspect all six Vercel project root directories and configure the appropriate Ignore Build Step command only where the script is present in the root. Verify with controlled no-op and affected-path builds. Do not claim the build-rate limit is resolved merely because the classifier is merged.
 
 **Acceptance boundary:** this batch improves OTP resend protection and deployment efficiency. It does not close the full P1-A IDOR matrix, P1-B authenticated journey matrix, P1-C Oracle concurrency/rollback matrix, P1-D abuse/privacy controls, or Phase 0 production-residency/backup/secret-rotation/professional-review gates. Phase 1 remains IN PROGRESS.
+
+
+## P1-D public endpoint abuse-control regression slice — 7 November 2026
+
+Source review confirms that public seller-lead routes already apply persistent Oracle-backed identifier budgets before service writes: lead creation 3/hour for normalized contact pair, email and phone; OTP send 3/hour per lead; verification 10/15 minutes per lead; callback 2/day per lead. Public search analytics applies 600/minute per anonymous remote IP and 300/minute per authenticated user; query text is bounded to 255 characters and client-supplied userId is ignored. The shared limiter stores only a SHA-256 bucket key.
+
+The follow-up PR adds negative-path controller tests proving that seller-lead creation, seller OTP send and search analytics do not invoke persistence/service work after the rate limiter rejects a request. It also reconciles the endpoint authorization matrix so the existing controls are not incorrectly reported as absent.
+
+**Evidence boundary:** these tests use mocked rate-limit and persistence dependencies. They do not prove Oracle cross-instance rate-limit contention, reverse-proxy client-IP correctness, CAPTCHA/bot protection, public lead anti-enumeration, or a search-analytics retention/deletion policy. P1-D remains open pending those controls and the broader privacy/logging review.

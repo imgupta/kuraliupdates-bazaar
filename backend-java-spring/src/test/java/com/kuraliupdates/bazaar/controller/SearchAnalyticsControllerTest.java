@@ -1,6 +1,8 @@
 package com.kuraliupdates.bazaar.controller;
 
 import com.kuraliupdates.bazaar.entity.SearchTrendEntity;
+import com.kuraliupdates.bazaar.exception.ApiException;
+import org.springframework.http.HttpStatus;
 import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.repository.SearchTrendRepository;
 import com.kuraliupdates.bazaar.service.ApiRateLimitService;
@@ -105,6 +107,23 @@ class SearchAnalyticsControllerTest {
         controller.recordSearch(new SearchAnalyticsController.SearchEventRequest("milk", null), authentication, null);
 
         verify(rateLimit).requireAllowed("search-analytics", "user:verified-user-123", 300, Duration.ofMinutes(1));
+    }
+
+
+    @Test
+    void rejectsRateLimitedAnalyticsBeforePersistingAnEvent() {
+        SearchTrendRepository repository = mock(SearchTrendRepository.class);
+        ApiRateLimitService rateLimit = mock(ApiRateLimitService.class);
+        SearchAnalyticsController controller = new SearchAnalyticsController(repository, rateLimit);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("203.0.113.11");
+        doThrow(new ApiException(HttpStatus.TOO_MANY_REQUESTS, "rate limited"))
+                .when(rateLimit).requireAllowed("search-analytics", "ip:203.0.113.11", 600, Duration.ofMinutes(1));
+
+        assertThrows(ApiException.class, () -> controller.recordSearch(
+                new SearchAnalyticsController.SearchEventRequest("milk", null), null, request));
+
+        verifyNoInteractions(repository);
     }
 
 }
