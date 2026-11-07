@@ -80,3 +80,14 @@ Added `NegotiationChatServiceTest` regressions:
 - Browser E2E: 3 passed, 9 skipped; authenticated/transactional flows were not enabled for the PR event.
 - Read-only smoke: 7 passed, 0 failed; `databaseHealthChecked=false`, so this run checked process liveness and anonymous guards only.
 - No database-backed bargaining transaction, staging mutation or live Oracle concurrency proof is claimed.
+
+## Admin approval-queue authorization — 7 November 2026
+
+The Phase 1 staging E2E now includes a read-only role-boundary test for:
+- `GET /admin/sellers/pending`
+- `GET /admin/delivery/pending`
+- `GET /admin/daily-help/helpers`
+
+The test requires the trusted staging environment, the exact staging API URL, and configured ADMIN, BUYER and SELLER identities. ADMIN must receive HTTP 200; BUYER and SELLER must receive HTTP 401/403. The test is enabled for main-branch `push` events (PR #289), not silently skipped on the normal main-push workflow.
+
+Runtime evidence: staging run [42365076271](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/42365076271), 5 passed / 0 failed / 0 skipped, including the admin approval-queue test. This is limited to the three listed queue reads; it does not prove every admin PII-bearing route.
