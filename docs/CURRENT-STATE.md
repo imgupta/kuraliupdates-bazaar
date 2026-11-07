@@ -179,3 +179,8 @@ PR #295 merged as `3297899541d640c90f93561fbba37092fd9c8b3f`. The change require
 - The change makes a populated `USER_ID` authoritative for rider/session matching, retains email matching only for legacy rows with no user link, requires ACTIVE status for rider tracking/location, limits rider reads to `ASSIGNED_TO_DELIVERY` and `PICKED_UP` jobs, and treats missing session expiry/user ID as invalid. Buyer tracking and buyer-only delivery OTP behavior remain unchanged.
 - Regression coverage added for stable user-ID matching, conflicting user-ID/email mismatch, inactive assigned rider denial, email-independent location update, malformed session expiry/user ID, preservation of buyer tracking when a rider profile is inactive, and denial of rider tracking after delivery completion.
 - Validation is pending on this PR head. No staging/business records, schema, credentials or deployment settings are changed.
+
+
+## 7 November 2026 — Daily Help buyer OTP confidentiality and lifecycle serialization (PR in progress)
+
+Source review found that the professional status-update response was built with `exposeOtp=true`, returning the buyer-held service-start OTP to the professional who was supposed to request it from the buyer. The same mutation paths used unlocked booking reads for OTP attempt increments, service start and completion, allowing concurrent requests to race on the booking row. The new slice returns no OTP in professional mutation responses, serializes status/start/completion through the existing pessimistic booking-row lock, and permits only forward status movement (`PROFESSIONAL_ASSIGNED -> ARRIVING -> READY_TO_START`) with same-state retries idempotent. Exact-head CI and Oracle-backed lock behavior remain pending; no staging records are changed.
