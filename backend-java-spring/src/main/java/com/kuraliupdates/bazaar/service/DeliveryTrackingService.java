@@ -97,9 +97,7 @@ public class DeliveryTrackingService {
         return sessionRepository.findBySessionToken(token)
                 .filter(this::active)
                 .flatMap(session -> deliveryAgentRepository.findById(agentId)
-                        .filter(agent -> "ACTIVE".equalsIgnoreCase(agent.getStatus()))
-                        .map(agent -> agent.getEmail() != null
-                                && agent.getEmail().equalsIgnoreCase(userEmail(session.getUserId()))))
+                        .map(agent -> matchesActiveAgentSession(agent, session)))
                 .orElse(false);
     }
 
@@ -110,13 +108,42 @@ public class DeliveryTrackingService {
                 .map(session -> {
                     String email = userEmail(session.getUserId());
                     boolean buyer = order.getBuyerEmail() != null && order.getBuyerEmail().equalsIgnoreCase(email);
-                    boolean rider = order.getDeliveryAgent() != null && order.getDeliveryAgent().getEmail().equalsIgnoreCase(email);
+                    // A rider's persisted user link is authoritative. Email is only a
+                    // compatibility fallback for legacy profiles that predate USER_ID.
+                    boolean rider = order.getDeliveryAgent() != null
+                            && riderTrackingIsActive(order)
+                            && matchesActiveAgentSession(order.getDeliveryAgent(), session);
                     return buyer || rider;
                 }).orElse(false);
     }
 
+    private boolean riderTrackingIsActive(OrderEntity order) {
+        // Match the delivery work queue: riders may view location/address only
+        // while an assigned job is in progress, not after delivery completion.
+        return "ASSIGNED_TO_DELIVERY".equalsIgnoreCase(order.getStatus())
+                || "PICKED_UP".equalsIgnoreCase(order.getStatus());
+    }
+
+    private boolean matchesActiveAgentSession(DeliveryAgentEntity agent, UserSessionEntity session) {
+        if (agent == null || session == null || session.getUserId() == null
+                || !"ACTIVE".equalsIgnoreCase(agent.getStatus())) {
+            return false;
+        }
+        String linkedUserId = agent.getUserId();
+        if (linkedUserId != null && !linkedUserId.isBlank()) {
+            return linkedUserId.equals(session.getUserId());
+        }
+        // Legacy delivery profiles may not yet have USER_ID populated. Keep the
+        // email fallback only for those rows; never let it override a conflicting link.
+        String authenticatedEmail = userEmail(session.getUserId());
+        return agent.getEmail() != null && !authenticatedEmail.isBlank()
+                && agent.getEmail().equalsIgnoreCase(authenticatedEmail);
+    }
+
     private boolean active(UserSessionEntity session) {
-        return session.getExpiresAt().isAfter(LocalDateTime.now());
+        return session != null && session.getUserId() != null && !session.getUserId().isBlank()
+                && session.getExpiresAt() != null
+                && session.getExpiresAt().isAfter(LocalDateTime.now());
     }
 
     private String userEmail(String userId) {

@@ -1,7 +1,7 @@
 # Current implementation status and remaining work
 
 **Last reconciled:** 7 November 2026  
-**Current main evidence checkpoint:** `bdf53de60e2ca59b92e35cde472f9b4864ad2bbc` (PRs #285–#289 and the staging-readiness follow-up are merged; exact deployed backend SHA is separately verified as `b491795f9b7a7b0d91d21a3835cc6287e190573f`). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
+**Current main evidence checkpoint:** `3297899541d640c90f93561fbba37092fd9c8b3f` (PRs #285–#289, #294 staging-readiness optimization and #295 seller-contact verification hardening are merged; exact deployed backend SHA is separately verified as `b491795f9b7a7b0d91d21a3835cc6287e190573f`). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
 
 **Phase 0 formal evidence disposition (6 Nov 2026):** The security-hardening milestone and subsequent authorization slices are merged, but the repository still lacks evidence to sign off all formal exit gates. See [Phase 0 Formal Evidence and Exit Register](PHASE-0-FORMAL-EVIDENCE-REGISTER.md) for completed evidence, partial/blocked items, required closure pack and sign-off form. Do not infer backup/restore, Oracle live-schema, India residency, secret rotation or qualified legal review from CI.
 
@@ -167,6 +167,15 @@ Standard KuraliUpdates CI and E2E run 42218558947 is still pending with no jobs 
 - No backend, schema, secrets, or staging data are changed by this workflow optimization. The reduced gate must pass exact-head CI and a fresh main staging execution before its timing improvement is considered verified.
 
 
-## 7 November 2026 — seller onboarding contact verification hardening in progress
+## 7 November 2026 — seller onboarding contact verification hardening merged
 
-Source audit found that `contactRequirementSatisfied` treated both OTP-skipped flags as equivalent to verified identity. The follow-up security slice requires at least one real verified contact channel before callback requests or application submission, prevents the admin OTP configuration from disabling both channels, and fails new lead creation closed if neither channel is enabled. Regression coverage is being added; no staging or production data is changed by these source/test changes.
+PR #295 merged as `3297899541d640c90f93561fbba37092fd9c8b3f`. The change requires at least one real verified contact channel before callback requests or application submission, prevents the admin OTP configuration from disabling both channels, and fails new lead creation closed if neither channel is enabled. Exact-head standard CI/E2E and seller-registration quality gates passed; no staging or production business data was changed.
+
+
+## 7 November 2026 — delivery tracking session-to-profile authorization hardening
+
+- Main base: `3297899541d640c90f93561fbba37092fd9c8b3f`; implementation branch: `phase1/delivery-tracking-session-ownership`.
+- Source audit found rider access to order tracking and location updates was matched only by email, despite `DELIVERY_AGENTS.USER_ID` already linking the delivery profile to its owning account. This allowed an old or conflicting email match to act as the rider identity. The tracking read also did not re-check that an assigned rider profile remained ACTIVE, so a suspended profile with a still-live session could continue reading buyer address and live location data.
+- The change makes a populated `USER_ID` authoritative for rider/session matching, retains email matching only for legacy rows with no user link, requires ACTIVE status for rider tracking/location, limits rider reads to `ASSIGNED_TO_DELIVERY` and `PICKED_UP` jobs, and treats missing session expiry/user ID as invalid. Buyer tracking and buyer-only delivery OTP behavior remain unchanged.
+- Regression coverage added for stable user-ID matching, conflicting user-ID/email mismatch, inactive assigned rider denial, email-independent location update, malformed session expiry/user ID, preservation of buyer tracking when a rider profile is inactive, and denial of rider tracking after delivery completion.
+- Validation is pending on this PR head. No staging/business records, schema, credentials or deployment settings are changed.

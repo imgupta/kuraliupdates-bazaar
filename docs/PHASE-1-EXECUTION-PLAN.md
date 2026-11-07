@@ -548,3 +548,10 @@ The fix truncates completion time to `ChronoUnit.MICROS` before persisting and r
 ## Seller lead contact-verification fail-closed rule — 7 November 2026
 
 Seller onboarding must retain at least one enabled contact-verification channel. The admin OTP configuration cannot disable both email and mobile verification, and public lead creation fails closed if both are disabled. For callback requests and application submission, a skipped channel is acceptable only when the other contact channel was actually verified; two skipped OTP channels do not establish applicant identity. Regression tests cover both-disabled configuration, lead creation rejection, both-skipped rejection, and the supported one-verified/one-skipped case. Existing rate limits, OTP verification, and admin audit behavior remain unchanged.
+
+
+## 7 November 2026 — delivery tracking profile ownership slice
+
+A source audit identified that delivery tracking matched rider sessions to assigned delivery profiles by email only, despite a persisted `DELIVERY_AGENTS.USER_ID` relationship. It also allowed an assigned rider profile that had become inactive to continue reading buyer delivery address and location data while the session remained valid. The current implementation slice makes the linked user ID authoritative, permits email fallback only for legacy profiles without `USER_ID`, requires an ACTIVE profile for rider reads and location writes, limits rider tracking to `ASSIGNED_TO_DELIVERY` / `PICKED_UP`, and fails closed for sessions with a missing expiry or user ID. Buyer order tracking and buyer-only delivery OTP visibility are unchanged.
+
+New service regression cases cover linked identity, conflicting ID/email, inactive rider denial, email-independent location update and malformed expiry. These are deterministic mocked-service tests; they do not replace authenticated HTTP filter-chain tests or Oracle-backed staging verification. Exact-head CI must pass before merge. No shared staging data is mutated.
