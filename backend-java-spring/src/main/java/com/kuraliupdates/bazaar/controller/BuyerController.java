@@ -12,6 +12,7 @@ import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -93,8 +94,14 @@ public class BuyerController {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
         }
-        if (!"BUYER".equalsIgnoreCase(user.getRole())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Only a buyer account can access buyer order actions");
+        // A user may own multiple marketplace profiles (or be an admin) while
+        // the current session is explicitly scoped to BUYER. Authorization must
+        // follow the role bound to this session, never the account's primary role.
+        boolean buyerSession = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> "ROLE_BUYER".equalsIgnoreCase(authority));
+        if (!buyerSession) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "The active session is not authorized for buyer order actions");
         }
         return user;
     }

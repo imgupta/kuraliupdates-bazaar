@@ -94,7 +94,11 @@ public class E2eRunCleanupService {
         if (unsafeOrders != 0 || unsafeBookings != 0 || unsafeChats != 0
                 || unsafeProducts != 0 || unsafeServices != 0 || unsafeSlots != 0 || unsafeSellers != 0) {
             throw new ApiException(HttpStatus.CONFLICT,
-                    "Run cleanup refused: one or more tagged records are not exclusively synthetic; no records were changed");
+                    "Run cleanup refused before any writes; unsafe tagged-row counts: orders=" + unsafeOrders
+                            + ", bookings=" + unsafeBookings + ", chats=" + unsafeChats
+                            + ", products=" + unsafeProducts + ", services=" + unsafeServices
+                            + ", slots=" + unsafeSlots + ", sellers=" + unsafeSellers
+                            + ". No records were changed.");
         }
 
         int chats = jdbc.update("""

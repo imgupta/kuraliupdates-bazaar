@@ -106,7 +106,8 @@ test.afterEach(async ({ request }, testInfo) => {
     headers: { "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"), "Cache-Control": "no-store" },
     timeout: 30_000,
   });
-  expect(cleanup.status(), "run-scoped cleanup must succeed without touching untagged records").toBe(200);
+  const cleanupBody = await cleanup.text();
+  expect(cleanup.status(), "run-scoped cleanup must succeed without touching untagged records; backend response: " + cleanupBody).toBe(200);
   const summary = await cleanup.json();
   expect(summary.runId).toBe(runId);
   for (const count of [summary.orders, summary.orderItems, summary.dailyHelpBookings, summary.negotiationChats,
