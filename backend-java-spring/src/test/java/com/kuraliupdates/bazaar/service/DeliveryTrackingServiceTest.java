@@ -167,7 +167,7 @@ class DeliveryTrackingServiceTest {
                 .agentId("AGENT-1").userId("assigned-rider-id").email("assigned-rider@example.com")
                 .status("ACTIVE").build();
         OrderEntity order = OrderEntity.builder().orderId("ORD-RIDER-OTHER")
-                .buyerEmail("buyer@example.com").deliveryAgent(assigned).build();
+                .buyerEmail("buyer@example.com").deliveryAgent(assigned).status("PICKED_UP").build();
         when(orderRepository.findById("ORD-RIDER-OTHER")).thenReturn(Optional.of(order));
         when(sessionRepository.findBySessionToken("other-rider-token"))
                 .thenReturn(Optional.of(session("other-rider-id")));
@@ -187,7 +187,7 @@ class DeliveryTrackingServiceTest {
                 .agentId("AGENT-LINKED").userId("rider-id").email("old-rider@example.com")
                 .status("ACTIVE").fullName("Linked Rider").build();
         OrderEntity order = OrderEntity.builder().orderId("ORD-LINKED-RIDER")
-                .buyerEmail("buyer@example.com").deliveryAgent(assigned).build();
+                .buyerEmail("buyer@example.com").deliveryAgent(assigned).status("PICKED_UP").build();
         when(orderRepository.findById("ORD-LINKED-RIDER")).thenReturn(Optional.of(order));
         when(sessionRepository.findBySessionToken("linked-rider-token"))
                 .thenReturn(Optional.of(session("rider-id")));
@@ -205,7 +205,7 @@ class DeliveryTrackingServiceTest {
                 .agentId("AGENT-LINKED").userId("real-rider-id").email("shared@example.com")
                 .status("ACTIVE").build();
         OrderEntity order = OrderEntity.builder().orderId("ORD-LINKED-MISMATCH")
-                .buyerEmail("buyer@example.com").deliveryAgent(assigned).build();
+                .buyerEmail("buyer@example.com").deliveryAgent(assigned).status("PICKED_UP").build();
         when(orderRepository.findById("ORD-LINKED-MISMATCH")).thenReturn(Optional.of(order));
         when(sessionRepository.findBySessionToken("spoofed-rider-token"))
                 .thenReturn(Optional.of(session("attacker-id")));
@@ -226,7 +226,7 @@ class DeliveryTrackingServiceTest {
                 .currentLongitude(new java.math.BigDecimal("76.5")).build();
         OrderEntity order = OrderEntity.builder().orderId("ORD-INACTIVE-RIDER")
                 .buyerEmail("buyer@example.com").deliveryAddress("Private buyer address")
-                .deliveryAgent(assigned).build();
+                .deliveryAgent(assigned).status("PICKED_UP").build();
         when(orderRepository.findById("ORD-INACTIVE-RIDER")).thenReturn(Optional.of(order));
         when(sessionRepository.findBySessionToken("inactive-rider-token"))
                 .thenReturn(Optional.of(session("rider-id")));
