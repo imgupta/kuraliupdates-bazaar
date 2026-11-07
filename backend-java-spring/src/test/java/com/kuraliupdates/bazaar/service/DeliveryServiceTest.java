@@ -87,6 +87,21 @@ class DeliveryServiceTest {
         assertEquals("AGENT-LEGACY", result.getAgentId());
     }
 
+
+    @Test
+    void phoneOnlyMatchCannotAuthorizeLegacyDeliveryProfile() {
+        UserEntity authenticated = UserEntity.builder().userId("buyer-user")
+                .email("buyer@example.com").phone("9876543210").role("BUYER").build();
+        when(agentRepository.findByUserId("buyer-user")).thenReturn(Optional.empty());
+        when(agentRepository.findByEmail("buyer@example.com")).thenReturn(Optional.empty());
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.currentAgent(authenticated));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verify(agentRepository, never()).findByPhone(anyString());
+    }
+
     @Test
     void pendingAgentCannotSeePickupJobs() {
         DeliveryAgentEntity agent = agent("PENDING");
