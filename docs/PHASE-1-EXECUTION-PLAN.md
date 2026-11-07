@@ -618,3 +618,21 @@ The PR wraps only the periodic cleanup in best-effort exception handling and log
 `OtpService.send` previously used `existsRecentOtp` as a read-before-write cooldown check. Two requests on separate application instances could both pass before either saved its OTP. The implementation now atomically reserves a domain-separated SHA-256 bucket in the existing Oracle `API_RATE_LIMIT_BUCKETS` table using a sentinel window and `SYSTIMESTAMP` expiry. It retries an Oracle duplicate-key first-insert race once, returns 429 when another request owns the cooldown, and fails closed with 503 when the guard cannot be persisted. The existing OTP-row check remains as a compatibility guard. Reservation and OTP persistence participate in the existing transaction; the explicit allowlisted staging E2E bypass remains unchanged. No schema migration or API contract change.
 
 Regression tests cover active cooldown denial, duplicate-key retry, database outage, successful hashed reservation and legacy OTP-row compatibility. These are mocked service tests, not Oracle multi-session proof. Exact-head CI, an isolated Oracle two-session race/rollback test and a clean staging transactional rerun remain acceptance gates. See [OTP resend cooldown design](OTP-RESEND-COOLDOWN.md). Phase 1 remains IN PROGRESS.
+
+
+## Consolidated implementation batch — 7 November 2026
+
+PR #310 is merged and its persistent OTP resend cooldown is now part of main. Its exact-head Maven CI passed 324 tests with zero failures/errors/skips, and frontend lint/build passed. This remains unit/CI evidence; isolated Oracle multi-session race, expiry and rollback proof is still outstanding.
+
+The next consolidated PR carries the affected-portal build classifier on top of the post-#310 main commit rather than leaving a diverged PR branch. The classifier must preserve these safety properties:
+- backend, docs, tests, workflow and build-support-only changes do not fan out into role portal builds;
+- known role-owned component/API paths build only their owning portal;
+- shared and unknown frontend runtime paths build all five portals;
+- unavailable/zero Vercel commit metadata or an unresolvable diff fails open and builds;
+- the combined site still builds for any frontend runtime change.
+
+Additional regression coverage pins Windows-style path normalization, backend/build-script exclusion and fail-safe fan-out for mixed known/unknown runtime changes.
+
+Operational activation remains separate: inspect all six Vercel project root directories and configure the appropriate Ignore Build Step command only where the script is present in the root. Verify with controlled no-op and affected-path builds. Do not claim the build-rate limit is resolved merely because the classifier is merged.
+
+**Acceptance boundary:** this batch improves OTP resend protection and deployment efficiency. It does not close the full P1-A IDOR matrix, P1-B authenticated journey matrix, P1-C Oracle concurrency/rollback matrix, P1-D abuse/privacy controls, or Phase 0 production-residency/backup/secret-rotation/professional-review gates. Phase 1 remains IN PROGRESS.
