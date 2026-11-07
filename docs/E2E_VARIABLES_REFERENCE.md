@@ -39,7 +39,6 @@ Use this JSON shape and replace placeholders with actual dedicated staging value
   "E2E_FLOW_BUYER_EMAIL": "<same shared five-role staging email>",
   "E2E_FLOW_SELLER_ID": "E2E-<synthetic-seller-id>",
   "E2E_FLOW_DELIVERY_AGENT_ID": "E2E-<synthetic-delivery-agent-id>",
-  "E2E_FLOW_PROFESSIONAL_ID": "<professional profile ID linked to the shared user ID>",
   "CLOUDFLARE_REPORT_ACCESS_CONFIGURED": false,
   "CLOUDFLARE_ACCOUNT_ID": "",
   "CLOUDFLARE_PAGES_PROJECT": "",
@@ -49,7 +48,7 @@ Use this JSON shape and replace placeholders with actual dedicated staging value
 
 Safety behavior:
 - All five role identity fields must contain the same email address. The API must report BUYER, SELLER, DELIVERY, PROFESSIONAL and ADMIN for that exact account; the preflight fails if any role is missing. The email values are never printed in logs.
-- The seller, delivery-agent and professional profile records must all be linked to the same USERS.USER_ID as that email. The fixture endpoint rejects mismatched profile ownership and a professional profile ID that does not match the linked identity.
+- The seller, delivery-agent and professional profile records must all be linked to the same USERS.USER_ID as that email. The professional profile is resolved from the shared identity at runtime, not from a separately copied profile ID.
 - The workflow pins the frontend to `https://bazaar.kuraliupdates.com` and the API to `https://kuraliupdates-bazaar.onrender.com/api/v1`; the JSON cannot override these hosts.
 - OTP suppression confirmation and mutating lifecycle tests are effective only on trusted manual/scheduled runs. PR/push runs cannot enable them through JSON.
 - Set `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED` to `true` only after verifying the Render OTP capture token matches, the allowlist contains only synthetic test identities, and those identities receive no real OTP emails.
