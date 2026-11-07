@@ -315,7 +315,7 @@ public class DailyHelpService {
     // Invalid OTP attempts must commit even though the request returns an error.
     @Transactional(noRollbackFor = ApiException.class)
     public DailyHelpBookingResponse startBooking(String bookingId, DailyHelpStartRequest request) {
-        DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
+        DailyHelpBookingEntity booking = bookingRepository.findLockedByBookingId(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
 
         if (booking.getProfessional() == null ||
@@ -360,7 +360,7 @@ public class DailyHelpService {
 
     @Transactional
     public DailyHelpBookingResponse completeBooking(String bookingId, String professionalId) {
-        DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
+        DailyHelpBookingEntity booking = bookingRepository.findLockedByBookingId(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
         if (booking.getProfessional() == null || !booking.getProfessional().getProfessionalId().equals(professionalId)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Professional is not assigned to this booking");
