@@ -2,6 +2,7 @@ package com.kuraliupdates.bazaar.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -22,6 +23,21 @@ public class SecurityConfig {
 
     public SecurityConfig(SessionAuthenticationFilter sessionAuthenticationFilter) {
         this.sessionAuthenticationFilter = sessionAuthenticationFilter;
+    }
+
+    /**
+     * This filter is also part of the Spring Security chain below. Disable the
+     * servlet-container auto-registration of the @Component bean; otherwise it
+     * can run before SecurityContextHolderFilter, mark itself as already
+     * filtered, and then be skipped inside the security chain. That leaves
+     * protected requests anonymous (and produces misleading 403 responses).
+     */
+    @Bean
+    public FilterRegistrationBean<SessionAuthenticationFilter> sessionAuthenticationFilterRegistration() {
+        FilterRegistrationBean<SessionAuthenticationFilter> registration =
+                new FilterRegistrationBean<>(sessionAuthenticationFilter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean
