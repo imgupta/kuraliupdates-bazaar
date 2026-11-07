@@ -111,7 +111,7 @@ jobs:
           }
 
           const runId = 'E2E-PREFLIGHT-' + randomUUID();
-console.log('Starting non-transactional staging role preflight.');
+          console.log('Starting non-transactional staging role preflight.');
           const tokens = {};
           const mismatches = [];
           let failure = null;
@@ -120,7 +120,7 @@ console.log('Starting non-transactional staging role preflight.');
               const mismatchCountBeforeRole = mismatches.length;
               const identity = required(identityKey);
               console.log('Starting role session check: ' + role + '.');
-      const session = await postJson('/e2e/auth/token', { 'X-E2E-Flow-Token': sharedToken, 'X-E2E-Run-Id': runId }, { role, identifier: identity });
+              const session = await postJson('/e2e/auth/token', { 'X-E2E-Flow-Token': sharedToken, 'X-E2E-Run-Id': runId }, { role, identifier: identity });
               if (session?.authenticated !== true ||
                   String(session?.role ?? '').toUpperCase() !== expectedRole ||
                   typeof session?.token !== 'string' || session.token.length < 21) {
@@ -180,7 +180,7 @@ console.log('Starting non-transactional staging role preflight.');
             // preflight run and remove only those sessions, even when a role check fails.
             try {
               console.log('Starting exact run-scoped cleanup for ' + Object.keys(tokens).length + ' issued sessions.');
-      const response = await fetch(apiBase + '/e2e/cleanup/' + encodeURIComponent(runId), {
+              const response = await fetch(apiBase + '/e2e/cleanup/' + encodeURIComponent(runId), {
                 method: 'POST',
                 headers: {
                   'X-E2E-Flow-Token': sharedToken,
