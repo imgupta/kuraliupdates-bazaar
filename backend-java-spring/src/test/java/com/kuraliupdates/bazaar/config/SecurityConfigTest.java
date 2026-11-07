@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,6 +32,9 @@ class SecurityConfigTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private FilterRegistrationBean<SessionAuthenticationFilter> sessionAuthenticationFilterRegistration;
 
     @org.springframework.boot.test.mock.mockito.MockBean
     private AuthService authService;
@@ -108,6 +112,23 @@ class SecurityConfigTest {
     }
 
     @Test
+    void sessionFilterIsRegisteredOnlyInsideSpringSecurityChain() {
+        org.junit.jupiter.api.Assertions.assertFalse(sessionAuthenticationFilterRegistration.isEnabled());
+    }
+
+    @Test
+    void buyerSessionRoleOverridesSellerPrimaryRoleOnProtectedBuyerRoute() throws Exception {
+        when(authService.requireUser("buyer-session"))
+                .thenReturn(UserEntity.builder().userId("multi-role-user").role("SELLER").build());
+        when(authService.requireSessionRole("buyer-session")).thenReturn("BUYER");
+
+        mockMvc.perform(get("/buyers/me/orders")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer buyer-session"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("buyer-protected"));
+    }
+
+    @Test
     void invalidBearerTokenDoesNotGrantAccessToProtectedRoute() throws Exception {
         when(authService.requireUser("expired-session")).thenThrow(new IllegalStateException("expired"));
 
@@ -144,5 +165,8 @@ class SecurityConfigTest {
 
         @GetMapping("/auth/me")
         String protectedAuthMe() { return "protected"; }
+
+        @GetMapping("/buyers/me/orders")
+        String protectedBuyerOrders() { return "buyer-protected"; }
     }
 }
