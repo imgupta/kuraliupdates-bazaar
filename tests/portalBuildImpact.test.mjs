@@ -41,3 +41,46 @@ test('dependency and shared stylesheet changes rebuild every portal', () => {
   assert.deepEqual(affectedPortals(['package.json']), PORTALS);
   assert.deepEqual(affectedPortals(['src/index.css']), PORTALS);
 });
+
+
+test('buyer account and buyer order API changes build only Buyer', () => {
+  assert.deepEqual(
+    affectedPortals(['src/components/Buyer/BuyerAccountPage.tsx', 'src/services/domains/buyerOrdersApi.ts']),
+    ['buyer'],
+  );
+});
+
+test('seller, delivery, admin and Daily Help component changes stay within their portals', () => {
+  assert.deepEqual(affectedPortals(['src/components/Seller/SellerDashboard.tsx']), ['seller']);
+  assert.deepEqual(affectedPortals(['src/components/Delivery/DeliveryDashboard.tsx']), ['delivery']);
+  assert.deepEqual(affectedPortals(['src/components/Admin/AdminDashboard.tsx']), ['admin']);
+  assert.deepEqual(affectedPortals(['src/components/DailyHelpProfessional/ProfessionalHome.tsx']), ['daily-help']);
+});
+
+test('backend-only changes do not trigger frontend portal builds', () => {
+  assert.deepEqual(affectedPortals([
+    'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/OrderService.java',
+    'backend-java-spring/src/main/resources/db/migration/V33__api_rate_limit_buckets.sql',
+  ]), []);
+});
+
+test('Windows-style paths are normalized before portal ownership matching', () => {
+  assert.deepEqual(affectedPortals(['src\\features\\buyer\\BuyerPortal.tsx']), ['buyer']);
+  assert.deepEqual(affectedPortals(['backend-java-spring\\src\\main\\java\\Example.java']), []);
+});
+
+test('unknown paths remain fail-safe even when a known portal path is also changed', () => {
+  assert.deepEqual(
+    affectedPortals(['src/features/buyer/BuyerPortal.tsx', 'src/shared/new-runtime.ts']),
+    PORTALS,
+  );
+});
+
+test('build-support scripts and backend files are non-runtime for frontend portal impact', () => {
+  assert.ok(isNonRuntimePath('scripts/portal-build-impact.mjs'));
+  assert.ok(isNonRuntimePath('backend-java-spring/src/main/java/Example.java'));
+  assert.deepEqual(
+    affectedPortals(['scripts/vercel-ignore-build.mjs', 'backend-java-spring/src/main/java/Example.java']),
+    [],
+  );
+});
