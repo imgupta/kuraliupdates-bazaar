@@ -92,6 +92,7 @@ jobs:
             }
             return value;
           };
+          for (const key of ['E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_PROFESSIONAL_ID']) stagingProfileId(key);
           const expected = [
             ['BUYER', 'E2E_BUYER_IDENTITY', 'BUYER'],
             ['SELLER', 'E2E_SELLER_IDENTITY', 'SELLER'],
@@ -185,24 +186,27 @@ jobs:
                   mismatches.push('BUYER contact identity');
                 }
               }
-              if (transactionalFixturesEnabled && role === 'SELLER') {
+              if (role === 'SELLER') {
                 const seller = await getJson('/sellers/me', session.token);
-                if (String(seller.sellerId) !== stagingProfileId('E2E_FLOW_SELLER_ID')) {
-                  mismatches.push('SELLER profile ID');
+                if (String(seller.sellerId) !== stagingProfileId('E2E_FLOW_SELLER_ID')) mismatches.push('SELLER profile ID');
+                if (String(seller.status ?? '').toUpperCase() !== 'APPROVED' || seller.storeOpen !== true) {
+                  mismatches.push('SELLER profile is not approved and open');
                 }
               }
-              if (transactionalFixturesEnabled && role === 'DELIVERY') {
+              if (role === 'DELIVERY') {
                 const agent = await getJson('/delivery/me', session.token);
-                if (String(agent.agentId) !== stagingProfileId('E2E_FLOW_DELIVERY_AGENT_ID')) {
-                  mismatches.push('DELIVERY profile ID');
+                if (String(agent.agentId) !== stagingProfileId('E2E_FLOW_DELIVERY_AGENT_ID')) mismatches.push('DELIVERY profile ID');
+                if (String(agent.status ?? '').toUpperCase() !== 'ACTIVE' || agent.availableForJobs !== true) {
+                  mismatches.push('DELIVERY profile is not active and available');
                 }
               }
-              if (transactionalFixturesEnabled && role === 'PROVIDER') {
+              if (role === 'PROVIDER') {
                 const providerPhone = String(session.user?.phone ?? '');
                 if (!providerPhone) throw new Error('Provider session did not return a phone for profile verification.');
                 const profile = await getJson('/daily-help/professionals/by-phone/' + encodeURIComponent(providerPhone), session.token);
-                if (String(profile.professionalId) !== stagingProfileId('E2E_FLOW_PROFESSIONAL_ID')) {
-                  mismatches.push('PROVIDER profile ID');
+                if (String(profile.professionalId) !== stagingProfileId('E2E_FLOW_PROFESSIONAL_ID')) mismatches.push('PROVIDER profile ID');
+                if (Number(profile.verified) !== 1 || String(profile.status ?? '').toUpperCase() !== 'AVAILABLE') {
+                  mismatches.push('PROVIDER profile is not verified and available');
                 }
               }
               console.log((mismatches.length === mismatchCountBeforeRole ? 'PASS: ' : 'CHECK: ') +
@@ -211,11 +215,18 @@ jobs:
                   : ' session issued; a profile/configuration mismatch was recorded.'));
             }
 
+            const adminQueue = await getJson('/admin/sellers/pending', tokens.ADMIN);
+            if (!Array.isArray(adminQueue)) throw new Error('ADMIN role did not return the expected seller approval queue.');
+            for (const role of ['BUYER','SELLER']) {
+              const denied = await fetch(apiBase + '/admin/sellers/pending', {
+                headers: { 'Authorization': 'Bearer ' + tokens[role], 'Cache-Control': 'no-store', 'Accept': 'application/json' },
+                signal: AbortSignal.timeout(60000)
+              });
+              if (![401,403].includes(denied.status)) throw new Error(role + ' session unexpectedly accessed the admin approval queue.');
+            }
+            console.log('PASS: ADMIN can read approval queue; BUYER and SELLER sessions are denied.');
             if (transactionalFixturesEnabled) {
-              stagingProfileId('E2E_FLOW_SELLER_ID');
-              stagingProfileId('E2E_FLOW_DELIVERY_AGENT_ID');
-              stagingProfileId('E2E_FLOW_PROFESSIONAL_ID');
-              console.log('PASS: seller, delivery-agent and professional IDs are synthetic. Product, service and slot fixtures are provisioned per transaction run.');
+              console.log('PASS: all three pre-existing profiles are linked to the shared account and ready. Synthetic product, service and slot fixtures are provisioned per transaction run.');
             } else {
               console.log('SKIP: fixture/profile preflight because transactional E2E is disabled. No fixture reads or business mutations were attempted.');
             }
