@@ -1,5 +1,6 @@
 package com.kuraliupdates.bazaar.service;
 
+import com.kuraliupdates.bazaar.exception.ApiException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,10 @@ public class SellerRegistrationOtpConfigService {
 
     @Transactional
     public Map<String, Object> update(boolean emailEnabled, boolean mobileEnabled, String actor) {
+        if (!emailEnabled && !mobileEnabled) {
+            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "At least one seller contact verification channel must remain enabled");
+        }
         Map<String, Object> previous = get();
         String changedBy = actor == null || actor.isBlank() ? "ADMIN" : actor.substring(0, Math.min(actor.length(), 150));
         LocalDateTime now = LocalDateTime.now();

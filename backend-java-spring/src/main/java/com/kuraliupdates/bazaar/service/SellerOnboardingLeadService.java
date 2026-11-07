@@ -30,6 +30,13 @@ public class SellerOnboardingLeadService {
         String phone = rawPhone == null ? "" : rawPhone.replaceAll("\\D", "");
         if (phone.length() == 12 && phone.startsWith("91")) phone = phone.substring(2);
         validate(name, email, phone);
+        Map<String, Object> currentOtpSettings = otpConfig.get();
+        boolean emailRequired = Boolean.TRUE.equals(currentOtpSettings.get("emailOtpEnabled"));
+        boolean phoneRequired = Boolean.TRUE.equals(currentOtpSettings.get("mobileOtpEnabled"));
+        if (!emailRequired && !phoneRequired) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Seller registration is temporarily unavailable until a contact verification channel is enabled");
+        }
         String existing = jdbc.query(
                 "SELECT LEAD_ID FROM SELLER_ONBOARDING_LEADS WHERE EMAIL=? AND PHONE=? AND STATUS NOT IN ('CONVERTED','NOT_INTERESTED') ORDER BY CREATED_AT DESC FETCH FIRST 1 ROWS ONLY",
                 rs -> rs.next() ? rs.getString(1) : null, email, phone);
@@ -40,9 +47,6 @@ public class SellerOnboardingLeadService {
         }
         String id = UUID.randomUUID().toString();
         LocalDateTime now = LocalDateTime.now();
-        Map<String, Object> currentOtpSettings = otpConfig.get();
-        boolean emailRequired = Boolean.TRUE.equals(currentOtpSettings.get("emailOtpEnabled"));
-        boolean phoneRequired = Boolean.TRUE.equals(currentOtpSettings.get("mobileOtpEnabled"));
         jdbc.update("INSERT INTO SELLER_ONBOARDING_LEADS (LEAD_ID,OWNER_NAME,EMAIL,PHONE,SOURCE,STATUS,EMAIL_VERIFIED,PHONE_VERIFIED,CONTACT_CONSENT,CALLBACK_REQUESTED,EMAIL_OTP_REQUIRED,PHONE_OTP_REQUIRED,EMAIL_OTP_SKIPPED,PHONE_OTP_SKIPPED,CREATED_AT,UPDATED_AT) VALUES (?,?,?,?,?,'STARTED',0,0,0,0,?,?,?,?,?,?)",
                 id, name, email, phone, "SELLER_REGISTRATION",
                 emailRequired ? 1 : 0, phoneRequired ? 1 : 0,
@@ -229,8 +233,14 @@ public class SellerOnboardingLeadService {
                 UUID.randomUUID().toString(), leadId, clean(actor,150), action, clean(details,2000), LocalDateTime.now());
     }
 
-    private boolean contactRequirementSatisfied(Map<String,Object> lead, String channel) {
-        return Boolean.TRUE.equals(lead.get(channel + "Verified")) || Boolean.TRUE.equals(lead.get(channel + "OtpSkipped"));
+    static boolean contactRequirementSatisfied(Map<String,Object> lead, String channel) {
+        boolean anyContactVerified = Boolean.TRUE.equals(lead.get("emailVerified"))
+                || Boolean.TRUE.equals(lead.get("phoneVerified"));
+        boolean channelSatisfied = Boolean.TRUE.equals(lead.get(channel + "Verified"))
+                || Boolean.TRUE.equals(lead.get(channel + "OtpSkipped"));
+        // A skipped OTP channel is acceptable only when the other contact channel
+        // was actually verified. Two skipped channels are never proof of identity.
+        return anyContactVerified && channelSatisfied;
     }
 
     private void validate(String name, String email, String phone) {
