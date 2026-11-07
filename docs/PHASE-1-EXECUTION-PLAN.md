@@ -543,3 +543,8 @@ A staging rerun exposed an intermittent one-microsecond mismatch between the imm
 The fix truncates completion time to `ChronoUnit.MICROS` before persisting and returning the response. A new `DailyHelpServiceTest.completionTimestampIsNormalizedToOracleMicrosecondPrecision` asserts the response timestamp is microsecond-aligned and matches the persisted entity. Exact-head CI and a fresh staging run are required before calling the fix verified.
 
 **Evidence boundary:** the failed run had four test groups pass; the Daily Help group failed on first attempt by 1µs and passed on retry. Playwright correctly marked the overall run failed/flaky. Do not count that run as a clean pass.
+
+
+## Seller lead contact-verification fail-closed rule — 7 November 2026
+
+Seller onboarding must retain at least one enabled contact-verification channel. The admin OTP configuration cannot disable both email and mobile verification, and public lead creation fails closed if both are disabled. For callback requests and application submission, a skipped channel is acceptable only when the other contact channel was actually verified; two skipped OTP channels do not establish applicant identity. Regression tests cover both-disabled configuration, lead creation rejection, both-skipped rejection, and the supported one-verified/one-skipped case. Existing rate limits, OTP verification, and admin audit behavior remain unchanged.
