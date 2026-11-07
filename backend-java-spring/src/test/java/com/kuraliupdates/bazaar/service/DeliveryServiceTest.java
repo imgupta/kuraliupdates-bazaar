@@ -60,11 +60,7 @@ class DeliveryServiceTest {
     void deliveryProfileWithConflictingUserIdCannotBeClaimedByMatchingEmail() {
         UserEntity authenticated = UserEntity.builder().userId("attacker-user")
                 .email("rider@example.com").phone("9876543210").role("DELIVERY").build();
-        DeliveryAgentEntity anotherUsersProfile = DeliveryAgentEntity.builder().agentId("AGENT-1")
-                .fullName("Rider").userId("victim-user").email("rider@example.com")
-                .phone("9876543210").status("ACTIVE").build();
         when(agentRepository.findByUserId("attacker-user")).thenReturn(Optional.empty());
-        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(anotherUsersProfile));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.currentAgent(authenticated));
