@@ -272,8 +272,10 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
       },
       timeout: 20_000,
     });
-    expect(placedResponse.status(), "synthetic COD checkout should succeed").toBe(200);
-    const placement = await placedResponse.json();
+    const placedBodyText = await placedResponse.text();
+    expect(placedResponse.status(), "synthetic COD checkout should succeed; backend response: " + placedBodyText).toBe(200);
+    const placement = JSON.parse(placedBodyText);
+
     const order = placement.order ?? placement;
     const orderId = String(order.orderId ?? "");
     expect(orderId).toMatch(/^ORD-KUR-[A-F0-9-]+$/i);
