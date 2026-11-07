@@ -81,6 +81,24 @@ class ApiRateLimitServiceTest {
     }
 
     @Test
+    void periodicCleanupFailureDoesNotFailAnOtherwiseAllowedRequest() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.update(startsWith(MERGE), any(), any(), any(), anyInt())).thenReturn(1);
+        doThrow(new org.springframework.dao.DataAccessResourceFailureException("synthetic cleanup outage"))
+                .when(jdbc).update(eq("DELETE FROM API_RATE_LIMIT_BUCKETS WHERE EXPIRES_AT < ? AND WINDOW_START <> TIMESTAMP '1970-01-01 00:00:00'"),
+                        any(Object[].class));
+        ApiRateLimitService service = new ApiRateLimitService(jdbc);
+
+        for (int i = 0; i < 99; i++) {
+            service.requireAllowed("cleanup-test", "key-" + i, 3, Duration.ofMinutes(1));
+        }
+        assertDoesNotThrow(() ->
+                service.requireAllowed("cleanup-test", "key-99", 3, Duration.ofMinutes(1)));
+        verify(jdbc).update(eq("DELETE FROM API_RATE_LIMIT_BUCKETS WHERE EXPIRES_AT < ? AND WINDOW_START <> TIMESTAMP '1970-01-01 00:00:00'"),
+                any(Object[].class));
+    }
+
+    @Test
     void probeCleanupDeletesOnlyTheHashedBucketKey() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         ApiRateLimitService service = new ApiRateLimitService(jdbc);
