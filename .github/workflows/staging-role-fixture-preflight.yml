@@ -71,7 +71,7 @@ jobs:
           };
           const identityKeys = ['E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY','E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY'];
           const normalizedIdentities = identityKeys.map(key => required(key).toLowerCase());
-          if (normalizedIdentities.some(value => !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)) ||
+          if (normalizedIdentities.some(value => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) ||
               new Set(normalizedIdentities).size !== 1) {
             throw new Error('All five role identities must be the same configured email account; values are never printed.');
           }
