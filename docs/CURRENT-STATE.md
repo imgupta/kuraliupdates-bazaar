@@ -1,7 +1,7 @@
 # Current implementation status and remaining work
 
 **Last reconciled:** 7 November 2026  
-**Current main evidence checkpoint (before this PR):** `b675c225d12e4f5ccfaa301d97ae81fb6d300bf9` (PRs #285–#289, #294 staging-readiness optimization, #295 seller-contact verification hardening, #296 delivery-tracking ownership hardening, #297 E2E warm-up/read-only parallelization and #299 Daily Help OTP/lifecycle hardening are merged; exact deployed backend SHA is separately verified as `b491795f9b7a7b0d91d21a3835cc6287e190573f`). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
+**Current main evidence checkpoint:** `cf21ae0b5d711c8e472a7a50afb2d4f4155e1ca8` (PRs #285–#289, #294 staging-readiness optimization, #295 seller-contact verification hardening, #296 delivery-tracking ownership hardening, #297 E2E warm-up/read-only parallelization and #299 Daily Help OTP/lifecycle hardening are merged; exact deployed backend SHA is separately verified as `b491795f9b7a7b0d91d21a3835cc6287e190573f`). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
 
 **Phase 0 formal evidence disposition (6 Nov 2026):** The security-hardening milestone and subsequent authorization slices are merged, but the repository still lacks evidence to sign off all formal exit gates. See [Phase 0 Formal Evidence and Exit Register](PHASE-0-FORMAL-EVIDENCE-REGISTER.md) for completed evidence, partial/blocked items, required closure pack and sign-off form. Do not infer backup/restore, Oracle live-schema, India residency, secret rotation or qualified legal review from CI.
 
@@ -214,11 +214,21 @@ A source audit found a legacy public POST /delivery/register path that created d
 Seller order status updates now lock the order row with the existing PESSIMISTIC_WRITE repository query. Cancellation is idempotent: a repeated CANCELLED request returns the existing order without restoring stock again. Inventory restoration aggregates repeated product lines and locks product rows in deterministic product-ID order; missing products or arithmetic overflow abort the transaction. Cancellation marks order, fulfilment and payment states CANCELLED. Paid orders are rejected because no refund workflow is implemented. Seller cancellation remains limited to PLACED and ACCEPTED_BY_SELLER; READY_FOR_PICKUP cannot be cancelled. Exact-head CI and Oracle runtime contention verification remain pending. Buyer-initiated cancellation is not implemented by this slice.
 
 
-## 7 November 2026 — buyer-initiated checkout cancellation (PR in progress)
+## 7 November 2026 — buyer-initiated checkout cancellation (merged PR #304)
 
 A buyer cancellation command is added for eligible COD orders. It verifies the authenticated buyer by the order's persisted buyer email, locks the requested order, and for multi-seller checkout locks and evaluates the complete checkout group. The operation is all-or-nothing: every seller suborder must still be PLACED or ACCEPTED_BY_SELLER, unpaid, and not assigned to a delivery agent or combined delivery batch. All item quantities are aggregated by product ID; product rows are locked in deterministic order; inventory is restored once; and all suborders are marked CANCELLED in one transaction. Replays of a fully cancelled group are idempotent. If a seller has already cancelled one suborder, its previously restored stock is not restored again; the buyer command may cancel the remaining eligible suborders. Paid orders are rejected until a refund workflow exists; orders already in fulfilment or delivery cannot be cancelled. No schema change.
 
 Regression coverage added for owner-only access, replay idempotency, paid/fulfilled rejection, stock restoration and multi-seller group atomicity/lock order. These are service-level tests; they do not prove Oracle two-session contention. Exact-head backend/frontend CI and fresh staging transactional verification are required. No live business data or shared staging inventory is modified by the code change itself.
+
+
+## 7 November 2026 — buyer cancellation portal integration (PR in progress)
+
+The buyer account's Current Order and Order History views now expose a cancellation action only while the buyer-facing status is PLACED or ACCEPTED_BY_SELLER. The action requires confirmation, calls the authenticated buyer cancellation endpoint using the underlying seller-order ID for grouped checkouts, displays server errors, and refreshes order state after success. The buyer order API no longer requires a client-supplied owner ID.
+
+A grouping defect was also corrected: one seller-cancelled suborder no longer causes the entire multi-seller checkout to disappear from the buyer's active orders while other seller orders remain active. The checkout is displayed as cancelled only when all child orders are cancelled. Regression tests cover mixed and fully cancelled groups. No schema or staging data changes.
+
+
+**PR #304 exact-head verification:** merge commit `cf21ae0b5d711c8e472a7a50afb2d4f4155e1ca8`; PR head `fe486b41b8e5832783f6702f5c072e717386c020`. Backend Maven: 317 tests, 0 failures/errors/skips. Frontend lint and production build passed. Browser E2E: 3 passed, 6 skipped; OTP-driven authenticated scenarios remain skipped because staging OTP capture/suppression is not confirmed. Read-only smoke: 7 passed, 0 failed, with `databaseHealthChecked=false`; it proves only process liveness and anonymous guards. Staging role/fixture preflight passed. Post-merge main staging transactional E2E is tracked separately and must pass before the merge commit is considered staging-verified.
 
 
 ## 7 November 2026 — staging rate-limit probe intermittent HTTP 500
