@@ -8,7 +8,7 @@ This document describes the single GitHub Actions JSON secret for testing/stagin
 2. **Render backend environment:** Render Dashboard → the KuraliUpdates Bazaar backend service → **Environment**. These settings control the protected staging-only OTP capture endpoint and email suppression.
 3. **Workflow-defined values:** Some values are hard-coded or derived in `.github/workflows/e2e-login.yml`; do not create duplicate repository settings for them unless this document explicitly says so.
 
-The main-branch transactional workflow runs after successful standard CI and is also manually dispatchable. It is pinned to the designated staging frontend `https://bazaar.kuraliupdates.com` and API `https://kuraliupdates-bazaar.onrender.com/api/v1`. Do not point E2E at real customer/production data.
+The main browser E2E workflow runs read-only on PR/push and supports scheduled or manually dispatched runs. Transactional execution requires an explicit manual opt-in or an enabled trusted schedule. The dedicated Phase 1 transactional workflow additionally requires `confirm_staging_mutations=true`. Both are pinned to the designated staging frontend `https://bazaar.kuraliupdates.com` and API `https://kuraliupdates-bazaar.onrender.com/api/v1`. Do not point E2E at real customer/production data.
 
 ## A. Single GitHub Actions staging/test setting
 
@@ -16,9 +16,9 @@ In repository **Settings → Secrets and variables → Actions → Secrets**, co
 
 - `E2E_STAGING_CONFIG_JSON`
 
-It contains all GitHub Actions E2E/staging settings, identity values, OTP capture token, lifecycle role tokens, synthetic fixture IDs, booking parameters, and optional Cloudflare report-publishing settings. Do not create separate `E2E_*`, `KURALI_*`, or `CLOUDFLARE_*` repository variables/secrets for this workflow.
+It contains the five shared role identities, OTP capture token, shared flow-auth token, buyer contact details, and the seller/delivery profile IDs. Cloudflare report publishing is configured separately through repository variables/secrets; do not put Cloudflare credentials in this JSON.
 
-Use this JSON shape and replace placeholders with actual dedicated staging values. Boolean flags must be JSON booleans, not strings. Leave optional Cloudflare fields out or set them to empty values if report publishing is not used.
+Use this JSON shape and replace placeholders with actual dedicated staging values. Boolean flags must be JSON booleans, not strings. The manual transactional input defaults to off; the secret flag enables scheduled transactional runs only.
 
 ```json
 {
@@ -35,11 +35,7 @@ Use this JSON shape and replace placeholders with actual dedicated staging value
   "E2E_FLOW_BUYER_PHONE": "<phone belonging to the same shared five-role account>",
   "E2E_FLOW_BUYER_EMAIL": "<same shared five-role staging email>",
   "E2E_FLOW_SELLER_ID": "<seller profile ID linked to the shared user ID>",
-  "E2E_FLOW_DELIVERY_AGENT_ID": "<delivery-agent profile ID linked to the shared user ID>",
-  "CLOUDFLARE_REPORT_ACCESS_CONFIGURED": false,
-  "CLOUDFLARE_ACCOUNT_ID": "",
-  "CLOUDFLARE_PAGES_PROJECT": "",
-  "CLOUDFLARE_API_TOKEN": ""
+  "E2E_FLOW_DELIVERY_AGENT_ID": "<delivery-agent profile ID linked to the shared user ID>"
 }
 ```
 
@@ -49,7 +45,7 @@ Safety behavior:
 - The main browser E2E logs in once with the shared account, then verifies all five portal switches in the same session. It intentionally does not send five separate OTPs to one address, which would test OTP cooldowns rather than multi-role authorization. Manual transactional execution defaults to off and requires explicit opt-in; the dedicated Phase 1 workflow separately requires confirmation of staging mutations.
 - The workflow pins the frontend to `https://bazaar.kuraliupdates.com` and the API to `https://kuraliupdates-bazaar.onrender.com/api/v1`; the JSON cannot override these hosts.
 - OTP suppression confirmation and mutating lifecycle tests are effective only on trusted manual/scheduled runs. PR/push runs cannot enable them through JSON.
-- Set `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED` to `true` only after verifying the Render OTP capture token matches, the allowlist contains only synthetic test identities, and those identities receive no real OTP emails.
+- Set `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED` to `true` only after verifying the Render OTP capture token matches, the allowlist contains only the shared synthetic test email, and that identity receives no real OTP email.
 - Seller and delivery-agent profile IDs must identify the pre-provisioned staging profiles returned by the shared account's authenticated `/sellers/me` and `/delivery/me` endpoints. The professional profile is resolved from the same account at runtime; no separate professional ID secret is used. The fixture service rejects profiles whose `USER_ID` differs from the shared account. Run-created product, rollback products, Daily Help service and future one-hour slot are E2E-prefixed, run-tagged synthetic fixtures.
 - Tokens and identities are secret values. Never commit this JSON, print it in logs, or paste it into issues or chat.
 
