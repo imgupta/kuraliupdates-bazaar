@@ -75,7 +75,8 @@ async function prepareFixtures(request: APIRequestContext, runId: string, seller
     data: { sellerId, deliveryAgentId, professionalId },
     timeout: 20_000,
   });
-  expect(response.status(), "backend should provision run-scoped synthetic fixtures").toBe(200);
+  const fixtureResponseBody = await response.text();
+  expect(response.status(), "backend should provision run-scoped synthetic fixtures; response: " + fixtureResponseBody).toBe(200);
   const fixture = await response.json();
   for (const key of ["productId", "sellerId", "deliveryAgentId", "serviceId", "slotId", "professionalId",
     "rollbackSellerId", "multiSellerValidProductId", "multiSellerFailProductId"]) {
