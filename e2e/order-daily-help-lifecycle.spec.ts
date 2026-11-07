@@ -124,7 +124,7 @@ async function prepareFixtures(request: APIRequestContext, runId: string, seller
   return fixture as {
     productId: string; sellerId: string; deliveryAgentId: string; serviceId: string;
     slotId: string; professionalId: string; professionalLocality: string; scheduledStart: string;
-    requestedHours: number; stock: number; unitPrice: string;
+    requestedHours: number; stock: number; unitPrice: string; baseDeliveryFee: string | number;
     rollbackSellerId: string; multiSellerValidProductId: string; multiSellerFailProductId: string;
   };
 }
@@ -256,9 +256,8 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     // lifecycle fixture disagree with its negotiated line item and could mask
     // checkout validation/amount-reconciliation regressions.
     const expectedSubtotal = Math.round(counterPrice * quantity * 100) / 100;
-    // Single-seller checkout uses the seller's configured base delivery fee;
-    // the staging seller uses the backend default of ₹35.
-    const expectedDeliveryFee = 35;
+    // The fixture reports the actual configured seller fee, including the backend default.
+    const expectedDeliveryFee = Number(fixture.baseDeliveryFee);
     const expectedDiscount = 0;
     const expectedFinalPayable = Math.round((expectedSubtotal - expectedDiscount + expectedDeliveryFee) * 100) / 100;
     const placedResponse = await request.post(apiBase + "/buyers/orders", {
