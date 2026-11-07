@@ -29,3 +29,14 @@ Each created fixture carries the current run ID in V32-added nullable columns. E
 ## Public endpoint throttling
 
 The same release adds database-backed fixed-window limits for seller registration lead creation (contact pair, email and phone), OTP and callback operations, and search analytics. Only SHA-256 bucket hashes are stored in API_RATE_LIMIT_BUCKETS; contact details and client identifiers are not stored in the rate-limit table. Seller lead input lengths are validated before persistence. The staging workflow does not generate public leads or send OTPs as part of its transactional order tests.
+
+## Runtime verification addendum — 7 November 2026
+
+The main-branch transactional workflow now has a successful exact-backend-commit run: [42365076271](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/42365076271).
+
+- Expected backend SHA was resolved from the live Render deployment; readiness required 12 consecutive healthy API/database responses over two minutes.
+- Five Playwright test groups passed: order/bargaining/seller/delivery lifecycle; Daily Help slot/OTP lifecycle; multi-seller rollback; concurrent last-stock checkout; admin approval-queue authorization.
+- Result: **5 passed, 0 failed, 0 skipped**. Artifact ID `13571925468`.
+- Test fixtures are run-scoped and cleanup is executed by the suite. The test report is evidence for the exercised synthetic staging scenarios, not for a separate isolated Oracle schema or every P1-C race.
+
+The admin test is now enabled for the `push` event, with the existing staging URL, staging environment and configured role-identity checks retained. PR #289 is merged.

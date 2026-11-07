@@ -503,3 +503,24 @@ The owner confirmed that the current KuraliUpdates environment is staging-only a
 - Workflow fix commit `2c5a922cf88ff28a14a07dad9be59e156202e809` adds a database-independent `/health/live` readiness poll (six-minute ceiling) before role authentication and validates cleanup counts against the bounded range of successful token responses through attempted requests. This preserves exact run-ID isolation and handles ambiguous HTTP outcomes without broad cleanup.
 - Push preflight run `42340528387` passed: all five role sessions (Buyer, Seller, Delivery, Provider, Admin) verified and exactly five run-tagged sessions were removed. No business transactions or fixture mutations ran. Transactional fixture/profile checks were skipped by design on push/PR events.
 - Remaining gates: PR-triggered exact-head preflight and standard CI must pass; then run the separately trusted synthetic transactional workflow, verify V32/V33 and Oracle-backed cleanup/concurrency/rollback, enable safe OTP capture/suppression, and finish authorization/privacy evidence. Phase 1 remains IN PROGRESS.
+
+## 7 November 2026 — transactional staging suite passed 5/5
+
+**Main:** `bdf53de60e2ca59b92e35cde472f9b4864ad2bbc`.  
+**PR #289:** merged as `972f187443cb8bf00ea31428e5f317b62f8ee552`.  
+**Staging backend:** Render deployment remains live on `b491795f9b7a7b0d91d21a3835cc6287e190573f`; the workflow resolves and checks the actual deployed backend SHA rather than assuming a workflow-only main commit is also deployed to Render.
+
+Run [42365076271](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/42365076271) completed successfully:
+- Exact backend commit readiness matched and stayed healthy for 12 consecutive 10-second checks.
+- Buyer order lifecycle, bargaining acceptance/replay, seller fulfilment, concurrent rider claim, pickup and delivery OTP/replay: passed.
+- Daily Help concurrent booking for one slot, invalid/start OTP, start replay, completion and completion replay: passed.
+- Multi-seller checkout failure rolled back the earlier seller order and stock: passed.
+- Concurrent checkout against the last synthetic stock did not oversell: passed.
+- Admin approval queues: ADMIN access passed; BUYER and SELLER denial passed.
+- Result: **5 passed, 0 failed, 0 skipped**. Artifact ID `13571925468`.
+
+The four business/transactional test groups and the admin authorization group ran against unique run-scoped synthetic fixtures. Cleanup completed as part of the test hooks. This is staging runtime evidence for these specific scenarios, not proof of a separate Oracle schema or exhaustive P1-A/P1-C closure.
+
+**Remaining P1-C gaps:** two distinct delivery agents racing to claim one checkout group; Oracle-specific independent-transaction/locking proof in a dedicated isolated target; portal handoff concurrency/expiry/downstream-failure; OTP resend multi-instance race; address-default concurrent invariant; cancellation/stock restoration and any remaining lifecycle replay cases. Existing staging tests do not automatically close these items.
+
+**Remaining P1-A/P1-D gaps:** exhaustive method/route/role/owner matrix; remaining nested-resource and admin PII authorization; public seller-lead/search-analytics enumeration and abuse controls; privacy/data-retention/log-redaction and provider-region evidence. Phase 1 and Phase 0 remain open.
