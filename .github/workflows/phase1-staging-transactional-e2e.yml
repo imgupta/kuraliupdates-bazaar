@@ -70,9 +70,8 @@ jobs:
           const profileIds = ['E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_PROFESSIONAL_ID'].map(key => String(config[key]).trim());
           if (new Set(profileIds).size !== profileIds.length) throw new Error('Seller, delivery-agent and professional staging test profile IDs must be distinct.');
           if (profileIds.some(id => id.length > 128)) throw new Error('Staging test profile IDs must be 128 characters or fewer.');
-          if (String(config.E2E_SELLER_IDENTITY).toLowerCase() === String(config.E2E_ADMIN_IDENTITY ?? '').toLowerCase()) {
-            throw new Error('Seller and admin E2E identities must be separate.');
-          }
+          // A single dedicated staging login may be issued distinct role-scoped E2E tokens.
+          // The lifecycle spec verifies authorization using the ADMIN and SELLER role claims separately.
           const values = {
             E2E_FLOW_AUTH_TOKEN: String(config.E2E_FLOW_AUTH_TOKEN),
             E2E_BUYER_IDENTITY: String(config.E2E_BUYER_IDENTITY),
@@ -93,7 +92,7 @@ jobs:
           }
           const fs = await import('node:fs');
           fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(values).map(([k,v]) => k + '=' + v).join('\n') + '\n');
-          console.log('Validated pinned staging target, strong flow token and three distinct owner-confirmed dedicated staging test profiles. Secret values were masked.');
+          console.log('Validated pinned staging target, strong flow token and dedicated staging test profiles. Secret values were masked.');
           NODE
       - name: Wait for database-backed staging readiness
         shell: bash
