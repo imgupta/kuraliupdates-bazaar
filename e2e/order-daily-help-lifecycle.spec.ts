@@ -63,7 +63,7 @@ function taggedAuth(token: string, runId: string) {
   };
 }
 async function prepareFixtures(request: APIRequestContext, runId: string, sellerId: string,
-  deliveryAgentId: string, professionalId: string) {
+  deliveryAgentId: string, professionalIdentity: string) {
   const rateLimitProbe = await request.post(apiBase + "/e2e/fixtures/rate-limit-probe/" + encodeURIComponent(runId), {
     headers: { "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"), "X-E2E-Run-Id": runId },
     timeout: 20_000,
@@ -72,7 +72,7 @@ async function prepareFixtures(request: APIRequestContext, runId: string, seller
   expect((await rateLimitProbe.json()).rateLimitVerified).toBe(true);
   const response = await request.post(apiBase + "/e2e/fixtures/prepare/" + encodeURIComponent(runId), {
     headers: { "X-E2E-Flow-Token": required("E2E_FLOW_AUTH_TOKEN"), "Cache-Control": "no-store", "Content-Type": "application/json" },
-    data: { sellerId, deliveryAgentId, professionalId },
+    data: { sellerId, deliveryAgentId, professionalIdentity },
     timeout: 20_000,
   });
   const fixtureResponseBody = await response.text();
@@ -129,8 +129,9 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const deliveryToken = await flowToken(request, "DELIVERY", "E2E_DELIVERY_IDENTITY", runId);
     const sellerId = stagingProfileId("E2E_FLOW_SELLER_ID");
     const agentId = stagingProfileId("E2E_FLOW_DELIVERY_AGENT_ID");
-    const professionalId = stagingProfileId("E2E_FLOW_PROFESSIONAL_ID");
-    const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalId);
+    const professionalIdentity = required("E2E_PROVIDER_IDENTITY");
+    const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalIdentity);
+    const professionalId = fixture.professionalId;
     const productId = fixture.productId;
     const quantity = 1;
     expect(Number.isInteger(quantity) && quantity > 0 && quantity <= 2,
@@ -315,8 +316,9 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const professionalToken = await flowToken(request, "PROVIDER", "E2E_PROVIDER_IDENTITY", runId);
     const sellerId = stagingProfileId("E2E_FLOW_SELLER_ID");
     const agentId = stagingProfileId("E2E_FLOW_DELIVERY_AGENT_ID");
-    const professionalId = stagingProfileId("E2E_FLOW_PROFESSIONAL_ID");
-    const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalId);
+    const professionalIdentity = required("E2E_PROVIDER_IDENTITY");
+    const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalIdentity);
+    const professionalId = fixture.professionalId;
     const serviceId = fixture.serviceId;
     const slotId = fixture.slotId;
     const buyerPhone = required("E2E_FLOW_BUYER_PHONE");
@@ -405,8 +407,9 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
     const sellerId = stagingProfileId("E2E_FLOW_SELLER_ID");
     const agentId = stagingProfileId("E2E_FLOW_DELIVERY_AGENT_ID");
-    const professionalId = stagingProfileId("E2E_FLOW_PROFESSIONAL_ID");
-    const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalId);
+    const professionalIdentity = required("E2E_PROVIDER_IDENTITY");
+    const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalIdentity);
+    const professionalId = fixture.professionalId;
 
     const beforeOrders = await getJson(request, "/buyers/me/orders", buyerToken);
     const beforeIds = new Set(beforeOrders.map((order: any) => String(order.orderId)));
@@ -455,8 +458,9 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
     const sellerId = stagingProfileId("E2E_FLOW_SELLER_ID");
     const agentId = stagingProfileId("E2E_FLOW_DELIVERY_AGENT_ID");
-    const professionalId = stagingProfileId("E2E_FLOW_PROFESSIONAL_ID");
-    const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalId);
+    const professionalIdentity = required("E2E_PROVIDER_IDENTITY");
+    const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalIdentity);
+    const professionalId = fixture.professionalId;
     const productId = fixture.productId;
     const products = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(productId), buyerToken);
     const product = products.find((item: any) => item.productId === productId);
