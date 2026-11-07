@@ -134,6 +134,30 @@ class AuthRegisteredRolesTest {
         verify(deliveryAgentRepository).findByEmailIgnoreCase("legacy@example.com");
     }
 
+
+    @Test
+    void phoneMatchAloneDoesNotGrantDeliveryRoleForLegacyProfile() {
+        String userId = "phone-collision-user";
+        String token = "phone-collision-session";
+        UserEntity user = UserEntity.builder().userId(userId).email("buyer@example.com")
+                .phone("9876543210").role("BUYER").accountStatus("ACTIVE").build();
+
+        when(sessionRepository.findBySessionToken(token)).thenReturn(Optional.of(
+                UserSessionEntity.builder().sessionToken(token).userId(userId)
+                        .expiresAt(LocalDateTime.now().plusHours(1)).build()));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(sellerRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(sellerRepository.findByEmailIgnoreCase("buyer@example.com")).thenReturn(Optional.empty());
+        when(sellerRepository.findByPhone("9876543210")).thenReturn(Optional.empty());
+        when(deliveryAgentRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(deliveryAgentRepository.findByEmailIgnoreCase("buyer@example.com")).thenReturn(Optional.empty());
+        when(dailyHelpProfessionalRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(dailyHelpProfessionalRepository.findByPhone("9876543210")).thenReturn(Optional.empty());
+
+        assertEquals(java.util.List.of("BUYER"), authService.registeredRoles(token));
+        verify(deliveryAgentRepository, never()).findByPhone("9876543210");
+    }
+
     @Test
     void issuingAdminScopedE2eSessionDoesNotPromoteOrMutatePrimaryAccountRole() {
         UserEntity user = UserEntity.builder().userId("shared-admin-user")
