@@ -37,13 +37,28 @@ class ProductServiceTest {
 
     @Test
     void nonEmptySearchTrimsQueryAndUsesCrossSellerSearch() {
+        when(productRepository.findApprovedByProductId("milk")).thenReturn(java.util.Optional.empty());
         when(productRepository.searchProductsAcrossSellers("milk", PageRequest.of(0, 100)))
                 .thenReturn(List.of(product("P-3", "Approved Store", "APPROVED")));
 
         var result = productService.search(" milk ");
 
         assertEquals(1, result.size());
+        verify(productRepository).findApprovedByProductId("milk");
         verify(productRepository).searchProductsAcrossSellers("milk", PageRequest.of(0, 100));
+    }
+
+    @Test
+    void exactProductIdUsesIndexedLookupWithoutRunningCatalogueContainsSearch() {
+        ProductEntity product = product("E2E-P-ABC123", "Approved Store", "APPROVED");
+        when(productRepository.findApprovedByProductId("E2E-P-ABC123"))
+                .thenReturn(java.util.Optional.of(product));
+
+        var result = productService.search("E2E-P-ABC123");
+
+        assertEquals(1, result.size());
+        verify(productRepository).findApprovedByProductId("E2E-P-ABC123");
+        verify(productRepository, never()).searchProductsAcrossSellers(anyString(), any());
     }
 
     @Test
