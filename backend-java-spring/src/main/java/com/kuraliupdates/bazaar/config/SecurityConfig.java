@@ -87,7 +87,6 @@ public class SecurityConfig {
                     "/seller-registration/leads/*/send-contact-otps",
                     "/seller-registration/leads/*/verify-contact",
                     "/seller-registration/leads/*/callback",
-                    "/delivery/register",
                     "/sellers/register",
                     "/analytics/search"
                 ).permitAll()
