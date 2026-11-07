@@ -184,69 +184,8 @@ test.describe("KuraliUpdates Bazaar production-safe E2E", () => {
     }
   });
 
-  const roles = [
-    { key: "BUYER", label: "Buyer" },
-    { key: "SELLER", label: "Seller" },
-    { key: "DELIVERY", label: "Delivery agent" },
-    { key: "PROVIDER", label: "Service provider" },
-    { key: "ADMIN", label: "Admin" },
-  ];
+  // One shared identity receives one OTP, then the same authenticated session
+  // switches through all five roles above. Do not send five OTPs to one address:
+  // that would exercise rate limiting/cooldown, not multi-role authorization.
 
-  for (const role of roles) {
-    test(role.label + " login and post-login session", async ({ page }) => {
-      // OTP capture can lag behind the login request on a cold staging service.
-      // Allow a bounded 90-second capture window while still failing on non-404 errors.
-      test.setTimeout(180_000);
-      const identity = process.env["E2E_" + role.key + "_IDENTITY"];
-      test.skip(!stagingE2EEnabled || !identity,
-        "Authenticated E2E is staging-only; requires exact designated frontend/API targets, a 32+ character OTP token, and a dedicated role test identity.");
-
-      await page.goto(baseURL, { waitUntil: "domcontentloaded" });
-      const identityInput = page.locator('input[type="email"], input[type="tel"], input[name*="email" i], input[name*="mobile" i], input[placeholder*="email" i], input[placeholder*="mobile" i]').first();
-      await expect(identityInput).toBeVisible();
-      await identityInput.fill(identity!);
-
-      // Wait for the send-OTP response before polling, so capture cannot race persistence.
-      // A 429 means the identifier is still in its 60-second cooldown. Do not sleep
-      // for the full cooldown in CI: reuse an already-captured OTP if one is still
-      // available; otherwise fail fast with a clear message and use a fresh dedicated
-      // staging identity. Production rate limiting remains unchanged.
-      const sendOtpButton = page.getByRole("button", { name: /send 6-digit otp/i }).first();
-      const responsePromise = page.waitForResponse(response =>
-        response.request().method() === "POST"
-        && new URL(response.url()).pathname.endsWith("/auth/send-otp"),
-      { timeout: 30_000 });
-      await sendOtpButton.click();
-      const sendOtpResponse = await responsePromise;
-      let otp: string;
-      if (sendOtpResponse.status() === 200) {
-        otp = await waitForCapturedOtp(page, identity!);
-      } else if (sendOtpResponse.status() === 429) {
-        const existingOtp = await readCapturedOtpIfAvailable(page, identity!);
-        if (!existingOtp) {
-          throw new Error("Send-OTP returned HTTP 429 because this staging identity is in the 60-second cooldown, and no captured OTP is available. Use a fresh dedicated E2E identity or rerun after cooldown; CI no longer waits 61 seconds.");
-        }
-        otp = existingOtp;
-      } else {
-        throw new Error("Send-OTP request returned HTTP " + sendOtpResponse.status()
-          + "; verify staging OTP delivery and per-identity rate limits.");
-      }
-
-      const otpInput = page.locator('input[autocomplete="one-time-code"], input[name*="otp" i], input[placeholder*="otp" i], input[inputmode="numeric"]').last();
-      await expect(otpInput).toBeVisible({ timeout: 15_000 });
-      await otpInput.fill(otp);
-      await page.getByRole("button", { name: /verify.*continue/i }).last().click();
-
-      await expect(page.locator("body")).not.toContainText(/internal server error|something went wrong/i);
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(page.locator("body")).not.toContainText(/please log in to continue/i);
-
-      const account = page.getByRole("link", { name: /my account|account|profile/i })
-        .or(page.getByRole("button", { name: /my account|account|profile/i }));
-      if (await account.count()) {
-        await account.first().click();
-        await expect(page.locator("body")).not.toContainText(/session expired|please log in/i);
-      }
-    });
-  }
 });
