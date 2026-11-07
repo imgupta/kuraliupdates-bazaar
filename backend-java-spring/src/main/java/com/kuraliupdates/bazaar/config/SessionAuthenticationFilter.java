@@ -32,7 +32,8 @@ public class SessionAuthenticationFilter extends OncePerRequestFilter {
             String token = header.substring(7).trim();
             try {
                 UserEntity user = authService.requireUser(token);
-                String role = user.getRole() == null ? "BUYER" : user.getRole().trim().toUpperCase();
+                String sessionRole = authService.requireSessionRole(token);
+                String role = (sessionRole == null || sessionRole.isBlank() ? user.getRole() : sessionRole).trim().toUpperCase();
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         user, token, List.of(new SimpleGrantedAuthority("ROLE_" + role)));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
