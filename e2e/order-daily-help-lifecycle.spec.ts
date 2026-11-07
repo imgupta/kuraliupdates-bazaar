@@ -247,7 +247,9 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     // lifecycle fixture disagree with its negotiated line item and could mask
     // checkout validation/amount-reconciliation regressions.
     const expectedSubtotal = Math.round(counterPrice * quantity * 100) / 100;
-    const expectedDeliveryFee = 0;
+    // Single-seller checkout uses the seller's configured base delivery fee;
+    // the staging seller uses the backend default of ₹35.
+    const expectedDeliveryFee = 35;
     const expectedDiscount = 0;
     const expectedFinalPayable = Math.round((expectedSubtotal - expectedDiscount + expectedDeliveryFee) * 100) / 100;
     const placedResponse = await request.post(apiBase + "/buyers/orders", {
@@ -423,7 +425,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(reconciledBooking.professionalId).toBe(professionalId);
     expect(reconciledBooking.status).toBe("COMPLETED");
     expect(reconciledBooking.serviceStartedAt).toBe(started.serviceStartedAt.slice(0, 26));
-    expect(reconciledBooking.serviceCompletedAt).toBe(completed.serviceCompletedAt);
+    expect(reconciledBooking.serviceCompletedAt).toBe(completed.serviceCompletedAt.slice(0, 26));
   });
 
   test("multi-seller checkout failure rolls back the earlier seller order and stock", async ({ request }, testInfo) => {
