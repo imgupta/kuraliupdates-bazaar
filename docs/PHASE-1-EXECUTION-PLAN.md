@@ -645,3 +645,12 @@ Source review confirms that public seller-lead routes already apply persistent O
 The follow-up PR adds negative-path controller tests proving that seller-lead creation, seller OTP send and search analytics do not invoke persistence/service work after the rate limiter rejects a request. It also reconciles the endpoint authorization matrix so the existing controls are not incorrectly reported as absent.
 
 **Evidence boundary:** these tests use mocked rate-limit and persistence dependencies. They do not prove Oracle cross-instance rate-limit contention, reverse-proxy client-IP correctness, CAPTCHA/bot protection, public lead anti-enumeration, or a search-analytics retention/deletion policy. P1-D remains open pending those controls and the broader privacy/logging review.
+
+
+## P1-A bargaining chat read-path ownership regression slice — 7 November 2026
+
+This PR extends the bargaining authorization evidence beyond send/respond mutations to read/list paths. Buyer chat list queries must bind the normalized authenticated buyer email; seller chat list queries must bind the approved seller ID derived from the authenticated account; notification list queries must bind both recipient email and active role. Notification read updates already bind notification ID, recipient email and role.
+
+New tests assert the SQL ownership predicates and exact bound identity/role arguments for buyer list, seller list and notification list. Existing tests continue to cover cross-participant send/respond denial and notification-read scoping.
+
+**Evidence boundary:** SQL-shape/bind-argument tests use mocked JdbcTemplate. They are not Oracle runtime authorization proof and do not close every buyer/seller/delivery/professional/chat identifier route. Exact-head backend CI is required; authenticated browser journeys remain constrained by staging OTP capture configuration.
