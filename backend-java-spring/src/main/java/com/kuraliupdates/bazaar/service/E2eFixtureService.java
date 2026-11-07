@@ -148,7 +148,7 @@ public class E2eFixtureService {
         }
 
         return new FixtureResult(productId, sellerId, agentId, serviceId, slotId, resolvedProfessionalId,
-                Objects.toString(professional.getCurrentLocality(), ""), slotDate.atTime(start).toString(),
+                professional.getCurrentLocality() == null ? "" : professional.getCurrentLocality(), slotDate.atTime(start).toString(),
                 1, 2, TEST_PRICE.toPlainString(), rollbackSellerId, multiSellerValidProductId, multiSellerFailProductId);
     }
 
