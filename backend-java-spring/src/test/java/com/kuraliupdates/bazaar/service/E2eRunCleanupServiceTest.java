@@ -44,6 +44,10 @@ class E2eRunCleanupServiceTest {
 
         cleanupService.cleanup("E2E-run-123");
 
+        verify(jdbc).queryForObject(
+                "SELECT LOCK_NAME FROM E2E_CLEANUP_MUTEX WHERE LOCK_NAME = 'GLOBAL' FOR UPDATE",
+                String.class);
+
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
         verify(jdbc, times(7)).queryForObject(sql.capture(), eq(Long.class), any(Object[].class));
         List<String> statements = sql.getAllValues();
