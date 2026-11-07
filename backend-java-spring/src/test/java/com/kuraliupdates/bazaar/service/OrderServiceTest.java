@@ -84,6 +84,7 @@ class OrderServiceTest {
         OrderEntity order = OrderEntity.builder().orderId("ORD-CANCEL")
                 .buyerEmail("authenticated@example.test").status("PLACED")
                 .paymentStatus("PENDING_COD").items(new java.util.ArrayList<>(List.of(item))).build();
+        when(orderRepository.findById("ORD-CANCEL")).thenReturn(Optional.of(order));
         when(orderRepository.findLockedByOrderId("ORD-CANCEL")).thenReturn(Optional.of(order));
         when(productRepository.findLockedByProductId("P-CANCEL")).thenReturn(Optional.of(product));
         when(orderRepository.saveAll(any(Iterable.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -102,6 +103,7 @@ class OrderServiceTest {
     void buyerCannotCancelAnotherBuyersOrder() {
         OrderEntity order = OrderEntity.builder().orderId("ORD-OTHER")
                 .buyerEmail("someone-else@example.test").status("PLACED").build();
+        when(orderRepository.findById("ORD-OTHER")).thenReturn(Optional.of(order));
         when(orderRepository.findLockedByOrderId("ORD-OTHER")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
@@ -117,6 +119,7 @@ class OrderServiceTest {
         OrderEntity paid = OrderEntity.builder().orderId("ORD-PAID")
                 .buyerEmail("authenticated@example.test").status("PLACED")
                 .paymentStatus("PAID").build();
+        when(orderRepository.findById("ORD-PAID")).thenReturn(Optional.of(paid));
         when(orderRepository.findLockedByOrderId("ORD-PAID")).thenReturn(Optional.of(paid));
         ApiException paidError = assertThrows(ApiException.class,
                 () -> orderService.cancelOrderForBuyer("ORD-PAID", buyer()));
@@ -125,6 +128,7 @@ class OrderServiceTest {
         OrderEntity fulfilled = OrderEntity.builder().orderId("ORD-DONE")
                 .buyerEmail("authenticated@example.test").status("READY_FOR_PICKUP")
                 .paymentStatus("PENDING_COD").build();
+        when(orderRepository.findById("ORD-DONE")).thenReturn(Optional.of(fulfilled));
         when(orderRepository.findLockedByOrderId("ORD-DONE")).thenReturn(Optional.of(fulfilled));
         ApiException fulfilledError = assertThrows(ApiException.class,
                 () -> orderService.cancelOrderForBuyer("ORD-DONE", buyer()));
@@ -144,7 +148,7 @@ class OrderServiceTest {
                 .buyerEmail("authenticated@example.test").status("ACCEPTED_BY_SELLER").paymentStatus("PENDING_COD")
                 .items(new java.util.ArrayList<>(List.of(com.kuraliupdates.bazaar.entity.OrderItemEntity.builder()
                         .itemId("I-2").product(p2).quantity(3).build()))).build();
-        when(orderRepository.findLockedByOrderId("ORD-G1")).thenReturn(Optional.of(first));
+        when(orderRepository.findById("ORD-G1")).thenReturn(Optional.of(first));
         when(orderRepository.findLockedByCheckoutGroupId("CHK-1")).thenReturn(List.of(first, second));
         when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(p1));
         when(productRepository.findLockedByProductId("P-2")).thenReturn(Optional.of(p2));
