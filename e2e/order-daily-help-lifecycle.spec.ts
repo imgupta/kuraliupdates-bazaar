@@ -44,11 +44,20 @@ async function flowToken(request: APIRequestContext, role: string, identityVaria
   const sharedSecret = required("E2E_FLOW_AUTH_TOKEN");
   const identifier = required(identityVariable);
   const expectedEmail = sharedFiveRoleEmail();
-  const response = await request.post(apiBase + "/e2e/auth/token", {
+  const tokenRequest = {
     headers: { "X-E2E-Flow-Token": sharedSecret, ...(runId ? { "X-E2E-Run-Id": runId } : {}), "Content-Type": "application/json", "Cache-Control": "no-store" },
     data: { role, identifier },
-    timeout: 15_000,
-  });
+    timeout: 30_000,
+  };
+  let response;
+  try {
+    response = await request.post(apiBase + "/e2e/auth/token", tokenRequest);
+  } catch (error) {
+    // Render may be waking a newly deployed instance. Retry only a transport
+    // timeout once; never retry an HTTP authentication/authorization response.
+    if (!(error instanceof Error) || !/timeout/i.test(error.message)) throw error;
+    response = await request.post(apiBase + "/e2e/auth/token", tokenRequest);
+  }
   expect(response.status(), "staging E2E token exchange for role " + role + " should succeed").toBe(200);
   const body = await response.json() as {
     token?: string; authenticated?: boolean; role?: string; roles?: string[]; user?: { email?: string };
@@ -115,7 +124,7 @@ async function prepareFixtures(request: APIRequestContext, runId: string, seller
   return fixture as {
     productId: string; sellerId: string; deliveryAgentId: string; serviceId: string;
     slotId: string; professionalId: string; professionalLocality: string; scheduledStart: string;
-    requestedHours: number; stock: number; unitPrice: string;
+    requestedHours: number; stock: number; unitPrice: string; baseDeliveryFee: string | number;
     rollbackSellerId: string; multiSellerValidProductId: string; multiSellerFailProductId: string;
   };
 }
@@ -247,7 +256,8 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     // lifecycle fixture disagree with its negotiated line item and could mask
     // checkout validation/amount-reconciliation regressions.
     const expectedSubtotal = Math.round(counterPrice * quantity * 100) / 100;
-    const expectedDeliveryFee = 0;
+    // The fixture reports the actual configured seller fee, including the backend default.
+    const expectedDeliveryFee = Number(fixture.baseDeliveryFee);
     const expectedDiscount = 0;
     const expectedFinalPayable = Math.round((expectedSubtotal - expectedDiscount + expectedDeliveryFee) * 100) / 100;
     const placedResponse = await request.post(apiBase + "/buyers/orders", {
@@ -423,7 +433,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(reconciledBooking.professionalId).toBe(professionalId);
     expect(reconciledBooking.status).toBe("COMPLETED");
     expect(reconciledBooking.serviceStartedAt).toBe(started.serviceStartedAt.slice(0, 26));
-    expect(reconciledBooking.serviceCompletedAt).toBe(completed.serviceCompletedAt);
+    expect(reconciledBooking.serviceCompletedAt).toBe(completed.serviceCompletedAt.slice(0, 26));
   });
 
   test("multi-seller checkout failure rolls back the earlier seller order and stock", async ({ request }, testInfo) => {

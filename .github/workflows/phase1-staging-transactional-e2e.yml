@@ -1,6 +1,8 @@
 name: Phase 1 Staging Transactional E2E
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       confirm_staging_mutations:
@@ -20,7 +22,7 @@ concurrency:
 jobs:
   transactional-e2e:
     name: Synthetic COD order and Daily Help lifecycle
-    if: github.event_name == 'workflow_dispatch' && inputs.confirm_staging_mutations == true
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.confirm_staging_mutations == true)
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
