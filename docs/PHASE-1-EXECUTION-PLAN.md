@@ -524,3 +524,14 @@ The four business/transactional test groups and the admin authorization group ra
 **Remaining P1-C gaps:** two distinct delivery agents racing to claim one checkout group; Oracle-specific independent-transaction/locking proof in a dedicated isolated target; portal handoff concurrency/expiry/downstream-failure; OTP resend multi-instance race; address-default concurrent invariant; cancellation/stock restoration and any remaining lifecycle replay cases. Existing staging tests do not automatically close these items.
 
 **Remaining P1-A/P1-D gaps:** exhaustive method/route/role/owner matrix; remaining nested-resource and admin PII authorization; public seller-lead/search-analytics enumeration and abuse controls; privacy/data-retention/log-redaction and provider-region evidence. Phase 1 and Phase 0 remain open.
+
+## 7 November 2026 — combined delivery checkout-group claim boundary tests
+
+A new bounded P1-A/P1-C test slice adds service-level regression coverage for `DeliveryService.claimCheckoutGroup`:
+- A successful group claim assigns every seller order to the authenticated active delivery profile, sets the common checkout batch ID and shared four-digit delivery OTP, and snapshots the combined payout only once (on the first seller order).
+- A caller-supplied delivery profile ID that differs from the authenticated profile is rejected before JDBC configuration reads, order locks or route calculation.
+- A group containing a seller order that is not yet `READY_FOR_PICKUP` is rejected without changing either seller order or saving the group.
+
+These are deterministic service tests using mocked repositories and JDBC. They verify ownership and all-or-nothing service state transitions, but they do **not** simulate two independent database transactions or prove Oracle pessimistic-lock behavior.
+
+**Remaining:** add an Oracle-backed two-distinct-agent race for a combined checkout group only when a dedicated isolated Oracle target and two approved synthetic active delivery identities are available. Do not create or promote a second rider profile in shared staging merely to satisfy this test.
