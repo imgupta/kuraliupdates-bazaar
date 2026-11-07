@@ -374,15 +374,18 @@ public class AuthService {
     }
 
     private Optional<DeliveryAgentEntity> findDeliveryProfile(UserEntity user) {
-        if (user.getUserId() != null) {
+        if (user.getUserId() != null && !user.getUserId().isBlank()) {
             Optional<DeliveryAgentEntity> linked = deliveryAgentRepository.findByUserId(user.getUserId());
             if (linked.isPresent()) return linked;
         }
+        // Email fallback exists only for legacy delivery profiles that have no
+        // USER_ID link. A profile linked to another account must never grant a role
+        // because its email or phone happens to match this session.
         if (user.getEmail() != null) {
-            Optional<DeliveryAgentEntity> byEmail = deliveryAgentRepository.findByEmailIgnoreCase(user.getEmail());
-            if (byEmail.isPresent()) return byEmail;
+            return deliveryAgentRepository.findByEmailIgnoreCase(user.getEmail())
+                    .filter(profile -> profile.getUserId() == null || profile.getUserId().isBlank());
         }
-        return user.getPhone() == null ? Optional.empty() : deliveryAgentRepository.findByPhone(user.getPhone());
+        return Optional.empty();
     }
 
     private boolean deliveryProfileExists(UserEntity user) {
