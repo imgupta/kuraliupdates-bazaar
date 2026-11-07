@@ -151,6 +151,10 @@ public class SellerService {
         }
 
         if ("CANCELLED".equals(next)) {
+            if ("PAID".equalsIgnoreCase(order.getPaymentStatus())) {
+                throw new ApiException(HttpStatus.CONFLICT,
+                        "Paid orders require the refund workflow and cannot be cancelled through seller status updates");
+            }
             // Lock products in deterministic ID order and aggregate repeated lines
             // before restoring stock. Any missing product aborts the whole transaction.
             Map<String, Integer> restoreQuantities = new TreeMap<>();
@@ -176,6 +180,7 @@ public class SellerService {
                 }
             }
             order.setFulfilmentStatus("CANCELLED");
+            order.setPaymentStatus("CANCELLED");
         }
 
         order.setStatus(next);
