@@ -229,3 +229,12 @@ A grouping defect was also corrected: one seller-cancelled suborder no longer ca
 
 
 **PR #304 exact-head verification:** merge commit `cf21ae0b5d711c8e472a7a50afb2d4f4155e1ca8`; PR head `fe486b41b8e5832783f6702f5c072e717386c020`. Backend Maven: 317 tests, 0 failures/errors/skips. Frontend lint and production build passed. Browser E2E: 3 passed, 6 skipped; OTP-driven authenticated scenarios remain skipped because staging OTP capture/suppression is not confirmed. Read-only smoke: 7 passed, 0 failed, with `databaseHealthChecked=false`; it proves only process liveness and anonymous guards. Staging role/fixture preflight passed. Post-merge main staging transactional E2E is tracked separately and must pass before the merge commit is considered staging-verified.
+
+
+## 7 November 2026 — staging rate-limit probe intermittent HTTP 500
+
+Post-merge staging transactional run `42381776750` targeted backend commit `cf21ae0b5d711c8e472a7a50afb2d4f4155e1ca8`. Exact-commit/API/database readiness passed. Four lifecycle/admin scenarios passed; the Daily Help scenario's first attempt failed because the E2E Oracle rate-limit probe returned HTTP 500, then passed on retry. Playwright marked the run flaky and the workflow failed. This is not a clean staging pass.
+
+Source inspection shows `ApiRateLimitService` performs expired-bucket cleanup synchronously on every 100th successful rate-limit operation. That maintenance delete was allowed to throw through the request path, turning an otherwise successful rate-limit decision into HTTP 500. This is a plausible intermittent trigger; the failed request's Oracle exception was not captured in the workflow output, so do not claim it is conclusively the observed root cause.
+
+The fix in PR (in progress) makes only the periodic expired-bucket cleanup best-effort: rate-limit enforcement remains authoritative and fail-closed, while cleanup exceptions are logged by exception class and do not fail the protected request. A regression test forces the cleanup operation to fail on the 100th call and verifies that an otherwise allowed request still succeeds. Exact-head CI and a staging rerun are required to validate the remediation.

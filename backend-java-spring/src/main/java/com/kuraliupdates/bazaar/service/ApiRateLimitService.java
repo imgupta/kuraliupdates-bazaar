@@ -6,6 +6,8 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -24,6 +26,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Service
 @RequiredArgsConstructor
 public class ApiRateLimitService {
+    private static final Logger log = LoggerFactory.getLogger(ApiRateLimitService.class);
+    private static final String CLEANUP_SQL = "DELETE FROM API_RATE_LIMIT_BUCKETS WHERE EXPIRES_AT < ? AND WINDOW_START <> TIMESTAMP '1970-01-01 00:00:00'";
     private static final String MERGE_SQL = """
             MERGE INTO API_RATE_LIMIT_BUCKETS target
             USING (SELECT ? AS BUCKET_KEY, ? AS WINDOW_START, ? AS EXPIRES_AT FROM DUAL) source
@@ -68,8 +72,15 @@ public class ApiRateLimitService {
         }
 
         if (cleanupCounter.incrementAndGet() % 100 == 0) {
-            jdbc.update("DELETE FROM API_RATE_LIMIT_BUCKETS WHERE EXPIRES_AT < ? AND WINDOW_START <> TIMESTAMP '1970-01-01 00:00:00'",
-                    LocalDateTime.ofInstant(now, ZoneOffset.UTC));
+            // Expired-bucket cleanup is maintenance, not part of the request's
+            // authorization decision. A transient cleanup failure must never
+            // turn an otherwise allowed request into HTTP 500.
+            try {
+                jdbc.update(CLEANUP_SQL, LocalDateTime.ofInstant(now, ZoneOffset.UTC));
+            } catch (RuntimeException cleanupFailure) {
+                log.warn("Periodic API rate-limit bucket cleanup failed; enforcement remains active ({})",
+                        cleanupFailure.getClass().getSimpleName());
+            }
         }
     }
 

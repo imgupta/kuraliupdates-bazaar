@@ -604,3 +604,10 @@ Added node:test coverage for mixed cancelled/active checkout groups and fully ca
 
 
 **PR #304 verification:** exact PR head `fe486b41b8e5832783f6702f5c072e717386c020`, merged as `cf21ae0b5d711c8e472a7a50afb2d4f4155e1ca8`. Full backend: 317 tests, zero failures/errors/skips. Frontend lint/build and staging role/fixture preflight passed. Browser E2E was 3 passed / 6 skipped. Read-only API smoke was 7/7, but `databaseHealthChecked=false`; it is not a database readiness test. Post-merge staging transactional E2E and Oracle two-session contention remain separate evidence gates.
+
+
+## 7 November 2026 — isolate periodic rate-limit cleanup from request decisions (PR in progress)
+
+Staging run `42381776750` had exact-commit/database readiness success, four scenarios passed, and one Daily Help scenario that failed once on HTTP 500 from the E2E Oracle rate-limit probe before passing on retry. The overall workflow is failed/flaky, not a pass. `ApiRateLimitService` currently performs expired-bucket cleanup inline every 100 successful calls; a cleanup database exception can therefore escape an otherwise successful limiter decision. The precise Oracle exception was not present in the Actions output, so this is a plausible source-level trigger, not a confirmed runtime root cause.
+
+The PR wraps only the periodic cleanup in best-effort exception handling and logs the exception class. MERGE-based enforcement, 429 behavior, duplicate-key retry and fail-closed 503 behavior are unchanged. A regression test injects cleanup failure on call 100 and verifies the request remains allowed. Exact-head Maven CI and a rerun of the synthetic staging suite are required before closing this reliability gap.
