@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.util.List;
 
@@ -83,10 +84,25 @@ class BuyerControllerOrderAuthorizationTest {
     }
 
     @Test
+    void buyerSessionCanUseBuyerActionsWhenAccountPrimaryRoleIsSellerOrAdmin() {
+        for (String primaryRole : List.of("SELLER", "ADMIN")) {
+            UserEntity multiRoleUser = UserEntity.builder().userId("multi-role-user").name("Multi Role")
+                    .email("multi-role@example.test").role(primaryRole).build();
+            OrderResponse order = mock(OrderResponse.class);
+            when(orderService.history(multiRoleUser)).thenReturn(List.of(order));
+
+            var response = controller.myOrders(authentication(multiRoleUser, "ROLE_BUYER"));
+
+            assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals(List.of(order), response.getBody());
+        }
+    }
+
+    @Test
     void nonBuyerPrincipalIsRejectedBeforeAnyBuyerOrderServiceAccess() {
         UserEntity seller = UserEntity.builder().userId("seller-user").name("Seller")
                 .email("seller@example.test").role("SELLER").build();
-        Authentication sellerAuthentication = authentication(seller);
+        Authentication sellerAuthentication = authentication(seller, "ROLE_SELLER");
 
         assertForbidden(() -> controller.placeOrder(null, null, null, sellerAuthentication));
         assertForbidden(() -> controller.placeMultiSellerOrder(null, null, null, sellerAuthentication));
@@ -129,8 +145,13 @@ class BuyerControllerOrderAuthorizationTest {
     }
 
     private Authentication authentication(UserEntity user) {
+        return authentication(user, "ROLE_BUYER");
+    }
+
+    private Authentication authentication(UserEntity user, String authority) {
         Authentication authentication = mock(Authentication.class);
         when(authentication.getPrincipal()).thenReturn(user);
+        when(authentication.getAuthorities()).thenReturn(List.of(new SimpleGrantedAuthority(authority)));
         return authentication;
     }
 
