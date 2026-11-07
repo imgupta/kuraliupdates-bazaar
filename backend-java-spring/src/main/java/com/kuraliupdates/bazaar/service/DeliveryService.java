@@ -416,9 +416,18 @@ public class DeliveryService {
             throw new ApiException(HttpStatus.FORBIDDEN,
                     "Delivery profile must be linked to a verified account before access is granted");
         }
-        return agentRepository.findByUserId(userId)
-                .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN,
-                        "No delivery profile is linked to this account"));
+        Optional<DeliveryAgentEntity> linked = agentRepository.findByUserId(userId);
+        if (linked.isPresent()) return linked.get();
+
+        // Backward compatibility is limited to legacy rows with no USER_ID and a
+        // matching email verified by the authenticated OTP/Google account. A
+        // populated link to another account is always authoritative.
+        Optional<DeliveryAgentEntity> legacy = user.getEmail() == null
+                ? Optional.empty()
+                : agentRepository.findByEmail(user.getEmail().trim().toLowerCase())
+                        .filter(profile -> profile.getUserId() == null || profile.getUserId().isBlank());
+        return legacy.orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN,
+                "No delivery profile is linked to this account"));
     }
 
     private void requireAvailable(DeliveryAgentEntity agent) {
