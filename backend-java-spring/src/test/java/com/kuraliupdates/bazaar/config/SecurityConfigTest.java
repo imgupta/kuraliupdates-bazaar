@@ -84,6 +84,18 @@ class SecurityConfigTest {
                 .andExpect(status().isForbidden());
     }
 
+
+    @Test
+    void e2eSessionRoleOverridesMutablePrimaryAdminRoleForThatSessionOnly() throws Exception {
+        when(authService.requireUser("seller-session"))
+                .thenReturn(UserEntity.builder().userId("shared-admin-seller").role("ADMIN").build());
+        when(authService.requireSessionRole("seller-session")).thenReturn("SELLER");
+
+        mockMvc.perform(get("/admin/diagnostics")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer seller-session"))
+                .andExpect(status().isForbidden());
+    }
+
     @Test
     void protectedAuthRouteAcceptsAnActiveBearerSession() throws Exception {
         when(authService.requireUser("buyer-session"))
