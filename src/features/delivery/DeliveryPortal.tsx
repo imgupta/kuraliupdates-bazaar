@@ -231,7 +231,7 @@ export const DeliveryDashboard: React.FC = () => {
 
   const handleClaim = async (job: Order) => {
     if (!agent) {
-      setIsDeliveryRegisterOpen(true);
+      window.location.assign('/register/delivery');
       return;
     }
     const claimKey = job.checkoutGroupId || job.id;
