@@ -52,6 +52,12 @@ class E2eRunCleanupServiceTest {
                 "DAILY_HELP_BOOKINGS has no SLOT_ID column");
         assertTrue(statements.stream().anyMatch(statement -> statement.contains("s.BOOKING_ID = b.BOOKING_ID")),
                 "booking preflight must locate its run-owned slot through the slot's BOOKING_ID");
+        assertFalse(statements.stream().anyMatch(statement -> statement.contains("b.PROFESSIONAL_ID NOT LIKE 'E2E-%'")),
+                "a booking may reference the pre-provisioned staging professional; only its run-owned slot is deleted");
+        assertFalse(statements.stream().anyMatch(statement -> statement.contains("o.SELLER_ID NOT LIKE 'E2E-%'")),
+                "an order may reference the pre-provisioned staging seller when every order item is this run's synthetic product");
+        assertFalse(statements.stream().anyMatch(statement -> statement.contains("c.SELLER_ID NOT LIKE 'E2E-%'")),
+                "a negotiation chat may reference the pre-provisioned staging seller when its product is run-owned");
         assertTrue(statements.stream().anyMatch(statement -> statement.contains("b.BOOKING_ID = s.BOOKING_ID")),
                 "slot preflight must reject links to bookings owned by another run");
     }
