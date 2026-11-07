@@ -156,3 +156,8 @@ Unclaimed job listing uses AvailableDeliveryJobResponse, exposing only buyer loc
 ## Delivery onboarding ownership — 7 November 2026
 
 Delivery profiles are authorized only through DELIVERY_AGENTS.USER_ID matching the authenticated USER_SESSIONS.USER_ID. AuthService's existing verified email-OTP role registration provisions the profile with the same user ID and PENDING status. The legacy public /delivery/register endpoint and frontend local-only instant activation path are removed. The legacy registration modal routes to /register/delivery. USER_ID is authoritative whenever populated. A legacy row with null USER_ID may be matched only by the authenticated account's verified email; profiles linked to another user never fall back, and phone matching is not used for delivery authorization. New OTP registration writes USER_ID. No schema migration is required. New delivery operations remain gated by ACTIVE profile status. No schema migration is required.
+
+
+## Seller cancellation and inventory transaction contract — 7 November 2026
+
+Seller order status mutations use `OrderRepository.findLockedByOrderId` within the service transaction. Cancellation is allowed only from `PLACED` or `ACCEPTED_BY_SELLER`; `READY_FOR_PICKUP` and later states cannot be cancelled. A repeated `CANCELLED` request is idempotent. The service aggregates item quantities by product ID, locks product rows in ascending ID order, restores stock once, and sets order/fulfilment/payment status to `CANCELLED`. If a product row is missing or stock arithmetic overflows, the transaction aborts. Already-paid orders are rejected until a refund workflow exists. Buyer cancellation remains a separate unimplemented flow; Oracle independent-transaction race validation remains outstanding.
