@@ -133,7 +133,8 @@ public class DeliveryTrackingService {
     }
 
     private boolean active(UserSessionEntity session) {
-        return session != null && session.getExpiresAt() != null
+        return session != null && session.getUserId() != null && !session.getUserId().isBlank()
+                && session.getExpiresAt() != null
                 && session.getExpiresAt().isAfter(LocalDateTime.now());
     }
 
