@@ -279,23 +279,43 @@ public class DailyHelpService {
 
     @Transactional
     public DailyHelpBookingResponse updateStatus(String bookingId, String professionalId, String status) {
-        DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
+        // Serialize lifecycle transitions with OTP verification/completion. A read-then-write
+        // sequence without a row lock could otherwise move a completed booking backwards.
+        DailyHelpBookingEntity booking = bookingRepository.findLockedByBookingId(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
         if (booking.getProfessional() == null || !booking.getProfessional().getProfessionalId().equals(professionalId)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Professional is not assigned to this booking");
         }
-        if (!List.of("ARRIVING", "READY_TO_START").contains(status)) {
+
+        String nextStatus = status == null ? "" : status.trim().toUpperCase(java.util.Locale.ROOT);
+        String currentStatus = booking.getStatus() == null ? "" : booking.getStatus().trim().toUpperCase(java.util.Locale.ROOT);
+        if (!List.of("ARRIVING", "READY_TO_START").contains(nextStatus)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported Daily Help status");
         }
-        booking.setStatus(status);
+
+        // Permit retries of the current state, but only allow forward movement:
+        // PROFESSIONAL_ASSIGNED -> ARRIVING -> READY_TO_START.
+        if (currentStatus.equals(nextStatus)) {
+            return DailyHelpBookingResponse.from(booking, false);
+        }
+        boolean validTransition = ("PROFESSIONAL_ASSIGNED".equals(currentStatus) && "ARRIVING".equals(nextStatus))
+                || ("ARRIVING".equals(currentStatus) && "READY_TO_START".equals(nextStatus));
+        if (!validTransition) {
+            throw new ApiException(HttpStatus.CONFLICT, "Daily Help booking cannot move from "
+                    + currentStatus + " to " + nextStatus);
+        }
+
+        booking.setStatus(nextStatus);
         booking.setUpdatedAt(LocalDateTime.now());
-        return DailyHelpBookingResponse.from(bookingRepository.save(booking), true);
+        // The start OTP is a buyer-held consent code. Never return it to the
+        // professional from a status mutation response.
+        return DailyHelpBookingResponse.from(bookingRepository.save(booking), false);
     }
 
     // Invalid OTP attempts must commit even though the request returns an error.
     @Transactional(noRollbackFor = ApiException.class)
     public DailyHelpBookingResponse startBooking(String bookingId, DailyHelpStartRequest request) {
-        DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
+        DailyHelpBookingEntity booking = bookingRepository.findLockedByBookingId(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
 
         if (booking.getProfessional() == null ||
@@ -340,7 +360,7 @@ public class DailyHelpService {
 
     @Transactional
     public DailyHelpBookingResponse completeBooking(String bookingId, String professionalId) {
-        DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
+        DailyHelpBookingEntity booking = bookingRepository.findLockedByBookingId(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
         if (booking.getProfessional() == null || !booking.getProfessional().getProfessionalId().equals(professionalId)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Professional is not assigned to this booking");
