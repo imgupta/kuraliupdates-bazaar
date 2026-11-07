@@ -21,6 +21,7 @@ class E2eFixtureServiceTest {
     @Mock private SellerRepository sellers;
     @Mock private DeliveryAgentRepository agents;
     @Mock private DailyHelpProfessionalRepository professionals;
+    @Mock private UserRepository users;
     @Mock private ProductRepository products;
     @Mock private DailyHelpServiceRepository services;
     @Mock private DailyHelpProfessionalSlotRepository slots;
@@ -50,7 +51,7 @@ class E2eFixtureServiceTest {
         when(slots.save(any(DailyHelpProfessionalSlotEntity.class))).thenAnswer(i -> i.getArgument(0));
 
         var result = fixtureService.prepare(runId,
-                new E2eFixtureService.PrepareRequest("stage-seller-01", "stage-agent-01", "stage-provider-user-01"));
+                new E2eFixtureService.PrepareRequest("stage-seller-01", "stage-agent-01", "stage-provider-user-01", null));
 
         assertTrue(result.productId().startsWith("E2E-P-"));
         assertTrue(result.serviceId().startsWith("E2E-S-"));
@@ -70,11 +71,42 @@ class E2eFixtureServiceTest {
                 && "AVAILABLE".equals(s.getStatus())));
     }
 
+
+    @Test
+    void resolvesProfessionalFromAllowlistedProviderEmailIdentity() {
+        String runId = "E2E-run-identity";
+        SellerEntity seller = SellerEntity.builder().sellerId("stage-seller-01").status("APPROVED").storeOpen(true).build();
+        DeliveryAgentEntity agent = DeliveryAgentEntity.builder().agentId("stage-agent-01").status("ACTIVE").availableForJobs(true).build();
+        UserEntity provider = UserEntity.builder().userId("stage-provider-user-01").email("provider@example.test").build();
+        DailyHelpProfessionalEntity professional = DailyHelpProfessionalEntity.builder()
+                .professionalId("stage-provider-canonical").userId(provider.getUserId())
+                .verified(1).status("AVAILABLE").build();
+        when(sellers.findById("stage-seller-01")).thenReturn(Optional.of(seller));
+        when(sellers.findById(argThat(id -> id != null && id.startsWith("E2E-S2-")))).thenReturn(Optional.empty());
+        when(sellers.save(any(SellerEntity.class))).thenAnswer(i -> i.getArgument(0));
+        when(agents.findById("stage-agent-01")).thenReturn(Optional.of(agent));
+        when(users.findByEmail("provider@example.test")).thenReturn(Optional.of(provider));
+        when(professionals.findByUserId(provider.getUserId())).thenReturn(Optional.of(professional));
+        when(products.findById(argThat(id -> id != null && (id.startsWith("E2E-P-") || id.startsWith("E2E-MV-") || id.startsWith("E2E-MF-"))))).thenReturn(Optional.empty());
+        when(services.findFirstByE2eRunId(runId)).thenReturn(Optional.empty());
+        when(slots.findFirstByE2eRunId(runId)).thenReturn(Optional.empty());
+        when(products.save(any(ProductEntity.class))).thenAnswer(i -> i.getArgument(0));
+        when(services.save(any(DailyHelpServiceEntity.class))).thenAnswer(i -> i.getArgument(0));
+        when(slots.save(any(DailyHelpProfessionalSlotEntity.class))).thenAnswer(i -> i.getArgument(0));
+
+        var result = fixtureService.prepare(runId,
+                new E2eFixtureService.PrepareRequest("stage-seller-01", "stage-agent-01", null, "PROVIDER@example.test"));
+
+        assertEquals("stage-provider-canonical", result.professionalId());
+        verify(users).findByEmail("provider@example.test");
+        verify(professionals).findByUserId("stage-provider-user-01");
+    }
+
     @Test
     void rejectsMalformedProfileIdsBeforeAnyDatabaseAccess() {
         assertThrows(ApiException.class, () -> fixtureService.prepare("E2E-run-123",
-                new E2eFixtureService.PrepareRequest("seller id with spaces", "stage-agent-01", "stage-provider-01")));
-        verifyNoInteractions(sellers, agents, professionals, products, services, slots);
+                new E2eFixtureService.PrepareRequest("seller id with spaces", "stage-agent-01", "stage-provider-01", null)));
+        verifyNoInteractions(sellers, agents, professionals, users, products, services, slots);
     }
 
     @Test
@@ -82,7 +114,7 @@ class E2eFixtureServiceTest {
         when(sellers.findById("stage-seller-01")).thenReturn(Optional.of(
                 SellerEntity.builder().sellerId("stage-seller-01").status("PENDING").storeOpen(true).build()));
         assertThrows(ApiException.class, () -> fixtureService.prepare("E2E-run-123",
-                new E2eFixtureService.PrepareRequest("stage-seller-01", "stage-agent-01", "stage-provider-01")));
+                new E2eFixtureService.PrepareRequest("stage-seller-01", "stage-agent-01", "stage-provider-01", null)));
         verifyNoInteractions(products, services, slots);
     }
 }
