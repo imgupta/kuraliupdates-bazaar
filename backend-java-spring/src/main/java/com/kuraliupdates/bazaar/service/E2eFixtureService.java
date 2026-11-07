@@ -54,7 +54,7 @@ public class E2eFixtureService {
         requireSameAccount(stagingUser, agent.getUserId(), "delivery-agent");
         // Resolve from the same allowlisted provider identity used by E2E auth.
         // This avoids a stale manually copied profile ID drifting from the account.
-        DailyHelpProfessionalEntity professional = resolveProfessional(request.professionalIdentity(), professionalId);
+        DailyHelpProfessionalEntity professional = resolveProfessional(stagingUser, professionalId);
         String resolvedProfessionalId = professional.getProfessionalId();
         requireSameAccount(stagingUser, professional.getUserId(), "Daily Help professional");
         if (professionalId != null && !professionalId.equals(resolvedProfessionalId)) {
@@ -207,25 +207,18 @@ public class E2eFixtureService {
         }
     }
 
-    private DailyHelpProfessionalEntity resolveProfessional(String identity, String configuredProfileId) {
-        if (identity != null && !identity.isBlank()) {
-            boolean email = identity.trim().contains("@");
-            String normalized = email ? identity.trim().toLowerCase() : identity.trim().replaceAll("\\D", "");
-            var user = email ? userRepository.findByEmail(normalized) : userRepository.findByPhone(normalized);
-            if (user.isPresent()) {
-                var profile = professionalRepository.findByUserId(user.get().getUserId());
-                if (profile.isPresent()) return profile.get();
-            }
-        }
+    private DailyHelpProfessionalEntity resolveProfessional(UserEntity stagingUser, String configuredProfileId) {
+        var linkedProfile = professionalRepository.findByUserId(stagingUser.getUserId());
+        if (linkedProfile.isPresent()) return linkedProfile.get();
         if (configuredProfileId != null) {
             return professionalRepository.findById(configuredProfileId)
                     .or(() -> professionalRepository.findByUserId(configuredProfileId))
                     .or(() -> professionalRepository.findByPhone(configuredProfileId))
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
-                            "Daily Help professional profile was not found for the allowlisted provider identity or configured profile ID"));
+                            "Daily Help professional profile was not found for the shared E2E account or configured profile ID"));
         }
         throw new ApiException(HttpStatus.NOT_FOUND,
-                "Daily Help professional profile was not found for the allowlisted provider identity");
+                "Daily Help professional profile was not found for the shared E2E account");
     }
 
     private String stagingProfileId(String value, String field) {
