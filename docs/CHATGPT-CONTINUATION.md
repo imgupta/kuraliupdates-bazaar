@@ -127,3 +127,15 @@ Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller
 - Workflow commit `2c5a922cf88ff28a14a07dad9be59e156202e809` now waits for `/health/live` (up to six minutes) before any role-token requests and validates cleanup count within the safe bounds of successful responses and attempted requests. Cleanup still deletes only records tagged with that unique run ID.
 - Push preflight run `42340528387` passed: all five roles authenticated; 5 of 5 sessions were removed; no orders, bookings, inventory, OTPs, customer records, or fixture mutations occurred. Transactional fixture/profile checks were intentionally skipped for push/PR events.
 - Do not close Phase 1. Await PR-triggered preflight and standard CI on this exact head. After merge, proceed to trusted synthetic transactional tests, V32/V33 runtime verification, checkout concurrency/rollback, OTP lifecycle and authorization/privacy gates. OTP-driven browser tests remain skipped until staging email suppression/capture is confirmed.
+
+## Latest execution checkpoint — 7 November 2026
+
+- Current `main`: `bdf53de60e2ca59b92e35cde472f9b4864ad2bbc`.
+- PR #289 merged at `972f187443cb8bf00ea31428e5f317b62f8ee552`; its main-push guard now enables admin approval-queue authorization coverage.
+- Transactional staging run [42365076271](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/42365076271) passed **5/5, zero skipped** after the workflow resolved the actual deployed backend SHA. The backend remained live on `b491795f9b7a7b0d91d21a3835cc6287e190573f`; the readiness check matched that exact commit and required two continuous minutes of API/database health.
+- Coverage includes buyer bargaining/checkout, seller fulfilment, concurrent delivery claim and delivery OTP, Daily Help competing slot booking/start OTP/completion, multi-seller rollback, concurrent last-stock checkout, and admin approval-queue authorization.
+- PRs #285–#289 corrected the defects discovered by the earlier staging runs. The earlier failures remain historical failures and are not counted as passes.
+- Phase 1 remains open: complete endpoint-method-owner/IDOR review, PII/privacy and public abuse-control review, two-distinct-agent combined-checkout claim race, isolated Oracle-specific concurrency/rollback proof where required, and remaining recovery/operational evidence.
+- Phase 0 and production gates remain open for live schema/migration verification, backup/restore, secret rotation, India production hosting/data-flow verification and qualified Indian legal/tax/labour/payment review.
+
+**Next:** continue the source-backed P1-A/P1-D gap audit and take the next bounded authorization slice. Do not start broad architecture refactoring.
