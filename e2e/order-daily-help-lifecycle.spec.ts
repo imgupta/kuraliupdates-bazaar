@@ -609,7 +609,8 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
 
 test.describe("Admin login, approval queues, and role restrictions", () => {
   test("root admin can read approval queues; buyer and seller sessions cannot", async ({ request }, testInfo) => {
-    const trustedEvent = process.env.GITHUB_EVENT_NAME === "schedule"
+    const trustedEvent = process.env.GITHUB_EVENT_NAME === "push"
+      || process.env.GITHUB_EVENT_NAME === "schedule"
       || process.env.GITHUB_EVENT_NAME === "workflow_dispatch"
       || process.env.GITHUB_EVENT_NAME === "workflow_run";
     const configured = trustedEvent
