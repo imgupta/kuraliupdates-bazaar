@@ -143,7 +143,7 @@ class DeliveryTrackingServiceTest {
     @Test
     void assignedRiderCanTrackOwnOrderButDoesNotReceiveBuyerDeliveryOtp() {
         DeliveryAgentEntity assigned = DeliveryAgentEntity.builder()
-                .agentId("AGENT-1").email("rider@example.com").fullName("Assigned Rider")
+                .agentId("AGENT-1").userId("rider-id").email("rider@example.com").status("ACTIVE").fullName("Assigned Rider")
                 .currentLatitude(new java.math.BigDecimal("30.0"))
                 .currentLongitude(new java.math.BigDecimal("76.5")).build();
         OrderEntity order = OrderEntity.builder().orderId("ORD-RIDER-OWN")
@@ -164,7 +164,8 @@ class DeliveryTrackingServiceTest {
     @Test
     void differentRiderCannotTrackAnOrderAssignedToAnotherRider() {
         DeliveryAgentEntity assigned = DeliveryAgentEntity.builder()
-                .agentId("AGENT-1").email("assigned-rider@example.com").build();
+                .agentId("AGENT-1").userId("assigned-rider-id").email("assigned-rider@example.com")
+                .status("ACTIVE").build();
         OrderEntity order = OrderEntity.builder().orderId("ORD-RIDER-OTHER")
                 .buyerEmail("buyer@example.com").deliveryAgent(assigned).build();
         when(orderRepository.findById("ORD-RIDER-OTHER")).thenReturn(Optional.of(order));
@@ -177,6 +178,96 @@ class DeliveryTrackingServiceTest {
                 () -> trackingService.getOrderTracking("ORD-RIDER-OTHER", "other-rider-token"));
 
         assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+    }
+
+
+    @Test
+    void linkedRiderCanTrackUsingStableUserIdEvenWhenEmailDiffers() {
+        DeliveryAgentEntity assigned = DeliveryAgentEntity.builder()
+                .agentId("AGENT-LINKED").userId("rider-id").email("old-rider@example.com")
+                .status("ACTIVE").fullName("Linked Rider").build();
+        OrderEntity order = OrderEntity.builder().orderId("ORD-LINKED-RIDER")
+                .buyerEmail("buyer@example.com").deliveryAgent(assigned).build();
+        when(orderRepository.findById("ORD-LINKED-RIDER")).thenReturn(Optional.of(order));
+        when(sessionRepository.findBySessionToken("linked-rider-token"))
+                .thenReturn(Optional.of(session("rider-id")));
+        when(userRepository.findById("rider-id")).thenReturn(Optional.of(
+                UserEntity.builder().userId("rider-id").email("new-rider@example.com").build()));
+
+        var result = trackingService.getOrderTracking("ORD-LINKED-RIDER", "linked-rider-token");
+
+        assertEquals("AGENT-LINKED", result.get("agentId"));
+    }
+
+    @Test
+    void linkedRiderCannotUseMatchingEmailWhenUserIdBelongsToAnotherAccount() {
+        DeliveryAgentEntity assigned = DeliveryAgentEntity.builder()
+                .agentId("AGENT-LINKED").userId("real-rider-id").email("shared@example.com")
+                .status("ACTIVE").build();
+        OrderEntity order = OrderEntity.builder().orderId("ORD-LINKED-MISMATCH")
+                .buyerEmail("buyer@example.com").deliveryAgent(assigned).build();
+        when(orderRepository.findById("ORD-LINKED-MISMATCH")).thenReturn(Optional.of(order));
+        when(sessionRepository.findBySessionToken("spoofed-rider-token"))
+                .thenReturn(Optional.of(session("attacker-id")));
+        when(userRepository.findById("attacker-id")).thenReturn(Optional.of(
+                UserEntity.builder().userId("attacker-id").email("shared@example.com").build()));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> trackingService.getOrderTracking("ORD-LINKED-MISMATCH", "spoofed-rider-token"));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+    }
+
+    @Test
+    void inactiveAssignedRiderCannotReadBuyerAddressOrLiveLocation() {
+        DeliveryAgentEntity assigned = DeliveryAgentEntity.builder()
+                .agentId("AGENT-INACTIVE").userId("rider-id").email("rider@example.com")
+                .status("SUSPENDED").currentLatitude(new java.math.BigDecimal("30.0"))
+                .currentLongitude(new java.math.BigDecimal("76.5")).build();
+        OrderEntity order = OrderEntity.builder().orderId("ORD-INACTIVE-RIDER")
+                .buyerEmail("buyer@example.com").deliveryAddress("Private buyer address")
+                .deliveryAgent(assigned).build();
+        when(orderRepository.findById("ORD-INACTIVE-RIDER")).thenReturn(Optional.of(order));
+        when(sessionRepository.findBySessionToken("inactive-rider-token"))
+                .thenReturn(Optional.of(session("rider-id")));
+        when(userRepository.findById("rider-id")).thenReturn(Optional.of(
+                UserEntity.builder().userId("rider-id").email("rider@example.com").build()));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> trackingService.getOrderTracking("ORD-INACTIVE-RIDER", "inactive-rider-token"));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+    }
+
+    @Test
+    void linkedRiderCanUpdateLocationWithoutDependingOnMutableEmail() {
+        when(sessionRepository.findBySessionToken("linked-token"))
+                .thenReturn(Optional.of(session("rider-id")));
+        DeliveryAgentEntity agent = DeliveryAgentEntity.builder()
+                .agentId("AGENT-LINKED").userId("rider-id").email("old@example.com")
+                .status("ACTIVE").build();
+        when(deliveryAgentRepository.findById("AGENT-LINKED")).thenReturn(Optional.of(agent));
+        when(deliveryAgentRepository.save(any(DeliveryAgentEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var result = trackingService.updateLocation("AGENT-LINKED", 30.0, 76.5, "linked-token");
+
+        assertEquals(Boolean.TRUE, result.get("stored"));
+        verify(userRepository, never()).findById(anyString());
+        verify(deliveryAgentRepository).save(agent);
+    }
+
+    @Test
+    void nullExpirySessionIsRejectedWithoutProfileLookup() {
+        UserSessionEntity malformed = session("rider-id");
+        malformed.setExpiresAt(null);
+        when(sessionRepository.findBySessionToken("malformed-token")).thenReturn(Optional.of(malformed));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> trackingService.updateLocation("AGENT-1", 30.0, 76.5, "malformed-token"));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
+        verifyNoInteractions(deliveryAgentRepository);
     }
 
     private UserSessionEntity session(String userId) {
