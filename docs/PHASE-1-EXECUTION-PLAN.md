@@ -535,3 +535,11 @@ A new bounded P1-A/P1-C test slice adds service-level regression coverage for `D
 These are deterministic service tests using mocked repositories and JDBC. They verify ownership and all-or-nothing service state transitions, but they do **not** simulate two independent database transactions or prove Oracle pessimistic-lock behavior.
 
 **Remaining:** add an Oracle-backed two-distinct-agent race for a combined checkout group only when a dedicated isolated Oracle target and two approved synthetic active delivery identities are available. Do not create or promote a second rider profile in shared staging merely to satisfy this test.
+
+## 7 November 2026 — Daily Help completion timestamp precision correction
+
+A staging rerun exposed an intermittent one-microsecond mismatch between the immediate Daily Help completion response and the subsequent Oracle read-back. The completion use case generated nanosecond-precision `LocalDateTime`, while Oracle `TIMESTAMP(6)` persisted microseconds. The start path was already normalized; the completion path was not.
+
+The fix truncates completion time to `ChronoUnit.MICROS` before persisting and returning the response. A new `DailyHelpServiceTest.completionTimestampIsNormalizedToOracleMicrosecondPrecision` asserts the response timestamp is microsecond-aligned and matches the persisted entity. Exact-head CI and a fresh staging run are required before calling the fix verified.
+
+**Evidence boundary:** the failed run had four test groups pass; the Daily Help group failed on first attempt by 1µs and passed on retry. Playwright correctly marked the overall run failed/flaky. Do not count that run as a clean pass.
