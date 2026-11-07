@@ -22,7 +22,9 @@ public class NegotiationChatController {
 
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> list(@RequestParam(defaultValue = "BUYER") String role, Authentication authentication) {
-        return ResponseEntity.ok(negotiationChatService.list(requireUser(authentication), role));
+        UserEntity user = requireUser(authentication);
+        requireRole(authentication, role);
+        return ResponseEntity.ok(negotiationChatService.list(user, role));
     }
 
     @PostMapping
@@ -31,14 +33,18 @@ public class NegotiationChatController {
             @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
             @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
             Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        requireRole(authentication, "BUYER");
         String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
-        return ResponseEntity.ok(negotiationChatService.open(requireUser(authentication), request, e2eRunId));
+        return ResponseEntity.ok(negotiationChatService.open(user, request, e2eRunId));
     }
 
     @GetMapping("/notifications")
     public ResponseEntity<List<Map<String, Object>>> notifications(
             @RequestParam(defaultValue = "BUYER") String role, Authentication authentication) {
-        return ResponseEntity.ok(negotiationChatService.notifications(requireUser(authentication), role));
+        UserEntity user = requireUser(authentication);
+        requireRole(authentication, role);
+        return ResponseEntity.ok(negotiationChatService.notifications(user, role));
     }
 
     @PostMapping("/notifications/{notificationId}/read")
@@ -46,18 +52,34 @@ public class NegotiationChatController {
             @PathVariable String notificationId,
             @RequestHeader(value = "X-Active-Role", defaultValue = "BUYER") String role,
             Authentication authentication) {
-        negotiationChatService.markNotificationRead(requireUser(authentication), role, notificationId);
+        UserEntity user = requireUser(authentication);
+        requireRole(authentication, role);
+        negotiationChatService.markNotificationRead(user, role, notificationId);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{chatId}/messages")
     public ResponseEntity<Map<String, Object>> send(@PathVariable String chatId, @RequestHeader(value = "X-Active-Role", defaultValue = "BUYER") String role, @RequestBody SendMessageRequest request, Authentication authentication) {
-        return ResponseEntity.ok(negotiationChatService.send(requireUser(authentication), role, chatId, request));
+        UserEntity user = requireUser(authentication);
+        requireRole(authentication, role);
+        return ResponseEntity.ok(negotiationChatService.send(user, role, chatId, request));
     }
 
     @PostMapping("/{chatId}/offers/{offerId}/respond")
     public ResponseEntity<Map<String, Object>> respond(@PathVariable String chatId, @PathVariable String offerId, @RequestHeader(value = "X-Active-Role", defaultValue = "BUYER") String role, @RequestBody RespondOfferRequest request, Authentication authentication) {
-        return ResponseEntity.ok(negotiationChatService.respond(requireUser(authentication), role, chatId, offerId, request));
+        UserEntity user = requireUser(authentication);
+        requireRole(authentication, role);
+        return ResponseEntity.ok(negotiationChatService.respond(user, role, chatId, offerId, request));
+    }
+
+    private void requireRole(Authentication authentication, String requestedRole) {
+        String role = requestedRole == null ? "BUYER" : requestedRole.trim().toUpperCase(java.util.Locale.ROOT);
+        boolean allowed = authentication != null && authentication.getAuthorities() != null
+                && authentication.getAuthorities().stream()
+                .anyMatch(authority -> ("ROLE_" + role).equalsIgnoreCase(authority.getAuthority()));
+        if (!allowed) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "The active session is not authorized for " + role + " bargaining actions");
+        }
     }
 
     private UserEntity requireUser(Authentication authentication) {

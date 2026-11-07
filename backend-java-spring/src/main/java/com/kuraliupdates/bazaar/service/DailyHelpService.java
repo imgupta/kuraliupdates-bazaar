@@ -253,8 +253,10 @@ public class DailyHelpService {
     public DailyHelpBookingResponse getBookingForUser(String bookingId, com.kuraliupdates.bazaar.entity.UserEntity user) {
         DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
-        String role = user.getRole() == null ? "" : user.getRole().toUpperCase();
-        boolean buyerOwns = "BUYER".equals(role) && samePhone(user.getPhone(), booking.getBuyerPhone());
+        // Buyer ownership is established by the authenticated identity, not the
+        // account's primary role. A buyer session may belong to an ADMIN/SELLER
+        // primary account with multiple marketplace profiles.
+        boolean buyerOwns = samePhone(user.getPhone(), booking.getBuyerPhone());
         // Daily Help is a secondary profile on an existing marketplace account;
         // UserEntity roles do not include PROFESSIONAL. Resolve provider ownership
         // through the phone verified at professional registration, independent of

@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -66,6 +67,29 @@ class NegotiationChatControllerAuthorizationTest {
         assertEquals(opened, response.getBody());
         verify(e2eRunTagging).optionalRunId("E2E-SELLER-01", "flow-token");
         verify(negotiationChatService).open(buyer, request, "E2E-SELLER-01");
+    }
+
+    @Test
+    void buyerSessionCanOpenBargainForAccountWhosePrimaryRoleIsAdmin() {
+        UserEntity adminPrimary = user("admin-1", "ADMIN");
+        var request = new NegotiationChatController.OpenChatRequest("PRODUCT-1", BigDecimal.valueOf(50), "Offer");
+        Map<String, Object> opened = Map.of("chatId", "CHAT-ADMIN-BUYER");
+        when(negotiationChatService.open(adminPrimary, request, null)).thenReturn(opened);
+
+        var response = controller.open(request, null, null, authentication(adminPrimary, "BUYER"));
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(opened, response.getBody());
+        verify(negotiationChatService).open(adminPrimary, request, null);
+    }
+
+    @Test
+    void buyerPrimaryAccountCannotUseSellerRoleByChangingRequestHeader() {
+        UserEntity buyer = user("buyer-1", "BUYER");
+        ApiException error = assertThrows(ApiException.class,
+                () -> controller.list("SELLER", authentication(buyer)));
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verifyNoInteractions(negotiationChatService);
     }
 
     @Test
@@ -132,8 +156,13 @@ class NegotiationChatControllerAuthorizationTest {
     }
 
     private Authentication authentication(UserEntity user) {
+        return authentication(user, user.getRole());
+    }
+
+    private Authentication authentication(UserEntity user, String activeRole) {
         Authentication authentication = mock(Authentication.class);
         when(authentication.getPrincipal()).thenReturn(user);
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_" + activeRole))).when(authentication).getAuthorities();
         return authentication;
     }
 

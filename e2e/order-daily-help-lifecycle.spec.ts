@@ -91,7 +91,7 @@ async function prepareFixtures(request: APIRequestContext, runId: string, seller
   expect(Number(fixture.requestedHours)).toBe(1);
   return fixture as {
     productId: string; sellerId: string; deliveryAgentId: string; serviceId: string;
-    slotId: string; professionalId: string; scheduledStart: string;
+    slotId: string; professionalId: string; professionalLocality: string; scheduledStart: string;
     requestedHours: number; stock: number; unitPrice: string;
     rollbackSellerId: string; multiSellerValidProductId: string; multiSellerFailProductId: string;
   };
@@ -334,7 +334,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(Number.isFinite(Date.parse(scheduledStart))).toBeTruthy();
     expect(requestedHours >= 1 && requestedHours <= 2).toBeTruthy();
 
-    const bookingPayload = { serviceId, buyerName, buyerPhone, address, locality: "Kurali", scheduledStart, requestedHours, slotId };
+    const bookingPayload = { serviceId, buyerName, buyerPhone, address, locality: fixture.professionalLocality || "Kurali", scheduledStart, requestedHours, slotId };
     const bookingAttempts = await Promise.all([1, 2].map(() =>
       request.post(apiBase + "/daily-help/bookings", {
         headers: taggedAuth(buyerToken, runId), data: bookingPayload, timeout: 20_000,

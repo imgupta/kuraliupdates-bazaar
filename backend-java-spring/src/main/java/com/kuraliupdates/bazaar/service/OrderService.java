@@ -310,7 +310,7 @@ public class OrderService {
 
     @Transactional
     public OrderResponse confirmStorePickup(String orderId, String otp, UserEntity buyer) {
-        if (buyer == null || !"BUYER".equalsIgnoreCase(buyer.getRole()) || buyer.getEmail() == null) {
+        if (buyer == null || buyer.getEmail() == null) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only the owning buyer can confirm store pickup");
         }
         if (otp == null || !otp.matches("\\d{4}")) {
@@ -349,8 +349,7 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public OrderResponse trackForBuyer(String orderId, UserEntity buyer) {
-        if (buyer == null || !"BUYER".equalsIgnoreCase(buyer.getRole())
-                || buyer.getEmail() == null || buyer.getEmail().isBlank()) {
+        if (buyer == null || buyer.getEmail() == null || buyer.getEmail().isBlank()) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only the owning buyer can track this order");
         }
         OrderEntity order = orderRepository.findById(orderId)
@@ -364,9 +363,9 @@ public class OrderService {
         if (buyer == null) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
         }
-        if (!"BUYER".equalsIgnoreCase(buyer.getRole())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Only a buyer account can place or view buyer orders");
-        }
+        // The controller has already authorized ROLE_BUYER from the active session.
+        // USERS.ROLE is only the account's primary profile and must not override
+        // a valid role-scoped session for a multi-profile account.
     }
 
     private BigDecimal configuredDecimal(String column, BigDecimal fallback) {
