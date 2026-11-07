@@ -65,7 +65,7 @@ jobs:
           for (const key of required) if (!String(config[key] ?? '').trim()) throw new Error('Missing required staging E2E configuration key: ' + key);
           const identityKeys = ['E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY','E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY'];
           const normalizedIdentities = identityKeys.map(key => String(config[key]).trim().toLowerCase());
-          if (normalizedIdentities.some(value => !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)) ||
+          if (normalizedIdentities.some(value => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) ||
               new Set(normalizedIdentities).size !== 1) {
             throw new Error('All five role identities must be the same configured email account; values are never printed.');
           }
@@ -77,7 +77,7 @@ jobs:
           if (String(config.E2E_OTP_CAPTURE_TOKEN ?? '').length < 32) throw new Error('E2E_OTP_CAPTURE_TOKEN must contain at least 32 characters.');
           if (String(config.E2E_FLOW_AUTH_TOKEN).length < 32) throw new Error('E2E_FLOW_AUTH_TOKEN must contain at least 32 characters.');
           const profileIds = ['E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_PROFESSIONAL_ID'].map(key => String(config[key]).trim());
-          if (new Set(profileIds).size !== profileIds.length) throw new Error('Seller and delivery-agent staging test profile IDs must be distinct.');
+          if (new Set(profileIds).size !== profileIds.length) throw new Error('Seller, delivery-agent and professional staging profile IDs must be distinct.');
           if (profileIds.some(id => id.length > 128 || !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(id))) throw new Error('Staging test profile IDs must be valid dedicated staging IDs of 128 characters or fewer.');
           // A single dedicated staging login may be issued distinct role-scoped E2E tokens.
           // The lifecycle spec verifies authorization using the ADMIN and SELLER role claims separately.
