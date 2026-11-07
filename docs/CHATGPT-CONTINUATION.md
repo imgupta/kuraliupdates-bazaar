@@ -119,3 +119,11 @@ Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller
 - PR #270 did not produce a new staging preflight run after the timeout/diagnostic commit. To make verification deterministic without depending on pull-request workflow-definition loading, the preflight workflow now also triggers on pushes to the exact dedicated branch `phase1/staging-preflight-after-cleanup-fix`.
 - This push-triggered run remains non-transactional: `trustedRun` is true only for explicit `workflow_dispatch`; all push/PR events skip transactional fixture provisioning and business mutations. Only five temporary tagged role sessions can be issued and exact run-scoped cleanup is attempted.
 - Workflow trigger commit: `9d6ce8dd68044893f1a5a7642cbb56304570685d`. Check its push-triggered workflow run before merging PR #270. No pass is claimed yet.
+
+
+## Latest checkpoint — 7 November 2026: cold-start blocker fixed
+
+- Render workspace access is confirmed and backend service logs were inspected. The prior Buyer timeout was caused by Render cold-start timing: Spring Boot took 113.099 seconds to start; Oracle connected successfully and Flyway validated 35 migrations (schema version 34). The preflight sent its Buyer request before the API was live; a delayed cleanup later removed one run-tagged session created despite the client timeout.
+- Workflow commit `2c5a922cf88ff28a14a07dad9be59e156202e809` now waits for `/health/live` (up to six minutes) before any role-token requests and validates cleanup count within the safe bounds of successful responses and attempted requests. Cleanup still deletes only records tagged with that unique run ID.
+- Push preflight run `42340528387` passed: all five roles authenticated; 5 of 5 sessions were removed; no orders, bookings, inventory, OTPs, customer records, or fixture mutations occurred. Transactional fixture/profile checks were intentionally skipped for push/PR events.
+- Do not close Phase 1. Await PR-triggered preflight and standard CI on this exact head. After merge, proceed to trusted synthetic transactional tests, V32/V33 runtime verification, checkout concurrency/rollback, OTP lifecycle and authorization/privacy gates. OTP-driven browser tests remain skipped until staging email suppression/capture is confirmed.
