@@ -44,6 +44,7 @@ public class DailyHelpController {
             @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
             Authentication authentication) {
         UserEntity user = requireUser(authentication);
+        requireRole(authentication, "BUYER");
         if (!samePhone(user.getPhone(), request.buyerPhone())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You can only create a Daily Help booking for your own account");
         }
@@ -141,7 +142,7 @@ public class DailyHelpController {
     @GetMapping("/bookings/latest")
     public ResponseEntity<DailyHelpBookingResponse> getLatestBooking(@RequestParam String buyerPhone, Authentication authentication) {
         UserEntity user = requireUser(authentication);
-        if (!"BUYER".equalsIgnoreCase(user.getRole()) || !samePhone(user.getPhone(), buyerPhone)) {
+        if (!hasRole(authentication, "BUYER") || !samePhone(user.getPhone(), buyerPhone)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You can only access your own Daily Help bookings");
         }
         return ResponseEntity.ok(dailyHelpService.getLatestBooking(user.getPhone()));
@@ -184,7 +185,20 @@ public class DailyHelpController {
         return user;
     }
 
+    private boolean hasRole(Authentication authentication, String role) {
+        return authentication != null && authentication.getAuthorities() != null
+                && authentication.getAuthorities().stream()
+                .anyMatch(authority -> ("ROLE_" + role).equalsIgnoreCase(authority.getAuthority()));
+    }
+
+    private void requireRole(Authentication authentication, String role) {
+        if (!hasRole(authentication, role)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "The active session is not authorized for " + role + " actions");
+        }
+    }
+
     private void requireOwnProfessional(Authentication authentication, String professionalId) {
+        requireRole(authentication, "PROFESSIONAL");
         UserEntity user = requireUser(authentication);
         // A user may own multiple marketplace profiles. Authorization for Daily Help
         // is based on the authenticated phone -> professional profile mapping, not
