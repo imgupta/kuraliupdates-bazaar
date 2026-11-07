@@ -201,8 +201,8 @@ public class DailyHelpController {
     }
 
     private void requireOwnProfessional(Authentication authentication, String professionalId) {
-        requireRole(authentication, "PROFESSIONAL");
         UserEntity user = requireUser(authentication);
+        requireRole(authentication, "PROFESSIONAL");
         // A user may own multiple marketplace profiles. Authorization for Daily Help
         // is based on the authenticated phone -> professional profile mapping, not
         // the primary USERS.ROLE value.
