@@ -238,3 +238,10 @@ Post-merge staging transactional run `42381776750` targeted backend commit `cf21
 Source inspection shows `ApiRateLimitService` performs expired-bucket cleanup synchronously on every 100th successful rate-limit operation. That maintenance delete was allowed to throw through the request path, turning an otherwise successful rate-limit decision into HTTP 500. This is a plausible intermittent trigger; the failed request's Oracle exception was not captured in the workflow output, so do not claim it is conclusively the observed root cause.
 
 The fix in PR (in progress) makes only the periodic expired-bucket cleanup best-effort: rate-limit enforcement remains authoritative and fail-closed, while cleanup exceptions are logged by exception class and do not fail the protected request. A regression test forces the cleanup operation to fail on the 100th call and verifies that an otherwise allowed request still succeeds. Exact-head CI and a staging rerun are required to validate the remediation.
+
+
+## 7 November 2026 — Vercel affected-portal build filtering (PR in progress)
+
+The repository already contains `scripts/vercel-ignore-build.mjs`, but its path classifier treated backend source as an unknown runtime change (therefore rebuilding all role portals) and did not map buyer account/API files to the Buyer project. The PR expands ownership mappings for Buyer, Seller, Delivery, Daily Help Professional and Admin components/domain APIs, and treats `backend-java-spring/` as non-runtime for Vercel. Unknown frontend/runtime paths still fail safe by building every portal; missing Vercel commit metadata also fails open (build rather than skip).
+
+Regression tests cover each portal's isolated component paths, buyer account/order API paths, backend-only commits, shared-runtime fan-out, and documentation/test/workflow-only commits. The repository change alone does not configure Vercel project settings. After merge, set each project's Ignore Build Step to `node scripts/vercel-ignore-build.mjs <target>` (site target for the combined Bazaar project) and verify project root directories include the repository root. No deployments are triggered by this PR itself.
