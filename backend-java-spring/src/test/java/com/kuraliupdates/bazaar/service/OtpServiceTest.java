@@ -10,6 +10,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -33,6 +35,7 @@ class OtpServiceTest {
     @Test
     void resendWithinConfiguredCooldownIsRejectedBeforeDeliveryOrPersistence() {
         when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class))).thenReturn(30);
+        when(jdbcTemplate.update(startsWith("MERGE INTO API_RATE_LIMIT_BUCKETS"), any(), anyInt(), anyInt())).thenReturn(1);
         when(repository.existsRecentOtp(eq("buyer@example.test"), eq("BUYER_EMAIL"), any(LocalDateTime.class)))
                 .thenReturn(true);
 
@@ -42,6 +45,105 @@ class OtpServiceTest {
         assertEquals(HttpStatus.TOO_MANY_REQUESTS, error.getStatus());
         verifyNoInteractions(deliveryService);
         verify(repository, never()).save(any(AuthOtpEntity.class));
+    }
+
+
+    @Test
+    void concurrentResendIsRejectedByPersistentAtomicCooldownGuard() {
+        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class))).thenReturn(30);
+        when(jdbcTemplate.update(startsWith("MERGE INTO API_RATE_LIMIT_BUCKETS"), any(), anyInt(), anyInt()))
+                .thenReturn(0);
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> otpService.send("buyer@example.test", "BUYER_EMAIL"));
+
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, error.getStatus());
+        verify(repository, never()).existsRecentOtp(anyString(), anyString(), any(LocalDateTime.class));
+        verify(repository, never()).save(any(AuthOtpEntity.class));
+        verifyNoInteractions(deliveryService);
+    }
+
+    @Test
+    void oracleFirstInsertRaceRetriesAgainstWinningCooldownAndRejectsLoser() {
+        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class))).thenReturn(30);
+        when(jdbcTemplate.update(startsWith("MERGE INTO API_RATE_LIMIT_BUCKETS"), any(), anyInt(), anyInt()))
+                .thenThrow(new DuplicateKeyException("concurrent first insert"))
+                .thenReturn(0);
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> otpService.send("buyer@example.test", "BUYER_EMAIL"));
+
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, error.getStatus());
+        verify(jdbcTemplate, times(2))
+                .update(startsWith("MERGE INTO API_RATE_LIMIT_BUCKETS"), any(), anyInt(), anyInt());
+        verifyNoInteractions(deliveryService);
+        verify(repository, never()).save(any(AuthOtpEntity.class));
+    }
+
+    @Test
+    void cooldownGuardDatabaseFailureFailsClosedBeforeOtpDelivery() {
+        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class))).thenReturn(30);
+        when(jdbcTemplate.update(startsWith("MERGE INTO API_RATE_LIMIT_BUCKETS"), any(), anyInt(), anyInt()))
+                .thenThrow(new DataAccessResourceFailureException("synthetic Oracle outage"));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> otpService.send("buyer@example.test", "BUYER_EMAIL"));
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, error.getStatus());
+        verifyNoInteractions(deliveryService);
+        verify(repository, never()).save(any(AuthOtpEntity.class));
+    }
+
+    @Test
+    void successfulResendUsesHashedIdentifierAndPersistsOtpAfterCooldownReservation() throws Exception {
+        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class))).thenReturn(30);
+        when(jdbcTemplate.update(startsWith("MERGE INTO API_RATE_LIMIT_BUCKETS"), any(), anyInt(), anyInt()))
+                .thenReturn(1);
+        when(repository.existsRecentOtp(eq("buyer@example.test"), eq("BUYER_EMAIL"), any(LocalDateTime.class)))
+                .thenReturn(false);
+
+        otpService.send("buyer@example.test", "BUYER_EMAIL");
+
+        org.mockito.ArgumentCaptor<String> key = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).update(startsWith("MERGE INTO API_RATE_LIMIT_BUCKETS"),
+                key.capture(), eq(30), eq(30));
+        assertEquals(64, key.getValue().length());
+        assertFalse(key.getValue().contains("buyer@example.test"));
+        verify(deliveryService).sendOtp(eq("buyer@example.test"), eq("BUYER_EMAIL"), matches("\\d{6}"), eq(10));
+        verify(repository).save(any(AuthOtpEntity.class));
+    }
+
+
+    @Test
+    void unresolvedOracleDuplicateKeyRaceFailsClosed() {
+        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class))).thenReturn(30);
+        when(jdbcTemplate.update(startsWith("MERGE INTO API_RATE_LIMIT_BUCKETS"), any(), anyInt(), anyInt()))
+                .thenThrow(new DuplicateKeyException("first insert"))
+                .thenThrow(new DuplicateKeyException("retry insert"));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> otpService.send("buyer@example.test", "BUYER_EMAIL"));
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, error.getStatus());
+        verifyNoInteractions(deliveryService);
+        verify(repository, never()).save(any(AuthOtpEntity.class));
+    }
+
+    @Test
+    void allowlistedE2eCooldownBypassSkipsPersistentAndHistoricalCooldownChecks() throws Exception {
+        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class))).thenReturn(30);
+        when(e2eOtpCaptureService.mayBypassCooldown("buyer@example.test")).thenReturn(true);
+        when(e2eOtpCaptureService.shouldSuppressEmailDelivery("buyer@example.test", "BUYER_EMAIL"))
+                .thenReturn(true);
+
+        otpService.send("buyer@example.test", "BUYER_EMAIL");
+
+        verify(jdbcTemplate, never())
+                .update(startsWith("MERGE INTO API_RATE_LIMIT_BUCKETS"), any(), anyInt(), anyInt());
+        verify(repository, never()).existsRecentOtp(anyString(), anyString(), any(LocalDateTime.class));
+        verify(repository).save(any(AuthOtpEntity.class));
+        verify(e2eOtpCaptureService).capture(eq("buyer@example.test"), matches("\\d{6}"));
+        verifyNoInteractions(deliveryService);
     }
 
     @Test
