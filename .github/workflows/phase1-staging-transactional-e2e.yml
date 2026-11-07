@@ -30,11 +30,25 @@ jobs:
     timeout-minutes: 4
     continue-on-error: true
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Resolve expected backend commit for warm-up
+        shell: bash
+        run: |
+          expected="$(git log -1 --format=%H -- backend-java-spring/)"
+          if [[ ! "$expected" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Could not resolve the latest backend commit for staging warm-up."
+            exit 1
+          fi
+          echo "EXPECTED_STAGING_COMMIT=$expected" >> "$GITHUB_ENV"
       - name: Wake the designated staging API while test dependencies install
         shell: bash
         run: |
           node --input-type=module <<'NODE'
           const url = 'https://kuraliupdates-bazaar.onrender.com/api/v1/health';
+          const expectedCommit = process.env.EXPECTED_STAGING_COMMIT;
           const deadline = Date.now() + 3 * 60 * 1000;
           let last = 'no response';
           while (Date.now() < deadline) {
@@ -44,8 +58,9 @@ jobs:
                 headers: { 'Cache-Control': 'no-store' }
               });
               const body = await response.json().catch(() => ({}));
-              if (response.ok && body.status === 'UP' && body.database === 'UP') {
-                console.log('Warm-up reached API and database readiness. Exact backend commit is verified separately by the transactional job.');
+              if (response.ok && body.status === 'UP' && body.database === 'UP'
+                  && String(body.commit ?? '').toLowerCase() === expectedCommit.toLowerCase()) {
+                console.log('Warm-up reached API and database readiness for the expected backend commit. The transactional job repeats the authoritative readiness check.');
                 process.exit(0);
               }
               last = 'HTTP ' + response.status + ', database=' + String(body.database ?? 'unknown');
