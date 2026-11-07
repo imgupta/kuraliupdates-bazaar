@@ -58,6 +58,39 @@ class DeliveryJobResponseTest {
         assertFalse(json.contains("internal-place-marker"));
     }
 
+
+    @Test
+    void unclaimedJobPreviewWithholdsBuyerIdentityContactAndExactDestination() throws Exception {
+        OrderEntity order = OrderEntity.builder()
+                .orderId("ORD-AVAILABLE-DTO")
+                .buyerName("BUYER-NAME-MARKER")
+                .buyerPhone("BUYER-PHONE-MARKER")
+                .buyerEmail("BUYER-EMAIL-MARKER")
+                .deliveryAddress("BUYER-EXACT-ADDRESS-MARKER")
+                .deliveryLocality("Kurali")
+                .deliveryLatitude(new BigDecimal("30.8321"))
+                .deliveryLongitude(new BigDecimal("76.5754"))
+                .deliveryPlaceId("BUYER-PLACE-ID-MARKER")
+                .fulfilmentMode("DELIVERY")
+                .status("READY_FOR_PICKUP")
+                .items(List.of())
+                .build();
+
+        AvailableDeliveryJobResponse response = AvailableDeliveryJobResponse.from(order);
+        String json = new ObjectMapper().registerModule(new JavaTimeModule()).writeValueAsString(response);
+
+        assertEquals("ORD-AVAILABLE-DTO", response.orderId());
+        assertEquals("Kurali", response.deliveryLocality());
+        assertFalse(json.contains("BUYER-NAME-MARKER"));
+        assertFalse(json.contains("BUYER-PHONE-MARKER"));
+        assertFalse(json.contains("BUYER-EMAIL-MARKER"));
+        assertFalse(json.contains("BUYER-EXACT-ADDRESS-MARKER"));
+        assertFalse(json.contains("deliveryLatitude"));
+        assertFalse(json.contains("deliveryLongitude"));
+        assertFalse(json.contains("BUYER-PLACE-ID-MARKER"));
+        assertTrue(json.contains("\"deliveryLocality\""));
+    }
+
     @Test
     void deliveryJobItemProjectionDoesNotExposeCommercialPricing() throws Exception {
         var item = new DeliveryJobResponse.DeliveryJobItemResponse("PROD-1", "Milk", 2);
