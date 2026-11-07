@@ -55,18 +55,20 @@ class NegotiationChatServiceTest {
     }
 
     @Test
-    void openingChatRejectsNonBuyerAccountsBeforeDatabaseAccess() {
-        UserEntity seller = UserEntity.builder()
-                .userId("seller-user-1")
-                .email("seller@example.test")
-                .name("Test Seller")
-                .role("SELLER")
+    void serviceDoesNotRejectBuyerSessionByPrimaryAccountRole() {
+        UserEntity adminPrimary = UserEntity.builder()
+                .userId("admin-user-1")
+                .email("admin@example.test")
+                .name("Multi-profile account")
+                .role("ADMIN")
                 .build();
 
         ApiException error = assertThrows(ApiException.class,
-                () -> service.open(seller, new OpenChatRequest("product-1", null, null)));
+                () -> service.open(adminPrimary, null));
 
-        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        // The controller authorizes ROLE_BUYER from the active session. The
+        // service validates the authenticated identity, not USERS.ROLE.
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
         verifyNoInteractions(jdbc, sellerRepository);
     }
 
