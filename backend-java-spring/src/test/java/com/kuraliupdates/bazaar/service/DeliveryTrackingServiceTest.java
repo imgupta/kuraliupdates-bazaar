@@ -148,7 +148,7 @@ class DeliveryTrackingServiceTest {
                 .currentLongitude(new java.math.BigDecimal("76.5")).build();
         OrderEntity order = OrderEntity.builder().orderId("ORD-RIDER-OWN")
                 .buyerEmail("buyer@example.com").deliveryOtp("4821")
-                .status("OUT_FOR_DELIVERY").deliveryAgent(assigned).build();
+                .status("PICKED_UP").deliveryAgent(assigned).build();
         when(orderRepository.findById("ORD-RIDER-OWN")).thenReturn(Optional.of(order));
         when(sessionRepository.findBySessionToken("rider-token")).thenReturn(Optional.of(session("rider-id")));
         when(userRepository.findById("rider-id")).thenReturn(Optional.of(
@@ -302,6 +302,27 @@ class DeliveryTrackingServiceTest {
 
         assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
         verifyNoInteractions(deliveryAgentRepository);
+    }
+
+
+    @Test
+    void assignedRiderCannotTrackOrderAfterDeliveryIsCompleted() {
+        DeliveryAgentEntity assigned = DeliveryAgentEntity.builder()
+                .agentId("AGENT-COMPLETE").userId("rider-id").email("rider@example.com")
+                .status("ACTIVE").build();
+        OrderEntity order = OrderEntity.builder().orderId("ORD-DELIVERED")
+                .buyerEmail("buyer@example.com").deliveryAddress("Private buyer address")
+                .status("DELIVERED").deliveryAgent(assigned).build();
+        when(orderRepository.findById("ORD-DELIVERED")).thenReturn(Optional.of(order));
+        when(sessionRepository.findBySessionToken("completed-rider-token"))
+                .thenReturn(Optional.of(session("rider-id")));
+        when(userRepository.findById("rider-id")).thenReturn(Optional.of(
+                UserEntity.builder().userId("rider-id").email("rider@example.com").build()));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> trackingService.getOrderTracking("ORD-DELIVERED", "completed-rider-token"));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
     }
 
     private UserSessionEntity session(String userId) {
