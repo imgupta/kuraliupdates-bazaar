@@ -533,8 +533,8 @@ export const DeliveryDashboard: React.FC = () => {
                   </div>
 
                   <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 text-xs">
-                    <span className="font-semibold text-slate-700 block">Deliver to: {ord.buyerName}</span>
-                    <span className="text-[11px] text-slate-500 truncate block">{ord.deliveryAddress}</span>
+                    <span className="font-semibold text-slate-700 block">Delivery area</span>
+                    <span className="text-[11px] text-slate-500 truncate block">{ord.deliveryLocality || 'Kurali'}</span>
                   </div>
 
                   <button
