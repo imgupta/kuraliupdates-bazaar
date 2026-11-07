@@ -45,6 +45,13 @@ class E2eFixtureServiceTest {
         when(products.findById(argThat(id -> id != null && id.startsWith("E2E-P-")))).thenReturn(Optional.empty());
         when(products.findById(argThat(id -> id != null && id.startsWith("E2E-MV-")))).thenReturn(Optional.empty());
         when(products.findById(argThat(id -> id != null && id.startsWith("E2E-MF-")))).thenReturn(Optional.empty());
+        when(sellers.findById(argThat(id -> id != null && id.startsWith("E2E-S2-")))).thenReturn(Optional.empty());
+        when(sellers.save(any(SellerEntity.class))).thenAnswer(i -> i.getArgument(0));
+        when(products.save(any(ProductEntity.class))).thenAnswer(i -> i.getArgument(0));
+        when(services.findFirstByE2eRunId(runId)).thenReturn(Optional.empty());
+        when(slots.findFirstByE2eRunId(runId)).thenReturn(Optional.empty());
+        when(services.save(any(DailyHelpServiceEntity.class))).thenAnswer(i -> i.getArgument(0));
+        when(slots.save(any(DailyHelpProfessionalSlotEntity.class))).thenAnswer(i -> i.getArgument(0));
 
         var result = fixtureService.prepare(runId,
                 new E2eFixtureService.PrepareRequest("stage-seller-01", "stage-agent-01", null, "provider@example.test"));
@@ -72,7 +79,7 @@ class E2eFixtureServiceTest {
 
 
     @Test
-    void resolvesProfessionalFromAllowlistedProviderEmailIdentity() {
+    void rejectsStaleProfessionalIdWhenSharedIdentityResolvesDifferentProfile() {
         String runId = "E2E-run-identity";
         UserEntity provider = UserEntity.builder().userId("stage-provider-user-01").email("provider@example.test").phone("9876543210").build();
         SellerEntity seller = SellerEntity.builder().sellerId("stage-seller-01").userId(provider.getUserId()).status("APPROVED").storeOpen(true).build();
@@ -81,16 +88,9 @@ class E2eFixtureServiceTest {
                 .professionalId("stage-provider-canonical").userId(provider.getUserId())
                 .verified(1).status("AVAILABLE").build();
         when(sellers.findById("stage-seller-01")).thenReturn(Optional.of(seller));
-        when(sellers.findById(argThat(id -> id != null && id.startsWith("E2E-S2-")))).thenReturn(Optional.empty());
-        when(sellers.save(any(SellerEntity.class))).thenAnswer(i -> i.getArgument(0));
         when(agents.findById("stage-agent-01")).thenReturn(Optional.of(agent));
         when(users.findByEmail("provider@example.test")).thenReturn(Optional.of(provider));
         when(professionals.findByUserId(provider.getUserId())).thenReturn(Optional.of(professional));
-        when(services.findFirstByE2eRunId(runId)).thenReturn(Optional.empty());
-        when(slots.findFirstByE2eRunId(runId)).thenReturn(Optional.empty());
-        when(products.save(any(ProductEntity.class))).thenAnswer(i -> i.getArgument(0));
-        when(services.save(any(DailyHelpServiceEntity.class))).thenAnswer(i -> i.getArgument(0));
-        when(slots.save(any(DailyHelpProfessionalSlotEntity.class))).thenAnswer(i -> i.getArgument(0));
 
         ApiException error = assertThrows(ApiException.class, () -> fixtureService.prepare(runId,
                 new E2eFixtureService.PrepareRequest("stage-seller-01", "stage-agent-01", "stale-provider-id", "PROVIDER@example.test")));
