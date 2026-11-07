@@ -29,4 +29,8 @@ public class UserSessionEntity {
 
     @Column(name = "E2E_RUN_ID", length = 80)
     private String e2eRunId;
+
+    /** Role granted to this individual staging E2E session; null for ordinary sessions. */
+    @Column(name = "ACTIVE_ROLE", length = 20)
+    private String activeRole;
 }

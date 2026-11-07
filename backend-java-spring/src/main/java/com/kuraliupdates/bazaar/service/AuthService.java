@@ -198,6 +198,18 @@ public class AuthService {
         return user;
     }
 
+    /** Returns the role bound to this session, not the user's mutable primary role. */
+    public String requireSessionRole(String token) {
+        if (token == null || token.isBlank()) return null;
+        return sessionRepository.findBySessionToken(token)
+                .map(UserSessionEntity::getActiveRole)
+                .filter(role -> role != null && !role.isBlank())
+                .orElseGet(() -> {
+                    UserEntity user = requireUser(token);
+                    return user.getRole();
+                });
+    }
+
     private AuthResult login(VerifyOtpRequest req) {
         String raw = req.identifier() == null ? "" : req.identifier().trim();
         if (raw.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "Identifier and 6-digit OTP are required");
@@ -516,16 +528,16 @@ public class AuthService {
         }
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
-        return new AuthResult(createStagingE2eSessionToken(user, e2eRunId),
+        return new AuthResult(createStagingE2eSessionToken(user, e2eRunId, role),
                 UserResponse.from(user, addressService.findByUserId(user.getUserId())),
                 "Staging E2E session issued");
     }
 
-    private String createStagingE2eSessionToken(UserEntity user, String e2eRunId) {
+    private String createStagingE2eSessionToken(UserEntity user, String e2eRunId, String activeRole) {
         String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
         LocalDateTime now = LocalDateTime.now();
         sessionRepository.save(UserSessionEntity.builder()
-                .sessionToken(token).userId(user.getUserId()).e2eRunId(e2eRunId)
+                .sessionToken(token).userId(user.getUserId()).e2eRunId(e2eRunId).activeRole(activeRole)
                 .createdAt(now).expiresAt(now.plusHours(2)).build());
         return token;
     }
