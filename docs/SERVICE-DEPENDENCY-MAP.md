@@ -129,3 +129,10 @@ For each service/repository record callers/callees, tables read/written, direct 
 ## Exit criteria
 
 Every endpoint, table writer, scheduled task, integration and critical workflow must have a documented owner, dependency, authz/record ownership, transaction boundary, failure behavior and test reference before BE-1. Unknowns require an owner and remain visible. No broad package move until then.
+
+
+## Delivery tracking identity and privacy — 7 November 2026
+
+The `DeliveryTrackingService` authorization contract now uses `DELIVERY_AGENTS.USER_ID` as the authoritative link to `USER_SESSIONS.USER_ID` whenever populated. Email matching is a compatibility fallback only for legacy delivery profiles whose `USER_ID` is null/blank; a conflicting populated user link must never fall back to email. Rider tracking and location writes require the delivery profile to remain `ACTIVE`. Session records without a non-null expiry are invalid. Buyer tracking remains tied to the authenticated buyer email because `ORDERS` currently stores `BUYER_EMAIL` and does not persist a buyer user ID.
+
+Regression evidence: `DeliveryTrackingServiceTest` covers linked ID matching, ID/email conflict, inactive rider denial, email-independent location updates, null expiry and existing buyer/rider ownership cases. Service tests do not prove HTTP filter-chain behavior or Oracle runtime behavior.
