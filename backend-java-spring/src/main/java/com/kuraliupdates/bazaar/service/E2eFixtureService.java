@@ -157,7 +157,9 @@ public class E2eFixtureService {
 
         return new FixtureResult(productId, sellerId, agentId, serviceId, slotId, resolvedProfessionalId,
                 professional.getCurrentLocality() == null ? "" : professional.getCurrentLocality(), slotDate.atTime(start).toString(),
-                1, 2, TEST_PRICE.toPlainString(), rollbackSellerId, multiSellerValidProductId, multiSellerFailProductId);
+                1, 2, TEST_PRICE.toPlainString(),
+                seller.getBaseDeliveryFee() == null ? new BigDecimal("35.00") : seller.getBaseDeliveryFee(),
+                rollbackSellerId, multiSellerValidProductId, multiSellerFailProductId);
     }
 
     /**
@@ -231,7 +233,7 @@ public class E2eFixtureService {
     public record PrepareRequest(String sellerId, String deliveryAgentId, String professionalId, String professionalIdentity) {}
     public record FixtureResult(String productId, String sellerId, String deliveryAgentId,
                                 String serviceId, String slotId, String professionalId, String professionalLocality,
-                                String scheduledStart, int requestedHours, int stock, String unitPrice,
+                                String scheduledStart, int requestedHours, int stock, String unitPrice, BigDecimal baseDeliveryFee,
                                 String rollbackSellerId, String multiSellerValidProductId,
                                 String multiSellerFailProductId) {}
 }
