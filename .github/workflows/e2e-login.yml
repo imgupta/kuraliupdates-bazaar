@@ -158,6 +158,7 @@ jobs:
             'E2E_BUYER_IDENTITY', 'E2E_SELLER_IDENTITY', 'E2E_DELIVERY_IDENTITY',
             'E2E_PROVIDER_IDENTITY', 'E2E_ADMIN_IDENTITY',
             'E2E_FLOW_BUYER_PHONE', 'E2E_FLOW_BUYER_EMAIL',
+            'E2E_FLOW_SELLER_ID', 'E2E_FLOW_DELIVERY_AGENT_ID'
           ];
           const bools = new Set(['E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED', 'E2E_TRANSACTIONAL_FLOWS_ENABLED']);
           const lines = [];
@@ -210,6 +211,7 @@ jobs:
             'E2E_BUYER_IDENTITY', 'E2E_SELLER_IDENTITY', 'E2E_DELIVERY_IDENTITY',
             'E2E_PROVIDER_IDENTITY', 'E2E_ADMIN_IDENTITY',
             'E2E_FLOW_BUYER_PHONE', 'E2E_FLOW_BUYER_EMAIL',
+            'E2E_FLOW_SELLER_ID', 'E2E_FLOW_DELIVERY_AGENT_ID',
           ];
           for (const key of sensitiveKeys) {
             const value = values[key];
@@ -260,17 +262,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ "$E2E_TRANSACTIONAL_FLOWS_ENABLED" != "true" ]; then
-            if [ "${GITHUB_EVENT_NAME}" = "schedule" ] || [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-              echo "Trusted full-E2E run requested, but E2E_TRANSACTIONAL_FLOWS_ENABLED is not true in E2E_STAGING_CONFIG_JSON."
-              exit 1
-            fi
-            echo "Static flow-token exchange is not required on push/PR while transactional E2E is disabled."
-            exit 0
-          fi
+           if [ "$E2E_TRANSACTIONAL_FLOWS_ENABLED" != "true" ]; then
+             if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
+               echo "Scheduled transactional E2E is disabled in E2E_STAGING_CONFIG_JSON."
+               exit 1
+             fi
+             echo "Transactional flow-token exchange is disabled for this run; no business transactions will be created."
+             exit 0
+           fi
           test "$E2E_ENVIRONMENT" = "staging" || { echo "Refusing static flow-token exchange unless E2E_ENVIRONMENT=staging"; exit 1; }
           test "${#E2E_FLOW_AUTH_TOKEN}" -ge 32 || { echo "Set the E2E_FLOW_AUTH_TOKEN GitHub secret to a random value of at least 32 characters."; exit 1; }
-          for key in E2E_BUYER_IDENTITY E2E_SELLER_IDENTITY E2E_DELIVERY_IDENTITY E2E_PROVIDER_IDENTITY; do
+           for key in E2E_BUYER_IDENTITY E2E_SELLER_IDENTITY E2E_DELIVERY_IDENTITY E2E_PROVIDER_IDENTITY E2E_ADMIN_IDENTITY; do
             test -n "${!key:-}" || { echo "Missing required role identity secret: $key"; exit 1; }
           done
           echo "Static E2E flow-auth secret and role identities are configured."
@@ -278,14 +280,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ "$E2E_TRANSACTIONAL_FLOWS_ENABLED" != "true" ]; then
-            if [ "${GITHUB_EVENT_NAME}" = "schedule" ] || [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-              echo "Trusted full-E2E run requested, but E2E_TRANSACTIONAL_FLOWS_ENABLED is not true in E2E_STAGING_CONFIG_JSON."
-              exit 1
-            fi
-            echo "Transactional lifecycle E2E is disabled on push/PR; no test transactions will be created."
-            exit 0
-          fi
+           if [ "$E2E_TRANSACTIONAL_FLOWS_ENABLED" != "true" ]; then
+             if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
+               echo "Scheduled transactional E2E is disabled in E2E_STAGING_CONFIG_JSON."
+               exit 1
+             fi
+             echo "Transactional lifecycle E2E is disabled for this run; no test transactions will be created."
+             exit 0
+           fi
           test "$E2E_ENVIRONMENT" = "staging" || { echo "Refusing transactional E2E unless E2E_ENVIRONMENT=staging"; exit 1; }
           test "$E2E_API_BASE_URL" = "https://kuraliupdates-bazaar.onrender.com/api/v1" || { echo "Refusing transactional E2E against an unapproved API"; exit 1; }
            required=(E2E_FLOW_AUTH_TOKEN E2E_BUYER_IDENTITY E2E_SELLER_IDENTITY E2E_DELIVERY_IDENTITY E2E_PROVIDER_IDENTITY E2E_ADMIN_IDENTITY E2E_FLOW_BUYER_PHONE E2E_FLOW_BUYER_EMAIL E2E_FLOW_SELLER_ID E2E_FLOW_DELIVERY_AGENT_ID)
@@ -297,6 +299,17 @@ jobs:
             printf 'Transactional E2E enabled but missing required secrets/variables: %s\n' "${missing[*]}"
             exit 1
           fi
+           for key in E2E_FLOW_SELLER_ID E2E_FLOW_DELIVERY_AGENT_ID; do
+             value="${!key}"
+             if [[ ! "$value" =~ ^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$ ]]; then
+               echo "$key must reference a valid pre-provisioned staging profile ID."
+               exit 1
+             fi
+           done
+           if [ "$E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED" != "true" ]; then
+             echo "Transactional E2E requires confirmed staging-only OTP email suppression."
+             exit 1
+           fi
           echo "Transactional E2E configuration is complete. Product, service and slot fixtures will be provisioned by the backend under this run ID and cleaned up after the test."
       - name: Run browser E2E tests
         run: bunx playwright test
