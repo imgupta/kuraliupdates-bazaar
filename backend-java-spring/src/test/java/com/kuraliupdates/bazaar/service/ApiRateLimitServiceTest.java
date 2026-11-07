@@ -64,6 +64,22 @@ class ApiRateLimitServiceTest {
 
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, error.getStatus());
     }
+
+    @Test
+    void periodicCleanupPreservesSentinelRowsUsedByDeliveryOtpCooldown() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.update(startsWith(MERGE), any(), any(), any(), anyInt())).thenReturn(1);
+        ApiRateLimitService service = new ApiRateLimitService(jdbc);
+
+        for (int i = 0; i < 100; i++) {
+            service.requireAllowed("cleanup-test", "key-" + i, 3, Duration.ofMinutes(1));
+        }
+
+        verify(jdbc).update(
+                eq("DELETE FROM API_RATE_LIMIT_BUCKETS WHERE EXPIRES_AT < ? AND WINDOW_START <> TIMESTAMP '1970-01-01 00:00:00'"),
+                any(Object[].class));
+    }
+
     @Test
     void probeCleanupDeletesOnlyTheHashedBucketKey() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);

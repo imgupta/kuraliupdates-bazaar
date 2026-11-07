@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -18,8 +20,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.security.SecureRandom;
 
 @Service
@@ -31,7 +36,23 @@ public class DeliveryService {
     private final OrderRepository orderRepository;
     private final JdbcTemplate jdbc;
     private final GoogleRoutesService googleRoutesService;
-    private final ConcurrentMap<String, LocalDateTime> deliveryOtpResendAt = new ConcurrentHashMap<>();
+    private static final String DELIVERY_OTP_RESEND_GUARD_MERGE = """
+            MERGE INTO API_RATE_LIMIT_BUCKETS target
+            USING (
+                SELECT ? AS BUCKET_KEY, TIMESTAMP '1970-01-01 00:00:00' AS WINDOW_START FROM DUAL
+            ) source
+            ON (target.BUCKET_KEY = source.BUCKET_KEY AND target.WINDOW_START = source.WINDOW_START)
+            WHEN MATCHED THEN UPDATE SET
+                target.REQUEST_COUNT = 1,
+                target.EXPIRES_AT = SYSTIMESTAMP + INTERVAL '60' SECOND
+                WHERE target.EXPIRES_AT <= SYSTIMESTAMP
+            WHEN NOT MATCHED THEN INSERT (BUCKET_KEY, WINDOW_START, REQUEST_COUNT, EXPIRES_AT)
+                VALUES (source.BUCKET_KEY, source.WINDOW_START, 1, SYSTIMESTAMP + INTERVAL '60' SECOND)
+            """;
+    private static final String DELIVERY_OTP_RESEND_GUARD_CLEANUP =
+            "DELETE FROM API_RATE_LIMIT_BUCKETS WHERE WINDOW_START = TIMESTAMP '1970-01-01 00:00:00' AND EXPIRES_AT < SYSTIMESTAMP";
+
+    private final AtomicInteger resendGuardCleanupCounter = new AtomicInteger();
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
@@ -235,39 +256,94 @@ public class DeliveryService {
         if (!"ASSIGNED_TO_DELIVERY".equals(order.getStatus()) && !"PICKED_UP".equals(order.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "Delivery OTP can only be resent for an active delivery");
         }
-        LocalDateTime now = LocalDateTime.now();
-        synchronized (deliveryOtpResendAt) {
-            String resendKey = order.getCombinedDeliveryBatchId() != null
-                    ? order.getCombinedDeliveryBatchId() : orderId;
-            LocalDateTime lastSent = deliveryOtpResendAt.get(resendKey);
-            if (lastSent != null && lastSent.plusSeconds(60).isAfter(now)) {
-                long waitSeconds = Math.max(1, java.time.Duration.between(now, lastSent.plusSeconds(60)).getSeconds());
-                throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
-                        "Please wait " + waitSeconds + " seconds before resending the delivery OTP");
+
+        boolean combined = order.getCombinedDeliveryBatchId() != null;
+        if (combined && !order.getCombinedDeliveryBatchId().equals(order.getCheckoutGroupId())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Combined delivery group reference is inconsistent");
+        }
+
+        List<OrderEntity> group = List.of();
+        if (combined) {
+            group = orderRepository.findLockedByCheckoutGroupId(order.getCheckoutGroupId());
+            if (group.size() < 2 || group.stream().noneMatch(item -> orderId.equals(item.getOrderId()))) {
+                throw new ApiException(HttpStatus.CONFLICT, "Combined delivery group is no longer available");
             }
-            String newOtp = String.format("%04d", secureRandom.nextInt(10_000));
-            boolean combined = order.getCombinedDeliveryBatchId() != null
-                    && order.getCombinedDeliveryBatchId().equals(order.getCheckoutGroupId());
-            if (combined) {
-                List<OrderEntity> group = orderRepository.findLockedByCheckoutGroupId(order.getCheckoutGroupId());
-                for (OrderEntity groupedOrder : group) {
-                    if (!order.getCombinedDeliveryBatchId().equals(groupedOrder.getCombinedDeliveryBatchId())
-                            || groupedOrder.getDeliveryAgent() == null
-                            || !groupedOrder.getDeliveryAgent().getAgentId().equals(authenticatedAgent.getAgentId())) {
-                        throw new ApiException(HttpStatus.CONFLICT, "Combined delivery group is no longer consistently assigned");
-                    }
-                    groupedOrder.setDeliveryOtp(newOtp);
-                    groupedOrder.setUpdatedAt(now);
+            for (OrderEntity groupedOrder : group) {
+                if (!order.getCombinedDeliveryBatchId().equals(groupedOrder.getCombinedDeliveryBatchId())
+                        || groupedOrder.getDeliveryAgent() == null
+                        || !groupedOrder.getDeliveryAgent().getAgentId().equals(authenticatedAgent.getAgentId())
+                        || (!"ASSIGNED_TO_DELIVERY".equals(groupedOrder.getStatus())
+                            && !"PICKED_UP".equals(groupedOrder.getStatus()))) {
+                    throw new ApiException(HttpStatus.CONFLICT, "Combined delivery group is no longer consistently assigned");
                 }
-                orderRepository.saveAll(group);
-            } else {
-                order.setDeliveryOtp(newOtp);
-                order.setUpdatedAt(now);
-                orderRepository.save(order);
             }
-            deliveryOtpResendAt.put(resendKey, now);
+        }
+
+        // The database guard is shared by every application instance and uses the
+        // database clock. The old ConcurrentHashMap cooldown was process-local and
+        // reset on restart, so separate Render instances could resend immediately.
+        String resendKey = combined
+                ? "batch:" + order.getCombinedDeliveryBatchId()
+                : "order:" + orderId;
+        requireDeliveryOtpResendAllowed(resendKey);
+
+        String newOtp = String.format("%04d", secureRandom.nextInt(10_000));
+        LocalDateTime now = LocalDateTime.now();
+        if (combined) {
+            for (OrderEntity groupedOrder : group) {
+                groupedOrder.setDeliveryOtp(newOtp);
+                groupedOrder.setUpdatedAt(now);
+            }
+            orderRepository.saveAll(group);
+        } else {
+            order.setDeliveryOtp(newOtp);
+            order.setUpdatedAt(now);
+            orderRepository.save(order);
         }
         return Map.of("success", true, "message", "A new delivery OTP is now available in the customer app.");
+    }
+
+    private void requireDeliveryOtpResendAllowed(String rawKey) {
+        String resendKey = hashDeliveryOtpResendKey(rawKey);
+        int updated;
+        try {
+            updated = jdbc.update(DELIVERY_OTP_RESEND_GUARD_MERGE, resendKey);
+        } catch (DuplicateKeyException firstInsertRace) {
+            // Two instances may both observe no guard row. Retry once after the
+            // winning transaction inserts the unique RESEND_KEY.
+            try {
+                updated = jdbc.update(DELIVERY_OTP_RESEND_GUARD_MERGE, resendKey);
+            } catch (DataAccessException retryFailure) {
+                throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "Delivery OTP resend protection is temporarily unavailable");
+            }
+        } catch (DataAccessException databaseFailure) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Delivery OTP resend protection is temporarily unavailable");
+        }
+        if (updated == 0) {
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                    "Please wait 60 seconds before resending the delivery OTP");
+        }
+
+        if (resendGuardCleanupCounter.incrementAndGet() % 100 == 0) {
+            try {
+                jdbc.update(DELIVERY_OTP_RESEND_GUARD_CLEANUP);
+            } catch (DataAccessException ignored) {
+                // Expired rows are safe to retain temporarily; cleanup must not
+                // fail a successfully guarded OTP resend.
+            }
+        }
+    }
+
+    private String hashDeliveryOtpResendKey(String value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(("delivery-otp-resend\n" + value).getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        }
     }
 
     @Transactional

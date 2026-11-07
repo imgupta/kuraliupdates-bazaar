@@ -1,7 +1,7 @@
 # Current implementation status and remaining work
 
 **Last reconciled:** 7 November 2026  
-**Current main evidence checkpoint:** `a864a7c7103d210d80db349256904b70ff37cc4a` (PRs #285–#289, #294 staging-readiness optimization, #295 seller-contact verification hardening, #296 delivery-tracking ownership hardening and #297 E2E warm-up/read-only parallelization are merged; exact deployed backend SHA is separately verified as `b491795f9b7a7b0d91d21a3835cc6287e190573f`). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
+**Current main evidence checkpoint:** `2c3c33c58087e1e9bae46303c576fb23391f6bb9` (PRs #285–#289, #294 staging-readiness optimization, #295 seller-contact verification hardening, #296 delivery-tracking ownership hardening, #297 E2E warm-up/read-only parallelization and #299 Daily Help OTP/lifecycle hardening are merged; exact deployed backend SHA is separately verified as `b491795f9b7a7b0d91d21a3835cc6287e190573f`). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
 
 **Phase 0 formal evidence disposition (6 Nov 2026):** The security-hardening milestone and subsequent authorization slices are merged, but the repository still lacks evidence to sign off all formal exit gates. See [Phase 0 Formal Evidence and Exit Register](PHASE-0-FORMAL-EVIDENCE-REGISTER.md) for completed evidence, partial/blocked items, required closure pack and sign-off form. Do not infer backup/restore, Oracle live-schema, India residency, secret rotation or qualified legal review from CI.
 
@@ -189,6 +189,11 @@ PR #295 merged as `3297899541d640c90f93561fbba37092fd9c8b3f`. The change require
 - Follow-up branch `ci/overlap-staging-warmup-with-e2e-setup` adds a secret-free, read-only, best-effort warm-up job that runs alongside browser setup, plus parallelizes independent read-only E2E assertions. The exact-commit readiness gate remains authoritative. Any additional saving is a target only until a fresh main run measures it.
 
 
-## 7 November 2026 — Daily Help buyer OTP confidentiality and lifecycle serialization (PR #299 in progress)
+## 7 November 2026 — Daily Help buyer OTP confidentiality and lifecycle serialization merged
 
-Source review found that the professional status-update response was built with `exposeOtp=true`, returning the buyer-held service-start OTP to the professional. The corrected slice returns no OTP in professional mutation responses, serializes status/start/completion through the existing pessimistic booking-row lock, and permits only forward status movement (`PROFESSIONAL_ASSIGNED -> ARRIVING -> READY_TO_START`) with same-state retries idempotent. Buyer booking reads remain unlocked and preserve their existing OTP visibility rules. Exact-head CI is pending; Oracle-backed lock contention remains unverified. No staging records are changed.
+PR #299 merged as `2c3c33c58087e1e9bae46303c576fb23391f6bb9`. The professional status-update response no longer exposes the buyer-held service-start OTP. Status/start/completion mutations use the existing pessimistic booking-row lock, and status movement is forward-only (`PROFESSIONAL_ASSIGNED -> ARRIVING -> READY_TO_START`) with same-state retries idempotent. Exact-head CI passed 293 backend tests, frontend checks/build and browser E2E/read-only smoke checks. Oracle-backed lock contention remains a separate verification gate.
+
+
+## 7 November 2026 — delivery OTP resend cooldown persistence (PR in progress)
+
+A source audit found the 60-second delivery OTP resend cooldown was stored in a process-local `ConcurrentHashMap`. Separate Render instances and restarts therefore did not share the cooldown. The new slice reuses the existing Oracle-backed `API_RATE_LIMIT_BUCKETS` table (Flyway V33), with a SHA-256 hash of the order/combined-checkout identifier and an atomic `MERGE` using the database clock; no new schema migration is needed. The guard update and OTP rotation share the existing transaction; the old in-memory state is removed. Tests cover two independent service instances sharing one database guard and fail-closed behavior when the guard table is unavailable. Exact-head CI and Oracle multi-session verification remain pending; no staging data is changed.
