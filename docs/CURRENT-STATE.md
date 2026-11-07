@@ -252,3 +252,12 @@ Source audit found a read-before-write race in `OtpService.send`: simultaneous r
 - The affected-portal build classifier is being consolidated into the next PR on current main. It maps role-owned components and API modules to the five role portals, excludes backend/docs/tests/workflows/build-support paths, and deliberately fans unknown frontend runtime paths out to every portal. Missing Vercel commit metadata remains fail-open (build).
 - Vercel project Ignore Build Step configuration is not changed by repository code. Each project root and command must be inspected and configured separately, then verified with a no-op and affected-portal deployment before claiming operational savings.
 - Phase 1 remains IN PROGRESS. Full authorization/IDOR coverage, isolated Oracle concurrency/rollback evidence, public abuse/privacy controls and the remaining authenticated role journeys are not closed by this batch.
+
+
+## Vercel deployment inventory — 7 November 2026
+
+Read-only inspection found six Git-linked Vercel projects for this repository: `kuraliupdates-bazaar`, `kuraliupdates-buyer`, `kuraliupdates-seller`, `kuraliupdates-delivery`, `kuraliupdates-daily-help` and `kuraliupdates-admin`. Their latest deployments all reported `READY` with target `production` at inspection time.
+
+Against current main (`ed69c9f4f6289cba6c38b71c364d6f4f1700df29`), Buyer was deployed at current main; Delivery was at `cf21ae0b5d711c8e472a7a50afb2d4f4155e1ca8` (3 commits behind); Bazaar, Seller, Daily Help and Admin were at `b675c225d12e4f5ccfaa301d97ae81fb6d300bf9` (4 commits behind). These are provider metadata observations, not runtime smoke tests. No deployment was triggered and no project setting was changed.
+
+The inspected project-detail response did not expose `rootDirectory` or `commandForIgnoringBuildStep`, so the ignore-build command has **not** been enabled. Obtain authoritative settings for all six projects and verify the script is available from each configured root before configuring. A READY deployment is not necessarily current with main.
