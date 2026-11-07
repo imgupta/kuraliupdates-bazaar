@@ -37,18 +37,20 @@ public class DeliveryService {
     private final JdbcTemplate jdbc;
     private final GoogleRoutesService googleRoutesService;
     private static final String DELIVERY_OTP_RESEND_GUARD_MERGE = """
-            MERGE INTO DELIVERY_OTP_RESEND_GUARD target
-            USING (SELECT ? AS RESEND_KEY FROM DUAL) source
-            ON (target.RESEND_KEY = source.RESEND_KEY)
+            MERGE INTO API_RATE_LIMIT_BUCKETS target
+            USING (
+                SELECT ? AS BUCKET_KEY, TIMESTAMP '1970-01-01 00:00:00' AS WINDOW_START FROM DUAL
+            ) source
+            ON (target.BUCKET_KEY = source.BUCKET_KEY AND target.WINDOW_START = source.WINDOW_START)
             WHEN MATCHED THEN UPDATE SET
-                target.LAST_SENT_AT = SYSTIMESTAMP,
-                target.EXPIRES_AT = SYSTIMESTAMP + INTERVAL '2' DAY
-                WHERE target.LAST_SENT_AT <= SYSTIMESTAMP - INTERVAL '60' SECOND
-            WHEN NOT MATCHED THEN INSERT (RESEND_KEY, LAST_SENT_AT, EXPIRES_AT)
-                VALUES (source.RESEND_KEY, SYSTIMESTAMP, SYSTIMESTAMP + INTERVAL '2' DAY)
+                target.REQUEST_COUNT = 1,
+                target.EXPIRES_AT = SYSTIMESTAMP + INTERVAL '60' SECOND
+                WHERE target.EXPIRES_AT <= SYSTIMESTAMP
+            WHEN NOT MATCHED THEN INSERT (BUCKET_KEY, WINDOW_START, REQUEST_COUNT, EXPIRES_AT)
+                VALUES (source.BUCKET_KEY, source.WINDOW_START, 1, SYSTIMESTAMP + INTERVAL '60' SECOND)
             """;
     private static final String DELIVERY_OTP_RESEND_GUARD_CLEANUP =
-            "DELETE FROM DELIVERY_OTP_RESEND_GUARD WHERE EXPIRES_AT < SYSTIMESTAMP";
+            "DELETE FROM API_RATE_LIMIT_BUCKETS WHERE EXPIRES_AT < SYSTIMESTAMP";
 
     private final AtomicInteger resendGuardCleanupCounter = new AtomicInteger();
     private final SecureRandom secureRandom = new SecureRandom();
