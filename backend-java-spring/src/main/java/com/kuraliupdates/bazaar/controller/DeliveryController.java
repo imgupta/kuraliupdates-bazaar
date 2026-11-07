@@ -3,7 +3,7 @@ package com.kuraliupdates.bazaar.controller;
 import com.kuraliupdates.bazaar.dto.delivery.DeliveryRegistrationRequest;
 import com.kuraliupdates.bazaar.entity.DeliveryAgentEntity;
 import com.kuraliupdates.bazaar.entity.OrderEntity;
-import com.kuraliupdates.bazaar.dto.order.OrderResponse;
+import com.kuraliupdates.bazaar.dto.delivery.DeliveryJobResponse;
 import com.kuraliupdates.bazaar.service.DeliveryService;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.entity.UserEntity;
@@ -59,48 +59,48 @@ public class DeliveryController {
 
     @GetMapping("/jobs/available")
     @Transactional(readOnly = true)
-    public ResponseEntity<List<OrderResponse>> getAvailableJobs(Authentication authentication) {
+    public ResponseEntity<List<DeliveryJobResponse>> getAvailableJobs(Authentication authentication) {
         UserEntity user = requireUser(authentication);
-        return ResponseEntity.ok(deliveryService.availableJobs(user).stream().map(OrderResponse::from).toList());
+        return ResponseEntity.ok(deliveryService.availableJobs(user).stream().map(DeliveryJobResponse::from).toList());
     }
 
     @GetMapping("/jobs/mine")
     @Transactional(readOnly = true)
     @Operation(summary = "Get active deliveries assigned to the authenticated delivery partner")
-    public ResponseEntity<List<OrderResponse>> getMyAssignedJobs(Authentication authentication) {
+    public ResponseEntity<List<DeliveryJobResponse>> getMyAssignedJobs(Authentication authentication) {
         UserEntity user = requireUser(authentication);
-        return ResponseEntity.ok(deliveryService.assignedJobs(user).stream().map(OrderResponse::from).toList());
+        return ResponseEntity.ok(deliveryService.assignedJobs(user).stream().map(DeliveryJobResponse::from).toList());
     }
 
     @PostMapping("/jobs/{orderId}/claim")
     @Transactional
-    public ResponseEntity<OrderResponse> claimJob(
+    public ResponseEntity<DeliveryJobResponse> claimJob(
             @PathVariable String orderId,
             @RequestParam String agentId,
             Authentication authentication) {
         UserEntity user = requireUser(authentication);
-        return ResponseEntity.ok(OrderResponse.from(deliveryService.claim(orderId, agentId, user)));
+        return ResponseEntity.ok(DeliveryJobResponse.from(deliveryService.claim(orderId, agentId, user)));
     }
 
     @PostMapping("/jobs/checkout/{checkoutGroupId}/claim")
     @Transactional
     @Operation(summary = "Atomically claim every ready seller order in a route-feasible combined checkout")
-    public ResponseEntity<List<OrderResponse>> claimCheckoutGroup(
+    public ResponseEntity<List<DeliveryJobResponse>> claimCheckoutGroup(
             @PathVariable String checkoutGroupId,
             @RequestParam String agentId,
             Authentication authentication) {
         UserEntity user = requireUser(authentication);
         return ResponseEntity.ok(deliveryService.claimCheckoutGroup(checkoutGroupId, agentId, user)
-                .stream().map(OrderResponse::from).toList());
+                .stream().map(DeliveryJobResponse::from).toList());
     }
 
     @PostMapping("/jobs/{orderId}/confirm-pickup")
     @Transactional
     @Operation(summary = "Confirm collection at one seller pickup stop")
-    public ResponseEntity<OrderResponse> confirmSellerPickup(
+    public ResponseEntity<DeliveryJobResponse> confirmSellerPickup(
             @PathVariable String orderId, Authentication authentication) {
         UserEntity user = requireUser(authentication);
-        return ResponseEntity.ok(OrderResponse.from(deliveryService.confirmSellerPickup(orderId, user)));
+        return ResponseEntity.ok(DeliveryJobResponse.from(deliveryService.confirmSellerPickup(orderId, user)));
     }
 
     @PostMapping("/jobs/{orderId}/resend-otp")
