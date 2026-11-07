@@ -2,6 +2,27 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { affectedPortals, isNonRuntimePath, isPortalIrrelevantPath, PORTALS } from '../scripts/portal-build-impact.mjs';
 
+test('buyer account and buyer order API changes build only Buyer', () => {
+  assert.deepEqual(
+    affectedPortals(['src/components/Buyer/BuyerAccountPage.tsx', 'src/services/domains/buyerOrdersApi.ts']),
+    ['buyer'],
+  );
+});
+
+test('seller, delivery, admin and Daily Help component changes stay within their portals', () => {
+  assert.deepEqual(affectedPortals(['src/components/Seller/SellerDashboard.tsx']), ['seller']);
+  assert.deepEqual(affectedPortals(['src/components/Delivery/DeliveryDashboard.tsx']), ['delivery']);
+  assert.deepEqual(affectedPortals(['src/components/Admin/AdminDashboard.tsx']), ['admin']);
+  assert.deepEqual(affectedPortals(['src/components/DailyHelp/ProfessionalHome.tsx']), ['daily-help']);
+});
+
+test('backend-only changes do not trigger frontend portal builds', () => {
+  assert.deepEqual(affectedPortals([
+    'backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/OrderService.java',
+    'backend-java-spring/src/main/resources/db/migration/V33__api_rate_limit_buckets.sql',
+  ]), []);
+});
+
 test('a Buyer-only feature change builds only Buyer', () => {
   assert.deepEqual(affectedPortals(['src/features/buyer/BuyerPortal.tsx']), ['buyer']);
 });
