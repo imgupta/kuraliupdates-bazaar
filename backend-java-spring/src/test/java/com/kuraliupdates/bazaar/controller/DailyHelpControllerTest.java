@@ -14,7 +14,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.math.BigDecimal;
@@ -223,9 +222,9 @@ class DailyHelpControllerTest {
     private Authentication authentication(UserEntity user) {
         Authentication authentication = mock(Authentication.class);
         when(authentication.getPrincipal()).thenReturn(user);
-        when(authentication.getAuthorities()).thenReturn(List.<GrantedAuthority>of(
+        doReturn(List.of(
                 new SimpleGrantedAuthority("ROLE_BUYER"),
-                new SimpleGrantedAuthority("ROLE_PROFESSIONAL")));
+                new SimpleGrantedAuthority("ROLE_PROFESSIONAL"))).when(authentication).getAuthorities();
         return authentication;
     }
 
