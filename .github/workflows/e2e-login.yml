@@ -83,6 +83,8 @@ jobs:
         run: bun run build
       - name: Portal build-impact policy regression tests
         run: node --test tests/portalBuildImpact.test.mjs
+      - name: Vercel ignore-build decision regression tests
+        run: node --test tests/vercelIgnoreBuild.test.mjs
       - name: Build only affected role portals
         run: node scripts/build-affected-portals.mjs
         env:
