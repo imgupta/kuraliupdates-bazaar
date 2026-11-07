@@ -52,7 +52,6 @@ export const DeliveryDashboard: React.FC = () => {
     orders,
     claimDeliveryJob,
     completeDelivery,
-    setIsDeliveryRegisterOpen,
     showToast,
     syncWithBackend,
   } = useApp();
@@ -334,12 +333,11 @@ export const DeliveryDashboard: React.FC = () => {
                 {availabilitySaving ? 'Updating…' : backendAgent.availableForJobs === false ? 'Go Online' : 'Go Offline'}
               </button>
             )}
-            <button
-              onClick={() => setIsDeliveryRegisterOpen(true)}
-              className="px-4 py-2 bg-emerald-800/60 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs transition-colors border border-emerald-400/30 cursor-pointer"
-            >
-              Update Profile / Vehicle
-            </button>
+            {backendAgent && String(backendAgent.status || '').toUpperCase() === 'PENDING' && (
+              <span className="rounded-xl px-4 py-2 text-xs font-extrabold bg-amber-100 text-amber-900 border border-amber-300">
+                Pending admin approval
+              </span>
+            )}
           </div>
         </div>
 
