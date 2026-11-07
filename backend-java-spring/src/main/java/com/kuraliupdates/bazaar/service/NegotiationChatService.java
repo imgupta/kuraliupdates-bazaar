@@ -325,7 +325,9 @@ public class NegotiationChatService {
     }
     private void requireBuyer(UserEntity user) {
         if (user == null || blank(user.getUserId())) throw new ApiException(HttpStatus.UNAUTHORIZED, "An authenticated account is required");
-        if (!"BUYER".equalsIgnoreCase(Objects.toString(user.getRole(), ""))) throw new ApiException(HttpStatus.FORBIDDEN, "Only a buyer account can start a bargaining conversation");
+        if (blank(user.getEmail())) throw new ApiException(HttpStatus.BAD_REQUEST, "A verified email is required for bargaining chat");
+        // The controller authorizes ROLE_BUYER from the active session. Do not
+        // reject a valid buyer session because USERS.ROLE is another profile.
     }
     private String normalizeActiveRole(String role) {
         String normalized = role == null ? "BUYER" : role.trim().toUpperCase(Locale.ROOT);
