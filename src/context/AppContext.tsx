@@ -115,7 +115,7 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
   const {
     registerSeller, approveSeller, rejectSeller, approveDeliveryAgent, rejectDeliveryAgent,
     updateSeller, addProduct, updateProduct, deleteProduct, addCoupon, deleteCoupon,
-    createOrder, updateOrderStatus, claimDeliveryJob, completeDelivery, registerDeliveryAgent,
+    createOrder, updateOrderStatus, claimDeliveryJob, completeDelivery,
   } = marketplaceOperations;
 
   // Keep the public AppContext contract while delegating bargaining behavior to its domain hook.
@@ -179,7 +179,6 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
         completeDelivery,
         deliveryAgents,
         currentAgent,
-        registerDeliveryAgent,
         chats,
         openChatForProduct,
         sendMessage,
