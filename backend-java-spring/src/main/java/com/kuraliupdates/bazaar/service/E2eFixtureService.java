@@ -52,8 +52,8 @@ public class E2eFixtureService {
         UserEntity stagingUser = resolveStagingUser(request.professionalIdentity());
         requireSameAccount(stagingUser, seller.getUserId(), "seller");
         requireSameAccount(stagingUser, agent.getUserId(), "delivery-agent");
-        // Resolve from the same allowlisted provider identity used by E2E auth.
-        // This avoids a stale manually copied profile ID drifting from the account.
+        // Resolve from the already-verified shared account, not from a separately
+        // copied provider ID that could point at another person's profile.
         DailyHelpProfessionalEntity professional = resolveProfessional(stagingUser, professionalId);
         String resolvedProfessionalId = professional.getProfessionalId();
         requireSameAccount(stagingUser, professional.getUserId(), "Daily Help professional");
