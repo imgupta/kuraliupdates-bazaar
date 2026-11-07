@@ -82,11 +82,14 @@ class AuthRegisteredRolesTest {
 
 
     @Test
-    void deliveryRoleDoesNotFallBackToEmailOrPhoneWhenAnotherUserOwnsTheProfile() {
+    void deliveryRoleDoesNotFallBackToEmailWhenProfileIsLinkedToAnotherUser() {
         String userId = "delivery-attacker-user";
         String token = "delivery-attacker-session";
         UserEntity user = UserEntity.builder().userId(userId).email("shared@example.com")
                 .phone("9876543210").role("BUYER").accountStatus("ACTIVE").build();
+        DeliveryAgentEntity anotherUsersProfile = DeliveryAgentEntity.builder()
+                .agentId("agent-victim").userId("different-user-id")
+                .email("shared@example.com").phone("9876543210").build();
 
         when(sessionRepository.findBySessionToken(token)).thenReturn(Optional.of(
                 UserSessionEntity.builder().sessionToken(token).userId(userId)
@@ -96,12 +99,13 @@ class AuthRegisteredRolesTest {
         when(sellerRepository.findByEmailIgnoreCase("shared@example.com")).thenReturn(Optional.empty());
         when(sellerRepository.findByPhone("9876543210")).thenReturn(Optional.empty());
         when(deliveryAgentRepository.findByUserId(userId)).thenReturn(Optional.empty());
-        when(deliveryAgentRepository.findByEmailIgnoreCase("buyer@example.com")).thenReturn(Optional.empty());
+        when(deliveryAgentRepository.findByEmailIgnoreCase("shared@example.com"))
+                .thenReturn(Optional.of(anotherUsersProfile));
         when(dailyHelpProfessionalRepository.findByUserId(userId)).thenReturn(Optional.empty());
         when(dailyHelpProfessionalRepository.findByPhone("9876543210")).thenReturn(Optional.empty());
 
         assertEquals(java.util.List.of("BUYER"), authService.registeredRoles(token));
-        verify(deliveryAgentRepository, never()).findByEmailIgnoreCase("shared@example.com");
+        verify(deliveryAgentRepository).findByEmailIgnoreCase("shared@example.com");
     }
 
     @Test
@@ -110,6 +114,8 @@ class AuthRegisteredRolesTest {
         String token = "legacy-delivery-session";
         UserEntity user = UserEntity.builder().userId(userId).email("legacy@example.com")
                 .phone("9876543210").role("BUYER").accountStatus("ACTIVE").build();
+        DeliveryAgentEntity legacyProfile = DeliveryAgentEntity.builder()
+                .agentId("agent-legacy").userId(null).email("legacy@example.com").build();
 
         when(sessionRepository.findBySessionToken(token)).thenReturn(Optional.of(
                 UserSessionEntity.builder().sessionToken(token).userId(userId)
