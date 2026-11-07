@@ -518,14 +518,10 @@ public class AuthService {
                 || !hasStagingE2eRole(user, role)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "The E2E identity is not registered for the requested role");
         }
-        if ("ADMIN".equals(role)) {
-            if (!isRootAdminEmail(user.getEmail())) {
-                throw new ApiException(HttpStatus.FORBIDDEN, "The E2E identity is not an authorized administrator");
-            }
-            user.setRole("ADMIN");
-            user.setIsAdmin(1);
-            userRepository.save(user);
-        }
+        // hasStagingE2eRole has already verified root-admin eligibility.
+        // Keep the account's primary role and admin flag unchanged: the role is
+        // scoped to this individual E2E session in USER_SESSIONS.ACTIVE_ROLE.
+        // Issuing an ADMIN test token must never promote or mutate the account.
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
         return new AuthResult(createStagingE2eSessionToken(user, e2eRunId, role),

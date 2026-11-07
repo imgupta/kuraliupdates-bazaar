@@ -69,6 +69,15 @@ jobs:
             if (!value) throw new Error('Required E2E config key is blank: ' + key);
             return value;
           };
+          const identityKeys = ['E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY','E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY'];
+          const normalizedIdentities = identityKeys.map(key => required(key).toLowerCase());
+          if (normalizedIdentities.some(value => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) ||
+              new Set(normalizedIdentities).size !== 1) {
+            throw new Error('All five role identities must be the same configured email account; values are never printed.');
+          }
+          if (required('E2E_FLOW_BUYER_EMAIL').toLowerCase() !== normalizedIdentities[0]) {
+            throw new Error('E2E_FLOW_BUYER_EMAIL must match the shared five-role account email.');
+          }
           // Match the CI workflow's trusted-event gate: pushes/PRs must never
           // run transactional fixture validation, even if the stored secret opts in.
           const trustedRun = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch';
@@ -76,13 +85,14 @@ jobs:
             config.E2E_TRANSACTIONAL_FLOWS_ENABLED === true ||
             config.E2E_TRANSACTIONAL_FLOWS_ENABLED === 'true'
           );
-          const syntheticFixtureId = (key) => {
+          const stagingProfileId = (key) => {
             const value = required(key);
-            if (!/^E2E-[A-Za-z0-9_-]{3,80}$/.test(value)) {
-              throw new Error(key + ' must be a synthetic E2E- fixture ID when transactional E2E is enabled.');
+            if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(value)) {
+              throw new Error(key + ' must be a valid dedicated staging profile ID.');
             }
             return value;
           };
+          for (const key of ['E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID']) stagingProfileId(key);
           const expected = [
             ['BUYER', 'E2E_BUYER_IDENTITY', 'BUYER'],
             ['SELLER', 'E2E_SELLER_IDENTITY', 'SELLER'],
@@ -157,10 +167,17 @@ jobs:
               console.log('Starting role session check: ' + role + '.');
               sessionRequestsStarted += 1;
               const session = await postJson('/e2e/auth/token', { 'X-E2E-Flow-Token': sharedToken, 'X-E2E-Run-Id': runId }, { role, identifier: identity });
+              const reportedRoles = Array.isArray(session?.roles)
+                ? session.roles.map(value => String(value).toUpperCase()) : [];
+              const missingRoles = ['BUYER','SELLER','DELIVERY','PROFESSIONAL','ADMIN']
+                .filter(requiredRole => !reportedRoles.includes(requiredRole));
               if (session?.authenticated !== true ||
                   String(session?.role ?? '').toUpperCase() !== expectedRole ||
-                  typeof session?.token !== 'string' || session.token.length < 21) {
-                throw new Error('Role session contract failed for ' + role + '.');
+                  typeof session?.token !== 'string' || session.token.length < 21 ||
+                  missingRoles.length > 0 ||
+                  String(session?.user?.email ?? '').trim().toLowerCase() !== normalizedIdentities[0]) {
+                throw new Error('Shared account role contract failed for ' + role +
+                  (missingRoles.length ? '; missing roles: ' + missingRoles.join(', ') : '') + '.');
               }
               tokens[role] = session.token;
               if (role === 'BUYER') {
@@ -169,24 +186,27 @@ jobs:
                   mismatches.push('BUYER contact identity');
                 }
               }
-              if (transactionalFixturesEnabled && role === 'SELLER') {
+              if (role === 'SELLER') {
                 const seller = await getJson('/sellers/me', session.token);
-                if (String(seller.sellerId) !== syntheticFixtureId('E2E_FLOW_SELLER_ID')) {
-                  mismatches.push('SELLER profile ID');
+                if (String(seller.sellerId) !== stagingProfileId('E2E_FLOW_SELLER_ID')) mismatches.push('SELLER profile ID');
+                if (String(seller.status ?? '').toUpperCase() !== 'APPROVED' || seller.storeOpen !== true) {
+                  mismatches.push('SELLER profile is not approved and open');
                 }
               }
-              if (transactionalFixturesEnabled && role === 'DELIVERY') {
+              if (role === 'DELIVERY') {
                 const agent = await getJson('/delivery/me', session.token);
-                if (String(agent.agentId) !== syntheticFixtureId('E2E_FLOW_DELIVERY_AGENT_ID')) {
-                  mismatches.push('DELIVERY profile ID');
+                if (String(agent.agentId) !== stagingProfileId('E2E_FLOW_DELIVERY_AGENT_ID')) mismatches.push('DELIVERY profile ID');
+                if (String(agent.status ?? '').toUpperCase() !== 'ACTIVE' || agent.availableForJobs !== true) {
+                  mismatches.push('DELIVERY profile is not active and available');
                 }
               }
-              if (transactionalFixturesEnabled && role === 'PROVIDER') {
+              if (role === 'PROVIDER') {
                 const providerPhone = String(session.user?.phone ?? '');
                 if (!providerPhone) throw new Error('Provider session did not return a phone for profile verification.');
                 const profile = await getJson('/daily-help/professionals/by-phone/' + encodeURIComponent(providerPhone), session.token);
-                if (String(profile.professionalId) !== syntheticFixtureId('E2E_FLOW_PROFESSIONAL_ID')) {
-                  mismatches.push('PROVIDER profile ID');
+                if (!String(profile.professionalId ?? '').trim()) mismatches.push('PROVIDER profile ID missing');
+                if (Number(profile.verified) !== 1 || String(profile.status ?? '').toUpperCase() !== 'AVAILABLE') {
+                  mismatches.push('PROVIDER profile is not verified and available');
                 }
               }
               console.log((mismatches.length === mismatchCountBeforeRole ? 'PASS: ' : 'CHECK: ') +
@@ -195,18 +215,25 @@ jobs:
                   : ' session issued; a profile/configuration mismatch was recorded.'));
             }
 
+            const adminQueue = await getJson('/admin/sellers/pending', tokens.ADMIN);
+            if (!Array.isArray(adminQueue)) throw new Error('ADMIN role did not return the expected seller approval queue.');
+            for (const role of ['BUYER','SELLER']) {
+              const denied = await fetch(apiBase + '/admin/sellers/pending', {
+                headers: { 'Authorization': 'Bearer ' + tokens[role], 'Cache-Control': 'no-store', 'Accept': 'application/json' },
+                signal: AbortSignal.timeout(60000)
+              });
+              if (![401,403].includes(denied.status)) throw new Error(role + ' session unexpectedly accessed the admin approval queue.');
+            }
+            console.log('PASS: ADMIN can read approval queue; BUYER and SELLER sessions are denied.');
             if (transactionalFixturesEnabled) {
-              syntheticFixtureId('E2E_FLOW_SELLER_ID');
-              syntheticFixtureId('E2E_FLOW_DELIVERY_AGENT_ID');
-              syntheticFixtureId('E2E_FLOW_PROFESSIONAL_ID');
-              console.log('PASS: seller, delivery-agent and professional IDs are synthetic. Product, service and slot fixtures are provisioned per transaction run.');
+              console.log('PASS: all three pre-existing profiles are linked to the shared account and ready. Synthetic product, service and slot fixtures are provisioned per transaction run.');
             } else {
               console.log('SKIP: fixture/profile preflight because transactional E2E is disabled. No fixture reads or business mutations were attempted.');
             }
             if (mismatches.length) {
               throw new Error('Fixture/profile checks need configuration fixes: ' + [...new Set(mismatches)].join(', ') + '. No business transactions were attempted.');
             }
-            console.log('PASS: all five role sessions verified.' +
+            console.log('PASS: the same email account was verified to expose all five role profiles through every role-scoped token.' +
               (transactionalFixturesEnabled ? ' Synthetic fixture checks also passed.' : ' Fixture checks skipped because transactional E2E is disabled.') +
               ' No orders, bookings, inventory changes, OTPs, or customer records were created. Session tokens were not printed.');
           } catch (error) {

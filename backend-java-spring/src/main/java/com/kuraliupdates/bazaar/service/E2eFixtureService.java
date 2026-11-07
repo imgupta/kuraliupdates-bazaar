@@ -36,7 +36,8 @@ public class E2eFixtureService {
     public FixtureResult prepare(String runId, PrepareRequest request) {
         String sellerId = stagingProfileId(request.sellerId(), "sellerId");
         String agentId = stagingProfileId(request.deliveryAgentId(), "deliveryAgentId");
-        String professionalId = request.professionalId() == null || request.professionalId().isBlank() ? null : stagingProfileId(request.professionalId(), "professionalId");
+        String professionalId = request.professionalId() == null || request.professionalId().isBlank()
+                ? null : stagingProfileId(request.professionalId(), "professionalId");
 
         SellerEntity seller = sellerRepository.findById(sellerId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Synthetic seller profile was not found"));
@@ -48,10 +49,17 @@ public class E2eFixtureService {
         if (!"ACTIVE".equalsIgnoreCase(agent.getStatus()) || !Boolean.TRUE.equals(agent.getAvailableForJobs())) {
             throw new ApiException(HttpStatus.CONFLICT, "Synthetic delivery agent must be ACTIVE and available");
         }
-        // Resolve from the same allowlisted provider identity used by E2E auth.
-        // This avoids a stale manually copied profile ID drifting from the account.
-        DailyHelpProfessionalEntity professional = resolveProfessional(request.professionalIdentity(), professionalId);
+        UserEntity stagingUser = resolveStagingUser(request.professionalIdentity());
+        requireSameAccount(stagingUser, seller.getUserId(), "seller");
+        requireSameAccount(stagingUser, agent.getUserId(), "delivery-agent");
+        // Resolve from the already-verified shared account, not from a separately
+        // copied provider ID that could point at another person's profile.
+        DailyHelpProfessionalEntity professional = resolveProfessional(stagingUser, professionalId);
         String resolvedProfessionalId = professional.getProfessionalId();
+        requireSameAccount(stagingUser, professional.getUserId(), "Daily Help professional");
+        if (professionalId != null && !professionalId.equals(resolvedProfessionalId)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Configured professional profile ID does not match the profile linked to the shared E2E identity");
+        }
         if (!Integer.valueOf(1).equals(professional.getVerified())
                 || !"AVAILABLE".equalsIgnoreCase(professional.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "Synthetic professional must be verified and AVAILABLE");
@@ -181,25 +189,36 @@ public class E2eFixtureService {
 
     private record SlotSchedule(LocalDate date, LocalTime start, LocalTime end) {}
 
-    private DailyHelpProfessionalEntity resolveProfessional(String identity, String configuredProfileId) {
-        if (identity != null && !identity.isBlank()) {
-            boolean email = identity.trim().contains("@");
-            String normalized = email ? identity.trim().toLowerCase() : identity.trim().replaceAll("\\D", "");
-            var user = email ? userRepository.findByEmail(normalized) : userRepository.findByPhone(normalized);
-            if (user.isPresent()) {
-                var profile = professionalRepository.findByUserId(user.get().getUserId());
-                if (profile.isPresent()) return profile.get();
-            }
+    private UserEntity resolveStagingUser(String identity) {
+        if (identity == null || identity.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A shared E2E account email is required for fixture ownership checks");
         }
+        String value = identity.trim();
+        boolean email = value.contains("@");
+        String normalized = email ? value.toLowerCase() : value.replaceAll("\\D", "");
+        return (email ? userRepository.findByEmail(normalized) : userRepository.findByPhone(normalized))
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "The shared E2E account was not found for fixture ownership checks"));
+    }
+
+    private void requireSameAccount(UserEntity stagingUser, String profileUserId, String profileName) {
+        if (profileUserId == null || !profileUserId.equals(stagingUser.getUserId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN,
+                    "Configured " + profileName + " profile is not owned by the shared five-role E2E account");
+        }
+    }
+
+    private DailyHelpProfessionalEntity resolveProfessional(UserEntity stagingUser, String configuredProfileId) {
+        var linkedProfile = professionalRepository.findByUserId(stagingUser.getUserId());
+        if (linkedProfile.isPresent()) return linkedProfile.get();
         if (configuredProfileId != null) {
             return professionalRepository.findById(configuredProfileId)
                     .or(() -> professionalRepository.findByUserId(configuredProfileId))
                     .or(() -> professionalRepository.findByPhone(configuredProfileId))
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
-                            "Daily Help professional profile was not found for the allowlisted provider identity or configured profile ID"));
+                            "Daily Help professional profile was not found for the shared E2E account or configured profile ID"));
         }
         throw new ApiException(HttpStatus.NOT_FOUND,
-                "Daily Help professional profile was not found for the allowlisted provider identity");
+                "Daily Help professional profile was not found for the shared E2E account");
     }
 
     private String stagingProfileId(String value, String field) {

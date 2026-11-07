@@ -29,6 +29,9 @@ class E2eRunCleanupServiceTest {
 
     @Test
     void refusesCleanupBeforeAnyWriteWhenTaggedOrderReferencesNonSyntheticData() {
+        when(jdbc.queryForObject(
+                eq("SELECT LOCK_NAME FROM E2E_CLEANUP_MUTEX WHERE LOCK_NAME = 'GLOBAL' FOR UPDATE"),
+                eq(String.class))).thenReturn("GLOBAL");
         when(jdbc.queryForObject(anyString(), eq(Long.class), eq("E2E-run-123")))
                 .thenReturn(1L, 0L, 0L, 0L, 0L, 0L);
 
@@ -38,11 +41,18 @@ class E2eRunCleanupServiceTest {
     }
 
     @Test
-    void validatesDailyHelpSlotOwnershipThroughBookingIdWithoutAssumingBookingHasSlotId() {
+    void validatesDailyHelpSlotOwnershipThroughBookingIdWithoutAssumingBookingHasNoSlotId() {
+        when(jdbc.queryForObject(
+                eq("SELECT LOCK_NAME FROM E2E_CLEANUP_MUTEX WHERE LOCK_NAME = 'GLOBAL' FOR UPDATE"),
+                eq(String.class))).thenReturn("GLOBAL");
         when(jdbc.queryForObject(anyString(), eq(Long.class), any(Object[].class))).thenReturn(0L);
         when(jdbc.update(anyString(), any(Object[].class))).thenReturn(0);
 
         cleanupService.cleanup("E2E-run-123");
+
+        verify(jdbc).queryForObject(
+                "SELECT LOCK_NAME FROM E2E_CLEANUP_MUTEX WHERE LOCK_NAME = 'GLOBAL' FOR UPDATE",
+                String.class);
 
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
         verify(jdbc, times(7)).queryForObject(sql.capture(), eq(Long.class), any(Object[].class));

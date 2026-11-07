@@ -334,6 +334,26 @@ class DailyHelpServiceTest {
     }
 
     @Test
+    void replayingConsumedStartOtpIsIdempotentAndDoesNotResetStartTimestamp() {
+        LocalDateTime startedAt = LocalDateTime.now().minusMinutes(7);
+        DailyHelpBookingEntity booking = booking("BOOK-START-REPLAY", "IN_PROGRESS");
+        booking.setStartOtp(null);
+        booking.setOtpExpiresAt(null);
+        booking.setOtpVerifiedAt(startedAt);
+        booking.setServiceStartedAt(startedAt);
+        when(bookingRepository.findById("BOOK-START-REPLAY")).thenReturn(Optional.of(booking));
+
+        var response = dailyHelpService.startBooking("BOOK-START-REPLAY",
+                new DailyHelpStartRequest("DHP-1", "1234"));
+
+        assertEquals("IN_PROGRESS", response.status());
+        assertEquals(startedAt, response.serviceStartedAt());
+        assertNull(booking.getStartOtp());
+        assertEquals(startedAt, booking.getServiceStartedAt());
+        verify(bookingRepository, never()).save(any());
+    }
+
+    @Test
     void unassignedProfessionalCannotCompleteBooking() {
         DailyHelpBookingEntity booking = booking("BOOK-COMPLETE-OWNER", "IN_PROGRESS");
         when(bookingRepository.findById("BOOK-COMPLETE-OWNER")).thenReturn(Optional.of(booking));
