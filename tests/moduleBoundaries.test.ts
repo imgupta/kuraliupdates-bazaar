@@ -187,9 +187,10 @@ test('seller/admin and order/delivery operations are split into focused domain h
   for (const operation of ['registerSeller', 'approveSeller', 'rejectSeller', 'addProduct', 'updateProduct', 'deleteProduct', 'approveDeliveryAgent']) {
     assert.ok(sellerAdmin.includes(`const ${operation}`), `seller/admin operations should own ${operation}`);
   }
-  for (const operation of ['createOrder', 'updateOrderStatus', 'claimDeliveryJob', 'completeDelivery', 'registerDeliveryAgent']) {
+  for (const operation of ['createOrder', 'updateOrderStatus', 'claimDeliveryJob', 'completeDelivery']) {
     assert.ok(orderDelivery.includes(`const ${operation}`), `order/delivery operations should own ${operation}`);
   }
+  assert.ok(!orderDelivery.includes('registerDeliveryAgent'), 'local-only delivery registration must remain removed');
   assert.ok(operations.includes('useSellerAdminOperations'));
   assert.ok(operations.includes('useOrderDeliveryOperations'));
   assert.ok(operations.includes('return { ...sellerAdmin, ...orderDelivery }'));
