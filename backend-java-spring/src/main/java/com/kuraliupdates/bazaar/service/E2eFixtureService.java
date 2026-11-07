@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class E2eFixtureService {
-    private static final Pattern SYNTHETIC_ID = Pattern.compile("E2E-[A-Za-z0-9_-]{3,80}");
+    private static final Pattern STAGING_PROFILE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9_-]{0,127}");
     private static final BigDecimal TEST_PRICE = new BigDecimal("20.00");
 
     private final SellerRepository sellerRepository;
@@ -33,9 +33,9 @@ public class E2eFixtureService {
 
     @Transactional
     public FixtureResult prepare(String runId, PrepareRequest request) {
-        String sellerId = syntheticId(request.sellerId(), "sellerId");
-        String agentId = syntheticId(request.deliveryAgentId(), "deliveryAgentId");
-        String professionalId = syntheticId(request.professionalId(), "professionalId");
+        String sellerId = stagingProfileId(request.sellerId(), "sellerId");
+        String agentId = stagingProfileId(request.deliveryAgentId(), "deliveryAgentId");
+        String professionalId = stagingProfileId(request.professionalId(), "professionalId");
 
         SellerEntity seller = sellerRepository.findById(sellerId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Synthetic seller profile was not found"));
@@ -142,9 +142,9 @@ public class E2eFixtureService {
                 rollbackSellerId, multiSellerValidProductId, multiSellerFailProductId);
     }
 
-    private String syntheticId(String value, String field) {
-        if (value == null || !SYNTHETIC_ID.matcher(value.trim()).matches()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, field + " must be a synthetic E2E- profile ID");
+    private String stagingProfileId(String value, String field) {
+        if (value == null || !STAGING_PROFILE_ID.matcher(value.trim()).matches()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, field + " must be a valid dedicated staging profile ID");
         }
         return value.trim();
     }
