@@ -151,7 +151,7 @@ class BuyerControllerOrderAuthorizationTest {
     private Authentication authentication(UserEntity user, String authority) {
         Authentication authentication = mock(Authentication.class);
         when(authentication.getPrincipal()).thenReturn(user);
-        when(authentication.getAuthorities()).thenReturn(List.of(new SimpleGrantedAuthority(authority)));
+        doReturn(List.of(new SimpleGrantedAuthority(authority))).when(authentication).getAuthorities();
         return authentication;
     }
 
