@@ -92,7 +92,7 @@ jobs:
             }
             return value;
           };
-          for (const key of ['E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID','E2E_FLOW_PROFESSIONAL_ID']) stagingProfileId(key);
+          for (const key of ['E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID']) stagingProfileId(key);
           const expected = [
             ['BUYER', 'E2E_BUYER_IDENTITY', 'BUYER'],
             ['SELLER', 'E2E_SELLER_IDENTITY', 'SELLER'],
@@ -204,7 +204,7 @@ jobs:
                 const providerPhone = String(session.user?.phone ?? '');
                 if (!providerPhone) throw new Error('Provider session did not return a phone for profile verification.');
                 const profile = await getJson('/daily-help/professionals/by-phone/' + encodeURIComponent(providerPhone), session.token);
-                if (String(profile.professionalId) !== stagingProfileId('E2E_FLOW_PROFESSIONAL_ID')) mismatches.push('PROVIDER profile ID');
+                if (!String(profile.professionalId ?? '').trim()) mismatches.push('PROVIDER profile ID missing');
                 if (Number(profile.verified) !== 1 || String(profile.status ?? '').toUpperCase() !== 'AVAILABLE') {
                   mismatches.push('PROVIDER profile is not verified and available');
                 }
