@@ -27,6 +27,7 @@ public class E2eFixtureService {
     private final SellerRepository sellerRepository;
     private final DeliveryAgentRepository deliveryAgentRepository;
     private final DailyHelpProfessionalRepository professionalRepository;
+    private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final DailyHelpServiceRepository serviceRepository;
     private final DailyHelpProfessionalSlotRepository slotRepository;
@@ -35,7 +36,7 @@ public class E2eFixtureService {
     public FixtureResult prepare(String runId, PrepareRequest request) {
         String sellerId = stagingProfileId(request.sellerId(), "sellerId");
         String agentId = stagingProfileId(request.deliveryAgentId(), "deliveryAgentId");
-        String professionalId = stagingProfileId(request.professionalId(), "professionalId");
+        String professionalId = request.professionalId() == null || request.professionalId().isBlank() ? null : stagingProfileId(request.professionalId(), "professionalId");
 
         SellerEntity seller = sellerRepository.findById(sellerId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Synthetic seller profile was not found"));
@@ -47,12 +48,9 @@ public class E2eFixtureService {
         if (!"ACTIVE".equalsIgnoreCase(agent.getStatus()) || !Boolean.TRUE.equals(agent.getAvailableForJobs())) {
             throw new ApiException(HttpStatus.CONFLICT, "Synthetic delivery agent must be ACTIVE and available");
         }
-        // Configuration may contain either the profile primary key or its linked user ID.
-        // Resolve once and use the canonical profile ID for slot creation and later API calls.
-        DailyHelpProfessionalEntity professional = professionalRepository.findById(professionalId)
-                .or(() -> professionalRepository.findByUserId(professionalId))
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
-                        "Synthetic Daily Help professional was not found by professional ID or user ID"));
+        // Resolve from the same allowlisted provider identity used by E2E auth.
+        // This avoids a stale manually copied profile ID drifting from the account.
+        DailyHelpProfessionalEntity professional = resolveProfessional(request.professionalIdentity(), professionalId);
         String resolvedProfessionalId = professional.getProfessionalId();
         if (!Integer.valueOf(1).equals(professional.getVerified())
                 || !"AVAILABLE".equalsIgnoreCase(professional.getStatus())) {
@@ -147,6 +145,27 @@ public class E2eFixtureService {
                 rollbackSellerId, multiSellerValidProductId, multiSellerFailProductId);
     }
 
+    private DailyHelpProfessionalEntity resolveProfessional(String identity, String configuredProfileId) {
+        if (identity != null && !identity.isBlank()) {
+            boolean email = identity.trim().contains("@");
+            String normalized = email ? identity.trim().toLowerCase() : identity.trim().replaceAll("\\D", "");
+            var user = email ? userRepository.findByEmail(normalized) : userRepository.findByPhone(normalized);
+            if (user.isPresent()) {
+                var profile = professionalRepository.findByUserId(user.get().getUserId());
+                if (profile.isPresent()) return profile.get();
+            }
+        }
+        if (configuredProfileId != null) {
+            return professionalRepository.findById(configuredProfileId)
+                    .or(() -> professionalRepository.findByUserId(configuredProfileId))
+                    .or(() -> professionalRepository.findByPhone(configuredProfileId))
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
+                            "Daily Help professional profile was not found for the allowlisted provider identity or configured profile ID"));
+        }
+        throw new ApiException(HttpStatus.NOT_FOUND,
+                "Daily Help professional profile was not found for the allowlisted provider identity");
+    }
+
     private String stagingProfileId(String value, String field) {
         if (value == null || !STAGING_PROFILE_ID.matcher(value.trim()).matches()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, field + " must be a valid dedicated staging profile ID");
@@ -154,7 +173,7 @@ public class E2eFixtureService {
         return value.trim();
     }
 
-    public record PrepareRequest(String sellerId, String deliveryAgentId, String professionalId) {}
+    public record PrepareRequest(String sellerId, String deliveryAgentId, String professionalId, String professionalIdentity) {}
     public record FixtureResult(String productId, String sellerId, String deliveryAgentId,
                                 String serviceId, String slotId, String professionalId,
                                 String scheduledStart, int requestedHours, int stock, String unitPrice,
