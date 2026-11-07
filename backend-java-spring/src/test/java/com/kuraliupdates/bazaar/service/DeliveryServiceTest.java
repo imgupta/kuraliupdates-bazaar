@@ -37,6 +37,7 @@ class DeliveryServiceTest {
             String sql = invocation.getArgument(0);
             return sql.contains("RIDER_BASE_PAYOUT") ? new BigDecimal("45") : new BigDecimal("22");
         });
+        lenient().doReturn(1).when(jdbc).update(anyString(), any(Object[].class));
     }
 
     @Test
@@ -290,6 +291,7 @@ class DeliveryServiceTest {
         when(orderRepository.findLockedByOrderId("ORD-OTP-4")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
+        doReturn(1, 0).when(jdbc).update(anyString(), any(Object[].class));
         deliveryService.resendDeliveryOtp("ORD-OTP-4", user());
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.resendDeliveryOtp("ORD-OTP-4", user()));
@@ -298,6 +300,45 @@ class DeliveryServiceTest {
         verify(orderRepository, times(1)).save(order);
     }
 
+
+ 
+    @Test
+    void resendCooldownIsSharedAcrossIndependentDeliveryServiceInstances() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity order = OrderEntity.builder().orderId("ORD-OTP-MULTI-INSTANCE")
+                .status("PICKED_UP").deliveryAgent(agent).deliveryOtp("1234").build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findLockedByOrderId("ORD-OTP-MULTI-INSTANCE")).thenReturn(Optional.of(order));
+        doReturn(1, 0).when(jdbc).update(anyString(), any(Object[].class));
+
+        deliveryService.resendDeliveryOtp("ORD-OTP-MULTI-INSTANCE", user());
+        DeliveryService secondInstance = new DeliveryService(
+                agentRepository, orderRepository, jdbc, googleRoutesService);
+        ApiException error = assertThrows(ApiException.class,
+                () -> secondInstance.resendDeliveryOtp("ORD-OTP-MULTI-INSTANCE", user()));
+
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, error.getStatus());
+        verify(orderRepository, times(1)).save(order);
+        verify(jdbc, times(2)).update(anyString(), any(Object[].class));
+    }
+
+    @Test
+    void resendCooldownFailsClosedWhenDatabaseGuardIsUnavailable() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity order = OrderEntity.builder().orderId("ORD-OTP-GUARD-DB")
+                .status("PICKED_UP").deliveryAgent(agent).deliveryOtp("1234").build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findLockedByOrderId("ORD-OTP-GUARD-DB")).thenReturn(Optional.of(order));
+        doThrow(new org.springframework.dao.DataAccessResourceFailureException("database unavailable"))
+                .when(jdbc).update(anyString(), any(Object[].class));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.resendDeliveryOtp("ORD-OTP-GUARD-DB", user()));
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, error.getStatus());
+        assertEquals("1234", order.getDeliveryOtp());
+        verify(orderRepository, never()).save(any());
+    }
 
     @Test
     void correctOtpForAssignedAgentMarksOrderDeliveredAndCreditsPayout() {
