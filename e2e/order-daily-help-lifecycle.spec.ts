@@ -72,7 +72,9 @@ const runIds = new Map<string, string>();
 function testKey(info: TestInfo): string { return info.titlePath.join("::"); }
 function runScopedId(info: TestInfo): string {
   const run = (process.env.GITHUB_RUN_ID ?? randomUUID().replace(/-/g, "").slice(0, 12)).replace(/[^A-Za-z0-9_-]/g, "");
-  const attempt = (process.env.GITHUB_RUN_ATTEMPT ?? "1").replace(/[^A-Za-z0-9_-]/g, "");
+  // Playwright retries must get a fresh run ID; otherwise a retry can race
+  // the previous attempt's cleanup against fixtures recreated with the same IDs.
+  const attempt = ((process.env.GITHUB_RUN_ATTEMPT ?? "1") + "-r" + info.retry).replace(/[^A-Za-z0-9_-]/g, "");
   const title = info.title.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 28);
   return "E2E-" + run + "-" + attempt + "-" + title;
 }
@@ -221,27 +223,21 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     );
     expect([400, 409], "replaying an accepted offer must not apply it a second time").toContain(replayAccept.status());
 
-    // A later rejected offer must not replace the accepted price.
+    // An accepted bargain is terminal for further price offers. A later offer
+    // must be rejected without changing the agreed price or accepted offer ID.
     const lowerOfferPrice = buyerOfferPrice;
     const lowerOfferResponse = await request.post(apiBase + "/negotiations/" + encodeURIComponent(chatId) + "/messages", {
       headers: { ...auth(buyerToken), "X-Active-Role": "BUYER" },
       data: { text: "Can you do a lower price?", offerPrice: lowerOfferPrice },
       timeout: 20_000,
     });
-    expect(lowerOfferResponse.status()).toBe(200);
-    const lowerOfferChat = await lowerOfferResponse.json();
-    const lowerOffer = (lowerOfferChat.messages ?? []).find((message: any) =>
-      message.senderRole === "buyer" && message.offer?.status === "pending" && Number(message.offer.offeredPrice) === lowerOfferPrice
-    );
-    expect(lowerOffer).toBeTruthy();
-    const rejectResponse = await request.post(
-      apiBase + "/negotiations/" + encodeURIComponent(chatId) + "/offers/" + encodeURIComponent(lowerOffer.offer.id) + "/respond",
-      { headers: { ...auth(sellerToken), "X-Active-Role": "SELLER" }, data: { action: "REJECT" }, timeout: 20_000 },
-    );
-    expect(rejectResponse.status(), "seller can reject a subsequent offer").toBe(200);
-    const rejectedChat = await rejectResponse.json();
-    expect(Number(rejectedChat.currentAgreedPrice)).toBe(counterPrice);
-    expect(String(rejectedChat.currentAgreedOfferId)).toBe(String(sellerCounter.offer.id));
+    expect(lowerOfferResponse.status(), "a new price offer must be rejected after acceptance").toBe(409);
+    const buyerChatsAfterRejectedOffer = await getJson(request, "/negotiations?role=BUYER", buyerToken);
+    const unchangedChat = buyerChatsAfterRejectedOffer.find((chat: any) => chat.id === chatId);
+    expect(unchangedChat, "the accepted conversation remains visible").toBeTruthy();
+    expect(Number(unchangedChat.currentAgreedPrice)).toBe(counterPrice);
+    expect(String(unchangedChat.currentAgreedOfferId)).toBe(String(sellerCounter.offer.id));
+    expect(unchangedChat.bargainStatus).toBe("ACCEPTED");
 
     const catalogBeforeCheckout = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(productId), buyerToken);
     const productBeforeCheckout = catalogBeforeCheckout.find((p: any) => p.productId === productId);
@@ -400,7 +396,11 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const replayStart = await request.post(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId) + "/start", {
       headers: auth(professionalToken), data: { professionalId, otp: startOtp }, timeout: 20_000,
     });
-    expect([400, 409], "Daily Help start OTP replay must not restart or reset the timer").toContain(replayStart.status());
+    expect(replayStart.status(), "replaying a consumed OTP returns the existing in-progress booking idempotently").toBe(200);
+    const replayedStart = await replayStart.json();
+    expect(replayedStart.status).toBe("IN_PROGRESS");
+    expect(replayedStart.serviceStartedAt, "replay must not reset the original service start timestamp")
+      .toBe(started.serviceStartedAt);
 
     const completeResponse = await request.post(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId) + "/complete?professionalId=" + encodeURIComponent(professionalId), {
       headers: auth(professionalToken), timeout: 20_000,
