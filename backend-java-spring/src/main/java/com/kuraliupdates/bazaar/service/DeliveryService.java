@@ -337,7 +337,7 @@ public class DeliveryService {
     private String hashDeliveryOtpResendKey(String value) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(("delivery-otp-resend\\n" + value).getBytes(StandardCharsets.UTF_8));
+                    .digest(("delivery-otp-resend\n" + value).getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 is unavailable", impossible);
