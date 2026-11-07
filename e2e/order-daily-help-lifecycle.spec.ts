@@ -449,6 +449,47 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(Number(validProduct.stock ?? validProduct.stockQty)).toBe(2);
     expect(Number(failProduct.stock ?? failProduct.stockQty)).toBe(0);
 
+    // Exercise the independent seller-rejection path on whichever rollback
+    // product belongs to the configured seller. This preserves explicit
+    // coverage of REJECT without trying to reopen an already accepted bargain.
+    const sellerOwnedNegotiationProduct = [validProduct, failProduct].find((item: any) =>
+      (item.sellerId ?? item.seller?.sellerId) === sellerId
+    );
+    expect(sellerOwnedNegotiationProduct, "one rollback fixture belongs to the configured seller").toBeTruthy();
+    const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY", runId);
+    const rejectionPrice = Number(sellerOwnedNegotiationProduct.effectivePrice
+      ?? sellerOwnedNegotiationProduct.price ?? sellerOwnedNegotiationProduct.sellerPrice) * 0.9;
+    const rejectionChatResponse = await request.post(apiBase + "/negotiations", {
+      headers: taggedAuth(buyerToken, runId),
+      data: {
+        productId: sellerOwnedNegotiationProduct.productId,
+        startingOfferPrice: Math.round(rejectionPrice * 100) / 100,
+        openingMessage: "E2E seller rejection regression",
+      },
+      timeout: 20_000,
+    });
+    expect(rejectionChatResponse.status()).toBe(200);
+    const rejectionChat = await rejectionChatResponse.json();
+    const pendingBuyerOffer = (rejectionChat.messages ?? []).find((message: any) =>
+      message.senderRole === "buyer" && message.offer?.status === "pending"
+    );
+    expect(pendingBuyerOffer).toBeTruthy();
+    const sellerRejectResponse = await request.post(
+      apiBase + "/negotiations/" + encodeURIComponent(rejectionChat.id)
+        + "/offers/" + encodeURIComponent(pendingBuyerOffer.offer.id) + "/respond",
+      {
+        headers: { ...auth(sellerToken), "X-Active-Role": "SELLER" },
+        data: { action: "REJECT" },
+        timeout: 20_000,
+      },
+    );
+    expect(sellerRejectResponse.status(), "seller can reject a pending buyer offer").toBe(200);
+    const sellerRejectedChat = await sellerRejectResponse.json();
+    expect(sellerRejectedChat.bargainStatus).toBe("REJECTED");
+    expect(sellerRejectedChat.messages.some((message: any) =>
+      message.offer?.id === pendingBuyerOffer.offer.id && message.offer?.status === "REJECTED"
+    )).toBe(true);
+
     const response = await request.post(apiBase + "/buyers/orders/checkout", {
       headers: taggedAuth(buyerToken, runId),
       data: {
