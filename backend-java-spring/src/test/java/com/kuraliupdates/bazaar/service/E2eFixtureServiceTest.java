@@ -54,7 +54,7 @@ class E2eFixtureServiceTest {
         when(slots.save(any(DailyHelpProfessionalSlotEntity.class))).thenAnswer(i -> i.getArgument(0));
 
         var result = fixtureService.prepare(runId,
-                new E2eFixtureService.PrepareRequest("stage-seller-01", "stage-agent-01", "stage-provider-01", "provider@example.test"));
+                new E2eFixtureService.PrepareRequest("stage-seller-01", "stage-agent-01", null, "provider@example.test"));
 
         assertTrue(result.productId().startsWith("E2E-P-"));
         assertTrue(result.serviceId().startsWith("E2E-S-"));
@@ -100,12 +100,13 @@ class E2eFixtureServiceTest {
         when(services.save(any(DailyHelpServiceEntity.class))).thenAnswer(i -> i.getArgument(0));
         when(slots.save(any(DailyHelpProfessionalSlotEntity.class))).thenAnswer(i -> i.getArgument(0));
 
-        var result = fixtureService.prepare(runId,
-                new E2eFixtureService.PrepareRequest("stage-seller-01", "stage-agent-01", "stage-provider-canonical", "PROVIDER@example.test"));
+        ApiException error = assertThrows(ApiException.class, () -> fixtureService.prepare(runId,
+                new E2eFixtureService.PrepareRequest("stage-seller-01", "stage-agent-01", "stale-provider-id", "PROVIDER@example.test")));
 
-        assertEquals("stage-provider-canonical", result.professionalId());
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, error.getStatus());
         verify(users).findByEmail("provider@example.test");
         verify(professionals).findByUserId("stage-provider-user-01");
+        verifyNoInteractions(products, services, slots);
     }
 
     @Test
