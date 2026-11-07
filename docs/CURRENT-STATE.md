@@ -1,7 +1,7 @@
 # Current implementation status and remaining work
 
-**Last reconciled:** 6 November 2026  
-**Current main evidence checkpoint:** `656ddd5bedc9d8b48a027ba574bb5263a284f633` (PR #263 merged; adds negotiation controller principal/role boundary coverage on top of the earlier buyer, seller, delivery and Daily Help authorization slices). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
+**Last reconciled:** 7 November 2026  
+**Current main evidence checkpoint:** `bdf53de60e2ca59b92e35cde472f9b4864ad2bbc` (PRs #285–#289 and the staging-readiness follow-up are merged; exact deployed backend SHA is separately verified as `b491795f9b7a7b0d91d21a3835cc6287e190573f`). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
 
 **Phase 0 formal evidence disposition (6 Nov 2026):** The security-hardening milestone and subsequent authorization slices are merged, but the repository still lacks evidence to sign off all formal exit gates. See [Phase 0 Formal Evidence and Exit Register](PHASE-0-FORMAL-EVIDENCE-REGISTER.md) for completed evidence, partial/blocked items, required closure pack and sign-off form. Do not infer backup/restore, Oracle live-schema, India residency, secret rotation or qualified legal review from CI.
 
@@ -143,3 +143,17 @@ Standard KuraliUpdates CI and E2E run 42218558947 is still pending with no jobs 
 - Corrected the workflow in commit `2c5a922cf88ff28a14a07dad9be59e156202e809`: it now polls `/health/live` for up to six minutes before requesting role sessions. Cleanup count validation now accepts only the safe interval from successfully returned tokens through attempted requests, accounting for a server-side session whose HTTP response was lost. Cleanup remains scoped to the unique run ID only.
 - Push-triggered preflight run `42340528387` passed. Logs confirm liveness was UP on the first probe; Buyer, Seller, Delivery, Provider and Admin sessions all passed; cleanup removed exactly 5 sessions from 5 attempted requests and 5 returned tokens. No orders, bookings, inventory changes, OTPs, customer records, or synthetic fixture mutations were performed. Transactional fixture/profile checks were intentionally skipped because this was a push/PR event, not trusted `workflow_dispatch`.
 - The PR-triggered preflight and standard CI for this exact head must also complete successfully before merge. Phase 1 remains IN PROGRESS; transactional lifecycle and OTP-driven tests remain outstanding.
+
+## 7 November 2026 — Phase 1 transactional staging evidence
+
+- PR #285 and PR #286 corrected the Oracle cleanup session initialization, Oracle timestamp precision, checkout fixture phone normalization and deployment-readiness stabilization.
+- PR #287 added indexed exact product-ID lookup and corrected the delivery E2E to include the seller-pickup confirmation transition before customer delivery OTP.
+- PR #288 pinned staging readiness to the actual deployed backend commit; the workflow requires 12 consecutive healthy API/database checks for the expected backend SHA.
+- PR #289 enabled the read-only admin approval-queue authorization test on main-branch push events. It is merged as `972f187443cb8bf00ea31428e5f317b62f8ee552`.
+- Follow-up workflow commit `bdf53de60e2ca59b92e35cde472f9b4864ad2bbc` resolves the expected backend SHA from Render, so frontend/workflow-only commits do not falsely require the backend to deploy an identical commit.
+- Transactional staging run [42365076271](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/42365076271) passed against the verified live backend commit `b491795f9b7a7b0d91d21a3835cc6287e190573f`: readiness passed for two continuous minutes; all **5 tests passed, 0 failed, 0 skipped**.
+- Verified scenarios: buyer bargaining/order checkout through seller fulfilment, concurrent rider claim and delivery OTP/replay; Daily Help competing booking for one slot, start OTP/replay and completion; multi-seller rollback; concurrent last-stock checkout/no oversell; admin approval queue access for ADMIN and denial for BUYER/SELLER.
+- Artifact: [phase1-staging-transactional-e2e](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/42365076271/artifacts/13571925468). Cleanup is part of the Playwright lifecycle hooks; the workflow and report completed successfully.
+- This verifies the exercised staging scenarios only. It does not close the exhaustive endpoint/IDOR matrix, two-distinct-agent checkout-group race, separate Oracle schema isolation, backup/restore, India production residency, secret rotation or qualified professional sign-off.
+
+**Phase 1 disposition remains IN PROGRESS.** Continue with the remaining P1-A authorization/PII matrix and P1-C gaps; do not infer Phase 0 or production release closure from this run.
