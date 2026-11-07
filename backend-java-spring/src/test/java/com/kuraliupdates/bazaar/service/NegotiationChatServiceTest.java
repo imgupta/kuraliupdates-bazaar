@@ -246,15 +246,14 @@ class NegotiationChatServiceTest {
         org.mockito.Mockito.doReturn(List.of()).when(jdbc).query(
                 ArgumentMatchers.anyString(),
                 ArgumentMatchers.<RowMapper<String>>any(),
-                ArgumentMatchers.<Object[]>any());
+                ArgumentMatchers.anyString());
 
         assertEquals(List.of(), service.list(buyer, "BUYER"));
 
         org.mockito.Mockito.verify(jdbc).query(
                 ArgumentMatchers.contains("WHERE LOWER(c.BUYER_EMAIL)=?"),
                 ArgumentMatchers.<RowMapper<String>>any(),
-                ArgumentMatchers.<Object[]>argThat(args ->
-                        args.length == 1 && "buyer@example.test".equals(args[0])));
+                ArgumentMatchers.eq("buyer@example.test"));
     }
 
     @Test
@@ -282,8 +281,7 @@ class NegotiationChatServiceTest {
         org.mockito.Mockito.verify(jdbc).query(
                 ArgumentMatchers.contains("WHERE c.SELLER_ID=?"),
                 ArgumentMatchers.<RowMapper<String>>any(),
-                ArgumentMatchers.<Object[]>argThat(args ->
-                        args.length == 1 && "seller-1".equals(args[0])));
+                ArgumentMatchers.eq("seller-1"));
     }
 
     @Test
@@ -291,17 +289,16 @@ class NegotiationChatServiceTest {
         org.mockito.Mockito.doReturn(List.of()).when(jdbc).query(
                 ArgumentMatchers.anyString(),
                 ArgumentMatchers.<RowMapper<Map<String, Object>>>any(),
-                ArgumentMatchers.<Object[]>any());
+                ArgumentMatchers.anyString(),
+                ArgumentMatchers.anyString());
 
         assertEquals(List.of(), service.notifications(buyer, "BUYER"));
 
         org.mockito.Mockito.verify(jdbc).query(
                 ArgumentMatchers.contains("WHERE LOWER(RECIPIENT_EMAIL)=? AND RECIPIENT_ROLE=? AND IS_READ=0"),
                 ArgumentMatchers.<RowMapper<Map<String, Object>>>any(),
-                ArgumentMatchers.<Object[]>argThat(args ->
-                        args.length == 2
-                                && "buyer@example.test".equals(args[0])
-                                && "BUYER".equals(args[1])));
+                ArgumentMatchers.eq("buyer@example.test"),
+                ArgumentMatchers.eq("BUYER"));
     }
 
 }
