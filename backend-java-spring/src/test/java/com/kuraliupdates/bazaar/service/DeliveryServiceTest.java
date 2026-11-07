@@ -60,14 +60,31 @@ class DeliveryServiceTest {
     void deliveryProfileWithConflictingUserIdCannotBeClaimedByMatchingEmail() {
         UserEntity authenticated = UserEntity.builder().userId("attacker-user")
                 .email("rider@example.com").phone("9876543210").role("DELIVERY").build();
+        DeliveryAgentEntity anotherUsersProfile = DeliveryAgentEntity.builder().agentId("AGENT-1")
+                .userId("victim-user").email("rider@example.com").phone("9876543210")
+                .status("ACTIVE").build();
         when(agentRepository.findByUserId("attacker-user")).thenReturn(Optional.empty());
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(anotherUsersProfile));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.currentAgent(authenticated));
 
         assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
-        verify(agentRepository, never()).findByEmail(anyString());
+        verify(agentRepository).findByEmail("rider@example.com");
         verify(agentRepository, never()).findByPhone(anyString());
+    }
+
+    @Test
+    void legacyUnlinkedDeliveryProfileCanUseVerifiedEmailFallback() {
+        UserEntity authenticated = user();
+        DeliveryAgentEntity legacy = DeliveryAgentEntity.builder().agentId("AGENT-LEGACY")
+                .email("rider@example.com").phone("9876543210").status("ACTIVE").build();
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.empty());
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(legacy));
+
+        DeliveryAgentEntity result = deliveryService.currentAgent(authenticated);
+
+        assertEquals("AGENT-LEGACY", result.getAgentId());
     }
 
     @Test
