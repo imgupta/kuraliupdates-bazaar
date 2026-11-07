@@ -348,7 +348,9 @@ public class DailyHelpService {
         if (!"IN_PROGRESS".equals(booking.getStatus())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Booking is not in progress");
         }
-        LocalDateTime now = LocalDateTime.now();
+        // Oracle TIMESTAMP(6) stores microseconds; normalize before returning the
+        // response so immediate reads and idempotent reconciliation match exactly.
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
         booking.setServiceCompletedAt(now);
         booking.setStatus("COMPLETED");
         booking.setUpdatedAt(now);

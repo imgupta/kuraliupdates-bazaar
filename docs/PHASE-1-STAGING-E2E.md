@@ -52,3 +52,7 @@ Service-level regression tests now cover:
 - rejection of partially ready groups without mutation.
 
 These mocked service tests are not Oracle concurrency evidence. A two-distinct-agent combined-group race remains blocked until a dedicated isolated Oracle target and two approved synthetic active delivery identities are available.
+
+## Daily Help completion precision finding — 7 November 2026
+
+A staging rerun found a one-microsecond mismatch in `serviceCompletedAt` between the completion response and the next read. Oracle stores `TIMESTAMP(6)`; completion had returned a nanosecond-precision local timestamp. The completion service now normalizes the timestamp to microseconds before save/response, with a focused regression test. The failed staging run is retained as a failure (4 passed plus one flaky test); a fresh exact-commit run is required after deployment.
