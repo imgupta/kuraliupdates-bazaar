@@ -18,6 +18,11 @@ public interface ProductRepository extends JpaRepository<ProductEntity, String> 
 
     List<ProductEntity> findBySeller_SellerId(String sellerId);
 
+    // Product IDs are primary keys. Resolve exact ID searches through the index
+    // instead of forcing the catalogue's contains-text scan over every product.
+    @Query("SELECT p FROM ProductEntity p JOIN FETCH p.seller s WHERE p.productId = :productId AND UPPER(s.status) = 'APPROVED'")
+    Optional<ProductEntity> findApprovedByProductId(@Param("productId") String productId);
+
     java.util.Optional<ProductEntity> findFirstByE2eRunId(String e2eRunId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
