@@ -39,6 +39,7 @@ class HealthControllerTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("UP", response.getBody().get("status"));
         assertEquals("UP", response.getBody().get("database"));
+        assertEquals("test-commit-sha", response.getBody().get("commit"));
         verify(connection).close();
     }
 
