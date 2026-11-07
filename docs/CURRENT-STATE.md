@@ -261,3 +261,19 @@ Read-only inspection found six Git-linked Vercel projects for this repository: `
 Against current main (`ed69c9f4f6289cba6c38b71c364d6f4f1700df29`), Buyer was deployed at current main; Delivery was at `cf21ae0b5d711c8e472a7a50afb2d4f4155e1ca8` (3 commits behind); Bazaar, Seller, Daily Help and Admin were at `b675c225d12e4f5ccfaa301d97ae81fb6d300bf9` (4 commits behind). These are provider metadata observations, not runtime smoke tests. No deployment was triggered and no project setting was changed.
 
 The inspected project-detail response did not expose `rootDirectory` or `commandForIgnoringBuildStep`, so the ignore-build command has **not** been enabled. Obtain authoritative settings for all six projects and verify the script is available from each configured root before configuring. A READY deployment is not necessarily current with main.
+
+
+## PR #313 merged — 7 November 2026
+
+PR #313 was squash-merged to main as `0d50ee68a39c85d0fbadffeae92e74a0bc187fa2`. It consolidates the affected-portal build classifier, regression coverage for the Vercel Ignore Build script, and moves the shared staging concurrency lock to the browser E2E job so frontend/backend CI can run in parallel while staging E2E remains serialized.
+
+Exact PR head `ff11e6f7845f6ec93df381b197ed53f6a0ba7309` passed the full CI/E2E workflow and Seller registration quality gates:
+- Backend full Maven suite: 324 tests, 0 failures/errors/skips.
+- Frontend checks: TypeScript, regression suites, shared production build, portal-impact tests and Vercel Ignore Build decision tests passed.
+- Browser E2E: 3 passed, 6 skipped. OTP-driven login remained skipped because staging email suppression/capture was not confirmed.
+- Read-only smoke: 7 passed, 0 failed; `databaseHealthChecked=false`, so this is not a DB-readiness result.
+- A fresh main transactional staging run before the merge passed 5/5 scenarios with exact backend commit and database readiness verified.
+
+Post-merge main commit `0d50ee68a39c85d0fbadffeae92e74a0bc187fa2` has backend Maven, frontend checks and Seller quality gates passed. The post-merge staging transactional workflow is running separately; record its final result before calling the merge commit staging-verified. Vercel has no deployment record for the merge SHA; no production deployment was triggered and no Vercel project settings were changed.
+
+Phase 1 and Phase 0 remain IN PROGRESS. The build optimization is not operationally activated until all six Vercel project roots and Ignore Build Step commands are authoritatively verified.
