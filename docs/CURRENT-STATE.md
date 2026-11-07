@@ -157,3 +157,11 @@ Standard KuraliUpdates CI and E2E run 42218558947 is still pending with no jobs 
 - This verifies the exercised staging scenarios only. It does not close the exhaustive endpoint/IDOR matrix, two-distinct-agent checkout-group race, separate Oracle schema isolation, backup/restore, India production residency, secret rotation or qualified professional sign-off.
 
 **Phase 1 disposition remains IN PROGRESS.** Continue with the remaining P1-A authorization/PII matrix and P1-C gaps; do not infer Phase 0 or production release closure from this run.
+
+
+## 7 November 2026 — staging E2E readiness latency optimization
+
+- Inspected exact job logs for main staging run `42365076271`: readiness consumed about 1m55s from 12 consecutive healthy database/API probes at 10-second intervals; the five transactional Playwright tests consumed 2m48s, including a 1m36s buyer/seller/delivery lifecycle.
+- The staging workflow is being updated to retain exact deployed-backend SHA matching, HTTP success, API `UP`, and database `UP`, while reducing the stability gate to three consecutive probes at five-second intervals. The outer eight-minute deadline remains for Render cold starts. The intended steady-state gate is approximately 10–15 seconds after the first successful probe.
+- The five mutating E2E tests remain serial; parallel execution is intentionally avoided because the tests share staging identities and buyer/seller account history and have run-scoped cleanup.
+- No backend, schema, secrets, or staging data are changed by this workflow optimization. The reduced gate must pass exact-head CI and a fresh main staging execution before its timing improvement is considered verified.
