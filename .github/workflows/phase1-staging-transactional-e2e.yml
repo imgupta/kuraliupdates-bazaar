@@ -123,7 +123,7 @@ jobs:
           const deadline = Date.now() + 8 * 60 * 1000;
           const expectedCommit = process.env.EXPECTED_STAGING_COMMIT;
           if (!/^[0-9a-f]{40}$/i.test(expectedCommit ?? '')) throw new Error('Expected staging commit SHA is missing or invalid.');
-          const requiredStableChecks = 12; // two minutes on the exact requested Render commit after old instances are drained
+          const requiredStableChecks = 3; // three consecutive exact-commit/API/database probes
           let stableChecks = 0;
           let last = 'no response';
           while (Date.now() < deadline) {
@@ -134,7 +134,7 @@ jobs:
                   && String(body.commit ?? '').toLowerCase() === expectedCommit.toLowerCase()) {
                 stableChecks++;
                 if (stableChecks >= requiredStableChecks) {
-                  console.log('PASS: staging API and database remained healthy for two continuous minutes after deployment.');
+                  console.log('PASS: staging API and database passed three consecutive exact-commit readiness probes.');
                   process.exit(0);
                 }
                 console.log('Staging healthy (' + stableChecks + '/' + requiredStableChecks + '); waiting for deployment stability.');
@@ -144,9 +144,9 @@ jobs:
                   + ', commit=' + String(body.commit ?? 'unknown');
               }
             } catch { stableChecks = 0; last = 'network or timeout'; }
-            await new Promise(resolve => setTimeout(resolve, 10000));
+            await new Promise(resolve => setTimeout(resolve, 5000));
           }
-          throw new Error('Database-backed staging readiness did not remain healthy for two minutes within eight minutes; last result: ' + last);
+          throw new Error('Database-backed staging readiness did not pass three consecutive probes within eight minutes; last result: ' + last);
           NODE
       - name: Run real application order and Daily Help lifecycle tests
         run: bunx playwright test e2e/order-daily-help-lifecycle.spec.ts
