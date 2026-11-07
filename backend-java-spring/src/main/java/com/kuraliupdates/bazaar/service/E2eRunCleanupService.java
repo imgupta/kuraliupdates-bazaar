@@ -26,12 +26,6 @@ public class E2eRunCleanupService {
         jdbc.queryForObject(
                 "SELECT LOCK_NAME FROM E2E_CLEANUP_MUTEX WHERE LOCK_NAME = 'GLOBAL' FOR UPDATE",
                 String.class);
-        // NO_PARALLEL hints constrain individual statements, but Oracle can still
-        // execute DML in parallel when the session has PARALLEL DML enabled. Disable
-        // it for this pooled connection before any cleanup write; this session setting
-        // is intentionally one-way because application cleanup must always be serial.
-        jdbc.execute("ALTER SESSION DISABLE PARALLEL DML");
-
         long unsafeOrders = count("""
                 SELECT COUNT(*) FROM ORDERS o
                 WHERE o.E2E_RUN_ID = ?
