@@ -77,6 +77,121 @@ class OrderServiceTest {
     }
 
     @Test
+    void buyerCancellationRestoresStockAndIsIdempotent() {
+        ProductEntity product = ProductEntity.builder().productId("P-CANCEL").stock(3).build();
+        var item = com.kuraliupdates.bazaar.entity.OrderItemEntity.builder()
+                .itemId("I-CANCEL").product(product).quantity(2).build();
+        OrderEntity order = OrderEntity.builder().orderId("ORD-CANCEL")
+                .buyerEmail("authenticated@example.test").status("PLACED")
+                .paymentStatus("PENDING_COD").items(new java.util.ArrayList<>(List.of(item))).build();
+        when(orderRepository.findById("ORD-CANCEL")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-CANCEL")).thenReturn(Optional.of(order));
+        when(productRepository.findLockedByProductId("P-CANCEL")).thenReturn(Optional.of(product));
+        when(orderRepository.saveAll(any(Iterable.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = orderService.cancelOrderForBuyer("ORD-CANCEL", buyer());
+
+        assertEquals("CANCELLED", response.status());
+        assertEquals("CANCELLED", order.getPaymentStatus());
+        assertEquals(5, product.getStock());
+        orderService.cancelOrderForBuyer("ORD-CANCEL", buyer());
+        assertEquals(5, product.getStock());
+        verify(productRepository, times(1)).findLockedByProductId("P-CANCEL");
+    }
+
+    @Test
+    void buyerCannotCancelAnotherBuyersOrder() {
+        OrderEntity order = OrderEntity.builder().orderId("ORD-OTHER")
+                .buyerEmail("someone-else@example.test").status("PLACED").build();
+        when(orderRepository.findById("ORD-OTHER")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-OTHER")).thenReturn(Optional.of(order));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.cancelOrderForBuyer("ORD-OTHER", buyer()));
+
+        assertEquals(HttpStatus.NOT_FOUND, error.getStatus());
+        verifyNoInteractions(productRepository);
+        verify(orderRepository, never()).saveAll(any(Iterable.class));
+    }
+
+    @Test
+    void paidOrAlreadyFulfilledBuyerOrderCannotBeCancelled() {
+        OrderEntity paid = OrderEntity.builder().orderId("ORD-PAID")
+                .buyerEmail("authenticated@example.test").status("PLACED")
+                .paymentStatus("PAID").build();
+        when(orderRepository.findById("ORD-PAID")).thenReturn(Optional.of(paid));
+        when(orderRepository.findLockedByOrderId("ORD-PAID")).thenReturn(Optional.of(paid));
+        ApiException paidError = assertThrows(ApiException.class,
+                () -> orderService.cancelOrderForBuyer("ORD-PAID", buyer()));
+        assertEquals(HttpStatus.CONFLICT, paidError.getStatus());
+
+        OrderEntity fulfilled = OrderEntity.builder().orderId("ORD-DONE")
+                .buyerEmail("authenticated@example.test").status("READY_FOR_PICKUP")
+                .paymentStatus("PENDING_COD").build();
+        when(orderRepository.findById("ORD-DONE")).thenReturn(Optional.of(fulfilled));
+        when(orderRepository.findLockedByOrderId("ORD-DONE")).thenReturn(Optional.of(fulfilled));
+        ApiException fulfilledError = assertThrows(ApiException.class,
+                () -> orderService.cancelOrderForBuyer("ORD-DONE", buyer()));
+        assertEquals(HttpStatus.CONFLICT, fulfilledError.getStatus());
+        verifyNoInteractions(productRepository);
+    }
+
+    @Test
+    void multiSellerBuyerCancellationRestoresAllGroupStockInDeterministicOrder() {
+        ProductEntity p1 = ProductEntity.builder().productId("P-1").stock(1).build();
+        ProductEntity p2 = ProductEntity.builder().productId("P-2").stock(4).build();
+        OrderEntity first = OrderEntity.builder().orderId("ORD-G1").checkoutGroupId("CHK-1")
+                .buyerEmail("authenticated@example.test").status("PLACED").paymentStatus("PENDING_COD")
+                .items(new java.util.ArrayList<>(List.of(com.kuraliupdates.bazaar.entity.OrderItemEntity.builder()
+                        .itemId("I-1").product(p1).quantity(2).build()))).build();
+        OrderEntity second = OrderEntity.builder().orderId("ORD-G2").checkoutGroupId("CHK-1")
+                .buyerEmail("authenticated@example.test").status("ACCEPTED_BY_SELLER").paymentStatus("PENDING_COD")
+                .items(new java.util.ArrayList<>(List.of(com.kuraliupdates.bazaar.entity.OrderItemEntity.builder()
+                        .itemId("I-2").product(p2).quantity(3).build()))).build();
+        when(orderRepository.findById("ORD-G1")).thenReturn(Optional.of(first));
+        when(orderRepository.findLockedByCheckoutGroupId("CHK-1")).thenReturn(List.of(first, second));
+        when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(p1));
+        when(productRepository.findLockedByProductId("P-2")).thenReturn(Optional.of(p2));
+        when(orderRepository.saveAll(any(Iterable.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = orderService.cancelOrderForBuyer("ORD-G1", buyer());
+
+        assertEquals("CANCELLED", response.status());
+        assertEquals(3, p1.getStock());
+        assertEquals(7, p2.getStock());
+        assertEquals("CANCELLED", second.getStatus());
+        var order = inOrder(productRepository);
+        order.verify(productRepository).findLockedByProductId("P-1");
+        order.verify(productRepository).findLockedByProductId("P-2");
+    }
+
+    @Test
+    void buyerCancellationDoesNotRestoreStockAgainForSellerCancelledSuborder() {
+        ProductEntity alreadyRestored = ProductEntity.builder().productId("P-OLD").stock(3).build();
+        ProductEntity stillReserved = ProductEntity.builder().productId("P-NEW").stock(1).build();
+        OrderEntity cancelled = OrderEntity.builder().orderId("ORD-MIX-1").checkoutGroupId("CHK-MIX")
+                .buyerEmail("authenticated@example.test").status("CANCELLED").paymentStatus("CANCELLED")
+                .items(new java.util.ArrayList<>(List.of(com.kuraliupdates.bazaar.entity.OrderItemEntity.builder()
+                        .itemId("I-OLD").product(alreadyRestored).quantity(2).build()))).build();
+        OrderEntity active = OrderEntity.builder().orderId("ORD-MIX-2").checkoutGroupId("CHK-MIX")
+                .buyerEmail("authenticated@example.test").status("PLACED").paymentStatus("PENDING_COD")
+                .items(new java.util.ArrayList<>(List.of(com.kuraliupdates.bazaar.entity.OrderItemEntity.builder()
+                        .itemId("I-NEW").product(stillReserved).quantity(3).build()))).build();
+        when(orderRepository.findById("ORD-MIX-1")).thenReturn(Optional.of(cancelled));
+        when(orderRepository.findLockedByCheckoutGroupId("CHK-MIX")).thenReturn(List.of(cancelled, active));
+        when(productRepository.findLockedByProductId("P-NEW")).thenReturn(Optional.of(stillReserved));
+        when(orderRepository.saveAll(any(Iterable.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        orderService.cancelOrderForBuyer("ORD-MIX-1", buyer());
+
+        assertEquals(3, alreadyRestored.getStock());
+        assertEquals(4, stillReserved.getStock());
+        assertEquals("CANCELLED", active.getStatus());
+        verify(productRepository, never()).findLockedByProductId("P-OLD");
+        verify(productRepository).findLockedByProductId("P-NEW");
+    }
+
+    @Test
     void placesOrderPersistsLineItemsAndReservesStockExactlyOnce() {
         SellerEntity seller = seller();
         ProductEntity product = ProductEntity.builder().productId("P-1").seller(seller)

@@ -65,6 +65,15 @@ public class BuyerController {
         return ResponseEntity.ok(orderService.placeMultiSellerOrder(request, user, e2eRunId));
     }
 
+    @PostMapping("/orders/{orderId}/cancel")
+    @Operation(summary = "Cancel an eligible buyer order and restore checkout inventory atomically")
+    public ResponseEntity<OrderResponse> cancelOrder(
+            @PathVariable String orderId,
+            Authentication authentication) {
+        UserEntity user = requireBuyer(authentication);
+        return ResponseEntity.ok(orderService.cancelOrderForBuyer(orderId, user));
+    }
+
     @PostMapping("/orders/{orderId}/confirm-pickup")
     @Operation(summary = "Confirm store pickup using the buyer's one-time pickup OTP")
     public ResponseEntity<OrderResponse> confirmStorePickup(
