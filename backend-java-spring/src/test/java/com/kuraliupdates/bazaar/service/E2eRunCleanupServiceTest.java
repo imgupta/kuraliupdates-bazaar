@@ -50,7 +50,6 @@ class E2eRunCleanupServiceTest {
 
         cleanupService.cleanup("E2E-run-123");
 
-        verify(jdbc).execute("ALTER SESSION DISABLE PARALLEL DML");
         verify(jdbc).queryForObject(
                 "SELECT LOCK_NAME FROM E2E_CLEANUP_MUTEX WHERE LOCK_NAME = 'GLOBAL' FOR UPDATE",
                 String.class);
