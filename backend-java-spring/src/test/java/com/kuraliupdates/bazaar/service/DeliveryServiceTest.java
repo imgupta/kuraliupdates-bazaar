@@ -40,6 +40,36 @@ class DeliveryServiceTest {
         lenient().doReturn(1).when(jdbc).update(anyString(), any(Object[].class));
     }
 
+
+    @Test
+    void deliveryProfileLookupUsesStableUserIdBeforeMutableEmail() {
+        UserEntity authenticated = UserEntity.builder().userId("rider-user-1")
+                .email("changed@example.com").phone("9876543210").role("DELIVERY").build();
+        DeliveryAgentEntity linked = agent("ACTIVE").toBuilder().userId("rider-user-1").build();
+        when(agentRepository.findByUserId("rider-user-1")).thenReturn(Optional.of(linked));
+
+        DeliveryAgentEntity result = deliveryService.currentAgent(authenticated);
+
+        assertEquals("AGENT-1", result.getAgentId());
+        verify(agentRepository, never()).findByEmail(anyString());
+    }
+
+    @Test
+    void deliveryProfileWithConflictingUserIdCannotBeClaimedByMatchingEmail() {
+        UserEntity authenticated = UserEntity.builder().userId("attacker-user")
+                .email("rider@example.com").phone("9876543210").role("DELIVERY").build();
+        DeliveryAgentEntity anotherUsersProfile = agent("ACTIVE").toBuilder()
+                .userId("victim-user").build();
+        when(agentRepository.findByUserId("attacker-user")).thenReturn(Optional.empty());
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(anotherUsersProfile));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.currentAgent(authenticated));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verify(agentRepository, never()).findByPhone(anyString());
+    }
+
     @Test
     void pendingAgentCannotSeePickupJobs() {
         DeliveryAgentEntity agent = agent("PENDING");
