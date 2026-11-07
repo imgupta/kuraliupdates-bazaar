@@ -123,9 +123,9 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
   const { chats, activeChatId, setActiveChatId, openChatForProduct, sendMessage, respondToOffer } = negotiationChat;
 
   // Current Agent
-  const currentAgent = deliveryAgents.find(
-    a => a.id === user.deliveryAgentId || (user.email && a.email && a.email.toLowerCase() === user.email.toLowerCase()) || (user.phone && a.phone === user.phone)
-  );
+  // Delivery profile ownership is account-ID based; mutable email/phone matches
+  // must not select another rider's profile in local UI state.
+  const currentAgent = deliveryAgents.find(a => a.id === user.deliveryAgentId);
 
   // Seller Actions
 
