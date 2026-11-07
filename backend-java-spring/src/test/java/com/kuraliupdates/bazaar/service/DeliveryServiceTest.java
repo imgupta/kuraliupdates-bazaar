@@ -236,6 +236,7 @@ class DeliveryServiceTest {
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedByOrderId("BATCH-1")).thenReturn(Optional.of(first));
         when(orderRepository.findLockedByCheckoutGroupId("CHK-1")).thenReturn(java.util.List.of(first, second));
+        doReturn(1, 0).when(jdbc).update(anyString(), any(Object[].class));
 
         var response = deliveryService.resendDeliveryOtp("BATCH-1", user());
 
@@ -243,7 +244,12 @@ class DeliveryServiceTest {
         assertTrue(first.getDeliveryOtp().matches("\\d{4}"));
         assertEquals(first.getDeliveryOtp(), second.getDeliveryOtp());
         assertNotEquals("1111", first.getDeliveryOtp());
-        verify(orderRepository).saveAll(java.util.List.of(first, second));
+        DeliveryService secondInstance = new DeliveryService(
+                agentRepository, orderRepository, jdbc, googleRoutesService);
+        ApiException cooldown = assertThrows(ApiException.class,
+                () -> secondInstance.resendDeliveryOtp("BATCH-1", user()));
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, cooldown.getStatus());
+        verify(orderRepository, times(1)).saveAll(java.util.List.of(first, second));
     }
 
     @Test
