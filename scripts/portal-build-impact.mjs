@@ -4,7 +4,7 @@ const PORTAL_PATHS = {
   buyer: ['src/features/buyer/', 'src/components/Buyer/', 'src/services/domains/buyerApi.ts', 'src/services/domains/buyerOrdersApi.ts', 'src/entries/buyer.tsx', 'portal-buyer.html'],
   seller: ['src/features/seller/', 'src/components/Seller/', 'src/services/domains/sellerApi.ts', 'src/services/domains/sellerOnboardingApi.ts', 'src/entries/seller.tsx', 'portal-seller.html'],
   delivery: ['src/features/delivery/', 'src/components/Delivery/', 'src/services/domains/deliveryApi.ts', 'src/entries/delivery.tsx', 'portal-delivery.html'],
-  'daily-help': ['src/features/daily-help/', 'src/components/DailyHelp/', 'src/services/domains/dailyHelpProviderApi.ts', 'src/entries/daily-help.tsx', 'portal-daily-help.html'],
+  'daily-help': ['src/features/daily-help/', 'src/components/DailyHelpProfessional/', 'src/services/domains/dailyHelpProviderApi.ts', 'src/entries/daily-help.tsx', 'portal-daily-help.html'],
   admin: ['src/features/admin/', 'src/components/Admin/', 'src/services/domains/adminApi.ts', 'src/entries/admin.tsx', 'portal-admin.html'],
 };
 
