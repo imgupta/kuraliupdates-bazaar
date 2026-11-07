@@ -424,7 +424,7 @@ public class DeliveryService {
         // populated link to another account is always authoritative.
         Optional<DeliveryAgentEntity> legacy = user.getEmail() == null
                 ? Optional.empty()
-                : agentRepository.findByEmail(user.getEmail().trim().toLowerCase())
+                : agentRepository.findByEmailIgnoreCase(user.getEmail().trim())
                         .filter(profile -> profile.getUserId() == null || profile.getUserId().isBlank());
         return legacy.orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN,
                 "No delivery profile is linked to this account"));
