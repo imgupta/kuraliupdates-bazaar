@@ -39,19 +39,12 @@ class E2eFixtureServiceTest {
         DailyHelpProfessionalEntity professional = DailyHelpProfessionalEntity.builder()
                 .professionalId("stage-provider-01").userId(provider.getUserId()).verified(1).status("AVAILABLE").build();
         when(sellers.findById("stage-seller-01")).thenReturn(Optional.of(seller));
-        when(sellers.findById(argThat(id -> id != null && id.startsWith("E2E-S2-")))).thenReturn(Optional.empty());
-        when(sellers.save(any(SellerEntity.class))).thenAnswer(i -> i.getArgument(0));
         when(agents.findById("stage-agent-01")).thenReturn(Optional.of(agent));
         when(users.findByEmail("provider@example.test")).thenReturn(Optional.of(provider));
         when(professionals.findByUserId("stage-provider-user-01")).thenReturn(Optional.of(professional));
         when(products.findById(argThat(id -> id != null && id.startsWith("E2E-P-")))).thenReturn(Optional.empty());
-        when(services.findFirstByE2eRunId(runId)).thenReturn(Optional.empty());
-        when(slots.findFirstByE2eRunId(runId)).thenReturn(Optional.empty());
         when(products.findById(argThat(id -> id != null && id.startsWith("E2E-MV-")))).thenReturn(Optional.empty());
         when(products.findById(argThat(id -> id != null && id.startsWith("E2E-MF-")))).thenReturn(Optional.empty());
-        when(products.save(any(ProductEntity.class))).thenAnswer(i -> i.getArgument(0));
-        when(services.save(any(DailyHelpServiceEntity.class))).thenAnswer(i -> i.getArgument(0));
-        when(slots.save(any(DailyHelpProfessionalSlotEntity.class))).thenAnswer(i -> i.getArgument(0));
 
         var result = fixtureService.prepare(runId,
                 new E2eFixtureService.PrepareRequest("stage-seller-01", "stage-agent-01", null, "provider@example.test"));
@@ -93,7 +86,6 @@ class E2eFixtureServiceTest {
         when(agents.findById("stage-agent-01")).thenReturn(Optional.of(agent));
         when(users.findByEmail("provider@example.test")).thenReturn(Optional.of(provider));
         when(professionals.findByUserId(provider.getUserId())).thenReturn(Optional.of(professional));
-        when(products.findById(argThat(id -> id != null && (id.startsWith("E2E-P-") || id.startsWith("E2E-MV-") || id.startsWith("E2E-MF-"))))).thenReturn(Optional.empty());
         when(services.findFirstByE2eRunId(runId)).thenReturn(Optional.empty());
         when(slots.findFirstByE2eRunId(runId)).thenReturn(Optional.empty());
         when(products.save(any(ProductEntity.class))).thenAnswer(i -> i.getArgument(0));
