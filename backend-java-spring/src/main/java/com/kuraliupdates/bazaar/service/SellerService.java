@@ -7,6 +7,7 @@ import com.kuraliupdates.bazaar.dto.seller.SellerDiscountRequest;
 import com.kuraliupdates.bazaar.entity.BillDiscountEntity;
 import com.kuraliupdates.bazaar.repository.BillDiscountRepository;
 import com.kuraliupdates.bazaar.entity.OrderEntity;
+import com.kuraliupdates.bazaar.entity.OrderItemEntity;
 import com.kuraliupdates.bazaar.entity.ProductEntity;
 import com.kuraliupdates.bazaar.entity.SellerEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
@@ -22,6 +23,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 
 @Service
@@ -120,7 +123,7 @@ public class SellerService {
     @Transactional
     public OrderResponse updateOrderStatus(String token, String orderId, String requestedStatus) {
         SellerEntity seller = requireApprovedSeller(token);
-        OrderEntity order = orderRepository.findById(orderId)
+        OrderEntity order = orderRepository.findLockedByOrderId(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
         if (order.getSeller() == null || !seller.getSellerId().equals(order.getSeller().getSellerId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "This order does not belong to your store");
@@ -137,23 +140,47 @@ public class SellerService {
             case "ACCEPTED_BY_SELLER" -> List.of("READY_FOR_PICKUP", "CANCELLED").contains(next);
             default -> false;
         };
+        // Cancellation is an idempotent command. The order row is locked above,
+        // so a replay or concurrent retry cannot restore the same stock twice.
+        if ("CANCELLED".equals(current) && "CANCELLED".equals(next)) {
+            return OrderResponse.from(order);
+        }
         if (!allowed) {
             throw new ApiException(HttpStatus.CONFLICT,
                     "Order cannot transition from " + current + " to " + next);
         }
 
         if ("CANCELLED".equals(next)) {
-            // Stock was reserved at checkout. Restore each line once inside this
-            // transaction; subsequent cancellation attempts fail the transition guard above.
-            if (order.getItems() != null) {
-                order.getItems().forEach(item -> {
-                    ProductEntity product = productRepository.findLockedByProductId(item.getProduct().getProductId())
-                            .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT,
-                                    "Cannot restore inventory because a product no longer exists"));
-                    int currentStock = product.getStock() == null ? 0 : product.getStock();
-                    product.setStock(Math.addExact(currentStock, item.getQuantity()));
-                });
+            if ("PAID".equalsIgnoreCase(order.getPaymentStatus())) {
+                throw new ApiException(HttpStatus.CONFLICT,
+                        "Paid orders require the refund workflow and cannot be cancelled through seller status updates");
             }
+            // Lock products in deterministic ID order and aggregate repeated lines
+            // before restoring stock. Any missing product aborts the whole transaction.
+            Map<String, Integer> restoreQuantities = new TreeMap<>();
+            if (order.getItems() != null) {
+                for (OrderItemEntity item : order.getItems()) {
+                    if (item.getProduct() == null || item.getProduct().getProductId() == null) {
+                        throw new ApiException(HttpStatus.CONFLICT,
+                                "Cannot restore inventory because an order item has no product");
+                    }
+                    restoreQuantities.merge(item.getProduct().getProductId(), item.getQuantity(), Math::addExact);
+                }
+            }
+            for (Map.Entry<String, Integer> entry : restoreQuantities.entrySet()) {
+                ProductEntity product = productRepository.findLockedByProductId(entry.getKey())
+                        .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT,
+                                "Cannot restore inventory because a product no longer exists"));
+                int currentStock = product.getStock() == null ? 0 : product.getStock();
+                try {
+                    product.setStock(Math.addExact(currentStock, entry.getValue()));
+                } catch (ArithmeticException overflow) {
+                    throw new ApiException(HttpStatus.CONFLICT,
+                            "Cannot restore inventory because the stock quantity would overflow");
+                }
+            }
+            order.setFulfilmentStatus("CANCELLED");
+            order.setPaymentStatus("CANCELLED");
         }
 
         order.setStatus(next);

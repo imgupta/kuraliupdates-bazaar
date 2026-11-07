@@ -15,6 +15,7 @@ import com.kuraliupdates.bazaar.repository.ProductRepository;
 import com.kuraliupdates.bazaar.repository.SellerRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -44,7 +45,7 @@ class SellerServiceTest {
         SellerEntity seller = approvedSeller("SELLER-1");
         OrderEntity order = order(seller, "PLACED");
         stubSeller(seller);
-        when(orderRepository.findById("ORD-1")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         OrderResponse updated = sellerService.updateOrderStatus(TOKEN, "ORD-1", "accepted_by_seller");
@@ -59,7 +60,7 @@ class SellerServiceTest {
         SellerEntity seller = approvedSeller("SELLER-1");
         OrderEntity order = order(seller, "ACCEPTED_BY_SELLER");
         stubSeller(seller);
-        when(orderRepository.findById("ORD-1")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         OrderResponse updated = sellerService.updateOrderStatus(TOKEN, "ORD-1", "READY_FOR_PICKUP");
@@ -73,12 +74,14 @@ class SellerServiceTest {
         SellerEntity seller = approvedSeller("SELLER-1");
         OrderEntity order = order(seller, "PLACED");
         stubSeller(seller);
-        when(orderRepository.findById("ORD-1")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         OrderResponse updated = sellerService.updateOrderStatus(TOKEN, "ORD-1", "CANCELLED");
 
         assertEquals("CANCELLED", updated.status());
+        assertEquals("CANCELLED", order.getFulfilmentStatus());
+        assertEquals("CANCELLED", order.getPaymentStatus());
         verify(orderRepository).save(order);
     }
 
@@ -93,16 +96,91 @@ class SellerServiceTest {
         order.setItems(new java.util.ArrayList<>(List.of(item)));
         item.setOrder(order);
         stubSeller(seller);
-        when(orderRepository.findById("ORD-1")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-1")).thenReturn(Optional.of(order));
         when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         OrderResponse updated = sellerService.updateOrderStatus(TOKEN, "ORD-1", "CANCELLED");
+        OrderResponse replay = sellerService.updateOrderStatus(TOKEN, "ORD-1", "CANCELLED");
 
         assertEquals("CANCELLED", updated.status());
+        assertEquals("CANCELLED", replay.status());
         assertEquals(5, product.getStock());
         verify(productRepository, times(1)).findLockedByProductId("P-1");
-        verify(orderRepository).save(order);
+        verify(orderRepository, times(1)).save(order);
+        verify(orderRepository, times(2)).findLockedByOrderId("ORD-1");
+        verify(orderRepository, never()).findById("ORD-1");
+    }
+
+
+
+    @Test
+    void paidOrderCannotBeCancelledWithoutRefundWorkflow() {
+        SellerEntity seller = approvedSeller("SELLER-1");
+        OrderEntity order = order(seller, "PLACED");
+        order.setPaymentStatus("PAID");
+        stubSeller(seller);
+        when(orderRepository.findLockedByOrderId("ORD-1")).thenReturn(Optional.of(order));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> sellerService.updateOrderStatus(TOKEN, "ORD-1", "CANCELLED"));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("PLACED", order.getStatus());
+        verify(productRepository, never()).findLockedByProductId(anyString());
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void cancellationAggregatesRepeatedLinesAndLocksProductsInSortedOrder() {
+        SellerEntity seller = approvedSeller("SELLER-1");
+        ProductEntity productB = ProductEntity.builder().productId("P-2").seller(seller)
+                .title("Product B").stock(1).build();
+        ProductEntity productA = ProductEntity.builder().productId("P-1").seller(seller)
+                .title("Product A").stock(4).build();
+        OrderEntity order = order(seller, "PLACED");
+        OrderItemEntity itemB1 = OrderItemEntity.builder().itemId("ITEM-B1").order(order)
+                .product(productB).quantity(2).unitPrice(BigDecimal.TEN).totalPrice(BigDecimal.valueOf(20)).build();
+        OrderItemEntity itemA = OrderItemEntity.builder().itemId("ITEM-A").order(order)
+                .product(productA).quantity(3).unitPrice(BigDecimal.TEN).totalPrice(BigDecimal.valueOf(30)).build();
+        OrderItemEntity itemB2 = OrderItemEntity.builder().itemId("ITEM-B2").order(order)
+                .product(productB).quantity(1).unitPrice(BigDecimal.TEN).totalPrice(BigDecimal.TEN).build();
+        order.setItems(new java.util.ArrayList<>(List.of(itemB1, itemA, itemB2)));
+        stubSeller(seller);
+        when(orderRepository.findLockedByOrderId("ORD-1")).thenReturn(Optional.of(order));
+        when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(productA));
+        when(productRepository.findLockedByProductId("P-2")).thenReturn(Optional.of(productB));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sellerService.updateOrderStatus(TOKEN, "ORD-1", "CANCELLED");
+
+        assertEquals(7, productA.getStock());
+        assertEquals(4, productB.getStock());
+        InOrder lockOrder = inOrder(productRepository);
+        lockOrder.verify(productRepository).findLockedByProductId("P-1");
+        lockOrder.verify(productRepository).findLockedByProductId("P-2");
+    }
+
+    @Test
+    void missingProductPreventsCancellationAndStockMutation() {
+        SellerEntity seller = approvedSeller("SELLER-1");
+        ProductEntity product = ProductEntity.builder().productId("P-MISSING").seller(seller)
+                .title("Synthetic Product").stock(3).build();
+        OrderItemEntity item = OrderItemEntity.builder().itemId("ITEM-MISSING").product(product)
+                .quantity(2).unitPrice(BigDecimal.TEN).totalPrice(BigDecimal.valueOf(20)).build();
+        OrderEntity order = order(seller, "PLACED");
+        order.setItems(new java.util.ArrayList<>(List.of(item)));
+        stubSeller(seller);
+        when(orderRepository.findLockedByOrderId("ORD-1")).thenReturn(Optional.of(order));
+        when(productRepository.findLockedByProductId("P-MISSING")).thenReturn(Optional.empty());
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> sellerService.updateOrderStatus(TOKEN, "ORD-1", "CANCELLED"));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("PLACED", order.getStatus());
+        assertEquals(3, product.getStock());
+        verify(orderRepository, never()).save(any());
     }
 
     @Test
@@ -110,7 +188,7 @@ class SellerServiceTest {
         SellerEntity seller = approvedSeller("SELLER-1");
         OrderEntity order = order(seller, "PLACED");
         stubSeller(seller);
-        when(orderRepository.findById("ORD-1")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-1")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> sellerService.updateOrderStatus(TOKEN, "ORD-1", "READY_FOR_PICKUP"));
@@ -125,7 +203,7 @@ class SellerServiceTest {
         SellerEntity seller = approvedSeller("SELLER-1");
         OrderEntity order = order(seller, "READY_FOR_PICKUP");
         stubSeller(seller);
-        when(orderRepository.findById("ORD-1")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-1")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> sellerService.updateOrderStatus(TOKEN, "ORD-1", "ACCEPTED_BY_SELLER"));
@@ -141,7 +219,7 @@ class SellerServiceTest {
         SellerEntity otherSeller = approvedSeller("SELLER-2");
         OrderEntity order = order(otherSeller, "PLACED");
         stubSeller(seller);
-        when(orderRepository.findById("ORD-1")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-1")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> sellerService.updateOrderStatus(TOKEN, "ORD-1", "ACCEPTED_BY_SELLER"));
@@ -155,7 +233,7 @@ class SellerServiceTest {
         SellerEntity seller = approvedSeller("SELLER-1");
         OrderEntity order = order(seller, "PLACED");
         stubSeller(seller);
-        when(orderRepository.findById("ORD-1")).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId("ORD-1")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> sellerService.updateOrderStatus(TOKEN, "ORD-1", "DELIVERED"));
