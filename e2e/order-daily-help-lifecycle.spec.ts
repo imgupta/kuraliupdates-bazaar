@@ -44,11 +44,20 @@ async function flowToken(request: APIRequestContext, role: string, identityVaria
   const sharedSecret = required("E2E_FLOW_AUTH_TOKEN");
   const identifier = required(identityVariable);
   const expectedEmail = sharedFiveRoleEmail();
-  const response = await request.post(apiBase + "/e2e/auth/token", {
+  const tokenRequest = {
     headers: { "X-E2E-Flow-Token": sharedSecret, ...(runId ? { "X-E2E-Run-Id": runId } : {}), "Content-Type": "application/json", "Cache-Control": "no-store" },
     data: { role, identifier },
-    timeout: 15_000,
-  });
+    timeout: 30_000,
+  };
+  let response;
+  try {
+    response = await request.post(apiBase + "/e2e/auth/token", tokenRequest);
+  } catch (error) {
+    // Render may be waking a newly deployed instance. Retry only a transport
+    // timeout once; never retry an HTTP authentication/authorization response.
+    if (!(error instanceof Error) || !/timeout/i.test(error.message)) throw error;
+    response = await request.post(apiBase + "/e2e/auth/token", tokenRequest);
+  }
   expect(response.status(), "staging E2E token exchange for role " + role + " should succeed").toBe(200);
   const body = await response.json() as {
     token?: string; authenticated?: boolean; role?: string; roles?: string[]; user?: { email?: string };
