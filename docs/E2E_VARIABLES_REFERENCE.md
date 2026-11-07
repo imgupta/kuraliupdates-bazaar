@@ -26,20 +26,20 @@ Use this JSON shape and replace placeholders with actual dedicated staging value
   "E2E_OTP_CAPTURE_TOKEN": "<same random secret configured in Render>",
   "E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED": true,
   "E2E_TRANSACTIONAL_FLOWS_ENABLED": true,
-  "E2E_BUYER_IDENTITY": "<dedicated buyer identity>",
-  "E2E_SELLER_IDENTITY": "<dedicated seller identity>",
-  "E2E_DELIVERY_IDENTITY": "<dedicated approved delivery-agent identity>",
-  "E2E_PROVIDER_IDENTITY": "<dedicated Daily Help provider identity>",
-  "E2E_ADMIN_IDENTITY": "<existing authorized admin identity>",
+  "E2E_BUYER_IDENTITY": "<same shared five-role staging email>",
+  "E2E_SELLER_IDENTITY": "<same shared five-role staging email>",
+  "E2E_DELIVERY_IDENTITY": "<same shared five-role staging email>",
+  "E2E_PROVIDER_IDENTITY": "<same shared five-role staging email>",
+  "E2E_ADMIN_IDENTITY": "<same shared five-role staging email>",
   "E2E_FLOW_BUYER_TOKEN": "<staging buyer bearer token>",
   "E2E_FLOW_SELLER_TOKEN": "<staging seller bearer token>",
   "E2E_FLOW_DELIVERY_TOKEN": "<staging delivery-agent bearer token>",
   "E2E_FLOW_PROVIDER_TOKEN": "<staging provider bearer token>",
   "E2E_FLOW_BUYER_PHONE": "<synthetic buyer phone>",
-  "E2E_FLOW_BUYER_EMAIL": "<synthetic buyer email>",
+  "E2E_FLOW_BUYER_EMAIL": "<same shared five-role staging email>",
   "E2E_FLOW_SELLER_ID": "E2E-<synthetic-seller-id>",
   "E2E_FLOW_DELIVERY_AGENT_ID": "E2E-<synthetic-delivery-agent-id>",
-  "E2E_FLOW_PROFESSIONAL_ID": "E2E-<synthetic-professional-id>",
+  "E2E_FLOW_PROFESSIONAL_ID": "<professional profile ID linked to the shared user ID>",
   "CLOUDFLARE_REPORT_ACCESS_CONFIGURED": false,
   "CLOUDFLARE_ACCOUNT_ID": "",
   "CLOUDFLARE_PAGES_PROJECT": "",
@@ -48,10 +48,12 @@ Use this JSON shape and replace placeholders with actual dedicated staging value
 ```
 
 Safety behavior:
+- All five role identity fields must contain the same email address. The API must report BUYER, SELLER, DELIVERY, PROFESSIONAL and ADMIN for that exact account; the preflight fails if any role is missing. The email values are never printed in logs.
+- The seller, delivery-agent and professional profile records must all be linked to the same USERS.USER_ID as that email. The fixture endpoint rejects mismatched profile ownership and a professional profile ID that does not match the linked identity.
 - The workflow pins the frontend to `https://bazaar.kuraliupdates.com` and the API to `https://kuraliupdates-bazaar.onrender.com/api/v1`; the JSON cannot override these hosts.
 - OTP suppression confirmation and mutating lifecycle tests are effective only on trusted manual/scheduled runs. PR/push runs cannot enable them through JSON.
 - Set `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED` to `true` only after verifying the Render OTP capture token matches, the allowlist contains only synthetic test identities, and those identities receive no real OTP emails.
-- Keep the seller, delivery-agent and professional profile IDs prefixed with `E2E-`. The backend creates a fresh synthetic product (stock 2), service and future one-hour slot for each test run.
+- Seller, delivery-agent and professional profile IDs must identify the pre-provisioned staging profiles owned by the shared test account. Run-created product, rollback products, Daily Help service and future one-hour slot are E2E-prefixed, run-tagged synthetic fixtures.
 - Tokens and identities are secret values. Never commit this JSON, print it in logs, or paste it into issues or chat.
 
 ## C. Render backend environment variables for OTP capture
@@ -89,7 +91,7 @@ Do **not** set `E2E_OTP_EMAIL_SUPPRESSION_CONFIRMED=true` until you have verifie
 - The normal browser run can be green while transactional tests are skipped. Check the Playwright report for each test's passed/skipped/failed status.
 - Order flow: synthetic checkout → seller acceptance/ready → delivery claim → invalid OTP rejected → valid OTP completes delivery → buyer/seller histories reconcile.
 - Daily Help flow: synthetic slot booking → professional arrival/ready → invalid OTP rejected → valid OTP starts timer → completion → buyer history reconciles.
-- Transactional tests create new order/booking records and **do not automatically delete them**. Use only dedicated synthetic fixtures. Do not reuse exhausted stock or a slot without checking capacity.
+- Transactional tests use unique run IDs and automatically invoke guarded run-scoped cleanup in Playwright `afterEach`, including on test failure. Cleanup must validate run-tagged relationships before deleting and report exact counts. If cleanup fails, treat the run as failed and inspect the report; never manually delete unrelated records.
 - The workflow uses a single concurrency lane to avoid simultaneous tests sharing OTP cooldowns and staging identities.
 - PR and push runs do not enable mutating lifecycle flows. No PR deployment should be triggered. Docs-only changes are excluded from CI by workflow path filters.
 - Production/read-only smoke checks must remain read-only. Do not use real customer accounts or real customer records as fixtures.
