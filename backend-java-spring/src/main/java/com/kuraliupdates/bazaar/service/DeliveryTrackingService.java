@@ -111,9 +111,17 @@ public class DeliveryTrackingService {
                     // A rider's persisted user link is authoritative. Email is only a
                     // compatibility fallback for legacy profiles that predate USER_ID.
                     boolean rider = order.getDeliveryAgent() != null
+                            && riderTrackingIsActive(order)
                             && matchesActiveAgentSession(order.getDeliveryAgent(), session);
                     return buyer || rider;
                 }).orElse(false);
+    }
+
+    private boolean riderTrackingIsActive(OrderEntity order) {
+        // Match the delivery work queue: riders may view location/address only
+        // while an assigned job is in progress, not after delivery completion.
+        return "ASSIGNED_TO_DELIVERY".equalsIgnoreCase(order.getStatus())
+                || "PICKED_UP".equalsIgnoreCase(order.getStatus());
     }
 
     private boolean matchesActiveAgentSession(DeliveryAgentEntity agent, UserSessionEntity session) {
