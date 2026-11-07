@@ -96,6 +96,7 @@ class AuthRegisteredRolesTest {
         when(sellerRepository.findByEmailIgnoreCase("shared@example.com")).thenReturn(Optional.empty());
         when(sellerRepository.findByPhone("9876543210")).thenReturn(Optional.empty());
         when(deliveryAgentRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(deliveryAgentRepository.findByEmailIgnoreCase("buyer@example.com")).thenReturn(Optional.empty());
         when(dailyHelpProfessionalRepository.findByUserId(userId)).thenReturn(Optional.empty());
         when(dailyHelpProfessionalRepository.findByPhone("9876543210")).thenReturn(Optional.empty());
 
@@ -104,7 +105,7 @@ class AuthRegisteredRolesTest {
     }
 
     @Test
-    void legacyUnlinkedDeliveryProfileDoesNotGrantRoleUntilAdminRelinksIt() {
+    void legacyUnlinkedDeliveryProfileCanBeDiscoveredByVerifiedAccountEmail() {
         String userId = "legacy-delivery-user";
         String token = "legacy-delivery-session";
         UserEntity user = UserEntity.builder().userId(userId).email("legacy@example.com")
@@ -118,11 +119,13 @@ class AuthRegisteredRolesTest {
         when(sellerRepository.findByEmailIgnoreCase("legacy@example.com")).thenReturn(Optional.empty());
         when(sellerRepository.findByPhone("9876543210")).thenReturn(Optional.empty());
         when(deliveryAgentRepository.findByUserId(userId)).thenReturn(Optional.empty());
+        when(deliveryAgentRepository.findByEmailIgnoreCase("legacy@example.com"))
+                .thenReturn(Optional.of(legacyProfile));
         when(dailyHelpProfessionalRepository.findByUserId(userId)).thenReturn(Optional.empty());
         when(dailyHelpProfessionalRepository.findByPhone("9876543210")).thenReturn(Optional.empty());
 
-        assertEquals(java.util.List.of("BUYER"), authService.registeredRoles(token));
-        verify(deliveryAgentRepository, never()).findByEmailIgnoreCase("legacy@example.com");
+        assertEquals(java.util.List.of("BUYER", "DELIVERY"), authService.registeredRoles(token));
+        verify(deliveryAgentRepository).findByEmailIgnoreCase("legacy@example.com");
     }
 
     @Test
