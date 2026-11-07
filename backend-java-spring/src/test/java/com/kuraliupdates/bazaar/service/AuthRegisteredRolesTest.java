@@ -58,6 +58,46 @@ class AuthRegisteredRolesTest {
                 authService.registeredRoles(token));
     }
 
+
+    @Test
+    void rootAdminIdentityExposesAllFiveRolesWhenAllProfilesBelongToSameUser() {
+        String userId = "shared-five-role-user";
+        String token = "five-role-session";
+        UserEntity user = UserEntity.builder().userId(userId)
+                .email("sg7508359237@gmail.com").phone("9876543210")
+                .role("SELLER").isAdmin(0).accountStatus("ACTIVE").build();
+
+        when(sessionRepository.findBySessionToken(token)).thenReturn(Optional.of(
+                UserSessionEntity.builder().sessionToken(token).userId(userId)
+                        .expiresAt(LocalDateTime.now().plusHours(1)).build()));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(sellerRepository.findByUserId(userId)).thenReturn(Optional.of(SellerEntity.builder().sellerId("seller-five").build()));
+        when(deliveryAgentRepository.findByUserId(userId)).thenReturn(Optional.of(DeliveryAgentEntity.builder().agentId("agent-five").build()));
+        when(dailyHelpProfessionalRepository.findByUserId(userId)).thenReturn(Optional.of(
+                DailyHelpProfessionalEntity.builder().professionalId("professional-five").build()));
+
+        assertEquals(java.util.List.of("BUYER", "SELLER", "DELIVERY", "PROFESSIONAL", "ADMIN"),
+                authService.registeredRoles(token));
+    }
+
+    @Test
+    void issuingAdminScopedE2eSessionDoesNotPromoteOrMutatePrimaryAccountRole() {
+        UserEntity user = UserEntity.builder().userId("shared-admin-user")
+                .email("sg7508359237@gmail.com").phone("9876543210")
+                .role("SELLER").isAdmin(0).accountStatus("ACTIVE").build();
+        when(userRepository.findByEmail("sg7508359237@gmail.com")).thenReturn(Optional.of(user));
+
+        authService.createStagingE2eSession("sg7508359237@gmail.com", "ADMIN", "E2E-run-admin");
+
+        assertEquals("SELLER", user.getRole(), "the account primary role must not be changed by issuing a scoped test token");
+        assertEquals(0, user.getIsAdmin(), "issuing a scoped ADMIN token must not persistently promote the account");
+        org.mockito.ArgumentCaptor<UserSessionEntity> session =
+                org.mockito.ArgumentCaptor.forClass(UserSessionEntity.class);
+        org.mockito.Mockito.verify(sessionRepository).save(session.capture());
+        assertEquals("ADMIN", session.getValue().getActiveRole());
+        assertEquals("E2E-run-admin", session.getValue().getE2eRunId());
+    }
+
     @Test
     void doesNotExposeRolesWithoutAnOwnedProfile() {
         String userId = "user-buyer-only";
