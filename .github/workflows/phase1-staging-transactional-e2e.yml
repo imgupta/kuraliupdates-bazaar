@@ -20,6 +20,43 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Wake the cold Render instance while the transactional job installs Bun,
+  # Playwright and Chromium. This job is read-only, secret-free and best-effort;
+  # the transactional job still performs the authoritative exact-commit check.
+  warm-staging:
+    name: Best-effort staging API warm-up
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.confirm_staging_mutations == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    continue-on-error: true
+    steps:
+      - name: Wake the designated staging API while test dependencies install
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const url = 'https://kuraliupdates-bazaar.onrender.com/api/v1/health';
+          const deadline = Date.now() + 3 * 60 * 1000;
+          let last = 'no response';
+          while (Date.now() < deadline) {
+            try {
+              const response = await fetch(url, {
+                signal: AbortSignal.timeout(10000),
+                headers: { 'Cache-Control': 'no-store' }
+              });
+              const body = await response.json().catch(() => ({}));
+              if (response.ok && body.status === 'UP' && body.database === 'UP') {
+                console.log('Warm-up reached API and database readiness. Exact backend commit is verified separately by the transactional job.');
+                process.exit(0);
+              }
+              last = 'HTTP ' + response.status + ', database=' + String(body.database ?? 'unknown');
+            } catch {
+              last = 'network or timeout';
+            }
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          }
+          console.log('Best-effort warm-up did not reach readiness within three minutes (' + last + '). The transactional job remains authoritative and will run its exact-commit readiness gate.');
+          NODE
+
   transactional-e2e:
     name: Synthetic COD order and Daily Help lifecycle
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.confirm_staging_mutations == true)
