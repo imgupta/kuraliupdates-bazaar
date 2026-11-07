@@ -78,10 +78,15 @@ async function prepareFixtures(request: APIRequestContext, runId: string, seller
   const fixtureResponseBody = await response.text();
   expect(response.status(), "backend should provision run-scoped synthetic fixtures; response: " + fixtureResponseBody).toBe(200);
   const fixture = await response.json();
-  for (const key of ["productId", "sellerId", "deliveryAgentId", "serviceId", "slotId", "professionalId",
-    "rollbackSellerId", "multiSellerValidProductId", "multiSellerFailProductId"]) {
+  // Existing owner-approved role profiles are intentionally not run-created.
+  // Only catalogue/service/slot fixtures and the rollback seller must be E2E-tagged.
+  for (const key of ["productId", "serviceId", "slotId", "rollbackSellerId",
+    "multiSellerValidProductId", "multiSellerFailProductId"]) {
     expect(String(fixture[key] ?? ""), key + " must be synthetic").toMatch(/^E2E-[A-Za-z0-9_-]{3,80}$/);
   }
+  expect(fixture.sellerId).toBe(sellerId);
+  expect(fixture.deliveryAgentId).toBe(deliveryAgentId);
+  expect(String(fixture.professionalId ?? "").trim().length).toBeGreaterThan(0);
   expect(Number(fixture.stock)).toBeGreaterThanOrEqual(1);
   expect(Number(fixture.requestedHours)).toBe(1);
   return fixture as {
