@@ -77,7 +77,7 @@ class ApiRateLimitServiceTest {
 
         verify(jdbc).update(
                 eq("DELETE FROM API_RATE_LIMIT_BUCKETS WHERE EXPIRES_AT < ? AND WINDOW_START <> TIMESTAMP '1970-01-01 00:00:00'"),
-                any());
+                any(Object[].class));
     }
 
     @Test
