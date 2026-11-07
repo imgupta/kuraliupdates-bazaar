@@ -113,6 +113,39 @@ class OtpServiceTest {
         verify(repository).save(any(AuthOtpEntity.class));
     }
 
+
+    @Test
+    void unresolvedOracleDuplicateKeyRaceFailsClosed() {
+        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class))).thenReturn(30);
+        when(jdbcTemplate.update(startsWith("MERGE INTO API_RATE_LIMIT_BUCKETS"), any(), anyInt(), anyInt()))
+                .thenThrow(new DuplicateKeyException("first insert"))
+                .thenThrow(new DuplicateKeyException("retry insert"));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> otpService.send("buyer@example.test", "BUYER_EMAIL"));
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, error.getStatus());
+        verifyNoInteractions(deliveryService);
+        verify(repository, never()).save(any(AuthOtpEntity.class));
+    }
+
+    @Test
+    void allowlistedE2eCooldownBypassSkipsPersistentAndHistoricalCooldownChecks() throws Exception {
+        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class))).thenReturn(30);
+        when(e2eOtpCaptureService.mayBypassCooldown("buyer@example.test")).thenReturn(true);
+        when(e2eOtpCaptureService.shouldSuppressEmailDelivery("buyer@example.test", "BUYER_EMAIL"))
+                .thenReturn(true);
+
+        otpService.send("buyer@example.test", "BUYER_EMAIL");
+
+        verify(jdbcTemplate, never())
+                .update(startsWith("MERGE INTO API_RATE_LIMIT_BUCKETS"), any(), anyInt(), anyInt());
+        verify(repository, never()).existsRecentOtp(anyString(), anyString(), any(LocalDateTime.class));
+        verify(repository).save(any(AuthOtpEntity.class));
+        verify(e2eOtpCaptureService).capture(eq("buyer@example.test"), matches("\\d{6}"));
+        verifyNoInteractions(deliveryService);
+    }
+
     @Test
     void invalidOtpAttemptIsPersistedByIndependentAttemptService() {
         AuthOtpEntity record = otpRecord("otp-test", "123456");
