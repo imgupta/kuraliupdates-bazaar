@@ -32,11 +32,21 @@ jobs:
       E2E_API_BASE_URL: https://kuraliupdates-bazaar.onrender.com/api/v1
       E2E_STAGING_CONFIG_JSON: ${{ secrets.E2E_STAGING_CONFIG_JSON }}
       E2E_TRANSACTIONAL_FLOWS_ENABLED: "true"
-      EXPECTED_STAGING_COMMIT: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Resolve expected deployed backend commit
+        shell: bash
+        run: |
+          expected="$(git log -1 --format=%H -- backend-java-spring/)"
+          if [[ ! "$expected" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Could not resolve the latest commit affecting Render's backend root directory."
+            exit 1
+          fi
+          echo "EXPECTED_STAGING_COMMIT=$expected" >> "$GITHUB_ENV"
+          echo "Render backend commit expected by the staging readiness gate: $expected"
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
