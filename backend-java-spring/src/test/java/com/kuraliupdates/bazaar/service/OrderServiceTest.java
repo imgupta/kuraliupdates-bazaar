@@ -39,38 +39,29 @@ class OrderServiceTest {
     @InjectMocks private OrderService orderService;
 
     @Test
-    void sellerCannotPlaceSingleSellerOrderBeforeAnyRepositoryOrJdbcAccess() {
-        UserEntity seller = UserEntity.builder().userId("SELLER-USER")
-                .email("seller@example.test").role("SELLER").build();
-
+    void missingBuyerIdentityCannotPlaceSingleSellerOrderBeforeRepositoryAccess() {
         ApiException error = assertThrows(ApiException.class,
-                () -> orderService.placeOrder(null, seller));
+                () -> orderService.placeOrder(null, null));
 
-        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
         verifyNoInteractions(orderRepository, sellerRepository, productRepository, jdbc, googleRoutesService);
     }
 
     @Test
-    void sellerCannotPlaceMultiSellerOrderBeforeAnyRepositoryOrJdbcAccess() {
-        UserEntity seller = UserEntity.builder().userId("SELLER-USER")
-                .email("seller@example.test").role("SELLER").build();
-
+    void missingBuyerIdentityCannotPlaceMultiSellerOrderBeforeRepositoryAccess() {
         ApiException error = assertThrows(ApiException.class,
-                () -> orderService.placeMultiSellerOrder(null, seller, null));
+                () -> orderService.placeMultiSellerOrder(null, null, null));
 
-        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
         verifyNoInteractions(orderRepository, sellerRepository, productRepository, jdbc, googleRoutesService);
     }
 
     @Test
-    void sellerCannotReadBuyerOrderHistory() {
-        UserEntity seller = UserEntity.builder().userId("SELLER-USER")
-                .email("seller@example.test").role("SELLER").build();
-
+    void missingBuyerIdentityCannotReadBuyerOrderHistory() {
         ApiException error = assertThrows(ApiException.class,
-                () -> orderService.history(seller));
+                () -> orderService.history(null));
 
-        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
         verify(orderRepository, never()).findByBuyerEmail(anyString());
     }
 
@@ -259,15 +250,18 @@ class OrderServiceTest {
     }
 
     @Test
-    void rejectsNonBuyerRoleFromOrderTracking() {
-        UserEntity seller = UserEntity.builder()
-                .userId("SELLER-USER").email("authenticated@example.test").role("SELLER").build();
+    void multiProfileAccountCanTrackOwnOrderWhenPrimaryRoleIsNotBuyer() {
+        OrderEntity order = OrderEntity.builder()
+                .orderId("ORDER-1")
+                .buyerEmail("authenticated@example.test")
+                .build();
+        when(orderRepository.findById("ORDER-1")).thenReturn(Optional.of(order));
+        UserEntity adminPrimary = UserEntity.builder()
+                .userId("USER-1").email("authenticated@example.test").role("ADMIN").build();
 
-        ApiException error = assertThrows(ApiException.class,
-                () -> orderService.trackForBuyer("ORDER-1", seller));
+        var result = orderService.trackForBuyer("ORDER-1", adminPrimary);
 
-        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
-        verify(orderRepository, never()).findById(anyString());
+        assertEquals("ORDER-1", result.orderId());
     }
 
     @Test
@@ -313,7 +307,7 @@ class OrderServiceTest {
 
     private UserEntity buyer() {
         return UserEntity.builder().userId("USER-1").name("Authenticated Buyer")
-                .email("authenticated@example.test").phone("9876543210").role("BUYER").build();
+                .email("authenticated@example.test").phone("9876543210").role("ADMIN").build();
     }
 
     private SellerEntity seller() {
