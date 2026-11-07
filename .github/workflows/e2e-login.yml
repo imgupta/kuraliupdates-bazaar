@@ -30,12 +30,6 @@ permissions:
   actions: read
   contents: read
 
-# All refs share one E2E concurrency lane because role identities and OTP cooldowns
-# are shared by the single staging environment. Queue runs instead of racing OTP sends.
-concurrency:
-  group: kuraliupdates-single-staging-e2e
-  cancel-in-progress: false
-
 jobs:
   frontend:
     name: Frontend checks
@@ -83,6 +77,8 @@ jobs:
         run: bun run build
       - name: Portal build-impact policy regression tests
         run: node --test tests/portalBuildImpact.test.mjs
+      - name: Vercel ignore-build decision regression tests
+        run: node --test tests/vercelIgnoreBuild.test.mjs
       - name: Build only affected role portals
         run: node scripts/build-affected-portals.mjs
         env:
@@ -110,6 +106,11 @@ jobs:
     name: Browser E2E and read-only smoke checks
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # Only this job touches the shared staging identities/OTP lane. Keep frontend
+    # and backend CI parallel so a staging run cannot queue unrelated verification.
+    concurrency:
+      group: kuraliupdates-single-staging-e2e
+      cancel-in-progress: false
     env:
       CI: "true"
       # Fixed allowlisted staging targets stay in workflow code; all E2E settings/identities/fixtures/secrets live in one Actions secret JSON.

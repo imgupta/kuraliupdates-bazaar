@@ -243,3 +243,21 @@ The fix in PR (in progress) makes only the periodic expired-bucket cleanup best-
 ## 7 November 2026 — atomic OTP resend cooldown (P1-C, PR in progress)
 
 Source audit found a read-before-write race in `OtpService.send`: simultaneous requests on separate application instances could both pass `existsRecentOtp` before either OTP row was saved. The new implementation reserves a domain-separated SHA-256 identifier/type bucket in the existing Oracle `API_RATE_LIMIT_BUCKETS` table using an atomic `MERGE`, a sentinel window and database-clock expiry. A unique-key first-insert race retries once; an active cooldown returns 429; unresolved database errors fail closed with 503. The historical OTP-row check remains as a compatibility guard. Reservation and OTP persistence share the existing transaction; allowlisted staging E2E cooldown bypass remains unchanged. No schema migration or endpoint change. Unit tests cover reservation denial, duplicate-key retry, fail-closed outage and hashed keys. Exact-head CI, isolated Oracle two-session proof and a clean staging rerun remain required. See [OTP resend cooldown design](OTP-RESEND-COOLDOWN.md).
+
+
+## 7 November 2026 — consolidated reliability and build-efficiency batch
+
+- PR #310 merged as `ed69c9f4f6289cba6c38b71c364d6f4f1700df29`: OTP resend cooldown now reserves a domain-separated SHA-256 key in the existing Oracle `API_RATE_LIMIT_BUCKETS` table using an atomic MERGE and database-clock expiry. Active cooldown returns 429; unresolved persistence/first-insert race failures return 503. Raw identifiers are not stored. The existing allowlisted staging E2E bypass and historical OTP-row compatibility check remain.
+- Verification recorded on the PR exact head: backend Maven `clean verify` passed with 324 tests, 0 failures/errors/skips; frontend lint and production build passed. This is CI evidence only. A dedicated isolated Oracle two-session race/expiry/rollback test and a fresh post-merge staging transactional run remain required; do not label the mocked race tests as Oracle concurrency proof.
+- The affected-portal build classifier is being consolidated into the next PR on current main. It maps role-owned components and API modules to the five role portals, excludes backend/docs/tests/workflows/build-support paths, and deliberately fans unknown frontend runtime paths out to every portal. Missing Vercel commit metadata remains fail-open (build).
+- Vercel project Ignore Build Step configuration is not changed by repository code. Each project root and command must be inspected and configured separately, then verified with a no-op and affected-portal deployment before claiming operational savings.
+- Phase 1 remains IN PROGRESS. Full authorization/IDOR coverage, isolated Oracle concurrency/rollback evidence, public abuse/privacy controls and the remaining authenticated role journeys are not closed by this batch.
+
+
+## Vercel deployment inventory — 7 November 2026
+
+Read-only inspection found six Git-linked Vercel projects for this repository: `kuraliupdates-bazaar`, `kuraliupdates-buyer`, `kuraliupdates-seller`, `kuraliupdates-delivery`, `kuraliupdates-daily-help` and `kuraliupdates-admin`. Their latest deployments all reported `READY` with target `production` at inspection time.
+
+Against current main (`ed69c9f4f6289cba6c38b71c364d6f4f1700df29`), Buyer was deployed at current main; Delivery was at `cf21ae0b5d711c8e472a7a50afb2d4f4155e1ca8` (3 commits behind); Bazaar, Seller, Daily Help and Admin were at `b675c225d12e4f5ccfaa301d97ae81fb6d300bf9` (4 commits behind). These are provider metadata observations, not runtime smoke tests. No deployment was triggered and no project setting was changed.
+
+The inspected project-detail response did not expose `rootDirectory` or `commandForIgnoringBuildStep`, so the ignore-build command has **not** been enabled. Obtain authoritative settings for all six projects and verify the script is available from each configured root before configuring. A READY deployment is not necessarily current with main.
