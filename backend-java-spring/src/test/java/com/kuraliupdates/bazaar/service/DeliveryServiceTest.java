@@ -322,6 +322,25 @@ class DeliveryServiceTest {
         verify(jdbc, times(2)).update(anyString(), any(Object[].class));
     }
 
+
+    @Test
+    void resendCooldownRetriesOracleFirstInsertUniqueKeyRace() {
+        DeliveryAgentEntity agent = agent("ACTIVE");
+        OrderEntity order = OrderEntity.builder().orderId("ORD-OTP-INSERT-RACE")
+                .status("PICKED_UP").deliveryAgent(agent).deliveryOtp("1234").build();
+        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(orderRepository.findLockedByOrderId("ORD-OTP-INSERT-RACE")).thenReturn(Optional.of(order));
+        doThrow(new org.springframework.dao.DuplicateKeyException("ORA-00001"))
+                .doReturn(1).when(jdbc).update(anyString(), any(Object[].class));
+
+        var response = deliveryService.resendDeliveryOtp("ORD-OTP-INSERT-RACE", user());
+
+        assertEquals(Boolean.TRUE, response.get("success"));
+        assertTrue(order.getDeliveryOtp().matches("\\d{4}"));
+        verify(jdbc, times(2)).update(anyString(), any(Object[].class));
+        verify(orderRepository).save(order);
+    }
+
     @Test
     void resendCooldownFailsClosedWhenDatabaseGuardIsUnavailable() {
         DeliveryAgentEntity agent = agent("ACTIVE");
