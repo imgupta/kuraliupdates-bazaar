@@ -151,6 +151,9 @@ public class DailyHelpController {
     @GetMapping("/bookings/{bookingId}")
     public ResponseEntity<DailyHelpBookingResponse> getBooking(@PathVariable String bookingId, Authentication authentication) {
         UserEntity user = requireUser(authentication);
+        if (!hasRole(authentication, "BUYER") && !hasRole(authentication, "PROFESSIONAL")) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "The active session cannot access Daily Help bookings");
+        }
         return ResponseEntity.ok(dailyHelpService.getBookingForUser(bookingId, user));
     }
 
@@ -198,6 +201,7 @@ public class DailyHelpController {
     }
 
     private void requireOwnProfessional(Authentication authentication, String professionalId) {
+        requireRole(authentication, "PROFESSIONAL");
         UserEntity user = requireUser(authentication);
         // A user may own multiple marketplace profiles. Authorization for Daily Help
         // is based on the authenticated phone -> professional profile mapping, not
