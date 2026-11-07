@@ -4,6 +4,7 @@ import com.kuraliupdates.bazaar.dto.delivery.DeliveryRegistrationRequest;
 import com.kuraliupdates.bazaar.entity.DeliveryAgentEntity;
 import com.kuraliupdates.bazaar.entity.OrderEntity;
 import com.kuraliupdates.bazaar.dto.delivery.DeliveryJobResponse;
+import com.kuraliupdates.bazaar.dto.delivery.AvailableDeliveryJobResponse;
 import com.kuraliupdates.bazaar.service.DeliveryService;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.entity.UserEntity;
@@ -59,9 +60,9 @@ public class DeliveryController {
 
     @GetMapping("/jobs/available")
     @Transactional(readOnly = true)
-    public ResponseEntity<List<DeliveryJobResponse>> getAvailableJobs(Authentication authentication) {
+    public ResponseEntity<List<AvailableDeliveryJobResponse>> getAvailableJobs(Authentication authentication) {
         UserEntity user = requireUser(authentication);
-        return ResponseEntity.ok(deliveryService.availableJobs(user).stream().map(DeliveryJobResponse::from).toList());
+        return ResponseEntity.ok(deliveryService.availableJobs(user).stream().map(AvailableDeliveryJobResponse::from).toList());
     }
 
     @GetMapping("/jobs/mine")
