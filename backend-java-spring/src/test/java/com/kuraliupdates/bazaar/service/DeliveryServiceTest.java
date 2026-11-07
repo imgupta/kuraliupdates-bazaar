@@ -45,7 +45,9 @@ class DeliveryServiceTest {
     void deliveryProfileLookupUsesStableUserIdBeforeMutableEmail() {
         UserEntity authenticated = UserEntity.builder().userId("rider-user-1")
                 .email("changed@example.com").phone("9876543210").role("DELIVERY").build();
-        DeliveryAgentEntity linked = agent("ACTIVE").toBuilder().userId("rider-user-1").build();
+        DeliveryAgentEntity linked = DeliveryAgentEntity.builder().agentId("AGENT-1")
+                .fullName("Rider").userId("rider-user-1").email("old@example.com")
+                .phone("9876543210").status("ACTIVE").build();
         when(agentRepository.findByUserId("rider-user-1")).thenReturn(Optional.of(linked));
 
         DeliveryAgentEntity result = deliveryService.currentAgent(authenticated);
@@ -58,8 +60,9 @@ class DeliveryServiceTest {
     void deliveryProfileWithConflictingUserIdCannotBeClaimedByMatchingEmail() {
         UserEntity authenticated = UserEntity.builder().userId("attacker-user")
                 .email("rider@example.com").phone("9876543210").role("DELIVERY").build();
-        DeliveryAgentEntity anotherUsersProfile = agent("ACTIVE").toBuilder()
-                .userId("victim-user").build();
+        DeliveryAgentEntity anotherUsersProfile = DeliveryAgentEntity.builder().agentId("AGENT-1")
+                .fullName("Rider").userId("victim-user").email("rider@example.com")
+                .phone("9876543210").status("ACTIVE").build();
         when(agentRepository.findByUserId("attacker-user")).thenReturn(Optional.empty());
         when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(anotherUsersProfile));
 
