@@ -36,7 +36,8 @@ public class E2eFixtureService {
     public FixtureResult prepare(String runId, PrepareRequest request) {
         String sellerId = stagingProfileId(request.sellerId(), "sellerId");
         String agentId = stagingProfileId(request.deliveryAgentId(), "deliveryAgentId");
-        String professionalId = stagingProfileId(request.professionalId(), "professionalId");
+        String professionalId = request.professionalId() == null || request.professionalId().isBlank()
+                ? null : stagingProfileId(request.professionalId(), "professionalId");
 
         SellerEntity seller = sellerRepository.findById(sellerId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Synthetic seller profile was not found"));
@@ -56,7 +57,7 @@ public class E2eFixtureService {
         DailyHelpProfessionalEntity professional = resolveProfessional(request.professionalIdentity(), professionalId);
         String resolvedProfessionalId = professional.getProfessionalId();
         requireSameAccount(stagingUser, professional.getUserId(), "Daily Help professional");
-        if (!professionalId.equals(resolvedProfessionalId)) {
+        if (professionalId != null && !professionalId.equals(resolvedProfessionalId)) {
             throw new ApiException(HttpStatus.CONFLICT, "Configured professional profile ID does not match the profile linked to the shared E2E identity");
         }
         if (!Integer.valueOf(1).equals(professional.getVerified())
