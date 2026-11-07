@@ -3,7 +3,6 @@
  * All delivery-agent workflow calls are owned here; the shared API client no longer
  * exposes delivery lifecycle operations. Keep server lifecycle state authoritative.
  */
-import type { DeliveryAgent } from '../../types';
 import { API_BASE_URL } from '../http/apiConfig';
 import { mapBackendOrder } from '../../entities/orderMapping';
 import { trackingApi } from './trackingApi';
@@ -24,28 +23,7 @@ export const deliveryApi = {
     }
   },
 
-  async registerDeliveryAgent(agent: Partial<DeliveryAgent>): Promise<any> {
-    try {
-      const res = await fetch(`${API_BASE_URL}/delivery/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: agent.name,
-          phone: agent.phone,
-          email: agent.email,
-          vehicleType: agent.vehicleType,
-          vehicleNumber: agent.vehicleNumber,
-          licenseNumber: agent.licenseNumber,
-          currentLocality: agent.currentLocality || 'Main Bazaar',
-        }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch (err) {
-      console.warn('Backend registerDeliveryAgent failed:', err);
-      return null;
-    }
-  },
+
 
   async setAvailability(available: boolean): Promise<any> {
     const token = localStorage.getItem('kurali_auth_token');
