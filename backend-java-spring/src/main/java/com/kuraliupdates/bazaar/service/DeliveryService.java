@@ -412,23 +412,13 @@ public class DeliveryService {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated user is required");
         }
         String userId = user.getUserId();
-        if (userId != null && !userId.isBlank()) {
-            Optional<DeliveryAgentEntity> linked = agentRepository.findByUserId(userId);
-            if (linked.isPresent()) return linked.get();
-            // Email fallback is reserved for legacy profiles without a stable account link.
-            Optional<DeliveryAgentEntity> legacy = user.getEmail() == null
-                    ? Optional.empty()
-                    : agentRepository.findByEmail(user.getEmail().trim().toLowerCase())
-                            .filter(profile -> profile.getUserId() == null || profile.getUserId().isBlank());
-            return legacy.orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN,
-                    "No delivery profile is linked to this account"));
+        if (userId == null || userId.isBlank()) {
+            throw new ApiException(HttpStatus.FORBIDDEN,
+                    "Delivery profile must be linked to a verified account before access is granted");
         }
-        Optional<DeliveryAgentEntity> legacy = user.getEmail() == null
-                ? Optional.empty()
-                : agentRepository.findByEmail(user.getEmail().trim().toLowerCase())
-                        .filter(profile -> profile.getUserId() == null || profile.getUserId().isBlank());
-        return legacy.orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN,
-                "No delivery profile is linked to this account"));
+        return agentRepository.findByUserId(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN,
+                        "No delivery profile is linked to this account"));
     }
 
     private void requireAvailable(DeliveryAgentEntity agent) {
