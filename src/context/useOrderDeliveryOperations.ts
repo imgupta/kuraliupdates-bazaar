@@ -11,8 +11,6 @@ type OrderDeliveryOperationsOptions = {
   orders: Order[];
   setOrders: Dispatch<SetStateAction<Order[]>>;
   user: UserProfile;
-  setUser: Dispatch<SetStateAction<UserProfile>>;
-  setRoleState: Dispatch<SetStateAction<UserRole>>;
   cart: CartItem[];
   cartCalculations: {
     itemSubtotal: number;
@@ -29,7 +27,7 @@ type OrderDeliveryOperationsOptions = {
 };
 
 export const useOrderDeliveryOperations = ({
-  deliveryAgents, setDeliveryAgents, orders, setOrders, user, setUser, setRoleState,
+  deliveryAgents, setDeliveryAgents, orders, setOrders, user,
   cart, cartCalculations, clearCart, setTrackingOrderId, syncWithBackend, showToast,
 }: OrderDeliveryOperationsOptions) => {
   const createOrder = async (orderData: {
@@ -241,26 +239,7 @@ export const useOrderDeliveryOperations = ({
     };
   };
 
-  const registerDeliveryAgent = (
-    data: Omit<DeliveryAgent, 'id' | 'status' | 'rating' | 'totalTrips' | 'todayEarnings' | 'totalEarnings' | 'registeredAt'>
-  ) => {
-    const newId = `agent-${Date.now()}`;
-    const newAgent: DeliveryAgent = {
-      ...data,
-      id: newId,
-      status: 'active',
-      rating: 5.0,
-      totalTrips: 0,
-      todayEarnings: 0,
-      totalEarnings: 0,
-      registeredAt: new Date().toISOString(),
-    };
-    setDeliveryAgents(prev => [newAgent, ...prev]);
-    setUser(prev => ({ ...prev, deliveryAgentId: newId, role: 'delivery', isSignedIn: true, email: data.email, name: data.name }));
-    setRoleState('delivery');
-    showToast('Delivery Partner registered successfully! Welcome to Kurali Express fleet.', 'success');
-    deliveryApi.registerDeliveryAgent(newAgent);
-  };
 
-  return { createOrder, updateOrderStatus, claimDeliveryJob, completeDelivery, registerDeliveryAgent };
+
+  return { createOrder, updateOrderStatus, claimDeliveryJob, completeDelivery };
 };
