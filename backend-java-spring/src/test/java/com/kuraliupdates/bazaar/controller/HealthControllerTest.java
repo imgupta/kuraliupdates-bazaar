@@ -18,7 +18,7 @@ class HealthControllerTest {
     void livenessProbeDoesNotTouchDatasource() throws Exception {
         DataSource dataSource = mock(DataSource.class);
 
-        ResponseEntity<Map<String, Object>> response = new HealthController(dataSource).checkLiveness();
+        ResponseEntity<Map<String, Object>> response = new HealthController(dataSource, "test-commit-sha").checkLiveness();
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("UP", response.getBody().get("status"));
@@ -34,7 +34,7 @@ class HealthControllerTest {
         when(dataSource.getConnection()).thenReturn(connection);
         when(connection.isValid(3)).thenReturn(true);
 
-        ResponseEntity<Map<String, Object>> response = new HealthController(dataSource).checkHealth();
+        ResponseEntity<Map<String, Object>> response = new HealthController(dataSource, "test-commit-sha").checkHealth();
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("UP", response.getBody().get("status"));
@@ -50,7 +50,7 @@ class HealthControllerTest {
         when(dataSource.getConnection()).thenReturn(connection);
         when(connection.isValid(3)).thenReturn(false);
 
-        ResponseEntity<Map<String, Object>> response = new HealthController(dataSource).checkHealth();
+        ResponseEntity<Map<String, Object>> response = new HealthController(dataSource, "test-commit-sha").checkHealth();
 
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
         assertEquals("DEGRADED", response.getBody().get("status"));
@@ -63,7 +63,7 @@ class HealthControllerTest {
         DataSource dataSource = mock(DataSource.class);
         when(dataSource.getConnection()).thenThrow(new SQLException("sensitive connection details"));
 
-        ResponseEntity<Map<String, Object>> response = new HealthController(dataSource).checkHealth();
+        ResponseEntity<Map<String, Object>> response = new HealthController(dataSource, "test-commit-sha").checkHealth();
 
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
         assertEquals("DEGRADED", response.getBody().get("status"));
