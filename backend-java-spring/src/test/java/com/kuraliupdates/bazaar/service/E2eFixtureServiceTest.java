@@ -105,7 +105,7 @@ class E2eFixtureServiceTest {
     @Test
     void rejectsMalformedProfileIdsBeforeAnyDatabaseAccess() {
         assertThrows(ApiException.class, () -> fixtureService.prepare("E2E-run-123",
-                new E2eFixtureService.PrepareRequest("seller id with spaces", "stage-agent-01", "stage-provider-01")));
+                new E2eFixtureService.PrepareRequest("seller id with spaces", "stage-agent-01", "stage-provider-01", null)));
         verifyNoInteractions(sellers, agents, professionals, users, products, services, slots);
     }
 
