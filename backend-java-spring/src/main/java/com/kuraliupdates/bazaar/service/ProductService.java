@@ -1,6 +1,7 @@
 package com.kuraliupdates.bazaar.service;
 
 import com.kuraliupdates.bazaar.dto.product.ProductResponse;
+import com.kuraliupdates.bazaar.entity.ProductEntity;
 import com.kuraliupdates.bazaar.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -29,10 +30,18 @@ public class ProductService {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(requestedSize, MAX_PAGE_SIZE));
         Pageable pageable = PageRequest.of(safePage, safeSize);
-        return (normalized.isEmpty()
-                ? productRepository.findAllApprovedSortedByLowestPrice(pageable)
-                : productRepository.searchProductsAcrossSellers(normalized, pageable))
-                .stream()
+        List<ProductEntity> matches;
+        if (normalized.isEmpty()) {
+            matches = productRepository.findAllApprovedSortedByLowestPrice(pageable);
+        } else {
+            // A product ID is an exact, indexed lookup. Try it before the
+            // title/category contains-search, which is intentionally broader
+            // and can require scanning a large catalogue.
+            matches = productRepository.findApprovedByProductId(normalized)
+                    .map(List::of)
+                    .orElseGet(() -> productRepository.searchProductsAcrossSellers(normalized, pageable));
+        }
+        return matches.stream()
                 // Keep this guard as defense in depth if a repository implementation changes.
                 .filter(product -> product.getSeller() != null
                         && "APPROVED".equalsIgnoreCase(product.getSeller().getStatus())
