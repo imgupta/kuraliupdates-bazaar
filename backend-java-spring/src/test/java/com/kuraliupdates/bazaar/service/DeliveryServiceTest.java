@@ -40,10 +40,72 @@ class DeliveryServiceTest {
         lenient().doReturn(1).when(jdbc).update(anyString(), any(Object[].class));
     }
 
+
+    @Test
+    void deliveryProfileLookupUsesStableUserIdBeforeMutableEmail() {
+        UserEntity authenticated = UserEntity.builder().userId("rider-user-1")
+                .email("changed@example.com").phone("9876543210").role("DELIVERY").build();
+        DeliveryAgentEntity linked = DeliveryAgentEntity.builder().agentId("AGENT-1")
+                .fullName("Rider").userId("rider-user-1").email("old@example.com")
+                .phone("9876543210").status("ACTIVE").build();
+        when(agentRepository.findByUserId("rider-user-1")).thenReturn(Optional.of(linked));
+
+        DeliveryAgentEntity result = deliveryService.currentAgent(authenticated);
+
+        assertEquals("AGENT-1", result.getAgentId());
+        verify(agentRepository, never()).findByEmailIgnoreCase(anyString());
+    }
+
+    @Test
+    void deliveryProfileWithConflictingUserIdCannotBeClaimedByMatchingEmail() {
+        UserEntity authenticated = UserEntity.builder().userId("attacker-user")
+                .email("rider@example.com").phone("9876543210").role("DELIVERY").build();
+        DeliveryAgentEntity anotherUsersProfile = DeliveryAgentEntity.builder().agentId("AGENT-1")
+                .userId("victim-user").email("rider@example.com").phone("9876543210")
+                .status("ACTIVE").build();
+        when(agentRepository.findByUserId("attacker-user")).thenReturn(Optional.empty());
+        when(agentRepository.findByEmailIgnoreCase("rider@example.com")).thenReturn(Optional.of(anotherUsersProfile));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.currentAgent(authenticated));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verify(agentRepository).findByEmailIgnoreCase("rider@example.com");
+        verify(agentRepository, never()).findByPhone(anyString());
+    }
+
+    @Test
+    void legacyUnlinkedDeliveryProfileCanUseVerifiedEmailFallback() {
+        UserEntity authenticated = user();
+        DeliveryAgentEntity legacy = DeliveryAgentEntity.builder().agentId("AGENT-LEGACY")
+                .email("rider@example.com").phone("9876543210").status("ACTIVE").build();
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.empty());
+        when(agentRepository.findByEmailIgnoreCase("rider@example.com")).thenReturn(Optional.of(legacy));
+
+        DeliveryAgentEntity result = deliveryService.currentAgent(authenticated);
+
+        assertEquals("AGENT-LEGACY", result.getAgentId());
+    }
+
+
+    @Test
+    void phoneOnlyMatchCannotAuthorizeLegacyDeliveryProfile() {
+        UserEntity authenticated = UserEntity.builder().userId("buyer-user")
+                .email("buyer@example.com").phone("9876543210").role("BUYER").build();
+        when(agentRepository.findByUserId("buyer-user")).thenReturn(Optional.empty());
+        when(agentRepository.findByEmailIgnoreCase("buyer@example.com")).thenReturn(Optional.empty());
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> deliveryService.currentAgent(authenticated));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verify(agentRepository, never()).findByPhone(anyString());
+    }
+
     @Test
     void pendingAgentCannotSeePickupJobs() {
         DeliveryAgentEntity agent = agent("PENDING");
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.availableJobs(user()));
@@ -57,7 +119,7 @@ class DeliveryServiceTest {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder().orderId("SINGLE-READY-1")
                 .status("READY_FOR_PICKUP").fulfilmentMode("DELIVERY").build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findByStatus("READY_FOR_PICKUP")).thenReturn(java.util.List.of(order));
 
         var jobs = deliveryService.availableJobs(user());
@@ -71,7 +133,7 @@ class DeliveryServiceTest {
     void activeAgentClaimsOnlyReadyOrderAndClaimChangesStatus() {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder().orderId("ORD-1").status("READY_FOR_PICKUP").build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedByOrderId("ORD-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -87,7 +149,7 @@ class DeliveryServiceTest {
     void agentCannotClaimOrderAlreadyClaimedOrNotReady() {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder().orderId("ORD-1").status("PICKED_UP").build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedByOrderId("ORD-1")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
@@ -111,7 +173,7 @@ class DeliveryServiceTest {
                 .riderPayoutSnapshot(new BigDecimal("78.00"))
                 .riderPayoutSnapshottedAt(java.time.LocalDateTime.now().minusDays(1))
                 .build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedForDeliveryVerification("SYNTH-OTP-VERIFY-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(agentRepository.save(any(DeliveryAgentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -135,7 +197,7 @@ class DeliveryServiceTest {
                 .fulfilmentMode("DELIVERY").build();
         OrderEntity pickup = OrderEntity.builder().orderId("PICKUP-1").status("READY_FOR_PICKUP")
                 .fulfilmentMode("STORE_PICKUP").build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findByStatus("READY_FOR_PICKUP")).thenReturn(java.util.List.of(delivery, pickup));
 
         var jobs = deliveryService.availableJobs(user());
@@ -155,7 +217,7 @@ class DeliveryServiceTest {
                 .paymentMethod("COD")
                 .paymentStatus("PAID")
                 .build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedForDeliveryVerification("SYNTH-OTP-VERIFY-REPLAY")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
@@ -179,7 +241,7 @@ class DeliveryServiceTest {
                 .paymentMethod("COD")
                 .paymentStatus("PENDING_COD")
                 .build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedForDeliveryVerification("SYNTH-OTP-VERIFY-NOT-ASSIGNED")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
@@ -195,7 +257,7 @@ class DeliveryServiceTest {
     @Test
     void malformedOtpIsRejectedBeforeReadingOrder() {
         DeliveryAgentEntity agent = agent("ACTIVE");
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.verifyDeliveryOtp("SYNTH-OTP-VERIFY-BAD", "12A4", user()));
@@ -211,7 +273,7 @@ class DeliveryServiceTest {
         OrderEntity order = OrderEntity.builder()
                 .orderId("ORD-OTP-1").status("PICKED_UP")
                 .deliveryAgent(agent).deliveryOtp("1234").build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedByOrderId("ORD-OTP-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -233,7 +295,7 @@ class DeliveryServiceTest {
         OrderEntity second = OrderEntity.builder().orderId("BATCH-2").checkoutGroupId("CHK-1")
                 .combinedDeliveryBatchId("CHK-1").status("PICKED_UP")
                 .deliveryAgent(agent).deliveryOtp("1111").build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedByOrderId("BATCH-1")).thenReturn(Optional.of(first));
         when(orderRepository.findLockedByCheckoutGroupId("CHK-1")).thenReturn(java.util.List.of(first, second));
         doReturn(1, 0).when(jdbc).update(anyString(), any(Object[].class));
@@ -260,7 +322,7 @@ class DeliveryServiceTest {
         OrderEntity order = OrderEntity.builder()
                 .orderId("ORD-OTP-2").status("PICKED_UP")
                 .deliveryAgent(otherAgent).deliveryOtp("1234").build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(authenticatedAgent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(authenticatedAgent));
         when(orderRepository.findLockedByOrderId("ORD-OTP-2")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
@@ -276,7 +338,7 @@ class DeliveryServiceTest {
         OrderEntity order = OrderEntity.builder()
                 .orderId("ORD-OTP-3").status("DELIVERED")
                 .deliveryAgent(agent).deliveryOtp("1234").build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedByOrderId("ORD-OTP-3")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
@@ -293,7 +355,7 @@ class DeliveryServiceTest {
         OrderEntity order = OrderEntity.builder()
                 .orderId("ORD-OTP-4").status("PICKED_UP")
                 .deliveryAgent(agent).deliveryOtp("1234").build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedByOrderId("ORD-OTP-4")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -313,7 +375,7 @@ class DeliveryServiceTest {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder().orderId("ORD-OTP-MULTI-INSTANCE")
                 .status("PICKED_UP").deliveryAgent(agent).deliveryOtp("1234").build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedByOrderId("ORD-OTP-MULTI-INSTANCE")).thenReturn(Optional.of(order));
         doReturn(1, 0).when(jdbc).update(anyString(), any(Object[].class));
 
@@ -334,7 +396,7 @@ class DeliveryServiceTest {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder().orderId("ORD-OTP-INSERT-RACE")
                 .status("PICKED_UP").deliveryAgent(agent).deliveryOtp("1234").build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedByOrderId("ORD-OTP-INSERT-RACE")).thenReturn(Optional.of(order));
         doThrow(new org.springframework.dao.DuplicateKeyException("ORA-00001"))
                 .doReturn(1).when(jdbc).update(anyString(), any(Object[].class));
@@ -352,7 +414,7 @@ class DeliveryServiceTest {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder().orderId("ORD-OTP-GUARD-DB")
                 .status("PICKED_UP").deliveryAgent(agent).deliveryOtp("1234").build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedByOrderId("ORD-OTP-GUARD-DB")).thenReturn(Optional.of(order));
         doThrow(new org.springframework.dao.DataAccessResourceFailureException("database unavailable"))
                 .when(jdbc).update(anyString(), any(Object[].class));
@@ -377,7 +439,7 @@ class DeliveryServiceTest {
                 .paymentStatus("PENDING_COD")
                 .distanceKm(new BigDecimal("1.5"))
                 .build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedForDeliveryVerification("SYNTH-OTP-VERIFY-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(agentRepository.save(any(DeliveryAgentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -403,7 +465,7 @@ class DeliveryServiceTest {
         OrderEntity second = OrderEntity.builder().orderId("SEP-2").checkoutGroupId("CHK-SEP")
                 .status("PICKED_UP").deliveryAgent(agent).deliveryOtp("0042")
                 .riderPayoutSnapshot(new BigDecimal("67")).build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedForDeliveryVerification("SEP-1")).thenReturn(Optional.of(first));
         when(orderRepository.findLockedByCheckoutGroupId("CHK-SEP")).thenReturn(java.util.List.of(first, second));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -428,7 +490,7 @@ class DeliveryServiceTest {
         OrderEntity second = OrderEntity.builder().orderId("COMB-2").checkoutGroupId("CHK-COMB")
                 .combinedDeliveryBatchId("CHK-COMB").status("PICKED_UP")
                 .deliveryAgent(agent).deliveryOtp("0042").riderPayoutSnapshot(BigDecimal.ZERO).build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedForDeliveryVerification("COMB-2")).thenReturn(Optional.of(second));
         when(orderRepository.findLockedByCheckoutGroupId("CHK-COMB")).thenReturn(java.util.List.of(first, second));
         when(orderRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -456,7 +518,7 @@ class DeliveryServiceTest {
                 .paymentStatus("PENDING_COD")
                 .distanceKm(new BigDecimal("1.5"))
                 .build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedForDeliveryVerification("SYNTH-OTP-VERIFY-2")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
@@ -490,7 +552,7 @@ class DeliveryServiceTest {
                 .paymentMethod("COD")
                 .paymentStatus("PENDING_COD")
                 .build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(authenticatedAgent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(authenticatedAgent));
         when(orderRepository.findLockedForDeliveryVerification("SYNTH-OTP-VERIFY-3")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
@@ -506,7 +568,7 @@ class DeliveryServiceTest {
     void offlineAgentSeesNoNewPickupJobs() {
         DeliveryAgentEntity agent = agent("ACTIVE");
         agent.setAvailableForJobs(false);
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
 
         assertTrue(deliveryService.availableJobs(user()).isEmpty());
         verify(orderRepository, never()).findByStatus(any());
@@ -516,7 +578,7 @@ class DeliveryServiceTest {
     void offlineAgentCannotClaimNewPickupJob() {
         DeliveryAgentEntity agent = agent("ACTIVE");
         agent.setAvailableForJobs(false);
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.claim("ORD-OFFLINE", "AGENT-1", user()));
@@ -538,7 +600,7 @@ class DeliveryServiceTest {
                 .paymentStatus("PENDING_COD")
                 .distanceKm(BigDecimal.ONE)
                 .build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedForDeliveryVerification("ORD-OFFLINE-ACTIVE")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(agentRepository.save(any(DeliveryAgentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -560,7 +622,7 @@ class DeliveryServiceTest {
                 .checkoutGroupId("CHK-INCOMPLETE").combinedDeliveryBatchId("CHK-INCOMPLETE")
                 .status("ASSIGNED_TO_DELIVERY").deliveryAgent(agent).deliveryOtp("0042")
                 .riderPayoutSnapshot(BigDecimal.ZERO).build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedForDeliveryVerification("BATCH-PICKED")).thenReturn(Optional.of(collected));
         when(orderRepository.findLockedByCheckoutGroupId("CHK-INCOMPLETE")).thenReturn(java.util.List.of(collected, waiting));
 
@@ -582,7 +644,7 @@ class DeliveryServiceTest {
         OrderEntity order = OrderEntity.builder().orderId("SINGLE-CHECKOUT-READY")
                 .checkoutGroupId("CHK-SINGLE").status("READY_FOR_PICKUP")
                 .fulfilmentMode("DELIVERY").build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findByStatus("READY_FOR_PICKUP")).thenReturn(java.util.List.of(order));
         when(orderRepository.findByCheckoutGroupIdOrderByPlacedAtAsc("CHK-SINGLE"))
                 .thenReturn(java.util.List.of(order));
@@ -600,7 +662,7 @@ class DeliveryServiceTest {
                 .status("READY_FOR_PICKUP").fulfilmentMode("DELIVERY").build();
         OrderEntity notReady = OrderEntity.builder().orderId("WAITING-2").checkoutGroupId("CHK-READY")
                 .status("ACCEPTED_BY_SELLER").fulfilmentMode("DELIVERY").build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findByStatus("READY_FOR_PICKUP")).thenReturn(java.util.List.of(ready));
         when(orderRepository.findByCheckoutGroupIdOrderByPlacedAtAsc("CHK-READY"))
                 .thenReturn(java.util.List.of(ready, notReady));
@@ -616,7 +678,7 @@ class DeliveryServiceTest {
         OrderEntity second = OrderEntity.builder().orderId("GROUP-ORDER-2").checkoutGroupId("CHK-GROUP-1")
                 .status("READY_FOR_PICKUP").fulfilmentMode("DELIVERY").build();
         java.util.List<OrderEntity> group = java.util.List.of(first, second);
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(jdbc.queryForObject(org.mockito.ArgumentMatchers.contains("BATCH_ENABLED"), eq(Integer.class)))
                 .thenReturn(1);
         when(jdbc.queryForObject(org.mockito.ArgumentMatchers.contains("MAX_SELLERS_PER_BATCH"), eq(Integer.class)))
@@ -645,7 +707,7 @@ class DeliveryServiceTest {
     @Test
     void combinedCheckoutClaimRejectsSpoofedDeliveryAgentBeforeDatabaseOrOrderAccess() {
         DeliveryAgentEntity agent = agent("ACTIVE");
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.claimCheckoutGroup("CHK-GROUP-1", "AGENT-OTHER", user()));
@@ -662,7 +724,7 @@ class DeliveryServiceTest {
         OrderEntity waiting = OrderEntity.builder().orderId("GROUP-WAITING-2").checkoutGroupId("CHK-GROUP-2")
                 .status("ACCEPTED_BY_SELLER").fulfilmentMode("DELIVERY").build();
         java.util.List<OrderEntity> group = java.util.List.of(ready, waiting);
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(jdbc.queryForObject(org.mockito.ArgumentMatchers.contains("BATCH_ENABLED"), eq(Integer.class)))
                 .thenReturn(1);
         when(orderRepository.findLockedByCheckoutGroupId("CHK-GROUP-2")).thenReturn(group);
@@ -684,7 +746,7 @@ class DeliveryServiceTest {
         DeliveryAgentEntity agent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder().orderId("PICKUP-1")
                 .status("ASSIGNED_TO_DELIVERY").deliveryAgent(agent).build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(agent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(agent));
         when(orderRepository.findLockedByOrderId("PICKUP-1")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -700,7 +762,7 @@ class DeliveryServiceTest {
         DeliveryAgentEntity authenticatedAgent = agent("ACTIVE");
         OrderEntity order = OrderEntity.builder().orderId("CLAIM-SPOOF-1")
                 .status("READY_FOR_PICKUP").fulfilmentMode("DELIVERY").build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(authenticatedAgent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(authenticatedAgent));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.claim("CLAIM-SPOOF-1", "AGENT-OTHER", user()));
@@ -718,7 +780,7 @@ class DeliveryServiceTest {
                 .agentId("AGENT-OTHER").status("ACTIVE").build();
         OrderEntity order = OrderEntity.builder().orderId("PICKUP-OTHER-AGENT")
                 .status("ASSIGNED_TO_DELIVERY").deliveryAgent(assignedAgent).build();
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(authenticatedAgent));
+        when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.of(authenticatedAgent));
         when(orderRepository.findLockedByOrderId("PICKUP-OTHER-AGENT")).thenReturn(Optional.of(order));
 
         ApiException error = assertThrows(ApiException.class,
@@ -731,12 +793,12 @@ class DeliveryServiceTest {
     }
 
     private UserEntity user() {
-        return UserEntity.builder().email("rider@example.com").phone("9876543210").name("Rider").role("DELIVERY").build();
+        return UserEntity.builder().userId("rider-user").email("rider@example.com").phone("9876543210").name("Rider").role("DELIVERY").build();
     }
 
     private DeliveryAgentEntity agent(String status) {
         return DeliveryAgentEntity.builder()
-                .agentId("AGENT-1").fullName("Rider").email("rider@example.com")
+                .agentId("AGENT-1").userId("rider-user").fullName("Rider").email("rider@example.com")
                 .phone("9876543210").status(status).totalTrips(0)
                 .todayEarnings(BigDecimal.ZERO).totalEarnings(BigDecimal.ZERO)
                 .currentLocality("Kurali").build();

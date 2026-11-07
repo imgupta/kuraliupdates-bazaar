@@ -374,15 +374,15 @@ public class AuthService {
     }
 
     private Optional<DeliveryAgentEntity> findDeliveryProfile(UserEntity user) {
-        if (user.getUserId() != null) {
-            Optional<DeliveryAgentEntity> linked = deliveryAgentRepository.findByUserId(user.getUserId());
-            if (linked.isPresent()) return linked;
-        }
-        if (user.getEmail() != null) {
-            Optional<DeliveryAgentEntity> byEmail = deliveryAgentRepository.findByEmailIgnoreCase(user.getEmail());
-            if (byEmail.isPresent()) return byEmail;
-        }
-        return user.getPhone() == null ? Optional.empty() : deliveryAgentRepository.findByPhone(user.getPhone());
+        if (user.getUserId() == null || user.getUserId().isBlank()) return Optional.empty();
+        Optional<DeliveryAgentEntity> linked = deliveryAgentRepository.findByUserId(user.getUserId());
+        if (linked.isPresent()) return linked;
+
+        // Email-only fallback is permitted solely for legacy profiles without a
+        // USER_ID link. A profile linked to another account never falls back.
+        if (user.getEmail() == null) return Optional.empty();
+        return deliveryAgentRepository.findByEmailIgnoreCase(user.getEmail())
+                .filter(profile -> profile.getUserId() == null || profile.getUserId().isBlank());
     }
 
     private boolean deliveryProfileExists(UserEntity user) {

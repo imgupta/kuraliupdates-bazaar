@@ -46,8 +46,6 @@ export const useMarketplaceOperations = (options: MarketplaceOperationsOptions) 
     orders: options.orders,
     setOrders: options.setOrders,
     user: options.user,
-    setUser: options.setUser,
-    setRoleState: options.setRoleState,
     cart: options.cart,
     cartCalculations: options.cartCalculations,
     clearCart: options.clearCart,

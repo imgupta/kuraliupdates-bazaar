@@ -51,7 +51,6 @@ class SecurityConfigTest {
         mockMvc.perform(get("/seller-service-area")).andExpect(status().isOk());
         mockMvc.perform(post("/auth/send-otp")).andExpect(status().isOk());
         mockMvc.perform(post("/seller-registration/leads")).andExpect(status().isCreated());
-        mockMvc.perform(post("/delivery/register")).andExpect(status().isOk());
         mockMvc.perform(post("/analytics/search")).andExpect(status().isAccepted());
     }
 
@@ -61,6 +60,7 @@ class SecurityConfigTest {
         mockMvc.perform(get("/buyers/orders")).andExpect(status().is4xxClientError());
         mockMvc.perform(get("/sellers/me")).andExpect(status().is4xxClientError());
         mockMvc.perform(get("/delivery/me")).andExpect(status().is4xxClientError());
+        mockMvc.perform(post("/delivery/register")).andExpect(status().is4xxClientError());
         mockMvc.perform(get("/new/unclassified/route")).andExpect(status().is4xxClientError());
     }
 
@@ -156,9 +156,6 @@ class SecurityConfigTest {
 
         @PostMapping("/seller-registration/leads")
         ResponseEntity<String> publicLead() { return ResponseEntity.status(HttpStatus.CREATED).body("public"); }
-
-        @PostMapping("/delivery/register")
-        String publicDeliveryRegistration() { return "public"; }
 
         @PostMapping("/analytics/search")
         ResponseEntity<Void> publicSearchAnalytics() { return ResponseEntity.accepted().build(); }

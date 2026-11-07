@@ -22,15 +22,19 @@ test('delivery API owns delivery lifecycle HTTP operations outside the legacy AP
   const legacyApi = read('../src/services/api.ts');
   const appContext = read('../src/context/AppContext.tsx');
 
-  for (const method of ['registerDeliveryAgent', 'getAvailableDeliveryJobs', 'getDeliveryAvailableJobs', 'claimDeliveryJob', 'verifyDeliveryOtp', 'resendDeliveryOtp']) {
+  for (const method of ['getDeliveryAvailableJobs', 'claimDeliveryJob', 'verifyDeliveryOtp', 'resendDeliveryOtp']) {
     assert.ok(deliveryApi.includes(`${method}(`), `deliveryApi should own ${method}`);
     assert.ok(!legacyApi.includes(`${method}(`), `legacy API should not own ${method}`);
   }
+  assert.ok(!deliveryApi.includes('registerDeliveryAgent('), 'delivery registration must use the verified OTP role-registration flow');
+  assert.ok(!deliveryApi.includes('getAvailableDeliveryJobs('), 'unauthenticated available-job API client must not exist');
   assert.ok(!deliveryApi.includes('...bazaarApi'), 'delivery API must not spread the legacy client');
   const operations = read('../src/context/useOrderDeliveryOperations.ts');
   assert.ok(operations.includes('deliveryApi.claimDeliveryJob'));
   assert.ok(operations.includes('deliveryApi.verifyDeliveryOtp'));
-  assert.ok(operations.includes('deliveryApi.registerDeliveryAgent'));
+  assert.ok(!operations.includes('registerDeliveryAgent'), 'local-only rider activation must not exist');
+  const header = read('../src/components/Header.tsx');
+  assert.ok(header.includes("href=\"/register/delivery\""), 'delivery application entry must use the verified OTP registration route');
 });
 
 test('API configuration and backend order mapping are shared modules', () => {
@@ -183,9 +187,10 @@ test('seller/admin and order/delivery operations are split into focused domain h
   for (const operation of ['registerSeller', 'approveSeller', 'rejectSeller', 'addProduct', 'updateProduct', 'deleteProduct', 'approveDeliveryAgent']) {
     assert.ok(sellerAdmin.includes(`const ${operation}`), `seller/admin operations should own ${operation}`);
   }
-  for (const operation of ['createOrder', 'updateOrderStatus', 'claimDeliveryJob', 'completeDelivery', 'registerDeliveryAgent']) {
+  for (const operation of ['createOrder', 'updateOrderStatus', 'claimDeliveryJob', 'completeDelivery']) {
     assert.ok(orderDelivery.includes(`const ${operation}`), `order/delivery operations should own ${operation}`);
   }
+  assert.ok(!orderDelivery.includes('registerDeliveryAgent'), 'local-only delivery registration must remain removed');
   assert.ok(operations.includes('useSellerAdminOperations'));
   assert.ok(operations.includes('useOrderDeliveryOperations'));
   assert.ok(operations.includes('return { ...sellerAdmin, ...orderDelivery }'));

@@ -136,9 +136,6 @@ interface AppContextType {
   completeDelivery: (orderId: string, otp: string) => Promise<{ success: boolean; message: string }>;
   deliveryAgents: DeliveryAgent[];
   currentAgent: DeliveryAgent | undefined;
-  registerDeliveryAgent: (
-    agentData: Omit<DeliveryAgent, 'id' | 'status' | 'rating' | 'totalTrips' | 'todayEarnings' | 'totalEarnings' | 'registeredAt'>
-  ) => void;
 
   // Bargaining & Negotiation Chat
   chats: NegotiationChat[];

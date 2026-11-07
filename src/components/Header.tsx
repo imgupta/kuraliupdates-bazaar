@@ -254,6 +254,12 @@ export const Header: React.FC<HeaderProps> = () => {
                             <User className="w-4 h-4 text-amber-600" /> My Account
                           </a>
                         )}
+                        {user.isSignedIn && !registeredRoles.includes('delivery') && (
+                          <a href="/register/delivery" onClick={() => setIsProfileDropdownOpen(false)}
+                            className="w-full text-left py-1 text-xs text-emerald-700 hover:text-emerald-900 flex items-center gap-1.5 font-bold">
+                            <Bike className="w-4 h-4 text-emerald-600" /> Apply as Delivery Partner
+                          </a>
+                        )}
                         {isRootAdmin && (
                           <button
                             onClick={() => {
