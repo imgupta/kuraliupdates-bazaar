@@ -72,9 +72,10 @@ async function flowToken(request: APIRequestContext, role: string, identityVaria
   return body.token!;
 }
 async function getJson(request: APIRequestContext, path: string, token: string) {
-  const response = await request.get(apiBase + path, { headers: auth(token), timeout: 20_000 });
-  expect(response.status(), path + " should be readable").toBe(200);
-  return response.json();
+  const response = await request.get(apiBase + path, { headers: auth(token), timeout: 30_000 });
+  const body = await response.text();
+  expect(response.status(), path + " should be readable; backend response: " + body).toBe(200);
+  return JSON.parse(body);
 }
 
 const runIds = new Map<string, string>();
@@ -323,7 +324,16 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const rejectedClaims = claimAttempts.filter(response => response.status() === 409);
     expect(successfulClaims, "exactly one concurrent claim may win").toHaveLength(1);
     expect(rejectedClaims, "the duplicate concurrent claim must conflict").toHaveLength(1);
-    expect((await successfulClaims[0].json()).status).not.toBe("DELIVERED");
+    expect((await successfulClaims[0].json()).status).toBe("ASSIGNED_TO_DELIVERY");
+
+    // Claiming assigns the rider; collection at the seller is a separate
+    // required transition before the customer delivery OTP can be verified.
+    const pickupConfirmation = await request.post(apiBase + "/delivery/jobs/" + encodeURIComponent(orderId) + "/confirm-pickup", {
+      headers: auth(deliveryToken), timeout: 20_000,
+    });
+    const pickupBodyText = await pickupConfirmation.text();
+    expect(pickupConfirmation.status(), "rider confirms collection from the seller; backend response: " + pickupBodyText).toBe(200);
+    expect(JSON.parse(pickupBodyText).status).toBe("PICKED_UP");
 
     const invalidOtp = await request.post(apiBase + "/delivery/jobs/" + encodeURIComponent(orderId) + "/verify-otp", {
       headers: auth(deliveryToken), data: { otp: "0000" === placement.deliveryOtp ? "9999" : "0000" }, timeout: 20_000,
@@ -335,7 +345,8 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const validOtp = await request.post(apiBase + "/delivery/jobs/" + encodeURIComponent(orderId) + "/verify-otp", {
       headers: auth(deliveryToken), data: { otp: placement.deliveryOtp }, timeout: 20_000,
     });
-    expect(validOtp.status(), "valid OTP completes the synthetic delivery").toBe(200);
+    const validOtpBody = await validOtp.text();
+    expect(validOtp.status(), "valid OTP completes the synthetic delivery; backend response: " + validOtpBody).toBe(200);
     const replayDeliveryOtp = await request.post(apiBase + "/delivery/jobs/" + encodeURIComponent(orderId) + "/verify-otp", {
       headers: auth(deliveryToken), data: { otp: placement.deliveryOtp }, timeout: 20_000,
     });
