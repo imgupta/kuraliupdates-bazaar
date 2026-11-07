@@ -246,14 +246,16 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
       timeout: 20_000,
     });
     expect(lowerOfferResponse.status(), "a new price offer must be rejected after acceptance").toBe(409);
-    const buyerChatsAfterRejectedOffer = await getJson(request, "/negotiations?role=BUYER", buyerToken);
+    const [buyerChatsAfterRejectedOffer, catalogBeforeCheckout] = await Promise.all([
+      getJson(request, "/negotiations?role=BUYER", buyerToken),
+      getJson(request, "/buyers/products/search?query=" + encodeURIComponent(productId), buyerToken),
+    ]);
     const unchangedChat = buyerChatsAfterRejectedOffer.find((chat: any) => chat.id === chatId);
     expect(unchangedChat, "the accepted conversation remains visible").toBeTruthy();
     expect(Number(unchangedChat.currentAgreedPrice)).toBe(counterPrice);
     expect(String(unchangedChat.currentAgreedOfferId)).toBe(String(sellerCounter.offer.id));
     expect(unchangedChat.bargainStatus).toBe("ACCEPTED");
 
-    const catalogBeforeCheckout = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(productId), buyerToken);
     const productBeforeCheckout = catalogBeforeCheckout.find((p: any) => p.productId === productId);
     expect(Number(productBeforeCheckout?.effectivePrice ?? productBeforeCheckout?.price ?? productBeforeCheckout?.sellerPrice)).toBe(catalogPrice);
 
@@ -294,7 +296,10 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(Number(order.deliveryFee)).toBe(expectedDeliveryFee);
     expect(Number(order.totalAmount)).toBe(expectedFinalPayable);
 
-    const catalogAfterCheckout = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(productId), buyerToken);
+    const [catalogAfterCheckout, history] = await Promise.all([
+      getJson(request, "/buyers/products/search?query=" + encodeURIComponent(productId), buyerToken),
+      getJson(request, "/buyers/me/orders", buyerToken),
+    ]);
     const productAfterCheckout = catalogAfterCheckout.find((p: any) => p.productId === productId);
     expect(Number(productAfterCheckout?.effectivePrice ?? productAfterCheckout?.price ?? productAfterCheckout?.sellerPrice),
       "accepted bargaining price must affect this order only, never catalogue price").toBe(catalogPrice);
@@ -302,7 +307,6 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(order.paymentStatus).toBe("PENDING_COD");
     expect(String(placement.deliveryOtp ?? "")).toMatch(/^\d{4}$/);
 
-    const history = await getJson(request, "/buyers/me/orders", buyerToken);
     expect(history.filter((x: any) => x.orderId === orderId)).toHaveLength(1);
 
     for (const status of ["ACCEPTED_BY_SELLER", "READY_FOR_PICKUP"]) {
@@ -351,10 +355,14 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
       headers: auth(deliveryToken), data: { otp: placement.deliveryOtp }, timeout: 20_000,
     });
     expect([400, 409], "delivery OTP replay must not complete or credit the trip twice").toContain(replayDeliveryOtp.status());
-    const finalTrack = await getJson(request, "/buyers/orders/" + encodeURIComponent(orderId) + "/track", buyerToken);
+    const [finalTrack, finalBuyerOrders, finalSellerOrders] = await Promise.all([
+      getJson(request, "/buyers/orders/" + encodeURIComponent(orderId) + "/track", buyerToken),
+      getJson(request, "/buyers/me/orders", buyerToken),
+      getJson(request, "/sellers/me/orders", sellerToken),
+    ]);
     expect(finalTrack.status).toBe("DELIVERED");
-    expect((await getJson(request, "/buyers/me/orders", buyerToken)).filter((x: any) => x.orderId === orderId)).toHaveLength(1);
-    expect((await getJson(request, "/sellers/me/orders", sellerToken)).filter((x: any) => x.orderId === orderId)).toHaveLength(1);
+    expect(finalBuyerOrders.filter((x: any) => x.orderId === orderId)).toHaveLength(1);
+    expect(finalSellerOrders.filter((x: any) => x.orderId === orderId)).toHaveLength(1);
   });
 
   test("Daily Help: buyer books synthetic slot → professional starts with OTP → completes → history reconciles", async ({ request }, testInfo) => {
@@ -464,10 +472,12 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const fixture = await prepareFixtures(request, runId, sellerId, agentId, professionalIdentity);
     const professionalId = fixture.professionalId;
 
-    const beforeOrders = await getJson(request, "/buyers/me/orders", buyerToken);
+    const [beforeOrders, validProducts, failProducts] = await Promise.all([
+      getJson(request, "/buyers/me/orders", buyerToken),
+      getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerValidProductId), buyerToken),
+      getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerFailProductId), buyerToken),
+    ]);
     const beforeIds = new Set(beforeOrders.map((order: any) => String(order.orderId)));
-    const validProducts = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerValidProductId), buyerToken);
-    const failProducts = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerFailProductId), buyerToken);
     const validProduct = validProducts.find((item: any) => item.productId === fixture.multiSellerValidProductId);
     const failProduct = failProducts.find((item: any) => item.productId === fixture.multiSellerFailProductId);
     expect(validProduct).toBeTruthy();
@@ -534,10 +544,12 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     });
     expect([400, 409], "the second seller's zero-stock product must fail the checkout").toContain(response.status());
 
-    const afterOrders = await getJson(request, "/buyers/me/orders", buyerToken);
+    const [afterOrders, validAfter, failAfter] = await Promise.all([
+      getJson(request, "/buyers/me/orders", buyerToken),
+      getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerValidProductId), buyerToken),
+      getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerFailProductId), buyerToken),
+    ]);
     expect(afterOrders.map((order: any) => String(order.orderId)).sort()).toEqual([...beforeIds].sort());
-    const validAfter = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerValidProductId), buyerToken);
-    const failAfter = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.multiSellerFailProductId), buyerToken);
     const validAfterProduct = validAfter.find((item: any) => item.productId === fixture.multiSellerValidProductId);
     expect(Number(validAfterProduct.stock ?? validAfterProduct.stockQty),
       "first seller stock must roll back after the later seller fails").toBe(2);
@@ -592,10 +604,12 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(placedOrder.items).toHaveLength(1);
     expect(Number(placedOrder.items[0].quantity)).toBe(2);
 
-    const after = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(productId), buyerToken);
+    const [after, history] = await Promise.all([
+      getJson(request, "/buyers/products/search?query=" + encodeURIComponent(productId), buyerToken),
+      getJson(request, "/buyers/me/orders", buyerToken),
+    ]);
     const updatedProduct = after.find((item: any) => item.productId === productId);
     expect(Number(updatedProduct.stock ?? updatedProduct.stockQty), "stock must be zero, never negative").toBe(0);
-    const history = await getJson(request, "/buyers/me/orders", buyerToken);
     expect(history.filter((item: any) => item.orderId === placedOrder.orderId)).toHaveLength(1);
 
     const oversell = await request.post(apiBase + "/buyers/orders", {
