@@ -151,3 +151,8 @@ The service-start OTP is buyer-held and must not be returned by professional sta
 ## Delivery partner least-privilege order projection — 7 November 2026
 
 Unclaimed job listing uses AvailableDeliveryJobResponse, exposing only buyer locality, seller pickup name/address/locality, checkout group and route metadata; it withholds buyer name, phone, exact address and coordinates until the authenticated rider successfully claims the job. Assigned-job listing, claim, combined claim and pickup confirmation use DeliveryJobResponse with only the buyer contact/dropoff details needed after assignment, seller pickup details, item product/title/quantity, order state and route metadata. It excludes buyer email, coupon/discount/payment data, place-provider IDs, delivery OTP, payout snapshots and item prices. Controller routes remain unchanged. The frontend delivery portal now displays only the delivery locality on unclaimed cards and continues to receive full dropoff details after assignment. No persistence/schema change.
+
+
+## Delivery onboarding ownership — 7 November 2026
+
+Delivery profiles are authorized only through DELIVERY_AGENTS.USER_ID matching the authenticated USER_SESSIONS.USER_ID. AuthService's existing verified email-OTP role registration provisions the profile with the same user ID and PENDING status. The legacy public /delivery/register endpoint and frontend local-only instant activation path are removed. The legacy registration modal routes to /register/delivery. Email/phone matching is not an authorization fallback; legacy rows with null USER_ID do not grant the DELIVERY role or rider access and require an approved relink or re-application. New delivery operations remain gated by ACTIVE profile status. No schema migration is required.
