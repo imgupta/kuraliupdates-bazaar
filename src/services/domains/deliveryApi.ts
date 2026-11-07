@@ -38,18 +38,7 @@ export const deliveryApi = {
     return data;
   },
 
-  async getAvailableDeliveryJobs(): Promise<any[]> {
-    try {
-      const res = await fetch(`${API_BASE_URL}/delivery/jobs/available`, {
-        headers: { Accept: 'application/json' },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch (err) {
-      console.warn('Backend getAvailableDeliveryJobs failed:', err);
-      return [];
-    }
-  },
+
 
   async getDeliveryAvailableJobs(): Promise<any[]> {
     try {
