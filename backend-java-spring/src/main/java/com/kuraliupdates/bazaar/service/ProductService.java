@@ -1,6 +1,7 @@
 package com.kuraliupdates.bazaar.service;
 
 import com.kuraliupdates.bazaar.dto.product.ProductResponse;
+import com.kuraliupdates.bazaar.entity.ProductEntity;
 import com.kuraliupdates.bazaar.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
