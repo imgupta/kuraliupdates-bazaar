@@ -308,6 +308,91 @@ public class OrderService {
         return new OrderPlacementResponse(OrderResponse.from(saved), saved.getDeliveryOtp());
     }
 
+    /** Cancels every seller order in the buyer's checkout group as one inventory transaction. */
+    @Transactional
+    public OrderResponse cancelOrderForBuyer(String orderId, UserEntity buyer) {
+        if (buyer == null || buyer.getEmail() == null || buyer.getEmail().isBlank()) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
+        }
+        OrderEntity requested = orderRepository.findLockedByOrderId(orderId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
+        String buyerEmail = buyer.getEmail().trim().toLowerCase(Locale.ROOT);
+        if (requested.getBuyerEmail() == null || !requested.getBuyerEmail().equalsIgnoreCase(buyerEmail)) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
+        }
+        List<OrderEntity> group = requested.getCheckoutGroupId() == null
+                || requested.getCheckoutGroupId().isBlank()
+                ? List.of(requested)
+                : orderRepository.findLockedByCheckoutGroupId(requested.getCheckoutGroupId());
+        if (group == null || group.isEmpty()
+                || group.stream().anyMatch(order -> order.getBuyerEmail() == null
+                    || !order.getBuyerEmail().equalsIgnoreCase(buyerEmail))) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
+        }
+        if (group.stream().allMatch(order -> "CANCELLED".equalsIgnoreCase(order.getStatus()))) {
+            return OrderResponse.from(requested);
+        }
+
+        Map<String, Integer> restoreQuantities = new TreeMap<>();
+        for (OrderEntity order : group) {
+            String status = order.getStatus() == null ? "" : order.getStatus().trim().toUpperCase(Locale.ROOT);
+            if (!Set.of("PLACED", "ACCEPTED_BY_SELLER").contains(status)) {
+                throw new ApiException(HttpStatus.CONFLICT,
+                        "Checkout can no longer be cancelled after seller fulfilment or delivery has started");
+            }
+            if ("PAID".equalsIgnoreCase(order.getPaymentStatus())) {
+                throw new ApiException(HttpStatus.CONFLICT,
+                        "Paid orders require the refund workflow and cannot be cancelled yet");
+            }
+            if (order.getDeliveryAgent() != null || order.getCombinedDeliveryBatchId() != null) {
+                throw new ApiException(HttpStatus.CONFLICT,
+                        "Checkout cannot be cancelled after delivery assignment");
+            }
+            if (order.getItems() == null || order.getItems().isEmpty()) {
+                throw new ApiException(HttpStatus.CONFLICT, "Cannot cancel an order without its inventory items");
+            }
+            for (OrderItemEntity item : order.getItems()) {
+                if (item.getProduct() == null || item.getProduct().getProductId() == null
+                        || item.getQuantity() == null || item.getQuantity() <= 0) {
+                    throw new ApiException(HttpStatus.CONFLICT,
+                            "Cannot restore inventory because an order item is incomplete");
+                }
+                try {
+                    restoreQuantities.merge(item.getProduct().getProductId(), item.getQuantity(), Math::addExact);
+                } catch (ArithmeticException overflow) {
+                    throw new ApiException(HttpStatus.CONFLICT,
+                            "Cannot restore inventory because the quantity would overflow");
+                }
+            }
+        }
+
+        // All stock rows are locked in stable key order, and every group order is
+        // changed in this transaction. A missing product or overflow rolls back all.
+        for (Map.Entry<String, Integer> entry : restoreQuantities.entrySet()) {
+            ProductEntity product = productRepository.findLockedByProductId(entry.getKey())
+                    .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT,
+                            "Cannot restore inventory because a product no longer exists"));
+            int stock = product.getStock() == null ? 0 : product.getStock();
+            try {
+                product.setStock(Math.addExact(stock, entry.getValue()));
+            } catch (ArithmeticException overflow) {
+                throw new ApiException(HttpStatus.CONFLICT,
+                        "Cannot restore inventory because the stock quantity would overflow");
+            }
+        }
+        LocalDateTime now = LocalDateTime.now();
+        for (OrderEntity order : group) {
+            order.setStatus("CANCELLED");
+            order.setFulfilmentStatus("CANCELLED");
+            order.setPaymentStatus("CANCELLED");
+            order.setUpdatedAt(now);
+        }
+        orderRepository.saveAll(group);
+        return OrderResponse.from(group.stream()
+                .filter(order -> order.getOrderId().equals(orderId))
+                .findFirst().orElse(requested));
+    }
+
     @Transactional
     public OrderResponse confirmStorePickup(String orderId, String otp, UserEntity buyer) {
         if (buyer == null || buyer.getEmail() == null) {
