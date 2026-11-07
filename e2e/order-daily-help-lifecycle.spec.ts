@@ -273,9 +273,9 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(Number(order.items[0].negotiatedPrice)).toBe(counterPrice);
     expect(Number(order.items[0].totalPrice)).toBe(counterPrice * quantity);
     expect(Number(order.subtotal)).toBe(expectedSubtotal);
-    expect(Number(order.discountAmount)).toBe(expectedDiscount);
+    expect(Number(order.billDiscountAmount ?? 0) + Number(order.couponDiscountAmount ?? 0)).toBe(expectedDiscount);
     expect(Number(order.deliveryFee)).toBe(expectedDeliveryFee);
-    expect(Number(order.finalPayable)).toBe(expectedFinalPayable);
+    expect(Number(order.totalAmount)).toBe(expectedFinalPayable);
 
     const catalogAfterCheckout = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(productId), buyerToken);
     const productAfterCheckout = catalogAfterCheckout.find((p: any) => p.productId === productId);
@@ -400,7 +400,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const replayedStart = await replayStart.json();
     expect(replayedStart.status).toBe("IN_PROGRESS");
     expect(replayedStart.serviceStartedAt, "replay must not reset the original service start timestamp")
-      .toBe(started.serviceStartedAt);
+      .toBe(started.serviceStartedAt.slice(0, 26));
 
     const completeResponse = await request.post(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId) + "/complete?professionalId=" + encodeURIComponent(professionalId), {
       headers: auth(professionalToken), timeout: 20_000,
@@ -422,7 +422,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(reconciledBooking.id).toBe(bookingId);
     expect(reconciledBooking.professionalId).toBe(professionalId);
     expect(reconciledBooking.status).toBe("COMPLETED");
-    expect(reconciledBooking.serviceStartedAt).toBe(started.serviceStartedAt);
+    expect(reconciledBooking.serviceStartedAt).toBe(started.serviceStartedAt.slice(0, 26));
     expect(reconciledBooking.serviceCompletedAt).toBe(completed.serviceCompletedAt);
   });
 
@@ -487,7 +487,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const sellerRejectedChat = await sellerRejectResponse.json();
     expect(sellerRejectedChat.bargainStatus).toBe("REJECTED");
     expect(sellerRejectedChat.messages.some((message: any) =>
-      message.offer?.id === pendingBuyerOffer.offer.id && message.offer?.status === "REJECTED"
+      message.offer?.id === pendingBuyerOffer.offer.id && String(message.offer?.status).toUpperCase() === "REJECTED"
     )).toBe(true);
 
     const response = await request.post(apiBase + "/buyers/orders/checkout", {

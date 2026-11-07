@@ -109,11 +109,13 @@ public class E2eRunCleanupService {
                             + ". No records were changed.");
         }
 
+        // Oracle may choose parallel DML even when cleanup requests are serialized.
+        // Keep every run-scoped delete serial to avoid ORA-12860 sibling-row locks.
         int chats = jdbc.update("""
-                DELETE FROM CHAT_MESSAGES
+                DELETE /*+ NO_PARALLEL */ FROM CHAT_MESSAGES
                 WHERE CHAT_ID IN (SELECT CHAT_ID FROM NEGOTIATION_CHATS WHERE E2E_RUN_ID = ?)
                 """, runId);
-        int deletedChats = jdbc.update("DELETE FROM NEGOTIATION_CHATS WHERE E2E_RUN_ID = ?", runId);
+        int deletedChats = jdbc.update("DELETE /*+ NO_PARALLEL */ FROM NEGOTIATION_CHATS WHERE E2E_RUN_ID = ?", runId);
 
         jdbc.update("""
                 UPDATE DAILY_HELP_PROFESSIONAL_SLOTS
@@ -121,7 +123,7 @@ public class E2eRunCleanupService {
                 WHERE SLOT_ID LIKE 'E2E-%' AND STATUS = 'BOOKED'
                   AND BOOKING_ID IN (SELECT BOOKING_ID FROM DAILY_HELP_BOOKINGS WHERE E2E_RUN_ID = ?)
                 """, runId);
-        int bookings = jdbc.update("DELETE FROM DAILY_HELP_BOOKINGS WHERE E2E_RUN_ID = ?", runId);
+        int bookings = jdbc.update("DELETE /*+ NO_PARALLEL */ FROM DAILY_HELP_BOOKINGS WHERE E2E_RUN_ID = ?", runId);
 
         jdbc.update("""
                 UPDATE PRODUCTS p
@@ -136,16 +138,16 @@ public class E2eRunCleanupService {
                               WHERE o.E2E_RUN_ID = ? AND oi.PRODUCT_ID = p.PRODUCT_ID)
                 """, runId, runId, runId);
         int orderItems = jdbc.update("""
-                DELETE FROM ORDER_ITEMS
+                DELETE /*+ NO_PARALLEL */ FROM ORDER_ITEMS
                 WHERE ORDER_ID IN (SELECT ORDER_ID FROM ORDERS WHERE E2E_RUN_ID = ?)
                 """, runId);
-        int orders = jdbc.update("DELETE FROM ORDERS WHERE E2E_RUN_ID = ?", runId);
-        int products = jdbc.update("DELETE FROM PRODUCTS WHERE E2E_RUN_ID = ?", runId);
-        int slots = jdbc.update("DELETE FROM DAILY_HELP_PROFESSIONAL_SLOTS WHERE E2E_RUN_ID = ?", runId);
-        int services = jdbc.update("DELETE FROM DAILY_HELP_SERVICES WHERE E2E_RUN_ID = ?", runId);
-        int sellers = jdbc.update("DELETE FROM SELLERS WHERE E2E_RUN_ID = ?", runId);
+        int orders = jdbc.update("DELETE /*+ NO_PARALLEL */ FROM ORDERS WHERE E2E_RUN_ID = ?", runId);
+        int products = jdbc.update("DELETE /*+ NO_PARALLEL */ FROM PRODUCTS WHERE E2E_RUN_ID = ?", runId);
+        int slots = jdbc.update("DELETE /*+ NO_PARALLEL */ FROM DAILY_HELP_PROFESSIONAL_SLOTS WHERE E2E_RUN_ID = ?", runId);
+        int services = jdbc.update("DELETE /*+ NO_PARALLEL */ FROM DAILY_HELP_SERVICES WHERE E2E_RUN_ID = ?", runId);
+        int sellers = jdbc.update("DELETE /*+ NO_PARALLEL */ FROM SELLERS WHERE E2E_RUN_ID = ?", runId);
 
-        int sessions = jdbc.update("DELETE FROM USER_SESSIONS WHERE E2E_RUN_ID = ?", runId);
+        int sessions = jdbc.update("DELETE /*+ NO_PARALLEL */ FROM USER_SESSIONS WHERE E2E_RUN_ID = ?", runId);
         return new CleanupResult(runId, orders, orderItems, bookings, deletedChats, chats, sessions,
                 products, services, slots, sellers);
     }
