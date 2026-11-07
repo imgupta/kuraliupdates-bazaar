@@ -53,7 +53,7 @@ class DeliveryServiceTest {
         DeliveryAgentEntity result = deliveryService.currentAgent(authenticated);
 
         assertEquals("AGENT-1", result.getAgentId());
-        verify(agentRepository, never()).findByEmail(anyString());
+        verify(agentRepository, never()).findByEmailIgnoreCase(anyString());
     }
 
     @Test
@@ -64,13 +64,13 @@ class DeliveryServiceTest {
                 .userId("victim-user").email("rider@example.com").phone("9876543210")
                 .status("ACTIVE").build();
         when(agentRepository.findByUserId("attacker-user")).thenReturn(Optional.empty());
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(anotherUsersProfile));
+        when(agentRepository.findByEmailIgnoreCase("rider@example.com")).thenReturn(Optional.of(anotherUsersProfile));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.currentAgent(authenticated));
 
         assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
-        verify(agentRepository).findByEmail("rider@example.com");
+        verify(agentRepository).findByEmailIgnoreCase("rider@example.com");
         verify(agentRepository, never()).findByPhone(anyString());
     }
 
@@ -80,7 +80,7 @@ class DeliveryServiceTest {
         DeliveryAgentEntity legacy = DeliveryAgentEntity.builder().agentId("AGENT-LEGACY")
                 .email("rider@example.com").phone("9876543210").status("ACTIVE").build();
         when(agentRepository.findByUserId("rider-user")).thenReturn(Optional.empty());
-        when(agentRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(legacy));
+        when(agentRepository.findByEmailIgnoreCase("rider@example.com")).thenReturn(Optional.of(legacy));
 
         DeliveryAgentEntity result = deliveryService.currentAgent(authenticated);
 
@@ -93,7 +93,7 @@ class DeliveryServiceTest {
         UserEntity authenticated = UserEntity.builder().userId("buyer-user")
                 .email("buyer@example.com").phone("9876543210").role("BUYER").build();
         when(agentRepository.findByUserId("buyer-user")).thenReturn(Optional.empty());
-        when(agentRepository.findByEmail("buyer@example.com")).thenReturn(Optional.empty());
+        when(agentRepository.findByEmailIgnoreCase("buyer@example.com")).thenReturn(Optional.empty());
 
         ApiException error = assertThrows(ApiException.class,
                 () -> deliveryService.currentAgent(authenticated));
