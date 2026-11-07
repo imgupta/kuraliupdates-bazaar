@@ -47,8 +47,13 @@ public class E2eFixtureService {
         if (!"ACTIVE".equalsIgnoreCase(agent.getStatus()) || !Boolean.TRUE.equals(agent.getAvailableForJobs())) {
             throw new ApiException(HttpStatus.CONFLICT, "Synthetic delivery agent must be ACTIVE and available");
         }
+        // Configuration may contain either the profile primary key or its linked user ID.
+        // Resolve once and use the canonical profile ID for slot creation and later API calls.
         DailyHelpProfessionalEntity professional = professionalRepository.findById(professionalId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Synthetic Daily Help professional was not found"));
+                .or(() -> professionalRepository.findByUserId(professionalId))
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
+                        "Synthetic Daily Help professional was not found by professional ID or user ID"));
+        String resolvedProfessionalId = professional.getProfessionalId();
         if (!Integer.valueOf(1).equals(professional.getVerified())
                 || !"AVAILABLE".equalsIgnoreCase(professional.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "Synthetic professional must be verified and AVAILABLE");
@@ -132,12 +137,12 @@ public class E2eFixtureService {
                         .slotId(slotId).professional(professional).slotDate(slotDate)
                         .startTime(start).endTime(end).status("AVAILABLE")
                         .createdAt(now).updatedAt(now).e2eRunId(runId).build()));
-        if (!slotId.equals(slot.getSlotId()) || !professionalId.equals(slot.getProfessional().getProfessionalId())
+        if (!slotId.equals(slot.getSlotId()) || !resolvedProfessionalId.equals(slot.getProfessional().getProfessionalId())
                 || !"AVAILABLE".equalsIgnoreCase(slot.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "Run Daily Help slot is not available for the configured professional");
         }
 
-        return new FixtureResult(productId, sellerId, agentId, serviceId, slotId, professionalId,
+        return new FixtureResult(productId, sellerId, agentId, serviceId, slotId, resolvedProfessionalId,
                 slotDate.atTime(start).toString(), 1, 2, TEST_PRICE.toPlainString(),
                 rollbackSellerId, multiSellerValidProductId, multiSellerFailProductId);
     }

@@ -37,7 +37,9 @@ class E2eFixtureServiceTest {
         when(sellers.findById(argThat(id -> id != null && id.startsWith("E2E-S2-")))).thenReturn(Optional.empty());
         when(sellers.save(any(SellerEntity.class))).thenAnswer(i -> i.getArgument(0));
         when(agents.findById("stage-agent-01")).thenReturn(Optional.of(agent));
-        when(professionals.findById("stage-provider-01")).thenReturn(Optional.of(professional));
+        // The configured identifier may be the linked USER_ID, not the profile primary key.
+        when(professionals.findById("stage-provider-user-01")).thenReturn(Optional.empty());
+        when(professionals.findByUserId("stage-provider-user-01")).thenReturn(Optional.of(professional));
         when(products.findById(argThat(id -> id != null && id.startsWith("E2E-P-")))).thenReturn(Optional.empty());
         when(services.findFirstByE2eRunId(runId)).thenReturn(Optional.empty());
         when(slots.findFirstByE2eRunId(runId)).thenReturn(Optional.empty());
@@ -48,14 +50,16 @@ class E2eFixtureServiceTest {
         when(slots.save(any(DailyHelpProfessionalSlotEntity.class))).thenAnswer(i -> i.getArgument(0));
 
         var result = fixtureService.prepare(runId,
-                new E2eFixtureService.PrepareRequest("stage-seller-01", "stage-agent-01", "stage-provider-01"));
+                new E2eFixtureService.PrepareRequest("stage-seller-01", "stage-agent-01", "stage-provider-user-01"));
 
         assertTrue(result.productId().startsWith("E2E-P-"));
         assertTrue(result.serviceId().startsWith("E2E-S-"));
         assertTrue(result.slotId().startsWith("E2E-T-"));
         assertEquals("stage-seller-01", result.sellerId());
         assertEquals("stage-agent-01", result.deliveryAgentId());
-        assertEquals("stage-provider-01", result.professionalId());
+        assertEquals("stage-provider-01", result.professionalId(),
+                "fixture result must expose the canonical PROFESSIONAL_ID, not the configured USER_ID");
+        verify(professionals).findByUserId("stage-provider-user-01");
         assertTrue(result.rollbackSellerId().startsWith("E2E-S2-"));
         assertTrue(result.multiSellerValidProductId().startsWith("E2E-MV-"));
         assertTrue(result.multiSellerFailProductId().startsWith("E2E-MF-"));
