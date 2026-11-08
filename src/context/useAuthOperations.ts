@@ -213,26 +213,10 @@ export const useAuthOperations = ({
     showToast('Signed out. Please sign in or register to continue.', 'info');
   };
 
-  const registerBuyer = (data: { name: string; email: string; phone: string; locality: string; address: string }) => {
-    const cleanPhone = data.phone.replace(/\D/g, '');
-    const buyer: UserProfile = {
-      email: data.email.trim().toLowerCase(),
-      name: data.name.trim(),
-      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(data.name.trim())}&backgroundColor=0284c7,f59e0b,10b981`,
-      phone: cleanPhone,
-      locality: data.locality,
-      address: data.address,
-      role: 'buyer',
-      isSignedIn: true,
-      phoneVerified: false,
-      emailVerified: false,
-      authMethod: 'otp',
-      isAdmin: false,
-    };
-    setUser(buyer);
-    setRoleState('buyer');
-    persistAuthSession(buyer);
-    showToast('Buyer profile created. Please use OTP sign-in for verified authentication.', 'success');
+  const registerBuyer = (_data: { name: string; email: string; phone: string; locality: string; address: string }) => {
+    // Legacy local-only registration is intentionally non-authenticating.
+    // A buyer account becomes active only after the backend verifies an OTP.
+    showToast('Please complete buyer registration with Email or Mobile OTP before accessing your account.', 'info');
   };
   return { loginWithGoogle, loginWithOtp, registerUserWithOtp, logout, registerBuyer };
 };
