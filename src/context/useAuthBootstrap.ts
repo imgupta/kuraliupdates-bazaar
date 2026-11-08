@@ -4,12 +4,12 @@ import { bazaarApi } from '../services/api';
 import { toSavedAddress, type SavedAddress } from '../entities/address';
 import { mapServerUser, type UserProfile } from '../entities/userProfile';
 import {
+  clearStoredAuthState,
   hasStoredAuthSession,
   persistAuthSession,
   persistAuthToken,
   readAuthToken,
-  removeAuthSession,
-  removeAuthToken,
+
 } from '../auth/authSessionStorage';
 
 type AuthBootstrapOptions = {
@@ -38,12 +38,32 @@ export const useAuthBootstrap = ({
   useEffect(() => {
     syncWithBackend();
     const interval = setInterval(syncWithBackend, 45000);
+    const url = new URL(window.location.href);
+    const hasPortalHandoff = url.searchParams.has('sso_code')
+      || new URLSearchParams(url.hash.slice(1)).has('sso_code');
 
-    // Live session token check against Oracle DB / Spring Boot backend
-    const savedToken = readAuthToken();
-    if (savedToken) {
-      bazaarApi.getMe(savedToken).then(res => {
-        if (res.authenticated && res.user) {
+    // A one-time portal handoff is validated by the dedicated exchange below.
+    // Do not race it against restoration of an older browser token.
+    if (!hasPortalHandoff) {
+      const savedToken = readAuthToken();
+      if (!savedToken) {
+        // A cached profile without a server-issued token must never unlock a portal.
+        if (hasStoredAuthSession()) {
+          clearStoredAuthState();
+          setUser({
+            email: '', name: '', avatarUrl: '', phone: '',
+            locality: 'Main Bazaar & Clock Tower', role: 'buyer',
+            isSignedIn: false, phoneVerified: false, emailVerified: false,
+          });
+          setRoleState('buyer');
+          setRegisteredRoles(['buyer']);
+        }
+        setAuthInitializing(false);
+      } else {
+        bazaarApi.getMe(savedToken).then(res => {
+          if (!res.authenticated || !res.user) {
+            throw new Error('Stored authentication token is no longer valid');
+          }
           const u = res.user;
           const effectiveRole: UserRole = (u.role?.toLowerCase() as UserRole) || 'buyer';
           const hadStoredSession = hasStoredAuthSession();
@@ -58,7 +78,6 @@ export const useAuthBootstrap = ({
               const fromServer = Array.isArray(res.addresses)
                 ? res.addresses.map(toSavedAddress).filter((address: SavedAddress) => Boolean(address.id))
                 : [];
-              // Do not let an empty server list erase locally retained addresses during session restore.
               return fromServer.length > 0 ? fromServer : (prev.savedAddresses || []);
             })(),
             addressLine1: u.addressLine1 || prev.addressLine1,
@@ -67,8 +86,6 @@ export const useAuthBootstrap = ({
             placeId: u.placeId || prev.placeId,
             latitude: u.latitude ?? prev.latitude,
             longitude: u.longitude ?? prev.longitude,
-            // Keep the user's selected portal when refreshing a valid session.
-            // The backend's primary role is only a fallback for a missing local session.
             role: prev.isSignedIn ? prev.role : effectiveRole,
             isSignedIn: true,
             phoneVerified: true,
@@ -76,8 +93,21 @@ export const useAuthBootstrap = ({
             isAdmin: Number(u.isAdmin) === 1 || effectiveRole === 'admin',
           }));
           if (!hadStoredSession) setRoleState(effectiveRole);
-        }
-      });
+        }).catch(() => {
+          // Fail closed on invalid, revoked, or unverifiable sessions. The user
+          // must authenticate again rather than retaining a locally cached identity.
+          clearStoredAuthState();
+          setUser({
+            email: '', name: '', avatarUrl: '', phone: '',
+            locality: 'Main Bazaar & Clock Tower', role: 'buyer',
+            isSignedIn: false, phoneVerified: false, emailVerified: false,
+          });
+          setRoleState('buyer');
+          setRegisteredRoles(['buyer']);
+        }).finally(() => {
+          setAuthInitializing(false);
+        });
+      }
     }
 
     return () => clearInterval(interval);
