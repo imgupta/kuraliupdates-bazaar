@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { UserRole } from '../types';
 import { type UserProfile } from '../entities/userProfile';
-import { readStoredAuthSession, readStoredRole } from '../auth/authSessionStorage';
+import { readAuthToken, readStoredAuthSession, readStoredRole } from '../auth/authSessionStorage';
 import { safeStorageSet } from '../shared/storage/safeStorage';
 
 interface AuthSessionContextValue {
@@ -28,12 +28,14 @@ export const AuthSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     emailVerified: false,
   });
   const [role, setRoleState] = useState<UserRole>(() => readStoredRole());
-  const [authInitializing, setAuthInitializing] = useState(() =>
-    typeof window !== 'undefined' && (
-      new URLSearchParams(window.location.search).has('sso_code') ||
-      new URLSearchParams(window.location.hash.slice(1)).has('sso_code')
-    )
-  );
+  const [authInitializing, setAuthInitializing] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const hasPortalHandoff = new URLSearchParams(window.location.search).has('sso_code')
+      || new URLSearchParams(window.location.hash.slice(1)).has('sso_code');
+    // Never render a cached signed-in profile until its bearer token is checked
+    // against the backend. A profile in localStorage is not an authentication proof.
+    return hasPortalHandoff || Boolean(readAuthToken() || readStoredAuthSession());
+  });
 
   // Keep the signed-in profile and the active non-admin role in sync, as before.
   useEffect(() => {
