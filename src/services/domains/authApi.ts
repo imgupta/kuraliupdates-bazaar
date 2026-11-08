@@ -44,13 +44,13 @@ export const authApi = {
   },
 
   async sendOtp(identifier: string, type: 'EMAIL' | 'PHONE', mode: 'LOGIN' | 'REGISTER'): Promise<{ success: boolean; message: string; resendAfterSeconds?: number }> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
     try {
-      const controller = new AbortController();
       // Render Free instances can sleep between requests. A cold start plus
       // Oracle connection acquisition can exceed the old 30s client deadline.
       // Keep the request alive long enough for the service to wake without
       // retrying automatically (a timed-out send may still deliver the OTP).
-      const timeoutId = setTimeout(() => controller.abort(), 90000);
       const res = await fetch(`${API_BASE_URL}/auth/send-otp`, {
         method: 'POST',
         signal: controller.signal,
@@ -151,11 +151,11 @@ export const authApi = {
   },
 
   async getMe(token: string): Promise<{ authenticated: boolean; success?: boolean; user?: any; addresses?: any[] }> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     try {
-      const controller = new AbortController();
       // Session restoration can be the first request after the Render instance
       // has slept. Four seconds caused valid sessions to appear unauthenticated.
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
       const res = await fetch(`${API_BASE_URL}/auth/me?token=${encodeURIComponent(token)}`, {
         signal: controller.signal,
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
