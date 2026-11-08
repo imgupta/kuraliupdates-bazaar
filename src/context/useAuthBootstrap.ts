@@ -130,6 +130,13 @@ export const useAuthBootstrap = ({
       if (cancelled) return;
       if (!result?.success || !result.token || !result.user || !result.role) {
         clearStoredAuthState();
+        setUser({
+          email: '', name: '', avatarUrl: '', phone: '',
+          locality: 'Main Bazaar & Clock Tower', role: 'buyer',
+          isSignedIn: false, phoneVerified: false, emailVerified: false,
+        });
+        setRoleState('buyer');
+        setRegisteredRoles(['buyer']);
         setAuthInitializing(false);
         return;
       }
