@@ -146,6 +146,13 @@ export const useAuthBootstrap = ({
       const targetRole = result.role.toLowerCase() as UserRole;
       if (!roles.includes(targetRole)) {
         clearStoredAuthState();
+        setUser({
+          email: '', name: '', avatarUrl: '', phone: '',
+          locality: 'Main Bazaar & Clock Tower', role: 'buyer',
+          isSignedIn: false, phoneVerified: false, emailVerified: false,
+        });
+        setRoleState('buyer');
+        setRegisteredRoles(['buyer']);
         setAuthInitializing(false);
         return;
       }
