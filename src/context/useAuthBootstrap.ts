@@ -9,7 +9,6 @@ import {
   persistAuthSession,
   persistAuthToken,
   readAuthToken,
-
 } from '../auth/authSessionStorage';
 
 type AuthBootstrapOptions = {
@@ -130,8 +129,7 @@ export const useAuthBootstrap = ({
     bazaarApi.redeemPortalHandoff(code).then(result => {
       if (cancelled) return;
       if (!result?.success || !result.token || !result.user || !result.role) {
-        removeAuthToken();
-        removeAuthSession();
+        clearStoredAuthState();
         setAuthInitializing(false);
         return;
       }
@@ -140,8 +138,7 @@ export const useAuthBootstrap = ({
         .filter((r: UserRole) => ['buyer', 'seller', 'delivery', 'professional', 'admin'].includes(r));
       const targetRole = result.role.toLowerCase() as UserRole;
       if (!roles.includes(targetRole)) {
-        removeAuthToken();
-        removeAuthSession();
+        clearStoredAuthState();
         setAuthInitializing(false);
         return;
       }
@@ -165,7 +162,17 @@ export const useAuthBootstrap = ({
       setRegisteredRoles(Array.from(new Set(['buyer', ...roles])));
       setAuthInitializing(false);
     }).catch(() => {
-      if (!cancelled) setAuthInitializing(false);
+      if (!cancelled) {
+        clearStoredAuthState();
+        setUser({
+          email: '', name: '', avatarUrl: '', phone: '',
+          locality: 'Main Bazaar & Clock Tower', role: 'buyer',
+          isSignedIn: false, phoneVerified: false, emailVerified: false,
+        });
+        setRoleState('buyer');
+        setRegisteredRoles(['buyer']);
+        setAuthInitializing(false);
+      }
     });
 
     return () => { cancelled = true; };
