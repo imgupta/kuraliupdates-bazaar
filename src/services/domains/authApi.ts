@@ -44,16 +44,19 @@ export const authApi = {
   },
 
   async sendOtp(identifier: string, type: 'EMAIL' | 'PHONE', mode: 'LOGIN' | 'REGISTER'): Promise<{ success: boolean; message: string; resendAfterSeconds?: number }> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      // Render Free instances can sleep between requests. A cold start plus
+      // Oracle connection acquisition can exceed the old 30s client deadline.
+      // Keep the request alive long enough for the service to wake without
+      // retrying automatically (a timed-out send may still deliver the OTP).
       const res = await fetch(`${API_BASE_URL}/auth/send-otp`, {
         method: 'POST',
         signal: controller.signal,
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ identifier, type, mode }),
       });
-      clearTimeout(timeoutId);
       const data = await res.json().catch(() => ({ success: false, message: '' }));
       if (!res.ok) {
         if (mode === 'LOGIN' && res.status === 404) {
@@ -63,7 +66,14 @@ export const authApi = {
       }
       return data;
     } catch (err: any) {
-      return { success: false, message: err.name === 'AbortError' ? 'Authentication service timed out' : 'Authentication service is unavailable' };
+      return {
+        success: false,
+        message: err.name === 'AbortError'
+          ? 'The authentication service is taking longer than expected to wake up. Check your email or SMS before requesting another code.'
+          : 'Authentication service is unavailable',
+      };
+    } finally {
+      clearTimeout(timeoutId);
     }
   },
 
@@ -100,7 +110,7 @@ export const authApi = {
     const controller = new AbortController();
     // Verification consumes the OTP and creates a session in one request. Avoid
     // abandoning the response while the backend wakes up or completes DB work.
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
     try {
       const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
         method: 'POST',
@@ -112,7 +122,12 @@ export const authApi = {
       if (!res.ok) return { success: false, message: data.message || 'OTP verification failed' };
       return data;
     } catch (err: any) {
-      return { success: false, message: err.name === 'AbortError' ? 'Authentication service timed out. Please request a fresh code before trying again.' : 'Authentication service is unavailable' };
+      return {
+        success: false,
+        message: err.name === 'AbortError'
+          ? 'Verification is taking longer than expected. Wait briefly and check whether you are signed in before requesting another code.'
+          : 'Authentication service is unavailable',
+      };
     } finally {
       clearTimeout(timeoutId);
     }
@@ -136,19 +151,22 @@ export const authApi = {
   },
 
   async getMe(token: string): Promise<{ authenticated: boolean; success?: boolean; user?: any; addresses?: any[] }> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      // Session restoration can be the first request after the Render instance
+      // has slept. Four seconds caused valid sessions to appear unauthenticated.
       const res = await fetch(`${API_BASE_URL}/auth/me?token=${encodeURIComponent(token)}`, {
         signal: controller.signal,
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
       });
-      clearTimeout(timeoutId);
       if (res.ok) {
         return await res.json();
       }
     } catch (err: any) {
       console.warn('Backend getMe check:', err.message || err);
+    } finally {
+      clearTimeout(timeoutId);
     }
     return { authenticated: false };
   },
