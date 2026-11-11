@@ -151,3 +151,9 @@ Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller
 - Open evidence gates: exhaustive route × role × owner matrix; complete authenticated five-role journeys; current-head staging verification; isolated Oracle migration, concurrency, constraint and rollback evidence; seller document retention/audit and onboarding E2E (issues #209/#210); Critical wallet/credential work in draft PR #317; Phase 0 residency, recovery and professional review.
 - No issue/PR was closed, no shared database or secret was accessed, no staging/production traffic was used, no deployment occurred. Do not declare Phase 1 closed or start Phase 2 until owner sign-off and the evidence gates are resolved.
 - Prepared Phase 2 handoff: `docs/PHASE-2-READINESS.md`; it explicitly recommends no implementation until formal Phase 1 closure.
+
+### Seller draft ownership regression follow-up — 11 November 2026
+
+- Added `SellerRegistrationDraftControllerSecurityTest` for anonymous denial and account scoping on draft GET/PUT/DELETE. Session-resolved user IDs are passed to the service; a caller-supplied query ID does not select another draft.
+- Verification: draft controller and service tests 6/6; focused security suite 83 passed, 0 failed/errors/skipped; full backend suite 345 passed, 0 failed/errors/skipped; package verification passed. Java 25 requires the repository's `-Dnet.bytebuddy.experimental=true` test argLine. One sandboxed Maven invocation failed to open the shared `~/.m2` artifact lock; rerunning the repository script with approved access passed.
+- These tests provide one narrow seller-draft ownership proof. Other seller routes and the rest of Phase 1 remain open. No database, staging, production, secrets, or deployment were touched.

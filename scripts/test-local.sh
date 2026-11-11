@@ -99,7 +99,7 @@ for suite in "${SUITES[@]}"; do
     security)
       run_suite security 'focused auth, OTP, session, role and ownership regressions; mocked/HTTP-test contexts' \
         mvn -o -f backend-java-spring/pom.xml -DargLine=-Dnet.bytebuddy.experimental=true \
-        -Dtest=SecurityConfigTest,SessionAuthenticationFilterTest,AuthServicePortalSessionTest,AuthRegisteredRolesTest,OtpServiceTest,OtpAttemptServiceTest,OtpAttemptServiceJdbcTest,DeliveryControllerRoleTest,SellerControllerAuthorizationTest,SellerRegistrationOtpConfigControllerSecurityTest,AuthControllerPortalHandoffTest,AdminSellerOnboardingControllerSecurityTest,BuyerControllerOrderAuthorizationTest,NegotiationChatControllerAuthorizationTest,DeliveryTrackingControllerSecurityTest test
+        -Dtest=SecurityConfigTest,SessionAuthenticationFilterTest,AuthServicePortalSessionTest,AuthRegisteredRolesTest,OtpServiceTest,OtpAttemptServiceTest,OtpAttemptServiceJdbcTest,DeliveryControllerRoleTest,SellerControllerAuthorizationTest,SellerRegistrationOtpConfigControllerSecurityTest,AuthControllerPortalHandoffTest,AdminSellerOnboardingControllerSecurityTest,BuyerControllerOrderAuthorizationTest,NegotiationChatControllerAuthorizationTest,DeliveryTrackingControllerSecurityTest,SellerRegistrationDraftControllerSecurityTest test
       ;;
     frontend)
       run_suite frontend-types 'TypeScript static check' npm run lint

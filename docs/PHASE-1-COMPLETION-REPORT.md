@@ -16,16 +16,16 @@ The inventory has 17 requirement groups. Current code and tests provide partial 
 
 | Suite | Result | Classification and limit |
 |---|---|---|
-| Full backend Maven suite: `mvn -o -f backend-java-spring/pom.xml -DargLine=-Dnet.bytebuddy.experimental=true test` | **342 passed, 0 failed, 0 errors, 0 skipped** | Unit/controller tests; persistence is mocked or in-memory H2 where annotated. Does not prove Oracle locking/constraints. |
+| Full backend Maven suite: `./scripts/test-local.sh --backend` | **345 passed, 0 failed, 0 errors, 0 skipped** (11 Nov 2026 follow-up) | Unit/controller tests; persistence is mocked or in-memory H2 where annotated. Does not prove Oracle locking/constraints. Package verification also passed. |
 | Frontend TypeScript tests: `node --import tsx --test --test-concurrency=1 tests/*.test.ts` | **40 passed, 0 failed, 0 skipped across 9 files** | Local frontend unit/regression tests. |
 | Frontend `.mjs` tests: `node --test --test-concurrency=1 tests/*.test.mjs` | **25 passed, 0 failed, 0 skipped** when run with required loopback access | Includes mocked read-only smoke and portal build-impact policy tests. First sandbox attempt failed because loopback bind was denied; the permitted local rerun passed. |
 | TypeScript: `npm run lint` | **Passed** | No type errors. |
 | Vite production build: `npm run build` | **Passed** | One existing warning: shared JavaScript chunk exceeds 500 kB. |
 | Five standalone role portal builds (`npm run build:buyer`, `build:seller`, `build:delivery`, `build:daily-help`, `build:admin`) | **5 passed** | Independent local Vite builds. |
 | Playwright local mock suite: `./scripts/test-local.sh --e2e` | **2 passed, 0 failed, 0 skipped** on the successful rerun | Local Vite only; API responses are synthetic 401s and non-local browser requests are blocked. Covers unauthenticated login entry and invalid-input behavior only. |
-| Focused security suite: `./scripts/test-local.sh --security` | **80 passed, 0 failed, 0 skipped** | Selected authentication, OTP, session, active-role, ownership and controller security tests; mocked/HTTP-test contexts, not Oracle. |
+| Focused security suite: `./scripts/test-local.sh --security` | **83 passed, 0 failed, 0 skipped** (11 Nov 2026 follow-up) | Selected authentication, OTP, session, active-role, ownership and controller security tests; mocked/HTTP-test contexts, not Oracle. Includes draft endpoint anonymous denial and authenticated account scoping. |
 | Backend packaging: `mvn -o -f backend-java-spring/pom.xml -DskipTests package` | **BUILD SUCCESS** | Compiles and packages the Spring Boot application. Tests were already recorded separately. |
-| Complete runner: `./scripts/test-local.sh --all` | **All 13 command groups passed; no test failures or skips** | Repeats backend, frontend and focused security suites and runs local mock Playwright. Verified twice; latest report: `test-reports/local/run-20261111T174904Z-60976/summary.tsv` (ignored runtime output). Security tests overlap the full Maven suite and counts are not additive. |
+| Complete runner: `./scripts/test-local.sh --all` | **All 13 command groups passed; no test failures or skips** (11 Nov 2026 follow-up) | Repeats backend, frontend, focused security, all five portal builds and local mock Playwright. Latest report: `test-reports/local/run-20261111T180400Z-75248/summary.tsv` (ignored runtime output). Security tests overlap the full Maven suite and counts are not additive. |
 
 ## PR CI evidence
 
@@ -36,6 +36,7 @@ The test runner writes per-suite output under ignored `test-reports/local/` and 
 ## Security verification
 
 - Existing tests in the 342-test suite cover OTP attempts/resend, session filters, active-role authorization, selected buyer/seller/delivery/Daily Help ownership boundaries, admin document guards, COD cancellation behavior, malware scan quarantine, and controller abuse-budget ordering.
+- Follow-up authorization tests for `GET/PUT/DELETE /sellers/me/draft` verify anonymous denial and that all service operations use the user ID resolved from the authenticated session. The focused controller plus draft-service tests passed 6/6; the expanded focused security suite passed 83/83, and the full backend suite passed 345/345. These tests do not establish an exhaustive seller endpoint matrix.
 - The local browser mock verifies only that unauthenticated login is rendered and invalid email submission does not send an OTP request. It does not authenticate or traverse role portals. The first PR CI run failed because the staging Playwright config discovered these local tests; the `testIgnore` boundary in the default config and dedicated local config passed the subsequent exact-head CI run. Seven authenticated/transactional browser tests still skipped by their safety/configuration guards.
 - Public and protected endpoint authorization is not exhaustively enumerated. The Phase 0 endpoint matrix and this report keep the broader IDOR scope open.
 - PR #317 remains the open draft for removing sensitive Oracle wallet/default credential material. Its PR body requires secret rotation/revocation, protected runtime provisioning, exact Oracle readiness and history-cleanup planning. Those tasks were not performed.
