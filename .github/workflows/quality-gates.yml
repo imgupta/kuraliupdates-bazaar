@@ -48,3 +48,12 @@ jobs:
           cache: maven
       - name: Maven verification
         run: mvn --batch-mode --no-transfer-progress clean verify
+        env:
+          ORACLE_JDBC_URL: jdbc:oracle:thin:@ci-only.invalid
+          ORACLE_USERNAME: ci-placeholder-user
+          ORACLE_PASSWORD: ci-placeholder-no-connection
+          WALLET_PASSWORD: ci-placeholder-wallet-no-connection
+          JWT_SECRET: ci-placeholder-0123456789-0123456789-0123456789
+          ORACLE_WALLET_DIR: ${{ github.workspace }}/backend-java-spring/src/test/resources/oracle-wallet-fixture
+      - name: Docker image wallet-content verification
+        run: python3 scripts/verify-wallet-image.py

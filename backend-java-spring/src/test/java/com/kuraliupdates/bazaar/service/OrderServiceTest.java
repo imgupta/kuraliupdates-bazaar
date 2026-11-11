@@ -92,6 +92,7 @@ class OrderServiceTest {
         var response = orderService.cancelOrderForBuyer("ORD-CANCEL", buyer());
 
         assertEquals("CANCELLED", response.status());
+        assertEquals("CANCELLED", order.getFulfilmentStatus());
         assertEquals("PENDING_COD", order.getPaymentStatus());
         assertEquals(5, product.getStock());
         orderService.cancelOrderForBuyer("ORD-CANCEL", buyer());
@@ -157,12 +158,48 @@ class OrderServiceTest {
         var response = orderService.cancelOrderForBuyer("ORD-G1", buyer());
 
         assertEquals("CANCELLED", response.status());
+        assertEquals("CANCELLED", first.getStatus());
+        assertEquals("CANCELLED", first.getFulfilmentStatus());
+        assertEquals("PENDING_COD", first.getPaymentStatus());
         assertEquals(3, p1.getStock());
         assertEquals(7, p2.getStock());
         assertEquals("CANCELLED", second.getStatus());
+        assertEquals("CANCELLED", second.getFulfilmentStatus());
+        assertEquals("PENDING_COD", second.getPaymentStatus());
         var order = inOrder(productRepository);
         order.verify(productRepository).findLockedByProductId("P-1");
         order.verify(productRepository).findLockedByProductId("P-2");
+    }
+
+    @Test
+    void buyerCancellationRejectsWholeGroupBeforeInventoryChangesWhenOneOrderIsFulfilled() {
+        ProductEntity cancellableProduct = ProductEntity.builder().productId("P-CANCEL-1").stock(4).build();
+        ProductEntity fulfilledProduct = ProductEntity.builder().productId("P-CANCEL-2").stock(7).build();
+        OrderEntity cancellable = OrderEntity.builder().orderId("ORD-GROUP-CANCEL-1").checkoutGroupId("CHK-CANCEL")
+                .buyerEmail("authenticated@example.test").status("PLACED").fulfilmentStatus("AWAITING_SELLER_ACCEPTANCE")
+                .paymentStatus("PENDING_COD")
+                .items(new java.util.ArrayList<>(List.of(com.kuraliupdates.bazaar.entity.OrderItemEntity.builder()
+                        .itemId("I-CANCEL-1").product(cancellableProduct).quantity(2).build()))).build();
+        OrderEntity fulfilled = OrderEntity.builder().orderId("ORD-GROUP-CANCEL-2").checkoutGroupId("CHK-CANCEL")
+                .buyerEmail("authenticated@example.test").status("READY_FOR_PICKUP").fulfilmentStatus("READY_FOR_PICKUP")
+                .paymentStatus("PENDING_COD")
+                .items(new java.util.ArrayList<>(List.of(com.kuraliupdates.bazaar.entity.OrderItemEntity.builder()
+                        .itemId("I-CANCEL-2").product(fulfilledProduct).quantity(3).build()))).build();
+        when(orderRepository.findById("ORD-GROUP-CANCEL-1")).thenReturn(Optional.of(cancellable));
+        when(orderRepository.findLockedByCheckoutGroupId("CHK-CANCEL")).thenReturn(List.of(cancellable, fulfilled));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.cancelOrderForBuyer("ORD-GROUP-CANCEL-1", buyer()));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("PLACED", cancellable.getStatus());
+        assertEquals("AWAITING_SELLER_ACCEPTANCE", cancellable.getFulfilmentStatus());
+        assertEquals("PENDING_COD", cancellable.getPaymentStatus());
+        assertEquals("READY_FOR_PICKUP", fulfilled.getStatus());
+        assertEquals(4, cancellableProduct.getStock());
+        assertEquals(7, fulfilledProduct.getStock());
+        verifyNoInteractions(productRepository);
+        verify(orderRepository, never()).saveAll(any(Iterable.class));
     }
 
     @Test
