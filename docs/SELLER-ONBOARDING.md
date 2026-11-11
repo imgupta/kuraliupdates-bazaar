@@ -33,7 +33,7 @@ Schema/DTO fields may exceed the UI. Do not assume FSSAI expiry, interior photo,
 ## Document storage and access
 
 - Flyway V22.1 creates seller compliance/document schema and Oracle BLOB content storage; V26 adds malware scan state and quarantines pre-existing rows pending scan.
-- `POST /sellers/me/documents` and `GET /sellers/me/documents` require an authenticated SELLER-scoped session and resolve the seller from the authenticated account. Uploads accept the configured document types, up to 5 MB, PDF/JPEG/PNG content types, and matching file signatures.
+- On current `main`, `POST /sellers/me/documents` and `GET /sellers/me/documents` require a valid authenticated session and resolve the seller profile through the authenticated account's user ID. The controller does not yet enforce the active SELLER role on `main`; cross-portal session-role enforcement is proposed in PR #318 and must not be considered implemented until merged. Uploads accept the configured document types, up to 5 MB, PDF/JPEG/PNG content types, and matching file signatures.
 - New bytes are first persisted with `QUARANTINED` scan status. ClamAV must return `CLEAN` before the document is available for admin download or verification. Scanner absence, timeout, protocol error, infection or indeterminate response leaves the document unavailable. Upload returns `202 Accepted` while quarantined and `201 Created` after a clean scan.
 - Sellers can list their own metadata and upload another document of the same type through the Seller portal correction flow. There is no destructive replacement/delete endpoint; prior uploads remain stored until an owner-approved retention/deletion policy is implemented.
 - Admin APIs and UI support listing seller documents, downloading clean documents, rescanning quarantined documents, and verifying/rejecting clean documents with a rejection reason. These actions require ADMIN access. The current row stores reviewer/status timestamps and reason, but this is not an append-only audit history.
@@ -51,6 +51,7 @@ Schema/DTO fields may exceed the UI. Do not assume FSSAI expiry, interior photo,
 ## Known gaps / acceptance criteria
 
 - [x] Admin UI/API to inspect seller document metadata, download clean documents, rescan and verify/reject with a reason. Source: `AdminPortal.tsx`, `SellerDocumentController`, and `SellerDocumentControllerTest`.
+- [ ] Enforce active SELLER session role on seller document upload/list and add cross-portal regression tests on `main`; this guard is proposed in PR #318 and remains unmerged.
 - [ ] Append-only audit history for upload, view, download, scan, verify, reject and delete; current document row fields are not a full audit log.
 - [ ] FSSAI expiry captured and validated where applicable; expired evidence blocks approval where required.
 - [ ] Explicit category-to-compliance mapping replaces free-text keyword matching.
