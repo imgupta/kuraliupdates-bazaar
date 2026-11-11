@@ -48,7 +48,7 @@ def inspect_image(image_archive: str) -> tuple[bool, bool, bool]:
     found_wallet = False
     found_application_jar = False
     found_test_marker = False
-    with tarfile.open(image_archive, mode="r:") as image:
+    with tarfile.open(image_archive, mode="r:*") as image:
         manifest = json.load(image.extractfile("manifest.json"))
         for image_record in manifest:
             config_stream = image.extractfile(image_record["Config"])
@@ -59,7 +59,7 @@ def inspect_image(image_archive: str) -> tuple[bool, bool, bool]:
                 if layer_stream is None:
                     raise RuntimeError("Docker image layer could not be read")
                 layer_bytes = layer_stream.read()
-                with tarfile.open(fileobj=io.BytesIO(layer_bytes), mode="r:") as layer:
+                with tarfile.open(fileobj=io.BytesIO(layer_bytes), mode="r:*") as layer:
                     for entry in layer.getmembers():
                         if is_wallet_artifact(entry.name):
                             found_wallet = True
