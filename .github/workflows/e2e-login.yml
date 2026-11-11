@@ -98,6 +98,13 @@ jobs:
       - name: Run focused regressions
         working-directory: backend-java-spring
         run: mvn --batch-mode --no-transfer-progress -Dtest=DeliveryServiceTest,DeliveryTrackingServiceTest,HealthControllerTest,BuyerAddressServiceTest,DailyHelpServiceTest,NegotiationChatServiceTest,AuthRegistrationCheckTest,E2eRunCleanupServiceTest,E2eRunTaggingTest,E2eFixtureServiceTest,ApiRateLimitServiceTest,SearchAnalyticsControllerTest,SellerOnboardingLeadControllerTest,SellerOnboardingLeadServiceTest test
+        env:
+          ORACLE_JDBC_URL: jdbc:oracle:thin:@ci-only.invalid
+          ORACLE_USERNAME: ci-placeholder-user
+          ORACLE_PASSWORD: ci-placeholder-no-connection
+          WALLET_PASSWORD: ci-placeholder-wallet-no-connection
+          JWT_SECRET: ci-placeholder-0123456789-0123456789-0123456789
+          ORACLE_WALLET_DIR: ${{ github.workspace }}/backend-java-spring/src/test/resources/oracle-wallet-fixture
       - name: Compile and run full backend verification suite
         working-directory: backend-java-spring
         run: mvn --batch-mode --no-transfer-progress clean verify
