@@ -48,6 +48,8 @@ jobs:
           cache: maven
       - name: Maven verification
         run: mvn --batch-mode --no-transfer-progress clean verify
+      - name: Docker image wallet-content verification
+        run: python3 scripts/verify-wallet-image.py
         env:
           ORACLE_JDBC_URL: jdbc:oracle:thin:@ci-only.invalid
           ORACLE_USERNAME: ci-placeholder-user
