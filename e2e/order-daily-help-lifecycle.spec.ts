@@ -130,6 +130,40 @@ async function prepareFixtures(request: APIRequestContext, runId: string, seller
   };
 }
 
+async function placeSyntheticCodOrder(request: APIRequestContext, buyerToken: string, runId: string,
+  fixture: Awaited<ReturnType<typeof prepareFixtures>>, buyerEmail: string, buyerPhone: string) {
+  const products = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.productId), buyerToken);
+  const product = products.find((entry: any) => entry.productId === fixture.productId);
+  expect(product, "the run-scoped product must be visible before checkout").toBeTruthy();
+  expect(product.sellerId ?? product.seller?.sellerId).toBe(fixture.sellerId);
+  const stockBefore = Number(product.stock ?? product.stockQty);
+  expect(Number.isInteger(stockBefore) && stockBefore > 0, "the synthetic cancellation product needs stock").toBeTruthy();
+  const unitPrice = Number(product.effectivePrice ?? product.price ?? product.sellerPrice);
+  expect(Number.isFinite(unitPrice) && unitPrice > 0).toBeTruthy();
+  const deliveryFee = Number(fixture.baseDeliveryFee);
+  const total = Math.round((unitPrice + deliveryFee) * 100) / 100;
+  const response = await request.post(apiBase + "/buyers/orders", {
+    headers: taggedAuth(buyerToken, runId),
+    data: {
+      buyerName: "E2E Synthetic Buyer", buyerPhone: buyerPhone.replace(/\D/g, "").slice(-10),
+      buyerEmail, deliveryAddress: "E2E Test Address - do not deliver", deliveryLocality: "Kurali",
+      sellerId: fixture.sellerId, subtotal: unitPrice, discountAmount: 0, deliveryFee,
+      finalPayable: total, paymentMethod: "COD", distanceKm: 1,
+      items: [{ productId: fixture.productId, quantity: 1 }],
+    },
+    timeout: 20_000,
+  });
+  const responseText = await response.text();
+  expect(response.status(), "synthetic COD checkout should succeed; backend response: " + responseText).toBe(200);
+  const placement = JSON.parse(responseText);
+  const order = placement.order ?? placement;
+  const orderId = String(order.orderId ?? "");
+  expect(orderId).toMatch(/^ORD-KUR-[A-F0-9-]+$/i);
+  expect(order.paymentMethod).toBe("COD");
+  expect(order.status).toBe("PLACED");
+  return { order, orderId, stockBefore };
+}
+
 test.afterEach(async ({ request }, testInfo) => {
   const key = testKey(testInfo);
   const runId = runIds.get(key);
@@ -363,6 +397,63 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(finalTrack.status).toBe("DELIVERED");
     expect(finalBuyerOrders.filter((x: any) => x.orderId === orderId)).toHaveLength(1);
     expect(finalSellerOrders.filter((x: any) => x.orderId === orderId)).toHaveLength(1);
+  });
+
+  test("buyer and seller cancellation restore stock once and preserve cancelled COD state", async ({ request }, testInfo) => {
+    test.setTimeout(120_000);
+    const runId = runScopedId(testInfo);
+    runIds.set(testKey(testInfo), runId);
+    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
+    const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY", runId);
+    const fixture = await prepareFixtures(request, runId,
+      stagingProfileId("E2E_FLOW_SELLER_ID"), stagingProfileId("E2E_FLOW_DELIVERY_AGENT_ID"),
+      required("E2E_PROVIDER_IDENTITY"));
+    const buyerEmail = required("E2E_FLOW_BUYER_EMAIL");
+    const buyerPhone = required("E2E_FLOW_BUYER_PHONE");
+
+    const buyerCancelled = await placeSyntheticCodOrder(request, buyerToken, runId, fixture, buyerEmail, buyerPhone);
+    const afterBuyerCheckout = await getJson(request,
+      "/buyers/products/search?query=" + encodeURIComponent(fixture.productId), buyerToken);
+    const stockAfterBuyerCheckout = Number(afterBuyerCheckout.find((p: any) => p.productId === fixture.productId)?.stock
+      ?? afterBuyerCheckout.find((p: any) => p.productId === fixture.productId)?.stockQty);
+    expect(stockAfterBuyerCheckout).toBe(buyerCancelled.stockBefore - 1);
+
+    const buyerCancelResponse = await request.post(apiBase + "/buyers/orders/" + encodeURIComponent(buyerCancelled.orderId) + "/cancel", {
+      headers: taggedAuth(buyerToken, runId), timeout: 20_000,
+    });
+    expect(buyerCancelResponse.status(), "buyer cancellation should succeed").toBe(200);
+    const buyerCancel = await buyerCancelResponse.json();
+    expect(buyerCancel.status).toBe("CANCELLED");
+    expect(buyerCancel.fulfilmentStatus).toBe("CANCELLED");
+    expect(buyerCancel.paymentStatus).toBe("CANCELLED");
+    const buyerCancelReplay = await request.post(apiBase + "/buyers/orders/" + encodeURIComponent(buyerCancelled.orderId) + "/cancel", {
+      headers: taggedAuth(buyerToken, runId), timeout: 20_000,
+    });
+    expect(buyerCancelReplay.status(), "buyer cancellation replay should remain idempotent").toBe(200);
+    const buyerCancelReplayBody = await buyerCancelReplay.json();
+    expect(buyerCancelReplayBody.status).toBe("CANCELLED");
+    const stockAfterBuyerCancel = await getJson(request,
+      "/buyers/products/search?query=" + encodeURIComponent(fixture.productId), buyerToken);
+    expect(Number(stockAfterBuyerCancel.find((p: any) => p.productId === fixture.productId)?.stock
+      ?? stockAfterBuyerCancel.find((p: any) => p.productId === fixture.productId)?.stockQty))
+      .toBe(buyerCancelled.stockBefore);
+
+    const sellerCancelled = await placeSyntheticCodOrder(request, buyerToken, runId, fixture, buyerEmail, buyerPhone);
+    const sellerCancelResponse = await request.post(apiBase + "/sellers/me/orders/" + encodeURIComponent(sellerCancelled.orderId)
+      + "/status?status=CANCELLED", { headers: taggedAuth(sellerToken, runId), timeout: 20_000 });
+    expect(sellerCancelResponse.status(), "seller cancellation should succeed").toBe(200);
+    const sellerCancel = await sellerCancelResponse.json();
+    expect(sellerCancel.status).toBe("CANCELLED");
+    expect(sellerCancel.fulfilmentStatus).toBe("CANCELLED");
+    expect(sellerCancel.paymentStatus).toBe("CANCELLED");
+    const sellerCancelReplay = await request.post(apiBase + "/sellers/me/orders/" + encodeURIComponent(sellerCancelled.orderId)
+      + "/status?status=CANCELLED", { headers: taggedAuth(sellerToken, runId), timeout: 20_000 });
+    expect(sellerCancelReplay.status(), "seller cancellation replay should remain idempotent").toBe(200);
+    const finalProducts = await getJson(request,
+      "/buyers/products/search?query=" + encodeURIComponent(fixture.productId), buyerToken);
+    expect(Number(finalProducts.find((p: any) => p.productId === fixture.productId)?.stock
+      ?? finalProducts.find((p: any) => p.productId === fixture.productId)?.stockQty))
+      .toBe(sellerCancelled.stockBefore);
   });
 
   test("Daily Help: buyer books synthetic slot → professional starts with OTP → completes → history reconciles", async ({ request }, testInfo) => {

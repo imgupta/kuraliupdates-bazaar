@@ -25,6 +25,10 @@ Each created fixture carries the current run ID in V32-added nullable columns. E
 - If a profile is missing or not approved/active/verified, provisioning fails closed.
 - A sequential staging journey is not proof of Oracle concurrency/race safety. The transactional suite separately checks concurrent rider claims, competing Daily Help slot bookings, concurrent last-stock checkout and multi-seller rollback.
 
+## Cancellation and inventory restoration coverage
+
+The current implementation branch adds a run-scoped staging scenario that exercises buyer cancellation and seller cancellation through their public APIs. It checks COD order/fulfilment/payment states, stock decrement and restoration, and idempotent cancellation replay. The scenario uses only the provisioned synthetic product and run-tagged orders; the existing guarded cleanup removes only rows tagged to that run. It is not Oracle runtime evidence until the trusted staging workflow executes successfully on the merged/deployed exact backend SHA. Paid-order cancellation remains rejected because no refund workflow exists.
+
 
 ## Public endpoint throttling
 
