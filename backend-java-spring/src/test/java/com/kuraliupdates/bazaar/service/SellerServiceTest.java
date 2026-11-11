@@ -91,7 +91,7 @@ class SellerServiceTest {
 
         assertEquals("CANCELLED", updated.status());
         assertEquals("CANCELLED", order.getFulfilmentStatus());
-        assertEquals("CANCELLED", order.getPaymentStatus());
+        assertEquals("PENDING_COD", order.getPaymentStatus());
         verify(orderRepository).save(order);
     }
 

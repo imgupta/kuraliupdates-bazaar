@@ -406,7 +406,8 @@ public class OrderService {
             }
             order.setStatus("CANCELLED");
             order.setFulfilmentStatus("CANCELLED");
-            order.setPaymentStatus("CANCELLED");
+            // COD has not been collected; retain PENDING_COD. Order and fulfilment
+            // status carry the cancellation state without violating the payment-state contract.
             order.setUpdatedAt(now);
         }
         orderRepository.saveAll(group);

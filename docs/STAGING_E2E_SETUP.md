@@ -34,7 +34,8 @@ These Render settings cannot be replaced by a GitHub Actions JSON secret alone: 
 
 ## Safety guarantees and current scope
 
-- The endpoint exists only when `E2E_OTP_CAPTURE_ENABLED=true`; it still returns 404 unless environment is `staging`, the allowlist is non-empty, and the shared token matches.
+- The protected readiness endpoint `GET /api/v1/e2e/otp/ready?identifier=<allowlisted-email>` must return 200 before the browser test sends an OTP. It returns 404 unless capture is safely enabled, the identity is allowlisted, and the shared token matches. This prevents tests from sending real OTP email when capture is misconfigured.
+- The retrieval endpoint `GET /api/v1/e2e/otp/latest?identifier=<allowlisted-email>` exists only when `E2E_OTP_CAPTURE_ENABLED=true`; it returns 404 unless environment is `staging`, the allowlist is non-empty, and the shared token matches.
 - Only allowlisted identities can have OTPs captured or retrieved.
 - OTP retrieval is one-time, short-lived, and sent with `Cache-Control: no-store`.
 - No business records are created by the OTP interface itself.
