@@ -87,8 +87,10 @@ def verify_test_wallet_context_is_excluded(dockerfile_path: str) -> None:
         check=False,
     )
     output = (result.stdout + result.stderr).lower()
-    if result.returncode == 0 or not ("not found" in output or "excluded by .dockerignore" in output):
-        raise RuntimeError("Docker context exclusion probe did not fail for the expected ignored fixture path")
+    if result.returncode == 0:
+        raise RuntimeError("Docker context probe copied a wallet fixture; .dockerignore exclusion failed")
+    if not any(marker in output for marker in ("not found", "no such file", "excluded by .dockerignore")):
+        raise RuntimeError("Docker context exclusion probe failed for an unexpected reason")
 
 
 def main() -> int:
@@ -99,7 +101,7 @@ def main() -> int:
     probe_dockerfile = os.path.join(temp_directory, "Dockerfile.context-probe")
     try:
         with open(probe_dockerfile, "w", encoding="utf-8") as file:
-            file.write("FROM scratch\nCOPY src/test/resources/oracle-wallet-fixture /fixture\n")
+            file.write("FROM scratch\nCOPY src/test/resources/oracle-wallet-fixture/tnsnames.ora /fixture/tnsnames.ora\n")
         verify_test_wallet_context_is_excluded(probe_dockerfile)
         subprocess.run(["docker", "build", "--tag", image, "."], check=True)
         subprocess.run(["docker", "save", "--output", image_archive, image], check=True)
