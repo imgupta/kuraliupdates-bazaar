@@ -86,11 +86,8 @@ def verify_test_wallet_context_is_excluded(dockerfile_path: str) -> None:
         text=True,
         check=False,
     )
-    output = (result.stdout + result.stderr).lower()
-    if result.returncode == 0:
-        raise RuntimeError("Docker context probe copied a wallet fixture; .dockerignore exclusion failed")
-    if not any(marker in output for marker in ("not found", "no such file", "excluded by .dockerignore")):
-        raise RuntimeError("Docker context exclusion probe failed for an unexpected reason")
+    if result.returncode != 0:
+        raise RuntimeError("Docker context probe found wallet fixture files in the filtered build context")
 
 
 def main() -> int:
@@ -100,16 +97,26 @@ def main() -> int:
     image_archive = os.path.join(temp_directory, "image.tar")
     probe_dockerfile = os.path.join(temp_directory, "Dockerfile.context-probe")
     try:
-        with open(probe_dockerfile, "w", encoding="utf-8") as file:
-            file.write("FROM scratch\nCOPY src/test/resources/oracle-wallet-fixture/tnsnames.ora /fixture/tnsnames.ora\n")
-        verify_test_wallet_context_is_excluded(probe_dockerfile)
         subprocess.run(["docker", "build", "--tag", image, "."], check=True)
         subprocess.run(["docker", "save", "--output", image_archive, image], check=True)
         found_wallet, found_application_jar, found_test_marker = inspect_image(image_archive)
         if found_wallet or found_test_marker or not found_application_jar:
             print("FAIL: final image layer/application archive content verification failed")
             return 1
-        print("PASS: fixture exclusion confirmed; all final image layers and nested app archives are free of wallet artifacts and test-only values")
+
+        fixtures = (
+            "tnsnames.ora sqlnet.ora cwallet.sso ewallet.p12 truststore.jks keystore.jks"
+        )
+        with open(probe_dockerfile, "w", encoding="utf-8") as file:
+            file.write(
+                "FROM eclipse-temurin:17-jre-alpine\n"
+                "RUN --mount=type=bind,target=/context,readonly "
+                f"for name in {fixtures}; do "
+                "test ! -e \"/context/src/test/resources/oracle-wallet-fixture/$name\" || exit 13; "
+                "done\n"
+            )
+        verify_test_wallet_context_is_excluded(probe_dockerfile)
+        print("PASS: all six fixtures are excluded from build context; all final image layers and nested app archives are free of wallet artifacts and test-only values")
         return 0
     finally:
         subprocess.run(["docker", "image", "rm", "--force", image], stdout=subprocess.DEVNULL,
