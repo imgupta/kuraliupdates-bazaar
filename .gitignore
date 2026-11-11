@@ -10,3 +10,7 @@ playwright-report/
 *.log
 .env*
 !.env.example
+
+# Oracle wallet material must never be committed
+**/Wallet*.zip
+**/wallet/**
