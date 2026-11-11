@@ -180,7 +180,8 @@ public class SellerService {
                 }
             }
             order.setFulfilmentStatus("CANCELLED");
-            order.setPaymentStatus("CANCELLED");
+            // COD has not been collected; retain PENDING_COD. Cancellation belongs
+            // to order/fulfilment state, not to the payment lifecycle.
         }
 
         order.setStatus(next);
