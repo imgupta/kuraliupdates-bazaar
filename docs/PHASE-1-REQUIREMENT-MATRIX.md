@@ -29,3 +29,12 @@ Statuses: **Local verified** means the current checkout has relevant passing aut
 - PR #317 is the active successor for the critical wallet/credential issue #16; its own description identifies PR #84 and PR #19 as historical/superseded tracks. Do not duplicate that implementation.
 - The open repository contains numerous older PRs describing work already merged into current `main`; the current branch/source is the implementation source of truth. Do not infer that an old open draft is active work without checking its diff against `main`.
 - Open issues #209 (document malware/retention/audit acceptance) and #210 (seller onboarding document-correction E2E) remain relevant. No issues or PRs were edited or closed during this audit.
+
+
+## 12 November 2026 — consolidated continuation checkpoint
+
+- Single implementation track: draft PR [#323](https://github.com/imgupta/kuraliupdates-bazaar/pull/323), branch `phase1/consolidated-completion`, base `488fc2dc800aab7d78b4a45d4c5f737d776bceb0`. PR #322 cancellation tests were incorporated and #322 closed as superseded.
+- P1-OPS-01: Oracle wallet source remediation is now included in PR #323 (externalized datasource/wallet/JWT settings; startup validation; Docker context/image exclusion; synthetic fixtures). **Operational status remains BLOCKED / CRITICAL** pending Security/DBA/Render approvals, rotation/revocation, protected secret delivery, exact runtime readiness, session invalidation decision and post-rotation history cleanup. No secrets or runtime settings were changed.
+- P1-SELL-01: ClamAV scanner/quarantine/clean-only download implementation and V26 migration were already merged in prior PRs; issue #210 comments report V26 applied on the owner-designated staging backend. **Acceptance remains PARTIAL** pending private scanner runtime verification, retention/deletion and document-access audit controls, plus the full seller document correction E2E.
+- P1-ORD-02: cancellation group-preflight regression assertions from PR #322 are now included in #323. They are Mockito tests and do not prove Oracle transaction rollback, row locks or concurrent lifecycle behavior.
+- No exact-head test/CI result is yet recorded for #323. Do not reuse historical CI evidence from #317/#322 as a pass for this head.
