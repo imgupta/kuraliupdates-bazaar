@@ -13,7 +13,7 @@ After a merge, compare Render deployment SHA with intended main SHA. Require ima
 The owner-designated environment is one shared staging environment. Independently verify Oracle target/schema before write-heavy tests. Do not change environment variables or trigger manual deployment just to refresh status.
 
 ## Migrations
-Flyway is authoritative. Latest source migration is V14, `V14__seller_compliance_and_documents.sql`, adding seller compliance fields and private seller-document BLOB storage. V13 is destructive staging/test-data reset and must not be rerun routinely. Never edit applied migrations.
+Flyway is authoritative and remains enabled with `baseline-on-migrate: true` at baseline version 13. Current source migrations include `V22_1` and `V23` through `V36`; their presence in source does not prove they have run on the shared database. V13 is destructive staging/test-data cleanup and must not be rerun routinely. Never edit applied migrations.
 
 Do not run `schema-oracle.sql` against an existing database; it is a schema rebuild script. Do not use legacy runtime SQL as a substitute for Flyway migrations.
 
@@ -25,3 +25,6 @@ Negotiation chat is persisted in Oracle and accessed through authenticated APIs.
 
 ## Safety
 Never print credentials, wallet contents, OTPs, bearer tokens, private documents or unnecessary personal data.
+
+## Oracle wallet and credentials
+Follow [Oracle wallet and credential remediation](ORACLE-WALLET-REMEDIATION.md) for the required Render Secret Files, environment variables, fail-closed startup checks, readiness verification, credential rotation sequence and rollback constraints. The wallet must not be placed in the repository or Docker image. Provision the six required files and credentials on the existing shared staging service only through an approved owner-controlled change; this repository change does not configure Render.
