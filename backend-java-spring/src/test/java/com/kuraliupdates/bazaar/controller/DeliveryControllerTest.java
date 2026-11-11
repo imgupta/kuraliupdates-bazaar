@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.util.List;
 import java.util.Map;
@@ -60,7 +61,7 @@ class DeliveryControllerTest {
     @Test
     void authenticatedPrincipalIsPassedToClaimAndClientAgentIdIsOnlyAServiceInput() {
         UserEntity user = rider();
-        Authentication authentication = new UsernamePasswordAuthenticationToken(user, "token");
+        Authentication authentication = deliveryAuthentication(user);
         when(deliveryService.claim("ORD-1", "AGENT-OTHER", user))
                 .thenReturn(OrderEntity.builder().orderId("ORD-1").build());
 
@@ -74,7 +75,7 @@ class DeliveryControllerTest {
     @Test
     void authenticatedPrincipalIsPassedToCombinedCheckoutClaim() {
         UserEntity user = rider();
-        Authentication authentication = new UsernamePasswordAuthenticationToken(user, "token");
+        Authentication authentication = deliveryAuthentication(user);
         when(deliveryService.claimCheckoutGroup("CHK-1", "AGENT-1", user))
                 .thenReturn(List.of(OrderEntity.builder().orderId("ORD-1").build()));
 
@@ -91,7 +92,7 @@ class DeliveryControllerTest {
     @Test
     void availableJobsUseLocalityOnlyPreviewUntilClaim() {
         UserEntity user = rider();
-        Authentication authentication = new UsernamePasswordAuthenticationToken(user, "token");
+        Authentication authentication = deliveryAuthentication(user);
         OrderEntity order = OrderEntity.builder().orderId("ORD-PREVIEW")
                 .buyerName("Buyer Name").buyerPhone("Buyer Phone")
                 .deliveryAddress("Exact Buyer Address").deliveryLocality("Kurali")
@@ -109,7 +110,7 @@ class DeliveryControllerTest {
     @Test
     void assignedJobsReturnBuyerContactOnlyForTheAuthenticatedRider() {
         UserEntity user = rider();
-        Authentication authentication = new UsernamePasswordAuthenticationToken(user, "token");
+        Authentication authentication = deliveryAuthentication(user);
         OrderEntity order = OrderEntity.builder().orderId("ORD-ASSIGNED")
                 .buyerName("Buyer Name").buyerPhone("Buyer Phone")
                 .deliveryAddress("Exact Buyer Address").deliveryLocality("Kurali")
@@ -154,5 +155,10 @@ class DeliveryControllerTest {
                 .name("Synthetic Rider")
                 .role("DELIVERY")
                 .build();
+    }
+
+    private Authentication deliveryAuthentication(UserEntity user) {
+        return new UsernamePasswordAuthenticationToken(user, "token",
+                List.of(new SimpleGrantedAuthority("ROLE_DELIVERY")));
     }
 }
