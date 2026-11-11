@@ -65,18 +65,19 @@ Run only after the prerequisites above are independently verified on an isolated
 
 The suite must capture screenshots/reports without document bytes, OTPs, bearer tokens, personal data or secrets. It must not use shared customer/seller records.
 
-## 5. Retention and deletion decision record — unresolved
+## 5. Configurable retention and deletion policy — owner approval required
 
-Do not invent a universal retention period. The owner, privacy lead and qualified Indian counsel must map each document category to its business/legal purpose, applicable statutory/contractual requirement, dispute/claim limitation, access need and deletion trigger. Approve a schedule with:
+**Decision:** retention must be configurable per document category, not hard-coded to one universal period. The safe initial state is disabled: no automated expiry/deletion runs until an authorized owner/privacy approver enables a category with a validated retention value. Missing, zero, invalid or unapproved values must fail closed (retain and alert; never interpret as immediate deletion). Do not invent a universal retention period. The owner, privacy lead and qualified Indian counsel must map each document category to its business/legal purpose, applicable statutory/contractual requirement, dispute/claim limitation, access need and deletion trigger. Approve a schedule with:
 - category and purpose;
 - lawful basis/notice and access roles;
+- configurable retention period and unit, effective date, approval identity and policy version;
 - active-store retention trigger and period;
 - backup expiry period and deletion semantics;
 - legal-hold criteria and approver;
 - secure deletion method and verification;
 - deletion/audit metadata retained after content deletion.
 
-Until approved, document retention/deletion is a release blocker. Do not silently delete records or add a guessed TTL migration. Any approved schema or storage change must use a reviewed Flyway expand/migrate/contract migration and include rollback/forward-fix and backup considerations.
+Policy administration must be restricted to authorized administrators, validate bounded positive periods, preserve append-only policy-change history, and expose the effective policy without exposing document contents. Expiry processing must be idempotent, batch-limited, observable, legal-hold aware, and re-check eligibility immediately before deletion. It must retain an audit tombstone after content removal. Until category policies are approved and configured, automated deletion remains disabled and retention/deletion is a release blocker. Do not silently delete records or add a guessed TTL migration. Any approved schema or storage change must use a reviewed Flyway expand/migrate/contract migration and include rollback/forward-fix and backup considerations.
 
 ## 6. Audit design acceptance — unresolved
 
