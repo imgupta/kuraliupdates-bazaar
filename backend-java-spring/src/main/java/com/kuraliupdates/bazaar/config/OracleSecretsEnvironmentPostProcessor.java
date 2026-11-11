@@ -72,8 +72,18 @@ public final class OracleSecretsEnvironmentPostProcessor implements EnvironmentP
         } catch (RuntimeException ex) {
             throw new IllegalStateException("ORACLE_WALLET_DIR is not a valid filesystem path");
         }
-        if (!Files.isDirectory(directory) || !Files.isReadable(directory)) {
-            throw new IllegalStateException("ORACLE_WALLET_DIR must identify a readable wallet directory");
+        boolean directoryIsSafe;
+        try {
+            directoryIsSafe = directory.isAbsolute() && directory.normalize().equals(directory)
+                    && !containsSymbolicLink(directory)
+                    && Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)
+                    && Files.isReadable(directory);
+        } catch (SecurityException ex) {
+            directoryIsSafe = false;
+        }
+        if (!directoryIsSafe) {
+            throw new IllegalStateException(
+                    "ORACLE_WALLET_DIR must be an absolute, normalized, non-symlink readable directory");
         }
 
         for (String fileName : REQUIRED_WALLET_FILES) {
@@ -90,11 +100,25 @@ public final class OracleSecretsEnvironmentPostProcessor implements EnvironmentP
         if (!Files.isRegularFile(walletFile, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("not a regular file");
         }
-        try (InputStream input = Files.newInputStream(walletFile)) {
+        try (InputStream input = Files.newInputStream(walletFile, LinkOption.NOFOLLOW_LINKS)) {
             if (input.read() < 0) {
                 throw new IOException("empty file");
             }
         }
+    }
+
+    private static boolean containsSymbolicLink(Path directory) {
+        Path current = directory.getRoot();
+        if (current == null) {
+            return false;
+        }
+        for (Path component : directory) {
+            current = current.resolve(component);
+            if (Files.isSymbolicLink(current)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @FunctionalInterface

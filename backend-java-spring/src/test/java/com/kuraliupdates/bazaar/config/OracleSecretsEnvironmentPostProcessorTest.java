@@ -69,6 +69,18 @@ class OracleSecretsEnvironmentPostProcessorTest {
     }
 
     @Test
+    void rejectsSymlinkedWalletDirectory() throws Exception {
+        Path link = tempDirectory.resolve("wallet-link");
+        Files.createSymbolicLink(link, tempDirectory);
+        Map<String, Object> properties = completeProperties();
+        properties.put("ORACLE_WALLET_DIR", link.toString());
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> OracleSecretsEnvironmentPostProcessor.validate(testEnvironment(properties)));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("ORACLE_WALLET_DIR"));
+        assertFalse(error.getMessage().contains("unit-test-"));
+    }
+
+    @Test
     void rejectsEachMissingMandatoryWalletFile() throws Exception {
         for (String walletFile : WALLET_FILES) {
             Path path = tempDirectory.resolve(walletFile);
@@ -78,6 +90,19 @@ class OracleSecretsEnvironmentPostProcessorTest {
             org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains(walletFile));
             createWalletFile(walletFile);
         }
+    }
+
+    @Test
+    void rejectsSymlinkedWalletFile() throws Exception {
+        Path target = tempDirectory.resolve("wallet-target");
+        Files.write(target, new byte[] { 1 });
+        Path tnsNames = tempDirectory.resolve("tnsnames.ora");
+        Files.delete(tnsNames);
+        Files.createSymbolicLink(tnsNames, target);
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> OracleSecretsEnvironmentPostProcessor.validate(environment));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("tnsnames.ora"));
+        assertFalse(error.getMessage().contains("unit-test-"));
     }
 
     @Test

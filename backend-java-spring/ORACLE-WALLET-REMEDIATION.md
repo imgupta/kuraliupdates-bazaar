@@ -30,7 +30,7 @@ Startup validates the required environment keys and wallet files before Spring c
 
 ## Verification and rollout
 
-Before deployment, verify the generated image does not contain wallet archives or wallet files. The Docker build context excludes wallet archives and directories; the runtime image copies only the application JAR from the builder. Run the backend focused tests and full `mvn verify` without Oracle credentials; run the image-content verification described in the PR evidence.
+Before deployment, CI builds the backend image from the actual Docker context. It runs an exclusion probe for the synthetic wallet fixture directory, saves the final image, and scans every shipped layer and nested application archive for wallet filenames and test-only values. The Docker build context excludes wallet archives and directories; the runtime image copies only the application JAR from the builder. Run the backend focused tests and full `mvn verify` without Oracle credentials. `docker build --check` validates syntax only and is not image-content evidence.
 
 During the approved shared-staging rollout, compare the deployed image SHA with the reviewed PR SHA. Inspect sanitized startup output for successful initialization and Flyway outcome; never print environment values, wallet contents, JDBC URL, or exception details. Require `/api/v1/health` to report database readiness and perform only approved read-only API smoke checks. A liveness response, green container, successful image build, or CI result alone does not prove Oracle readiness. Do not run destructive migrations, schema rebuild scripts, V13 cleanup, or data-mutating E2E as part of credential remediation.
 
@@ -44,7 +44,7 @@ Rollback is safe only to an image that supports the replacement Secret File moun
 
 - No committed wallet archive or wallet directory; no credential fallback in application configuration.
 - Startup validation precedes datasource/Flyway initialization and reports only missing key/file identifiers.
-- Tests prove missing credentials, missing wallet directory/files, unreadable files, redacted error messages, valid configuration, and Docker context/image exclusion without real Oracle credentials.
+- Tests prove missing credentials, missing wallet directory/files, unreadable files, symlink rejection, redacted error messages, and valid configuration without real Oracle credentials. Exact-head CI builds and inspects the final Docker image and probes fixture exclusion from build context.
 - Exact-head backend tests and Docker/image-content evidence are recorded in the PR.
 - Flyway enabled/baseline 13/`ddl-auto: none` and all migration files are unchanged.
 - Render secret files and variables are provisioned by their owner before deployment; Oracle connection readiness is verified on the existing staging service.
