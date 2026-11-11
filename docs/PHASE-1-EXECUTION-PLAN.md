@@ -654,3 +654,14 @@ This PR extends the bargaining authorization evidence beyond send/respond mutati
 New tests assert the SQL ownership predicates and exact bound identity/role arguments for buyer list, seller list and notification list. Existing tests continue to cover cross-participant send/respond denial and notification-read scoping.
 
 **Evidence boundary:** SQL-shape/bind-argument tests use mocked JdbcTemplate. They are not Oracle runtime authorization proof and do not close every buyer/seller/delivery/professional/chat identifier route. Exact-head backend CI is required; authenticated browser journeys remain constrained by staging OTP capture configuration.
+
+
+## 11 November 2026 — current main baseline and completion disposition
+
+The audited baseline is `352286ae66438d1bd6063673945e724cbaed28f7`, the current known main merge commit for PR #320. On this SHA, local Maven passed 342 tests with no failures/errors/skips; frontend TS tests passed 40/40 across nine files; frontend `.mjs` tests passed 25/25 when run with required loopback access; TypeScript, root and all five portal builds passed. The focused security set passed 80/80, backend packaging succeeded, and a strictly local Playwright mock suite passed 2/2 login-entry/input-validation cases. This local suite is not authenticated role or business-lifecycle evidence.
+
+The complete requirement matrix and disposition are in `docs/PHASE-1-REQUIREMENT-MATRIX.md` and `docs/PHASE-1-COMPLETION-REPORT.md`. Current open GitHub scope includes seller-document malware retention/access audit (issue #209), seller onboarding/document-correction E2E (issue #210), and Critical Oracle wallet/credential remediation (draft PR #317, related issue #16). These were inspected but not modified or closed.
+
+PR #321 local/staging Playwright isolation was corrected in commit `1073969e93dd648cc2a482eb653a88cbab10fe2c`. Exact-head CI run `43072296209` passed frontend/backend and the browser job. Its read-only staging smoke was 7/7 with `databaseHealthChecked=false`; public E2E was 3 passed / 7 skipped, with authenticated/transactional flows safely gated off. This does not replace a fresh transactional run against an approved isolated target.
+
+**Decision: Phase 1 remains IN PROGRESS.** The exact current-head staging lifecycle, full endpoint-owner matrix, isolated Oracle migration/concurrency/rollback evidence, public abuse/privacy closure, Critical credential rotation/runtime readiness, and Phase 0 operational/legal gates remain unverified or open. Do not infer Oracle behavior from mocks or use shared staging for mutating tests without the dedicated isolation boundary and explicit approval.

@@ -2,6 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  // Local mock-browser tests use playwright.local.config.ts and must never be
+  // discovered by the staging-targeted workflow below.
+  testIgnore: ["**/local/**"],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
