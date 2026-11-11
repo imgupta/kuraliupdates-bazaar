@@ -104,6 +104,19 @@ class DailyHelpServiceTest {
     }
 
     @Test
+    void professionalCannotCancelAnotherProfessionalsSlot() {
+        DailyHelpProfessionalSlotEntity slot = slot(professional(), "AVAILABLE");
+        when(slotRepository.findLockedBySlotId("SLOT-1")).thenReturn(Optional.of(slot));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.cancelProfessionalSlot("DHP-OTHER", "SLOT-1"));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        assertEquals("AVAILABLE", slot.getStatus());
+        verify(slotRepository, never()).save(any());
+    }
+
+    @Test
     void overlappingProfessionalSlotsAreRejected() {
         DailyHelpProfessionalEntity professional = professional();
         LocalDate date = LocalDate.now().plusDays(2);
