@@ -92,7 +92,7 @@ class OrderServiceTest {
         var response = orderService.cancelOrderForBuyer("ORD-CANCEL", buyer());
 
         assertEquals("CANCELLED", response.status());
-        assertEquals("CANCELLED", order.getPaymentStatus());
+        assertEquals("PENDING_COD", order.getPaymentStatus());
         assertEquals(5, product.getStock());
         orderService.cancelOrderForBuyer("ORD-CANCEL", buyer());
         assertEquals(5, product.getStock());
@@ -170,7 +170,7 @@ class OrderServiceTest {
         ProductEntity alreadyRestored = ProductEntity.builder().productId("P-OLD").stock(3).build();
         ProductEntity stillReserved = ProductEntity.builder().productId("P-NEW").stock(1).build();
         OrderEntity cancelled = OrderEntity.builder().orderId("ORD-MIX-1").checkoutGroupId("CHK-MIX")
-                .buyerEmail("authenticated@example.test").status("CANCELLED").paymentStatus("CANCELLED")
+                .buyerEmail("authenticated@example.test").status("CANCELLED").paymentStatus("PENDING_COD")
                 .items(new java.util.ArrayList<>(List.of(com.kuraliupdates.bazaar.entity.OrderItemEntity.builder()
                         .itemId("I-OLD").product(alreadyRestored).quantity(2).build()))).build();
         OrderEntity active = OrderEntity.builder().orderId("ORD-MIX-2").checkoutGroupId("CHK-MIX")
