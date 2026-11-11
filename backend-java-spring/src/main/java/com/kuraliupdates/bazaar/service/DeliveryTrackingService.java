@@ -75,6 +75,7 @@ public class DeliveryTrackingService {
         // Delivery verification OTP is visible only to the authenticated order owner.
         String authenticatedEmail = sessionRepository.findBySessionToken(token)
                 .filter(this::active)
+                .filter(session -> "BUYER".equals(sessionRole(session)))
                 .map(session -> userEmail(session.getUserId()))
                 .orElse("");
         if (order.getBuyerEmail() != null && order.getBuyerEmail().equalsIgnoreCase(authenticatedEmail)) {
@@ -96,6 +97,7 @@ public class DeliveryTrackingService {
         if (token == null || token.isBlank()) return false;
         return sessionRepository.findBySessionToken(token)
                 .filter(this::active)
+                .filter(session -> "DELIVERY".equals(sessionRole(session)))
                 .flatMap(session -> deliveryAgentRepository.findById(agentId)
                         .map(agent -> matchesActiveAgentSession(agent, session)))
                 .orElse(false);
@@ -106,15 +108,27 @@ public class DeliveryTrackingService {
         return sessionRepository.findBySessionToken(token)
                 .filter(this::active)
                 .map(session -> {
+                    String role = sessionRole(session);
                     String email = userEmail(session.getUserId());
-                    boolean buyer = order.getBuyerEmail() != null && order.getBuyerEmail().equalsIgnoreCase(email);
+                    boolean buyer = "BUYER".equals(role) && order.getBuyerEmail() != null
+                            && order.getBuyerEmail().equalsIgnoreCase(email);
                     // A rider's persisted user link is authoritative. Email is only a
                     // compatibility fallback for legacy profiles that predate USER_ID.
-                    boolean rider = order.getDeliveryAgent() != null
+                    boolean rider = "DELIVERY".equals(role) && order.getDeliveryAgent() != null
                             && riderTrackingIsActive(order)
                             && matchesActiveAgentSession(order.getDeliveryAgent(), session);
                     return buyer || rider;
                 }).orElse(false);
+    }
+
+    private String sessionRole(UserSessionEntity session) {
+        if (session.getActiveRole() != null && !session.getActiveRole().isBlank()) {
+            return session.getActiveRole().trim().toUpperCase(java.util.Locale.ROOT);
+        }
+        if (session.getUserId() == null || session.getUserId().isBlank()) return "";
+        return userRepository.findById(session.getUserId())
+                .map(user -> user.getRole() == null ? "" : user.getRole().trim().toUpperCase(java.util.Locale.ROOT))
+                .orElse("");
     }
 
     private boolean riderTrackingIsActive(OrderEntity order) {
