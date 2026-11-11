@@ -153,6 +153,18 @@ test("synthetic OTP login stores a server-issued session and restores it after r
     .toBe("local-synthetic-session");
 });
 
+test("rejected synthetic OTP leaves the browser signed out", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('input[type="email"]').first().fill("buyer@example.test");
+  await page.getByRole("button", { name: /send 6-digit otp/i }).click();
+  await page.locator('input[autocomplete="one-time-code"]').fill("000000");
+  await page.getByRole("button", { name: /verify & continue/i }).click();
+
+  await expect(page.getByText("Invalid synthetic test OTP")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("kurali_auth_token")))
+    .toBeNull();
+});
+
 test("role switching requests an authenticated one-time handoff and puts its code in the URL fragment", async ({ page }) => {
   let handoffAuthorization: string | undefined;
   let handoffPayload: unknown;
