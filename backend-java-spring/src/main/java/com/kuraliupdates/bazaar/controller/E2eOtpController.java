@@ -31,13 +31,25 @@ public class E2eOtpController {
         this.token = token == null ? "" : token;
     }
 
+    @GetMapping("/ready")
+    public ResponseEntity<Map<String, Object>> ready(
+            @RequestParam String identifier,
+            @RequestHeader(value = "X-E2E-OTP-Token", required = false) String suppliedToken) {
+        if (!isAuthorized(suppliedToken) || identifier == null || identifier.isBlank()
+                || identifier.length() > 254 || !captureService.mayBypassCooldown(identifier)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).cacheControl(CacheControl.noStore())
+                    .body(Map.of("message", "Not found"));
+        }
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(Map.of("ready", true));
+    }
+
     @GetMapping("/latest")
     public ResponseEntity<Map<String, Object>> latest(
             @RequestParam String identifier,
             @RequestHeader(value = "X-E2E-OTP-Token", required = false) String suppliedToken) {
         // Fail closed unless explicitly marked staging with a strong shared secret.
-        if (!"staging".equals(environment) || token.length() < 32
-                || !captureService.isSafelyConfigured() || !constantTimeEquals(token, suppliedToken)) {
+        if (!isAuthorized(suppliedToken)) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Not found"));
         }
         if (identifier == null || identifier.isBlank() || identifier.length() > 254) {
@@ -48,6 +60,11 @@ public class E2eOtpController {
                         .body(Map.<String, Object>of("otp", otp, "expiresInSeconds", 180)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).cacheControl(CacheControl.noStore())
                         .body(Map.of("message", "No current OTP is available for this allowlisted test identity")));
+    }
+
+    private boolean isAuthorized(String suppliedToken) {
+        return "staging".equals(environment) && token.length() >= 32
+                && captureService.isSafelyConfigured() && constantTimeEquals(token, suppliedToken);
     }
 
     private boolean constantTimeEquals(String expected, String actual) {
