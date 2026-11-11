@@ -135,7 +135,7 @@ jobs:
       - name: Install Playwright test runner
         run: bun add --dev @playwright/test
       - name: Install Chromium
-        run: bunx playwright install --with-deps chromium
+        run: bash scripts/ci/install-playwright-chromium.sh
       - name: Load consolidated E2E JSON configuration
         shell: bash
         run: |
