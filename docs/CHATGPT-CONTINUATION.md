@@ -139,3 +139,14 @@ Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller
 - Phase 0 and production gates remain open for live schema/migration verification, backup/restore, secret rotation, India production hosting/data-flow verification and qualified Indian legal/tax/labour/payment review.
 
 **Next:** continue the source-backed P1-A/P1-D gap audit and take the next bounded authorization slice. Do not start broad architecture refactoring.
+
+
+## 11 November 2026 — master Phase 1 execution checkpoint
+
+- Baseline: local `main` and `origin/main` were both `352286ae66438d1bd6063673945e724cbaed28f7`; working tree was clean before work. Implementation/evidence changes are on `phase1/local-readiness-and-evidence`.
+- Full requirement/evidence inventory: `docs/PHASE-1-REQUIREMENT-MATRIX.md`; detailed disposition and test evidence: `docs/PHASE-1-COMPLETION-REPORT.md`. Phase 1 remains IN PROGRESS.
+- Local tests passed on current main: backend Maven 342/342; frontend TS tests 40/40 across nine files; `.mjs` tests 25/25 with loopback access; TypeScript, shared Vite build, all five portal builds; focused security tests 80/80; Spring Boot package build; local mock-browser suite 2/2. The complete `--all` runner passed all 13 command groups.
+- New `scripts/test-local.sh` has the requested backend/frontend/e2e/security/all/report options. The local browser config uses synthetic 401 API responses and blocks non-local requests; staging transactional E2E is not part of `--all`.
+- Open evidence gates: exhaustive route × role × owner matrix; complete authenticated five-role journeys; current-head staging verification; isolated Oracle migration, concurrency, constraint and rollback evidence; seller document retention/audit and onboarding E2E (issues #209/#210); Critical wallet/credential work in draft PR #317; Phase 0 residency, recovery and professional review.
+- No issue/PR was closed, no shared database or secret was accessed, no staging/production traffic was used, no deployment occurred. Do not declare Phase 1 closed or start Phase 2 until owner sign-off and the evidence gates are resolved.
+- Prepared Phase 2 handoff: `docs/PHASE-2-READINESS.md`; it explicitly recommends no implementation until formal Phase 1 closure.

@@ -45,6 +45,14 @@ The main-branch transactional workflow now has a successful exact-backend-commit
 
 The admin test is now enabled for the `push` event, with the existing staging URL, staging environment and configured role-identity checks retained. PR #289 is merged.
 
+## Local-first verification and current boundary — 11 November 2026
+
+`./scripts/test-local.sh` is the local runner for `--backend`, `--frontend`, `--security`, `--e2e`, `--all` and `--report`. Its browser config is separate from this staging workflow. `playwright.local.config.ts` starts the local Vite app, mocks `/api/v1/**` with synthetic unauthenticated responses and blocks all non-loopback browser requests. The current local browser tests cover login entry and client-side invalid-input rejection only; they do not prove authenticated role journeys, backend authorization or business lifecycle behavior.
+
+The local mock suite passed 2/2 on the audited main code. The current staging transactional suite remains a separate, explicit trusted workflow. It was not run as part of this local audit, and the older successful staging run cited above is not exact-current-head proof. Never invoke the transactional workflow against shared staging without the dedicated test identities, explicit owner approval and all fixture/cleanup safeguards in this document.
+
+The runner records per-suite logs/counts in ignored `test-reports/local/`. Playwright must be available locally; this audit installed the CI-used `@playwright/test` 1.65.0 with `--no-save` because it is not declared in `package.json`. A clean checkout needs the approved dependency setup before `--e2e` can run. Oracle and shared staging tests remain outside `--all` by design.
+
 ## Combined checkout group claim coverage — bounded unit evidence
 
 The current staging Playwright suite verifies a concurrent claim race on a single seller order using the configured active delivery identity. It does not currently provision a second active delivery profile or exercise the combined-checkout-group claim endpoint.
