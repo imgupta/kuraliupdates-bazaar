@@ -10,7 +10,7 @@ The inventory has 17 requirement groups. Current code and tests provide partial 
 
 - Baseline is `main` commit `352286ae66438d1bd6063673945e724cbaed28f7`, merge commit for PR #320. The PR branch contains the buyer cancellation fix and COD payment-state behavior.
 - Existing main source includes OTP/session controls, active-role authorization, selected endpoint ownership checks, transactional order and Daily Help service operations, delivery assignment/OTP protections, database-backed rate limiting, and seller document quarantine/scanning. Exact sources/tests are listed in the requirement matrix and existing Phase 1/Phase 0 tracking documents.
-- This work adds a local test runner and local mock-browser test setup in commit `3f1bc83601a00f30ae83307bbc4d87279b72fa66`, submitted as open PR [#321](https://github.com/imgupta/kuraliupdates-bazaar/pull/321). Local `--all` verification passed on that tree. GitHub status checks had not been reported when this document was updated. Nothing has been merged to `main` by this work.
+- This work adds a local test runner and local mock-browser test setup in commit `3f1bc83601a00f30ae83307bbc4d87279b72fa66`, submitted as open PR [#321](https://github.com/imgupta/kuraliupdates-bazaar/pull/321). Commit `4abbda14c95a32bb7d45fd220b6a0a8ecba213bc` records the PR traceability in the reports. The first PR CI run exposed a Playwright discovery collision: the default staging config also picked up `e2e/local/` and tried to navigate those tests using its staging base URL. The local specs are now ignored by the default config and remain included by the dedicated local config; local `--all` passed again after this fix. Exact-head CI for the fix is pending. Nothing has been merged to `main` by this work.
 
 ## Tests executed for this audit
 
@@ -25,14 +25,14 @@ The inventory has 17 requirement groups. Current code and tests provide partial 
 | Playwright local mock suite: `./scripts/test-local.sh --e2e` | **2 passed, 0 failed, 0 skipped** on the successful rerun | Local Vite only; API responses are synthetic 401s and non-local browser requests are blocked. Covers unauthenticated login entry and invalid-input behavior only. |
 | Focused security suite: `./scripts/test-local.sh --security` | **80 passed, 0 failed, 0 skipped** | Selected authentication, OTP, session, active-role, ownership and controller security tests; mocked/HTTP-test contexts, not Oracle. |
 | Backend packaging: `mvn -o -f backend-java-spring/pom.xml -DskipTests package` | **BUILD SUCCESS** | Compiles and packages the Spring Boot application. Tests were already recorded separately. |
-| Complete runner: `./scripts/test-local.sh --all` | **All 13 command groups passed; no test failures or skips** | Repeats backend, frontend and focused security suites and runs local mock Playwright. Report: `test-reports/local/run-20261111T173712Z-50698/summary.tsv` (ignored runtime output). Security tests overlap the full Maven suite and counts are not additive. |
+| Complete runner: `./scripts/test-local.sh --all` | **All 13 command groups passed; no test failures or skips** | Repeats backend, frontend and focused security suites and runs local mock Playwright. Verified twice; latest report: `test-reports/local/run-20261111T174904Z-60976/summary.tsv` (ignored runtime output). Security tests overlap the full Maven suite and counts are not additive. |
 
 The test runner writes per-suite output under ignored `test-reports/local/` and separates test pass/fail/skip counts. Failures are nonzero; an unavailable Playwright setup is reported as failure rather than silently skipped. Its full `--all` command passed on this audit.
 
 ## Security verification
 
 - Existing tests in the 342-test suite cover OTP attempts/resend, session filters, active-role authorization, selected buyer/seller/delivery/Daily Help ownership boundaries, admin document guards, COD cancellation behavior, malware scan quarantine, and controller abuse-budget ordering.
-- The local browser mock verifies only that unauthenticated login is rendered and invalid email submission does not send an OTP request. It does not authenticate or traverse role portals.
+- The local browser mock verifies only that unauthenticated login is rendered and invalid email submission does not send an OTP request. It does not authenticate or traverse role portals. The first PR CI run failed because the staging Playwright config discovered these local tests; they now have a testIgnore boundary in the default config and remain in the local config. The fix's exact-head CI is pending.
 - Public and protected endpoint authorization is not exhaustively enumerated. The Phase 0 endpoint matrix and this report keep the broader IDOR scope open.
 - PR #317 remains the open draft for removing sensitive Oracle wallet/default credential material. Its PR body requires secret rotation/revocation, protected runtime provisioning, exact Oracle readiness and history-cleanup planning. Those tasks were not performed.
 
