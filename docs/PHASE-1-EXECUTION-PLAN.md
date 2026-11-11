@@ -654,3 +654,10 @@ This PR extends the bargaining authorization evidence beyond send/respond mutati
 New tests assert the SQL ownership predicates and exact bound identity/role arguments for buyer list, seller list and notification list. Existing tests continue to cover cross-participant send/respond denial and notification-read scoping.
 
 **Evidence boundary:** SQL-shape/bind-argument tests use mocked JdbcTemplate. They are not Oracle runtime authorization proof and do not close every buyer/seller/delivery/professional/chat identifier route. Exact-head backend CI is required; authenticated browser journeys remain constrained by staging OTP capture configuration.
+
+
+## 11 November 2026 — buyer cancellation COD and group preflight regression slice
+
+`OrderServiceTest` now asserts that buyer cancellation sets order and fulfilment statuses to `CANCELLED` while unpaid COD remains `PENDING_COD`, including every eligible order in a multi-seller checkout. A new negative-path test places a `READY_FOR_PICKUP` suborder in an otherwise cancellable group and verifies the service rejects the entire request before inventory repository access or order persistence; the mocked entities retain their original statuses and stock values.
+
+This is service-level regression evidence for cancellation invariants and group preflight only. It does not prove transaction rollback after a database write, Oracle row-lock behavior, concurrent cancellation/checkout, or shared staging behavior. Those require the separately authorized isolated Oracle/staging gates; payment/refund semantics are unchanged.
