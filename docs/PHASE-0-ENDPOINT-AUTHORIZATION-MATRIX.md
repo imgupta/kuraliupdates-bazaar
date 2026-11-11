@@ -12,10 +12,10 @@ The current Phase 0 branch uses explicit public method/path matchers. All routes
 | Health and API docs | GET /health, /health/live, OpenAPI and Swagger GET paths | No user data; readiness checks datasource |
 | Authentication | POST /auth/send-otp, /auth/registration-check, /auth/verify-otp, /auth/portal-handoff/redeem | Portal handoff creation, current profile, role list, onboarding status, profile/address changes and logout require session |
 | Buyer | GET /buyers/products/search | Order creation/checkout require session; pickup confirmation and order tracking verify the owning buyer |
-| Seller | POST /sellers/register is legacy and returns 410 | /sellers/me/** requires session; service methods resolve seller profile from authenticated user and enforce product/order ownership |
-| Delivery | POST /delivery/register | /delivery/me and job actions require session; service verifies the agent profile belongs to the authenticated user and checks active approval |
-| Daily Help | GET /daily-help/services, /daily-help/availability | Booking and professional profile, slot, job and earnings routes require session; professional ownership and buyer booking ownership are checked in controller/service |
-| Tracking | None | /tracking/** requires session; location updates verify delivery-agent identity and active status; order tracking permits the owning buyer or assigned rider |
+| Seller | POST /sellers/register is legacy and returns 410 | /sellers/me/** and seller document upload/list require an authenticated SELLER-scoped session plus profile/resource ownership; admin document routes require ROLE_ADMIN |
+| Delivery | No supported public registration endpoint | /delivery/** requires an authenticated DELIVERY-scoped session; service verifies agent ownership and active approval |
+| Daily Help | GET /daily-help/services, /daily-help/availability | Booking requires BUYER role; professional profile, slot, job and earnings routes require PROFESSIONAL role and profile ownership; booking reads verify buyer/professional ownership |
+| Tracking | None | Location updates require DELIVERY role, active session, linked agent ownership and ACTIVE status. Order tracking requires BUYER role for the owning buyer or DELIVERY role for the assigned active rider; delivery OTP is buyer-role only |
 | Bargaining | None | /negotiations/** requires session; service resolves chat participant ownership and role |
 | Seller onboarding leads | POST create, send contact OTPs, verify contact and callback | Applicant endpoints use high-entropy lead IDs and configured OTP checks; admin lead list/update/notes are under /admin/** |
 | Seller documents | None | Seller upload/list require authenticated seller; document admin list/download/scan/verification paths are under /admin/** |
@@ -33,6 +33,7 @@ The current Phase 0 branch uses explicit public method/path matchers. All routes
 5. Delivery live-location updates now reject profiles not in ACTIVE status, even if a session token is otherwise valid.
 6. Portal handoff uses a shared Oracle table in Flyway V31. It generates a 256-bit random code, stores only its SHA-256 digest, and consumes it with one conditional database update. Consume runs in REQUIRES_NEW so a later session/role rejection cannot roll back the one-time consume.
 7. Every newly issued OTP session is bound to its verified/requested portal role in `USER_SESSIONS.ACTIVE_ROLE` (Flyway V35). A redeemed handoff creates a distinct session scoped to the target role, with expiry no later than the source session. The source session's role is not changed.
+8. Seller and delivery controllers/services enforce the active session role separately from profile ownership. Tracking checks role and ownership before exposing buyer or rider data; seller document access requires SELLER role or administrator role according to route.
 
 ## Outstanding authorization and abuse controls
 
@@ -40,6 +41,7 @@ The current Phase 0 branch uses explicit public method/path matchers. All routes
 - Existing-lead lookup behavior can reveal that a matching email/phone pair has an active lead and returns its lead ID. Review enumeration and applicant-name update semantics before public launch.
 - Public search analytics now applies a persistent fixed-window budget of 600 events/minute per anonymous remote IP and 300/minute per authenticated user. Query text is normalized and capped at 255 characters, and the client-supplied userId is ignored. Controller regression tests assert that a rejected rate-limit decision prevents persistence. The anonymous budget is still relatively permissive, and retention/deletion policy plus proxy-aware source-IP validation remain open.
 - Complete IDOR tests are still required for every buyer order, seller product/order, delivery assignment, professional booking/slot and chat/offer identifier.
+- Role-isolation regression tests cover seller service reads, seller document uploads, delivery job controller access, delivery location updates and buyer tracking. Complete method-by-method authorization tests and DB-backed row-owner tests remain outstanding.
 - Admin seller-lead and registration OTP-policy audit events now record the stable authenticated UserEntity.userId rather than Authentication.getName().
 - Resource ownership remains the final authorization check for multi-profile accounts. Session role is now explicitly bound at login/registration or portal handoff; client role headers alone do not grant authority.
 - E2E route permission is intentionally broad at the HTTP matcher but relies on controller-level fail-closed staging checks. Keep E2E secrets out of normal application environments and rotate them before production.
@@ -130,3 +132,12 @@ The follow-up regression slice adds query-boundary tests for:
 - Notification listing uses the authenticated recipient and active role.
 
 Existing tests already cover cross-buyer and cross-store denial for message sends and offer responses, plus recipient-scoped notification read updates. These remain mocked JDBC/service tests: they do not prove Oracle execution plans, row-level database policies, or full authenticated browser journeys. The broader IDOR matrix remains open.
+
+
+## Active-role checks at seller, delivery and tracking boundaries — 11 November 2026
+
+Source review found that record ownership alone allowed a valid multi-profile account's BUYER-scoped token to call seller or delivery operations for another profile the same account owned. Tracking also authorized solely by identity/profile ownership, allowing a non-BUYER session to reach buyer order tracking and the buyer delivery OTP branch.
+
+Seller operations and seller document upload/list now require SELLER role; delivery job operations and location updates require DELIVERY role. Tracking reads require BUYER for buyer-owned orders or DELIVERY for assigned rider orders, and only BUYER receives the delivery OTP. Existing record-owner, active-profile and order-state checks remain in force. New deterministic regressions cover cross-role denial and valid delivery/seller role paths.
+
+**Evidence boundary:** exact-head CI and Oracle runtime checks are pending. Tests use mocked services/repositories; no data was accessed or mutated.

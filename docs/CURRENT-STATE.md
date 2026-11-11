@@ -1,5 +1,9 @@
 # Current implementation status and remaining work
 
+## 11 November 2026 — active portal-role enforcement (PR #318 follow-up)
+
+The role-scoped session change in PR #318 is paired with backend enforcement at seller, seller-document, delivery and order-tracking entry points. Seller service calls require an active SELLER session; delivery controller/location operations require DELIVERY; buyer tracking and delivery OTP require BUYER; rider tracking requires DELIVERY plus the existing assignment/profile ownership checks. Regression tests reject cross-portal use even when one account owns multiple profiles. These are source and unit-test findings; exact-head CI and staging/runtime role-switch evidence remain required. No schema, database, credentials or deployment settings are changed.
+
 **Last reconciled:** 7 November 2026  
 **Current main evidence checkpoint:** `cf21ae0b5d711c8e472a7a50afb2d4f4155e1ca8` (PRs #285–#289, #294 staging-readiness optimization, #295 seller-contact verification hardening, #296 delivery-tracking ownership hardening, #297 E2E warm-up/read-only parallelization and #299 Daily Help OTP/lifecycle hardening are merged; exact deployed backend SHA is separately verified as `b491795f9b7a7b0d91d21a3835cc6287e190573f`). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
 

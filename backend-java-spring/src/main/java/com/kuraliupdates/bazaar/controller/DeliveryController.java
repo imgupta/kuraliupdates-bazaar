@@ -107,6 +107,10 @@ public class DeliveryController {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserEntity user)) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "An authenticated delivery partner session is required");
         }
+        if (authentication.getAuthorities() == null || authentication.getAuthorities().stream()
+                .noneMatch(authority -> "ROLE_DELIVERY".equalsIgnoreCase(authority.getAuthority()))) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "An active delivery partner session is required");
+        }
         return user;
     }
 }

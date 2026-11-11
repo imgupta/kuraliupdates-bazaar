@@ -49,8 +49,21 @@ class SellerDocumentControllerTest {
     void setUp() {
         lenient().when(authService.requireUser("seller-token")).thenReturn(
                 UserEntity.builder().userId("E2E-USER-UNIT").build());
+        lenient().when(authService.requireSessionRole("seller-token")).thenReturn("SELLER");
         lenient().when(sellerRepository.findByUserId("E2E-USER-UNIT")).thenReturn(Optional.of(
                 SellerEntity.builder().sellerId(SELLER_ID).build()));
+    }
+
+    @Test
+    void buyerScopedSessionCannotUploadSellerDocumentsForItsOwnSellerProfile() {
+        when(authService.requireSessionRole("seller-token")).thenReturn("BUYER");
+
+        ApiException error = assertThrows(ApiException.class, () -> controller.upload(
+                "Bearer seller-token", "SHOP_FRONT_PHOTO",
+                new MockMultipartFile("file", "shop.pdf", "application/pdf", PDF)));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verifyNoInteractions(sellerRepository, malwareScanner);
     }
 
     @Test

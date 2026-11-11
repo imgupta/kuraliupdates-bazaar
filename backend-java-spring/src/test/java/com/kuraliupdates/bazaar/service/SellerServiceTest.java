@@ -41,6 +41,16 @@ class SellerServiceTest {
     @InjectMocks private SellerService sellerService;
 
     @Test
+    void buyerScopedSessionCannotReadSellerPortalEvenWhenAccountOwnsSellerProfile() {
+        when(authService.requireSessionRole(TOKEN)).thenReturn("BUYER");
+
+        ApiException error = assertThrows(ApiException.class, () -> sellerService.getCurrentSeller(TOKEN));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verifyNoInteractions(sellerRepository);
+    }
+
+    @Test
     void sellerCanAcceptPlacedOrder() {
         SellerEntity seller = approvedSeller("SELLER-1");
         OrderEntity order = order(seller, "PLACED");
@@ -369,6 +379,7 @@ class SellerServiceTest {
     }
 
     private void stubSeller(SellerEntity seller) {
+        when(authService.requireSessionRole(TOKEN)).thenReturn("SELLER");
         when(authService.requireUser(TOKEN)).thenReturn(
                 UserEntity.builder().email("seller@example.com").name("Store Owner").role("SELLER").build());
         when(sellerRepository.findByEmail("seller@example.com")).thenReturn(Optional.of(seller));

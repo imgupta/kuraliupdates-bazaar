@@ -33,6 +33,7 @@ public class SellerDocumentController {
             @RequestHeader(value = "Authorization", required = false) String auth,
             @RequestParam String documentType, @RequestParam MultipartFile file) throws IOException {
         UserEntity user = authService.requireUser(bearer(auth));
+        requireSellerSession(bearer(auth));
         SellerEntity seller = sellerRepository.findByUserId(user.getUserId())
                 .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "Seller profile required"));
         String type = documentType.trim().toUpperCase(Locale.ROOT);
@@ -69,6 +70,7 @@ public class SellerDocumentController {
     public List<Map<String, Object>> mine(
             @RequestHeader(value = "Authorization", required = false) String auth) {
         UserEntity user = authService.requireUser(bearer(auth));
+        requireSellerSession(bearer(auth));
         SellerEntity seller = sellerRepository.findByUserId(user.getUserId())
                 .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "Seller profile required"));
         return metadata(seller.getSellerId());
@@ -187,6 +189,11 @@ public class SellerDocumentController {
         if (auth == null || auth.getAuthorities().stream()
                 .noneMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority())))
             throw new ApiException(HttpStatus.FORBIDDEN, "Administrator access required");
+    }
+
+    private void requireSellerSession(String token) {
+        if (!"SELLER".equalsIgnoreCase(authService.requireSessionRole(token)))
+            throw new ApiException(HttpStatus.FORBIDDEN, "An active seller session is required");
     }
 
     private String bearer(String header) {
