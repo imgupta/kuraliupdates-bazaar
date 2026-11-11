@@ -19,8 +19,8 @@ spring:
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     driver-class-name: oracle.jdbc.OracleDriver
-    url: ${ORACLE_JDBC_URL:jdbc:oracle:thin:@jkphg8mg7fvt8c2n_high?TNS_ADMIN=/app/wallet}
-    username: ${ORACLE_USERNAME:ADMIN}
+    url: ${ORACLE_JDBC_URL}
+    username: ${ORACLE_USERNAME}
     password: ${ORACLE_PASSWORD}
     hikari:
       maximum-pool-size: 10
@@ -33,12 +33,12 @@ spring:
       # Oracle session setting must be applied before Spring opens a transaction.
       connection-init-sql: ALTER SESSION DISABLE PARALLEL DML
       data-source-properties:
-        oracle.net.wallet_location: (SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=/app/wallet)))
-        oracle.net.tns_admin: /app/wallet
-        javax.net.ssl.trustStore: /app/wallet/truststore.jks
-        javax.net.ssl.trustStorePassword: ${WALLET_PASSWORD:Vasu@123!2026}
-        javax.net.ssl.keyStore: /app/wallet/keystore.jks
-        javax.net.ssl.keyStorePassword: ${WALLET_PASSWORD:Vasu@123!2026}
+        oracle.net.wallet_location: (SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=${ORACLE_WALLET_DIR})))
+        oracle.net.tns_admin: ${ORACLE_WALLET_DIR}
+        javax.net.ssl.trustStore: ${ORACLE_WALLET_DIR}/truststore.jks
+        javax.net.ssl.trustStorePassword: ${WALLET_PASSWORD}
+        javax.net.ssl.keyStore: ${ORACLE_WALLET_DIR}/keystore.jks
+        javax.net.ssl.keyStorePassword: ${WALLET_PASSWORD}
   data:
     jpa:
       repositories:
@@ -80,7 +80,7 @@ app:
   cors:
     allowed-origins: "http://localhost:4200,https://kuraliupdates.com,https://www.kuraliupdates.com,https://*.vercel.app,*"
   jwt:
-    secret: "KuraliBazaarSecretKey2026PunjabLocalCommerceSecureJWTKeyMustBeAtLeast256Bits"
+    secret: ${JWT_SECRET}
     expiration-ms: 86400000
 
 springdoc:
