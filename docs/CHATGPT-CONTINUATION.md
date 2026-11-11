@@ -144,6 +144,7 @@ Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller
 ## 11 November 2026 — master Phase 1 execution checkpoint
 
 - Baseline: local `main` and `origin/main` were both `352286ae66438d1bd6063673945e724cbaed28f7`; working tree was clean before work. Implementation/evidence changes are on `phase1/local-readiness-and-evidence`.
+- Local runner and evidence update was committed as `3f1bc83601a00f30ae83307bbc4d87279b72fa66` and pushed in open PR #321. The PR is awaiting independent review; no Actions status was returned at this checkpoint.
 - Full requirement/evidence inventory: `docs/PHASE-1-REQUIREMENT-MATRIX.md`; detailed disposition and test evidence: `docs/PHASE-1-COMPLETION-REPORT.md`. Phase 1 remains IN PROGRESS.
 - Local tests passed on current main: backend Maven 342/342; frontend TS tests 40/40 across nine files; `.mjs` tests 25/25 with loopback access; TypeScript, shared Vite build, all five portal builds; focused security tests 80/80; Spring Boot package build; local mock-browser suite 2/2. The complete `--all` runner passed all 13 command groups.
 - New `scripts/test-local.sh` has the requested backend/frontend/e2e/security/all/report options. The local browser config uses synthetic 401 API responses and blocks non-local requests; staging transactional E2E is not part of `--all`.

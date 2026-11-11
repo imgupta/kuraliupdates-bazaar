@@ -10,7 +10,7 @@ The inventory has 17 requirement groups. Current code and tests provide partial 
 
 - Baseline is `main` commit `352286ae66438d1bd6063673945e724cbaed28f7`, merge commit for PR #320. The PR branch contains the buyer cancellation fix and COD payment-state behavior.
 - Existing main source includes OTP/session controls, active-role authorization, selected endpoint ownership checks, transactional order and Daily Help service operations, delivery assignment/OTP protections, database-backed rate limiting, and seller document quarantine/scanning. Exact sources/tests are listed in the requirement matrix and existing Phase 1/Phase 0 tracking documents.
-- This work adds a local test runner and local mock-browser test setup; source SHA, PR and CI evidence will be recorded after review/push. Nothing has been merged to `main` by this work.
+- This work adds a local test runner and local mock-browser test setup in commit `3f1bc83601a00f30ae83307bbc4d87279b72fa66`, submitted as open PR [#321](https://github.com/imgupta/kuraliupdates-bazaar/pull/321). Local `--all` verification passed on that tree. GitHub status checks had not been reported when this document was updated. Nothing has been merged to `main` by this work.
 
 ## Tests executed for this audit
 
