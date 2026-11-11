@@ -23,6 +23,7 @@ class OracleWalletDockerContextTest {
         assertTrue(dockerfile.contains("COPY --from=builder /app/target/kurali-bazaar-api-1.0.0-SNAPSHOT.jar app.jar"));
         assertTrue(dockerignore.contains("Wallet*.zip"));
         assertTrue(dockerignore.contains("wallet/"));
+        assertTrue(dockerignore.contains("oracle-wallet-fixture"));
         List<String> imageCopyInstructions = dockerfile.lines()
                 .map(String::trim)
                 .filter(line -> line.startsWith("COPY ") || line.startsWith("ADD "))
