@@ -38,8 +38,15 @@ public class SellerService {
 
     @Transactional(readOnly = true)
     public SellerEntity getCurrentSeller(String token) {
+        requireSellerSession(token);
         return sellerRepository.findByEmail(authService.requireUser(token).getEmail())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Seller store profile not found"));
+    }
+
+    private void requireSellerSession(String token) {
+        if (!"SELLER".equalsIgnoreCase(authService.requireSessionRole(token))) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "An active seller session is required");
+        }
     }
 
     @Transactional

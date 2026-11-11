@@ -110,11 +110,11 @@ const RootNavigation: React.FC<PortalAppShellProps> = ({ portalRole, Dashboard }
     case 'register-buyer':
       return <Suspense fallback={<PortalRouteLoading />}><BuyerRegistrationPage /></Suspense>;
     case 'account':
-      return <Suspense fallback={<PortalRouteLoading />}>{user.isSignedIn ? <BuyerAccountPage /> : <AuthPageV2 />}</Suspense>;
+      return <Suspense fallback={<PortalRouteLoading />}>{user.isSignedIn ? <BuyerAccountPage /> : <AuthPageV2 loginRole="BUYER" />}</Suspense>;
     case 'role-dashboard':
       if (redirectUrl) return <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6"><p className="text-sm font-semibold text-slate-600">Opening your authorized portal…</p></main>;
       if (dashboardAccess?.allowed) return <MainLayout Dashboard={Dashboard} />;
-      if (dashboardAccess?.reason === 'authentication-required') return <Suspense fallback={<PortalRouteLoading />}><AuthPageV2 /></Suspense>;
+      if (dashboardAccess?.reason === 'authentication-required') return <Suspense fallback={<PortalRouteLoading />}><AuthPageV2 loginRole={route.role.toUpperCase()} /></Suspense>;
       return <AccessDenied />;
     case 'home':
     default:

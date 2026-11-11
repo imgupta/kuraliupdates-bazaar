@@ -96,6 +96,36 @@ class DeliveryTrackingServiceTest {
     }
 
     @Test
+    void sellerScopedSessionCannotReadBuyerOrderOrDeliveryOtp() {
+        UserSessionEntity sellerSession = session("buyer-id");
+        sellerSession.setActiveRole("SELLER");
+        when(orderRepository.findById("ORD-SELLER-ROLE")).thenReturn(Optional.of(
+                OrderEntity.builder().orderId("ORD-SELLER-ROLE").buyerEmail("buyer@example.com")
+                        .deliveryOtp("4821").status("OUT_FOR_DELIVERY").build()));
+        when(sessionRepository.findBySessionToken("seller-token")).thenReturn(Optional.of(sellerSession));
+        when(userRepository.findById("buyer-id")).thenReturn(Optional.of(
+                UserEntity.builder().userId("buyer-id").email("buyer@example.com").build()));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> trackingService.getOrderTracking("ORD-SELLER-ROLE", "seller-token"));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+    }
+
+    @Test
+    void buyerScopedSessionCannotUpdateOwnedDeliveryProfileLocation() {
+        UserSessionEntity buyerSession = session("buyer-id");
+        buyerSession.setActiveRole("BUYER");
+        when(sessionRepository.findBySessionToken("buyer-token")).thenReturn(Optional.of(buyerSession));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> trackingService.updateLocation("AGENT-1", 30.0, 76.5, "buyer-token"));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, error.getStatus());
+        verifyNoInteractions(deliveryAgentRepository);
+    }
+
+    @Test
     void unrelatedUserNeverReceivesDeliveryOtp() {
         when(orderRepository.findById("ORD-3")).thenReturn(Optional.of(
                 OrderEntity.builder().orderId("ORD-3").buyerEmail("buyer@example.com")
@@ -327,6 +357,7 @@ class DeliveryTrackingServiceTest {
 
     private UserSessionEntity session(String userId) {
         return UserSessionEntity.builder().sessionToken("token-" + userId).userId(userId)
+                .activeRole(userId.startsWith("buyer") ? "BUYER" : "DELIVERY")
                 .expiresAt(LocalDateTime.now().plusMinutes(30)).build();
     }
 }

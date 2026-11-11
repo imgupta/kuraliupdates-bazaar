@@ -65,18 +65,20 @@ class AuthControllerPortalHandoffTest {
                 .expiresAt(LocalDateTime.now().plusSeconds(55))
                 .build();
         when(handoffService.consume("b".repeat(64))).thenReturn(Optional.of(stored));
-        when(authService.registeredRoles("active-session")).thenReturn(List.of("BUYER", "SELLER"));
+        when(authService.createPortalSession("active-session", "SELLER")).thenReturn("target-session");
+        when(authService.registeredRoles("target-session")).thenReturn(List.of("BUYER", "SELLER"));
         UserResponse user = mock(UserResponse.class);
         when(user.addresses()).thenReturn(List.of());
-        when(authService.currentUser("active-session")).thenReturn(user);
+        when(authService.currentUser("target-session")).thenReturn(user);
 
         ResponseEntity<Map<String, Object>> response = controller().redeemPortalHandoff(Map.of("code", "b".repeat(64)));
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("active-session", response.getBody().get("token"));
+        assertEquals("target-session", response.getBody().get("token"));
         assertEquals("SELLER", response.getBody().get("role"));
         verify(handoffService).consume("b".repeat(64));
-        verify(authService).registeredRoles("active-session");
+        verify(authService).createPortalSession("active-session", "SELLER");
+        verify(authService).registeredRoles("target-session");
     }
 
     @Test

@@ -146,19 +146,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
       - name: Install Chromium
-        shell: bash
         run: |
-          set -euo pipefail
-          for attempt in 1 2 3; do
-            if bunx playwright install chromium; then
-              bunx playwright install --list
-              exit 0
-            fi
-            echo "Chromium download attempt ${attempt}/3 failed; retrying."
-            sleep $((attempt * 10))
-          done
-          echo "Chromium installation failed after three attempts."
-          exit 1
+          bash scripts/ci/install-playwright-chromium.sh
+          bunx playwright install --list
       - name: Load consolidated E2E JSON configuration
         shell: bash
         run: |

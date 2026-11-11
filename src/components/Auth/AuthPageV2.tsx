@@ -12,9 +12,10 @@ type ContactMethod = 'email' | 'phone';
 
 interface AuthPageV2Props {
   registrationRole?: UserRole;
+  loginRole?: string;
 }
 
-const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer' }) => {
+const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer', loginRole }) => {
   const { loginWithOtp, registerUserWithOtp, showToast } = useApp();
   const roleRegistration = registrationRole === 'seller' || registrationRole === 'delivery' || registrationRole === 'professional';
 
@@ -314,6 +315,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
         identifier,
         otp: code,
         type: contactMethod === 'email' ? 'EMAIL' : 'PHONE',
+        role: loginRole ?? (roleRegistration ? registrationRole.toUpperCase() : undefined),
       });
 
       if (!response.success || !response.token || !response.user) {

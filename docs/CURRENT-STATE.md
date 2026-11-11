@@ -1,5 +1,9 @@
 # Current implementation status and remaining work
 
+## 11 November 2026 — active portal-role enforcement (PR #318 follow-up)
+
+The role-scoped session change in PR #318 is paired with backend enforcement at seller, seller-document, delivery and order-tracking entry points. Seller service calls require an active SELLER session; delivery controller/location operations require DELIVERY; buyer tracking and delivery OTP require BUYER; rider tracking requires DELIVERY plus the existing assignment/profile ownership checks. Regression tests reject cross-portal use even when one account owns multiple profiles. These are source and unit-test findings; exact-head CI and staging/runtime role-switch evidence remain required. No schema, database, credentials or deployment settings are changed.
+
 **Last reconciled:** 7 November 2026  
 **Current main evidence checkpoint:** `cf21ae0b5d711c8e472a7a50afb2d4f4155e1ca8` (PRs #285–#289, #294 staging-readiness optimization, #295 seller-contact verification hardening, #296 delivery-tracking ownership hardening, #297 E2E warm-up/read-only parallelization and #299 Daily Help OTP/lifecycle hardening are merged; exact deployed backend SHA is separately verified as `b491795f9b7a7b0d91d21a3835cc6287e190573f`). The detailed source audit below retains its historical baseline `840842662c03ae026c9ddd996b62b074784359a0`; it is not a complete re-audit of every current-main file.
 
@@ -284,3 +288,8 @@ Phase 1 and Phase 0 remain IN PROGRESS. The build optimization is not operationa
 PR #314 was squash-merged to main as `8dbe3371c29a8785e04f4755fe0f531e06682680`. Exact PR head `d64ac5d2795f258bbfb8a8405882796293c549fa` passed full CI/E2E and Seller registration quality gates. The backend suite passed 327 tests with zero failures/errors/skips; the new SearchAnalyticsControllerTest passed 7/7 and SellerOnboardingLeadControllerTest passed 4/4. Frontend checks and browser E2E passed; OTP-driven authenticated journeys remain skipped where staging capture/suppression is not confirmed.
 
 The next P1-A slice extends bargaining chat ownership regression coverage to list and notification read paths. Phase 1 and Phase 0 remain IN PROGRESS.
+
+
+## 11 November 2026 — multi-profile session role binding (implementation in progress)
+
+Source review found that Flyway V35 added `USER_SESSIONS.ACTIVE_ROLE`, but ordinary OTP sessions did not populate it and portal handoff returned the original session. The filter therefore fell back to the account's primary role. The fix binds new OTP sessions to an account-verified role and makes portal redemption issue a separate target-role session whose expiry is bounded by the source session. Targeted backend unit tests are added. No schema change or shared database access; local test execution is limited by the runner's Java 25/Byte Buddy incompatibility, so exact-head CI is required. See `docs/PHASE-0-ENDPOINT-AUTHORIZATION-MATRIX.md` and `docs/PHASE-0-TRANSACTION-WRITE-INVENTORY.md`.

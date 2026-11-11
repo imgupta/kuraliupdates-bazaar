@@ -96,15 +96,13 @@ public class AuthController {
         PortalHandoffEntity handoff = portalHandoffService.consume(code)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "This profile-switch link has expired or was already used"));
 
-        List<String> roles = authService.registeredRoles(handoff.getSessionToken());
-        if (!roles.contains(handoff.getRole())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "This account is no longer authorized for that profile");
-        }
-        UserResponse user = authService.currentUser(handoff.getSessionToken());
+        String targetSession = authService.createPortalSession(handoff.getSessionToken(), handoff.getRole());
+        List<String> roles = authService.registeredRoles(targetSession);
+        UserResponse user = authService.currentUser(targetSession);
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "authenticated", true,
-                "token", handoff.getSessionToken(),
+                "token", targetSession,
                 "user", user,
                 "addresses", user.addresses(),
                 "roles", roles,
