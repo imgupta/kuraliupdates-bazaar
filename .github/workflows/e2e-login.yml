@@ -134,8 +134,31 @@ jobs:
         run: bun install
       - name: Install Playwright test runner
         run: bun add --dev @playwright/test
+      # GitHub-hosted Ubuntu runners already include Chromium's shared system libraries.
+      # Avoid --with-deps here: it invokes apt against Ubuntu mirrors, which has
+      # repeatedly failed DNS resolution on hosted runners. Cache browser binaries
+      # by lockfile so later runs avoid downloading Chromium again.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
       - name: Install Chromium
-        run: bunx playwright install --with-deps chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if bunx playwright install chromium; then
+              bunx playwright install --list
+              exit 0
+            fi
+            echo "Chromium download attempt ${attempt}/3 failed; retrying."
+            sleep $((attempt * 10))
+          done
+          echo "Chromium installation failed after three attempts."
+          exit 1
       - name: Load consolidated E2E JSON configuration
         shell: bash
         run: |
