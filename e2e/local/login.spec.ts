@@ -43,6 +43,9 @@ test.beforeEach(async ({ page }) => {
         },
       });
     }
+    if (request.method() === "POST" && url.pathname.endsWith("/auth/logout")) {
+      return json(200, { success: true, message: "Synthetic session invalidated" });
+    }
     if (request.method() === "GET" && url.pathname.endsWith("/auth/me/roles")) {
       return json(200, { success: true, roles: ["BUYER", "SELLER"] });
     }
@@ -151,6 +154,31 @@ test("synthetic OTP login stores a server-issued session and restores it after r
   await expect.poll(() => restored).toBe(true);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("kurali_auth_token")))
     .toBe("local-synthetic-session");
+});
+
+test("logout invalidates the synthetic session and clears browser authentication", async ({ page }) => {
+  let logoutAuthorization: string | undefined;
+  page.on("request", request => {
+    if (request.url().endsWith("/auth/logout")) {
+      logoutAuthorization = request.headers()["authorization"];
+    }
+  });
+
+  await page.goto("/");
+  await page.locator('input[type="email"]').first().fill("buyer@example.test");
+  await page.getByRole("button", { name: /send 6-digit otp/i }).click();
+  await page.locator('input[autocomplete="one-time-code"]').fill("123456");
+  await page.getByRole("button", { name: /verify & continue/i }).click();
+  await expect(page.getByRole("button", { name: /local/i })).toBeVisible();
+  await page.getByRole("button", { name: /local/i }).click();
+  await page.getByRole("button", { name: /sign out/i }).click();
+
+  await expect.poll(() => logoutAuthorization).toBe("Bearer local-synthetic-session");
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("kurali_auth_token")))
+    .toBeNull();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("kurali_auth_session")))
+    .toBeNull();
+  await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
 });
 
 test("rejected synthetic OTP leaves the browser signed out", async ({ page }) => {
