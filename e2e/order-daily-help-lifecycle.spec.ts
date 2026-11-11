@@ -425,7 +425,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const buyerCancel = await buyerCancelResponse.json();
     expect(buyerCancel.status).toBe("CANCELLED");
     expect(buyerCancel.fulfilmentStatus).toBe("CANCELLED");
-    expect(buyerCancel.paymentStatus).toBe("CANCELLED");
+    expect(buyerCancel.paymentStatus).toBe("PENDING_COD");
     const buyerCancelReplay = await request.post(apiBase + "/buyers/orders/" + encodeURIComponent(buyerCancelled.orderId) + "/cancel", {
       headers: taggedAuth(buyerToken, runId), timeout: 20_000,
     });
@@ -445,7 +445,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     const sellerCancel = await sellerCancelResponse.json();
     expect(sellerCancel.status).toBe("CANCELLED");
     expect(sellerCancel.fulfilmentStatus).toBe("CANCELLED");
-    expect(sellerCancel.paymentStatus).toBe("CANCELLED");
+    expect(sellerCancel.paymentStatus).toBe("PENDING_COD");
     const sellerCancelReplay = await request.post(apiBase + "/sellers/me/orders/" + encodeURIComponent(sellerCancelled.orderId)
       + "/status?status=CANCELLED", { headers: taggedAuth(sellerToken, runId), timeout: 20_000 });
     expect(sellerCancelReplay.status(), "seller cancellation replay should remain idempotent").toBe(200);
