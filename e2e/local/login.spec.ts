@@ -165,6 +165,34 @@ test("rejected synthetic OTP leaves the browser signed out", async ({ page }) =>
     .toBeNull();
 });
 
+test("rejected portal handoff clears stale browser authentication", async ({ page }) => {
+  let redeemedCode: string | undefined;
+  page.on("request", request => {
+    if (request.url().endsWith("/auth/portal-handoff/redeem")) {
+      redeemedCode = request.postDataJSON().code;
+    }
+  });
+  await page.addInitScript(() => {
+    localStorage.setItem("kurali_auth_token", "stale-synthetic-session");
+    localStorage.setItem("kurali_auth_session", JSON.stringify({
+      email: "previous@example.test",
+      name: "Previous Synthetic Session",
+      role: "seller",
+      isSignedIn: true,
+    }));
+  });
+
+  await page.goto("/#sso_code=expired-synthetic-handoff");
+
+  await expect.poll(() => redeemedCode).toBe("expired-synthetic-handoff");
+  await expect(page).not.toHaveURL(/sso_code=/);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("kurali_auth_token")))
+    .toBeNull();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("kurali_auth_session")))
+    .toBeNull();
+  await expect(page.getByRole("button", { name: /send 6-digit otp/i })).toBeVisible();
+});
+
 test("role switching requests an authenticated one-time handoff and puts its code in the URL fragment", async ({ page }) => {
   let handoffAuthorization: string | undefined;
   let handoffPayload: unknown;
