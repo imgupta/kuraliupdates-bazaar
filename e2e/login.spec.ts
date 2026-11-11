@@ -134,6 +134,16 @@ test.describe("KuraliUpdates Bazaar production-safe E2E", () => {
     await expect(identityInput).toBeVisible({ timeout: 15_000 });
     await identityInput.fill(identity);
 
+    // Verify the protected capture lane before sending an OTP. A disabled or
+    // mismatched Render configuration must fail before a real email is sent.
+    const captureReady = await page.request.get(
+      apiBaseURL + "/e2e/otp/ready?identifier=" + encodeURIComponent(identity),
+      { headers: { "X-E2E-OTP-Token": otpCaptureToken, "Cache-Control": "no-store" }, timeout: 5_000 },
+    );
+    expect(captureReady.status(),
+      "Staging OTP capture is not ready. Verify Render E2E_OTP_CAPTURE_* settings and matching GitHub E2E_STAGING_CONFIG_JSON token before sending OTP.")
+      .toBe(200);
+
     const sendOtpButton = page.getByRole("button", { name: /send 6-digit otp/i }).first();
     const responsePromise = page.waitForResponse(response =>
       response.request().method() === "POST"
