@@ -1,6 +1,6 @@
 # Phase 0 — Endpoint authorization and state inventory
 
-**Audit date:** 2026-11-06  
+**Audit date:** 2026-11-11
 **Scope:** Static source review of Spring MVC controllers, security filter chain, session filter, ownership checks and cross-origin headers. This is an implementation inventory, not a penetration-test certification.
 
 ## Route policy
@@ -31,7 +31,8 @@ The current Phase 0 branch uses explicit public method/path matchers. All routes
 3. CORS now allows the custom headers used by the UI and run-scoped tests: X-Active-Role, X-E2E-Run-Id, X-E2E-Flow-Token and X-E2E-OTP-Token.
 4. Search analytics ignores client-supplied identity; only a verified UserEntity session principal is attributed.
 5. Delivery live-location updates now reject profiles not in ACTIVE status, even if a session token is otherwise valid.
-6. Portal handoff is being moved from process-local memory to a shared Oracle table in Flyway V31. The new code generates a 256-bit random code, stores only its SHA-256 digest, and consumes it with one conditional database update. Consume runs in REQUIRES_NEW so a later session/role rejection cannot roll back the one-time consume.
+6. Portal handoff uses a shared Oracle table in Flyway V31. It generates a 256-bit random code, stores only its SHA-256 digest, and consumes it with one conditional database update. Consume runs in REQUIRES_NEW so a later session/role rejection cannot roll back the one-time consume.
+7. Every newly issued OTP session is bound to its verified/requested portal role in `USER_SESSIONS.ACTIVE_ROLE` (Flyway V35). A redeemed handoff creates a distinct session scoped to the target role, with expiry no later than the source session. The source session's role is not changed.
 
 ## Outstanding authorization and abuse controls
 
@@ -40,7 +41,7 @@ The current Phase 0 branch uses explicit public method/path matchers. All routes
 - Public search analytics now applies a persistent fixed-window budget of 600 events/minute per anonymous remote IP and 300/minute per authenticated user. Query text is normalized and capped at 255 characters, and the client-supplied userId is ignored. Controller regression tests assert that a rejected rate-limit decision prevents persistence. The anonymous budget is still relatively permissive, and retention/deletion policy plus proxy-aware source-IP validation remain open.
 - Complete IDOR tests are still required for every buyer order, seller product/order, delivery assignment, professional booking/slot and chat/offer identifier.
 - Admin seller-lead and registration OTP-policy audit events now record the stable authenticated UserEntity.userId rather than Authentication.getName().
-- Verify role semantics for multi-profile accounts: account-level authority is derived from the primary user role; resource ownership must remain the final authorization check.
+- Resource ownership remains the final authorization check for multi-profile accounts. Session role is now explicitly bound at login/registration or portal handoff; client role headers alone do not grant authority.
 - E2E route permission is intentionally broad at the HTTP matcher but relies on controller-level fail-closed staging checks. Keep E2E secrets out of normal application environments and rotate them before production.
 - Confirm CORS preflight behavior against every deployed frontend origin and custom header, not just the local MockMvc test.
 
@@ -50,6 +51,14 @@ The current Phase 0 branch uses explicit public method/path matchers. All routes
 - Database-backed readiness smoke and anonymous-access probes have passed on the shared staging deployment before V31 was added.
 - V31 has not been applied to Oracle in this branch. Do not merge/deploy the new handoff persistence code until CI passes and the migration is validated through the normal staging deployment path.
 - Browser coverage currently includes public portal/login checks; authenticated and transactional flows remain skipped until OTP capture and synthetic fixture configuration are explicitly approved.
+
+## Multi-profile session role binding — 11 November 2026
+
+Source review found a mismatch between Flyway V35's `ACTIVE_ROLE` column and runtime session creation: ordinary OTP registration/login sessions left it null, while handoff redemption returned the source session unchanged. `SessionAuthenticationFilter` then fell back to `USERS.ROLE`, which prevented a user with multiple profiles from using a handoff target role and could leave the source session's authority ambiguous across portal origins.
+
+The fix creates new sessions with a validated role, and portal handoff redemption mints a new target-role session bounded by the source session expiry. Portal-specific login routes submit their intended role; the backend checks it against roles actually registered to the authenticated account. Tests cover target-role session creation, source-expiry preservation, rejection of unregistered target roles, and handoff returning the new token.
+
+**Evidence boundary:** this is source and mocked-service/controller test evidence. No Oracle schema migration is added, no shared database was accessed, and no authenticated staging journey was run for this change.
 
 
 ## Admin audit actor refinement — 2026-11-06

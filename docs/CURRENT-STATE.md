@@ -284,3 +284,8 @@ Phase 1 and Phase 0 remain IN PROGRESS. The build optimization is not operationa
 PR #314 was squash-merged to main as `8dbe3371c29a8785e04f4755fe0f531e06682680`. Exact PR head `d64ac5d2795f258bbfb8a8405882796293c549fa` passed full CI/E2E and Seller registration quality gates. The backend suite passed 327 tests with zero failures/errors/skips; the new SearchAnalyticsControllerTest passed 7/7 and SellerOnboardingLeadControllerTest passed 4/4. Frontend checks and browser E2E passed; OTP-driven authenticated journeys remain skipped where staging capture/suppression is not confirmed.
 
 The next P1-A slice extends bargaining chat ownership regression coverage to list and notification read paths. Phase 1 and Phase 0 remain IN PROGRESS.
+
+
+## 11 November 2026 — multi-profile session role binding (implementation in progress)
+
+Source review found that Flyway V35 added `USER_SESSIONS.ACTIVE_ROLE`, but ordinary OTP sessions did not populate it and portal handoff returned the original session. The filter therefore fell back to the account's primary role. The fix binds new OTP sessions to an account-verified role and makes portal redemption issue a separate target-role session whose expiry is bounded by the source session. Targeted backend unit tests are added. No schema change or shared database access; local test execution is limited by the runner's Java 25/Byte Buddy incompatibility, so exact-head CI is required. See `docs/PHASE-0-ENDPOINT-AUTHORIZATION-MATRIX.md` and `docs/PHASE-0-TRANSACTION-WRITE-INVENTORY.md`.

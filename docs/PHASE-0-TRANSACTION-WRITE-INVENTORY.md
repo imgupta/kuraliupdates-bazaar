@@ -21,7 +21,7 @@
 | Seller onboarding | SellerOnboardingLeadService wraps lead creation, verification, callback, submission and admin updates in transactions; OTP send delegates to transactional OtpService | Lead status and audit rows are written together on transactional methods | Add duplicate lead creation race test, verification replay test and status transition matrix |
 | Seller registration draft | SellerRegistrationDraftService uses transactions for get/normalize, save and delete | Draft rows are scoped to authenticated user | Add concurrent draft update test and verify no cross-user overwrite |
 | E2E cleanup | E2eRunCleanupService is transactional | Pre-validates all tagged orders/bookings/chats before writes; deletes only synthetic run-tagged rows and restores stock once | Add Oracle integration rollback test using mixed synthetic/non-synthetic references |
-| Portal handoff | PortalHandoffService create is transactional; consume is REQUIRES_NEW | Stores only SHA-256 digest of a 256-bit code; conditional update makes consume one-time and commits before session/role checks | V31 migration and atomic consume must be verified against Oracle staging before merge |
+| Portal handoff and session role | PortalHandoffService create is transactional; consume is REQUIRES_NEW; AuthService creates a target session transactionally | Stores only SHA-256 digest of a 256-bit code; conditional update makes consume one-time; new session carries the validated target role and cannot outlive the source session | V31 persistence and atomic consume require Oracle staging validation; role binding has mocked service/controller regression tests |
 
 ## State inventory
 

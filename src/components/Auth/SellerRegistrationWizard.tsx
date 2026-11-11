@@ -281,7 +281,7 @@ export const SellerRegistrationWizard: React.FC = () => {
       if (otp.replace(/\\D/g, '').length !== 6) throw new Error('Enter the complete six-digit email OTP');
       const response = await bazaarApi.verifyOtp({
         mode: 'LOGIN', identifier: email.trim().toLowerCase(),
-        otp: otp.replace(/\\D/g, ''), type: 'EMAIL',
+        otp: otp.replace(/\\D/g, ''), type: 'EMAIL', role: 'SELLER',
       });
       if (!response.success || !response.token || !response.user) throw new Error(response.message || 'OTP verification failed');
       const approval = await bazaarApi.getOnboardingStatus(response.token, 'SELLER');

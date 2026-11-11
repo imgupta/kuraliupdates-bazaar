@@ -144,6 +144,10 @@ public class AuthService {
     @Transactional(readOnly = true)
     public List<String> registeredRoles(String token) {
         UserEntity user = requireUser(token);
+        return registeredRoles(user);
+    }
+
+    private List<String> registeredRoles(UserEntity user) {
         java.util.LinkedHashSet<String> roles = new java.util.LinkedHashSet<>();
         roles.add("BUYER");
         if (sellerProfileExists(user)) roles.add("SELLER");
@@ -151,6 +155,23 @@ public class AuthService {
         if (professionalProfileExists(user)) roles.add("PROFESSIONAL");
         if (isRootAdminEmail(user.getEmail())) roles.add("ADMIN");
         return List.copyOf(roles);
+    }
+
+    /**
+     * Creates a new session scoped to a registered target portal. The new
+     * session cannot outlive the authenticated source session used to create
+     * the one-time portal handoff.
+     */
+    @Transactional
+    public String createPortalSession(String sourceToken, String requestedRole) {
+        UserEntity user = requireUser(sourceToken);
+        String role = requestedRole == null ? "" : requestedRole.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!registeredRoles(user).contains(role)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This account is not authorized for that profile");
+        }
+        UserSessionEntity source = sessionRepository.findBySessionToken(sourceToken)
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Session expired or invalid"));
+        return createSession(user, role, source.getExpiresAt(), source.getE2eRunId());
     }
 
     @Transactional(readOnly = true)
@@ -231,7 +252,12 @@ public class AuthService {
             user.setIsAdmin(1);
         }
         userRepository.save(user);
-        return new AuthResult(createSession(user), UserResponse.from(user, addressService.findByUserId(user.getUserId())), "Welcome, " + user.getName() + "!");
+        String activeRole = req.role() == null || req.role().isBlank()
+                ? user.getRole() : req.role().trim().toUpperCase(java.util.Locale.ROOT);
+        if (!registeredRoles(user).contains(activeRole)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This account is not authorized for that profile");
+        }
+        return new AuthResult(createSession(user, activeRole), UserResponse.from(user, addressService.findByUserId(user.getUserId())), "Welcome, " + user.getName() + "!");
     }
 
     private AuthResult register(VerifyOtpRequest req) {
@@ -283,7 +309,7 @@ public class AuthService {
                 sellerOnboardingLeadService.markApplicationSubmitted(req.leadId(), email, phone, existingUser.getUserId());
             }
 
-            return new AuthResult(createSession(existingUser),
+            return new AuthResult(createSession(existingUser, role),
                     UserResponse.from(existingUser, addressService.findByUserId(existingUser.getUserId())),
                     "Your " + roleLabel(role) + " profile has been added to your existing account.");
         }
@@ -311,7 +337,7 @@ public class AuthService {
         if ("SELLER".equals(role)) {
             sellerOnboardingLeadService.markApplicationSubmitted(req.leadId(), email, phone, user.getUserId());
         }
-        return new AuthResult(createSession(user), UserResponse.from(user, addressService.findByUserId(user.getUserId())), "Welcome, " + user.getName() + "!");
+        return new AuthResult(createSession(user, role), UserResponse.from(user, addressService.findByUserId(user.getUserId())), "Welcome, " + user.getName() + "!");
     }
 
     private void validateRegistration(VerifyOtpRequest req, String email, String phone) {
@@ -538,12 +564,20 @@ public class AuthService {
         return token;
     }
 
-    private String createSession(UserEntity user) {
+    private String createSession(UserEntity user, String activeRole) {
         String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
         LocalDateTime now = LocalDateTime.now();
         sessionRepository.save(UserSessionEntity.builder()
-                .sessionToken(token).userId(user.getUserId())
+                .sessionToken(token).userId(user.getUserId()).activeRole(activeRole)
                 .createdAt(now).expiresAt(now.plusDays(30)).build());
+        return token;
+    }
+
+    private String createSession(UserEntity user, String activeRole, LocalDateTime expiresAt, String e2eRunId) {
+        String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
+        sessionRepository.save(UserSessionEntity.builder()
+                .sessionToken(token).userId(user.getUserId()).activeRole(activeRole)
+                .e2eRunId(e2eRunId).createdAt(LocalDateTime.now()).expiresAt(expiresAt).build());
         return token;
     }
 
