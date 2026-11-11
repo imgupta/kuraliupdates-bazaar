@@ -32,12 +32,12 @@ Schema/DTO fields may exceed the UI. Do not assume FSSAI expiry, interior photo,
 
 ## Document storage and access
 
-- Flyway V14 creates seller compliance/document schema, including Oracle BLOB content storage.
-- Seller-authenticated upload/list operations are scoped to the current seller.
-- Seller metadata listing exists; seller download/replacement behavior requires explicit product/API confirmation.
-- Admin review/download/verification is role-restricted; confirm exact controller mappings and permission tests before release.
-- File size/type/signature checks and format allowlisting do not replace malware scanning.
-- Oracle encryption at rest and transport TLS do not equal application-layer encryption. Malware scanning, audit and retention policy remain gaps.
+- Flyway V22.1 creates seller compliance/document schema and Oracle BLOB content storage; V26 adds malware scan state and quarantines pre-existing rows pending scan.
+- `POST /sellers/me/documents` and `GET /sellers/me/documents` require an authenticated SELLER-scoped session and resolve the seller from the authenticated account. Uploads accept the configured document types, up to 5 MB, PDF/JPEG/PNG content types, and matching file signatures.
+- New bytes are first persisted with `QUARANTINED` scan status. ClamAV must return `CLEAN` before the document is available for admin download or verification. Scanner absence, timeout, protocol error, infection or indeterminate response leaves the document unavailable. Upload returns `202 Accepted` while quarantined and `201 Created` after a clean scan.
+- Sellers can list their own metadata and upload another document of the same type through the Seller portal correction flow. There is no destructive replacement/delete endpoint; prior uploads remain stored until an owner-approved retention/deletion policy is implemented.
+- Admin APIs and UI support listing seller documents, downloading clean documents, rescanning quarantined documents, and verifying/rejecting clean documents with a rejection reason. These actions require ADMIN access. The current row stores reviewer/status timestamps and reason, but this is not an append-only audit history.
+- File size/type/signature checks complement malware scanning; they do not establish that a document is genuine or legally sufficient. Oracle encryption at rest and transport TLS do not equal application-layer encryption.
 
 ## Approval checklist
 
@@ -50,18 +50,18 @@ Schema/DTO fields may exceed the UI. Do not assume FSSAI expiry, interior photo,
 
 ## Known gaps / acceptance criteria
 
-- [ ] Admin UI to inspect profile, preview/download documents, verify/reject with reason and view audit history.
+- [x] Admin UI/API to inspect seller document metadata, download clean documents, rescan and verify/reject with a reason. Source: `AdminPortal.tsx`, `SellerDocumentController`, and `SellerDocumentControllerTest`.
+- [ ] Append-only audit history for upload, view, download, scan, verify, reject and delete; current document row fields are not a full audit log.
 - [ ] FSSAI expiry captured and validated where applicable; expired evidence blocks approval where required.
 - [ ] Explicit category-to-compliance mapping replaces free-text keyword matching.
 - [ ] Agreement acceptance timestamp/version captured consistently; IP only if legally justified and covered by privacy notice/retention.
-- [ ] Seller retry/resume flow after OTP account creation if document upload fails.
-- [ ] Seller can view upload status and replace invalid/expired evidence through controlled workflow.
-- [ ] Malware scanning/quarantine before review.
+- [x] Seller retry/resume after OTP account creation when initial document upload fails. Source: `SellerRegistrationWizard.tsx` retry screen and `SellerPortal.tsx` correction upload action.
+- [ ] A formal replacement lifecycle that marks superseded documents, prevents stale documents from satisfying approval, and deletes them only under an owner-approved retention policy. Current re-upload is additive.
+- [x] Malware scanning and quarantine before review/download/verification; scanner failures fail closed. Source: `SellerDocumentController`, `ClamAvMalwareScanner`, and `SellerDocumentControllerTest` scanner-unavailable and quarantine access tests.
 - [ ] Decide application-layer encryption/key rotation from threat model.
-- [ ] Audit log for upload, view, download, verify, reject and delete.
 - [ ] Retention, deletion, access revocation and incident-response policy.
-- [ ] Tests for ownership isolation, admin-only operations, signature, size, invalid type, malformed expiry, approval gating and BLOB round-trip.
-- [ ] Confirm V14 and end-to-end API behavior on intended Oracle schema.
+- [ ] Expand tests for cross-seller ownership isolation, admin-only operations, signature/size/type boundaries, approval gating, and Oracle BLOB round-trip. Current controller tests cover principal/role checks, scanner failure, quarantine restrictions, file signature validation, rejection reason, and verification flow; Oracle persistence is not runtime-verified here.
+- [ ] Confirm V22.1/V26 and end-to-end API behavior on the intended Oracle schema; source migrations do not prove they were applied to the runtime database.
 
 ## Legal review
 
