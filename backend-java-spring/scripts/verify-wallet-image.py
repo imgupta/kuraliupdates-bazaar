@@ -35,7 +35,7 @@ def scan_zip(data: bytes, depth: int = 0) -> tuple[bool, bool]:
             if is_wallet_artifact(entry.filename):
                 found_wallet = True
             entry_data = archive.read(entry)
-            if b"unit-test-" in entry_data:
+            if b"ci-placeholder-" in entry_data:
                 found_test_marker = True
             if depth < 3 and entry.filename.lower().endswith((".jar", ".zip")):
                 nested_wallet, nested_test_marker = scan_zip(entry_data, depth + 1)
@@ -52,7 +52,7 @@ def inspect_image(image_archive: str) -> tuple[bool, bool, bool]:
         manifest = json.load(image.extractfile("manifest.json"))
         for image_record in manifest:
             config_stream = image.extractfile(image_record["Config"])
-            if config_stream is not None and b"unit-test-" in config_stream.read():
+            if config_stream is not None and b"ci-placeholder-" in config_stream.read():
                 found_test_marker = True
             for layer_name in image_record["Layers"]:
                 layer_stream = image.extractfile(layer_name)
@@ -66,7 +66,7 @@ def inspect_image(image_archive: str) -> tuple[bool, bool, bool]:
                         if entry.isfile() and entry.size <= 2_000_000 and entry.name.lower().endswith(
                                 (".xml", ".yml", ".yaml", ".properties", ".json", ".txt", ".conf", ".sh", ".md")):
                             text_stream = layer.extractfile(entry)
-                            if text_stream is not None and b"unit-test-" in text_stream.read():
+                            if text_stream is not None and b"ci-placeholder-" in text_stream.read():
                                 found_test_marker = True
                         if PurePosixPath(entry.name).name == "app.jar" and entry.isfile():
                             jar_stream = layer.extractfile(entry)

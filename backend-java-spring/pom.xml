@@ -118,20 +118,6 @@
                     </excludes>
                 </configuration>
             </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <systemPropertyVariables>
-                        <ORACLE_JDBC_URL>jdbc:oracle:thin:@unit-test.invalid</ORACLE_JDBC_URL>
-                        <ORACLE_USERNAME>unit-test-user</ORACLE_USERNAME>
-                        <ORACLE_PASSWORD>unit-test-database-placeholder</ORACLE_PASSWORD>
-                        <WALLET_PASSWORD>unit-test-wallet-placeholder</WALLET_PASSWORD>
-                        <JWT_SECRET>unit-test-jwt-secret-placeholder-at-least-32-chars</JWT_SECRET>
-                        <ORACLE_WALLET_DIR>${project.basedir}/src/test/resources/oracle-wallet-fixture</ORACLE_WALLET_DIR>
-                    </systemPropertyVariables>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
 </project>
