@@ -1,0 +1,151 @@
+package com.kuraliupdates.bazaar.config;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.mock.env.MockEnvironment;
+
+class OracleSecretsEnvironmentPostProcessorTest {
+    private static final List<String> WALLET_FILES = List.of(
+            "tnsnames.ora", "sqlnet.ora", "cwallet.sso", "ewallet.p12", "truststore.jks", "keystore.jks");
+
+    @TempDir
+    Path tempDirectory;
+
+    private MockEnvironment environment;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        environment = testEnvironment(completeProperties());
+        createWalletFiles();
+    }
+
+    @Test
+    void acceptsCompleteConfigurationAndReadableWallet() {
+        assertDoesNotThrow(() -> OracleSecretsEnvironmentPostProcessor.validate(environment));
+    }
+
+    @Test
+    void rejectsMissingRequiredCredentialsWithoutEchoingValues() {
+        for (String key : List.of("ORACLE_JDBC_URL", "ORACLE_USERNAME", "ORACLE_PASSWORD", "JWT_SECRET")) {
+            Map<String, Object> properties = completeProperties();
+            properties.remove(key);
+            MockEnvironment missing = testEnvironment(properties);
+            IllegalStateException error = assertThrows(IllegalStateException.class,
+                    () -> OracleSecretsEnvironmentPostProcessor.validate(missing));
+            org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains(key));
+            org.junit.jupiter.api.Assertions.assertFalse(error.getMessage().contains("unit-test-"));
+        }
+    }
+
+    @Test
+    void rejectsMissingWalletDirectory() {
+        Map<String, Object> properties = completeProperties();
+        properties.put("ORACLE_WALLET_DIR", tempDirectory.resolve("missing").toString());
+        MockEnvironment missingDirectory = testEnvironment(properties);
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> OracleSecretsEnvironmentPostProcessor.validate(missingDirectory));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("ORACLE_WALLET_DIR"));
+        assertFalse(error.getMessage().contains("unit-test-"));
+    }
+
+    @Test
+    void rejectsMissingWalletDirectoryConfiguration() {
+        MockEnvironment missing = testEnvironment(completePropertiesWithoutWalletDirectory());
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> OracleSecretsEnvironmentPostProcessor.validate(missing));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("ORACLE_WALLET_DIR"));
+        assertFalse(error.getMessage().contains("unit-test-"));
+    }
+
+    @Test
+    void rejectsEachMissingMandatoryWalletFile() throws Exception {
+        for (String walletFile : WALLET_FILES) {
+            Path path = tempDirectory.resolve(walletFile);
+            Files.delete(path);
+            IllegalStateException error = assertThrows(IllegalStateException.class,
+                    () -> OracleSecretsEnvironmentPostProcessor.validate(environment));
+            org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains(walletFile));
+            createWalletFile(walletFile);
+        }
+    }
+
+    @Test
+    void rejectsUnreadableWalletFilesWithoutExposingContents() throws Exception {
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> OracleSecretsEnvironmentPostProcessor.validate(environment, walletFile -> {
+                    if (walletFile.getFileName().toString().equals("truststore.jks")) {
+                        throw new java.io.IOException("simulated read failure");
+                    }
+                }));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("truststore.jks"));
+        assertFalse(error.getMessage().contains("unit-test-"));
+    }
+
+    @Test
+    void rejectsMissingWalletPassword() {
+        Map<String, Object> properties = completeProperties();
+        properties.remove("WALLET_PASSWORD");
+        MockEnvironment missing = testEnvironment(properties);
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> OracleSecretsEnvironmentPostProcessor.validate(missing));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("WALLET_PASSWORD"));
+        assertFalse(error.getMessage().contains("unit-test-"));
+    }
+
+    @Test
+    void rejectsWeakJwtSecret() {
+        Map<String, Object> properties = completeProperties();
+        properties.put("JWT_SECRET", "short");
+        MockEnvironment weak = testEnvironment(properties);
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> OracleSecretsEnvironmentPostProcessor.validate(weak));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("JWT_SECRET"));
+        assertFalse(error.getMessage().contains("short"));
+    }
+
+    private Map<String, Object> completeProperties() {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("ORACLE_JDBC_URL", "jdbc:oracle:thin:@unit-test");
+        properties.put("ORACLE_USERNAME", "unit-test-user");
+        properties.put("ORACLE_PASSWORD", "unit-test-database-password");
+        properties.put("WALLET_PASSWORD", "unit-test-wallet-password");
+        properties.put("JWT_SECRET", "unit-test-jwt-secret-with-at-least-32-chars");
+        properties.put("ORACLE_WALLET_DIR", tempDirectory.toString());
+        return properties;
+    }
+
+    private Map<String, Object> completePropertiesWithoutWalletDirectory() {
+        Map<String, Object> properties = completeProperties();
+        properties.remove("ORACLE_WALLET_DIR");
+        return properties;
+    }
+
+    private MockEnvironment testEnvironment(Map<String, Object> properties) {
+        MockEnvironment testEnvironment = new MockEnvironment();
+        testEnvironment.getPropertySources().remove("systemEnvironment");
+        testEnvironment.getPropertySources().remove("systemProperties");
+        testEnvironment.getPropertySources().addFirst(new org.springframework.core.env.MapPropertySource("test", properties));
+        return testEnvironment;
+    }
+
+    private void createWalletFiles() throws Exception {
+        for (String walletFile : WALLET_FILES) {
+            createWalletFile(walletFile);
+        }
+    }
+
+    private void createWalletFile(String name) throws Exception {
+        Files.write(tempDirectory.resolve(name), new byte[] { 1 });
+    }
+}
