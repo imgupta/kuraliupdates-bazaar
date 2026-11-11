@@ -82,3 +82,13 @@ The test runner writes per-suite output under ignored `test-reports/local/` and 
 ## Closure decision
 
 **Phase 1 remains IN PROGRESS.** Local Maven, frontend, portal-build and bounded mock-browser verification are positive evidence, but the full authorization/lifecycle matrix, current-head staging runs, isolated Oracle concurrency/rollback/migration verification, open seller-document policy/E2E issues, and Critical secret remediation gates remain outstanding. Phase 2 implementation must not begin until the repository owner accepts a complete evidence pack and formally approves the transition.
+
+
+## 12 November 2026 — consolidated Phase 1 continuation PR #323
+
+- A single continuation branch `phase1/consolidated-completion` and draft PR #323 were created from `main` at `488fc2dc800aab7d78b4a45d4c5f737d776bceb0`. PR #322 was closed as superseded after its cancellation group-preflight tests and documentation were carried into this branch.
+- The branch now carries source-level Oracle wallet remediation previously proposed by PR #317: removes the tracked wallet archive from this branch, removes datasource/wallet/JWT fallback values from `application.yml`, uses an external wallet directory, validates required runtime keys and wallet files before context initialization, excludes wallet files from Docker context/image, and adds synthetic test fixtures and CI placeholders.
+- This source containment does **not** rotate or revoke any credential, purge Git history, replace old artifacts/images/forks/clones, configure Render Secret Files, or prove Oracle readiness. PR #317's owner approvals and operational steps remain mandatory; no Render, secret, database, migration or deployment action was performed.
+- Seller ClamAV scanning/quarantine and clean-only access code were already merged in #211–#213; V26 was reported applied to staging in issue #210's 2 November comments. The remaining #209 gates are private/internal ClamAV runtime availability, retention/deletion policy and document-access audit evidence. Issue #210 still requires the full isolated synthetic seller/admin correction lifecycle run.
+- Exact-head local Codespaces tests and GitHub Actions results have **not** been run/returned for PR #323. Earlier PR #317 CI is historical evidence only and is not transferable to this new combined head. Oracle locking, rollback, concurrency and mutating seller lifecycle remain separately authorized verification gates.
+- Phase 1 remains **IN PROGRESS**. This PR is draft and not merge-ready.
