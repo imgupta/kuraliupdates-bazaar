@@ -665,3 +665,10 @@ The complete requirement matrix and disposition are in `docs/PHASE-1-REQUIREMENT
 PR #321 local/staging Playwright isolation was corrected in commit `1073969e93dd648cc2a482eb653a88cbab10fe2c`. Exact-head CI run `43072296209` passed frontend/backend and the browser job. Its read-only staging smoke was 7/7 with `databaseHealthChecked=false`; public E2E was 3 passed / 7 skipped, with authenticated/transactional flows safely gated off. This does not replace a fresh transactional run against an approved isolated target.
 
 **Decision: Phase 1 remains IN PROGRESS.** The exact current-head staging lifecycle, full endpoint-owner matrix, isolated Oracle migration/concurrency/rollback evidence, public abuse/privacy closure, Critical credential rotation/runtime readiness, and Phase 0 operational/legal gates remain unverified or open. Do not infer Oracle behavior from mocks or use shared staging for mutating tests without the dedicated isolation boundary and explicit approval.
+
+
+## 12 November 2026 — consolidated buyer cancellation COD and group preflight regression slice
+
+The consolidated Phase 1 continuation carries forward the cancellation regression coverage from PR #322 rather than maintaining a separate implementation PR. `OrderServiceTest` asserts that buyer cancellation sets order and fulfilment statuses to `CANCELLED` while unpaid COD remains `PENDING_COD`, including every eligible order in a multi-seller checkout. A negative-path test places a `READY_FOR_PICKUP` suborder in an otherwise cancellable group and verifies that the service rejects the entire request before inventory repository access or order persistence; mocked entities retain their original statuses and stock values.
+
+This is service-level regression evidence for cancellation invariants and group preflight only. It does not prove transaction rollback after a database write, Oracle row-lock behavior, concurrent cancellation/checkout, or shared staging behavior. Those require separately authorized isolated Oracle/staging gates. Payment/refund semantics are unchanged. This test/doc change is part of the single consolidated Phase 1 continuation branch; it is not a separate PR.
