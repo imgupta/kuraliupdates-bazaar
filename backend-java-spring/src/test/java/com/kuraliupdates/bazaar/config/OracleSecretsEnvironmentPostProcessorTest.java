@@ -88,6 +88,7 @@ class OracleSecretsEnvironmentPostProcessorTest {
             IllegalStateException error = assertThrows(IllegalStateException.class,
                     () -> OracleSecretsEnvironmentPostProcessor.validate(environment));
             org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains(walletFile));
+            org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("not present at configured wallet directory"));
             createWalletFile(walletFile);
         }
     }
@@ -114,6 +115,8 @@ class OracleSecretsEnvironmentPostProcessorTest {
                     }
                 }));
         org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("truststore.jks"));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("could not be opened (IOException)"));
+        assertFalse(error.getMessage().contains("simulated read failure"));
         assertFalse(error.getMessage().contains("unit-test-"));
     }
 
