@@ -43,7 +43,8 @@ async function runSmoke({ livenessStatus = 200, readinessStatus = 200, migration
         ...process.env,
         KURALI_API_BASE_URL: baseUrl,
         SMOKE_TIMEOUT_MS: "1000",
-        SMOKE_READINESS_TIMEOUT_MS: "50",
+        SMOKE_LIVENESS_TIMEOUT_MS: "50",
+        SMOKE_DATABASE_READINESS_TIMEOUT_MS: "50",
         SMOKE_RETRY_INTERVAL_MS: "10",
         SMOKE_REPORT_PATH: reportPath,
       },
@@ -84,6 +85,7 @@ test("database-unready smoke defers protected-route checks without a false failu
   assert.equal(report.apiLive, true);
   assert.equal(report.databaseReady, false);
   assert.equal(report.databaseDeferred, true);
+  assert.equal(report.databaseDeferredReason, "readiness_timeout");
   assert.equal(report.failed, 0);
   assert.ok(requests.includes("/api/v1/health/ready"));
   assert.ok(!requests.includes("/api/v1/delivery/me"));
@@ -94,6 +96,7 @@ test("terminal migration failure defers protected-route checks immediately", asy
 
   assert.equal(report.databaseReady, false);
   assert.equal(report.databaseDeferred, true);
+  assert.equal(report.databaseDeferredReason, "terminal_migration_failure");
   assert.equal(report.failed, 0);
   assert.ok(!requests.includes("/api/v1/delivery/me"));
 });
