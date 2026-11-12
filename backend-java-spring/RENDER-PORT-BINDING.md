@@ -12,7 +12,7 @@ The startup delay occurs because Flyway's Oracle connection and migration work c
 
 1. `OracleSecretsEnvironmentPostProcessor` continues validating required environment keys and wallet files before context refresh. Missing/unreadable secrets still fail closed.
 2. Spring creates the Flyway initializer and applies the existing `FlywayMigrationStrategy`.
-3. The strategy marks migration state `RUNNING` and submits the existing migration/recovery operation to a dedicated daemon executor. It returns without waiting for Oracle.
+3. The strategy marks migration state `RUNNING` and submits the existing migration/recovery operation to a single-thread `ThreadPoolTaskExecutor`. It returns without waiting for Oracle. The executor waits up to 120 seconds for an in-flight migration during graceful application shutdown.
 4. The Spring Boot application continues context refresh and binds Tomcat to `0.0.0.0:${PORT}`.
 5. An `ApplicationRunner` dependency forces the Flyway initializer to be instantiated after context refresh if global lazy initialization deferred it. This ensures migrations are scheduled even before any repository is first used.
 6. `/api/v1/health/live` returns process liveness without opening a database connection.

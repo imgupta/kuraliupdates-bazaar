@@ -3,8 +3,6 @@ package com.kuraliupdates.bazaar.config;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.stream.Collectors;
 
@@ -21,6 +19,7 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
  * Runs Flyway after the servlet container has bound its HTTP port.
@@ -35,13 +34,17 @@ public class FlywayRecoveryConfiguration {
     private static final Logger log = LoggerFactory.getLogger(FlywayRecoveryConfiguration.class);
     private static final String RECOVERABLE_VERSION = "30";
 
-    @Bean(name = "flywayMigrationExecutor", destroyMethod = "shutdownNow")
-    ExecutorService flywayMigrationExecutor() {
-        return Executors.newSingleThreadExecutor(task -> {
-            Thread thread = new Thread(task, "flyway-startup-migration");
-            thread.setDaemon(true);
-            return thread;
-        });
+    @Bean(name = "flywayMigrationExecutor")
+    ThreadPoolTaskExecutor flywayMigrationExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(1);
+        executor.setQueueCapacity(1);
+        executor.setThreadNamePrefix("flyway-startup-migration-");
+        // Allow an in-flight Oracle migration a bounded graceful shutdown window.
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(120);
+        return executor;
     }
 
     @Bean
