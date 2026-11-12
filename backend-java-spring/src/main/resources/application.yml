@@ -33,10 +33,11 @@ spring:
       # Oracle session setting must be applied before Spring opens a transaction.
       connection-init-sql: ALTER SESSION DISABLE PARALLEL DML
       data-source-properties:
-        # Use the downloaded Oracle auto-login wallet as the single mTLS source.
-        # Do not mix this with javax.net.ssl.keyStore/trustStore JKS properties:
-        # Oracle documents Wallet and JKS as alternative connection modes.
-        oracle.net.wallet_location: (SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=${ORACLE_WALLET_DIR})))
+        # Explicitly select the password-protected PKCS12 wallet. Supplying
+        # wallet_password makes Oracle JDBC use ewallet.p12 instead of trying
+        # to load the auto-login cwallet.sso (which failed ASN.1 parsing).
+        oracle.net.wallet_location: file:${ORACLE_WALLET_DIR}/ewallet.p12
+        oracle.net.wallet_password: ${WALLET_PASSWORD}
         oracle.net.tns_admin: ${ORACLE_WALLET_DIR}
         oracle.net.ssl_server_dn_match: true
         # Bound Oracle Net connection establishment and socket reads. Hikari's
@@ -80,12 +81,12 @@ app:
   otp:
     email:
       from: ${OTP_EMAIL_FROM:}
-    resend:
-      api-key: ${RESEND_API_KEY:}
-    msg91:
-      auth-key: ${MSG91_AUTH_KEY:}
-      template-id: ${MSG91_TEMPLATE_ID:}
-      country-code: ${MSG91_COUNTRY_CODE:91}
+      resend:
+        api-key: ${RESEND_API_KEY:}
+      msg91:
+        auth-key: ${MSG91_AUTH_KEY:}
+        template-id: ${MSG91_TEMPLATE_ID:}
+        country-code: ${MSG91_COUNTRY_CODE:91}
   cors:
     allowed-origins: "http://localhost:4200,https://kuraliupdates.com,https://www.kuraliupdates.com,https://*.vercel.app,*"
   jwt:
