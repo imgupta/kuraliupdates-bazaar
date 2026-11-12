@@ -70,7 +70,7 @@ class FlywayRecoveryConfigurationTest {
                 "ORA-12514: listener does not currently know of service password=hidden",
                 "08006", 12514);
         root.setNextException(oracle);
-        root.addSuppressed(new IllegalStateException("sensitive wallet path"));
+        root.addSuppressed(new IllegalStateException("sensitive private directory"));
 
         String summary = FlywayRecoveryConfiguration.safeFailureSummary(root);
 
@@ -78,7 +78,7 @@ class FlywayRecoveryConfigurationTest {
         assertTrue(summary.contains("sqlState=08006,vendorCode=12514"));
         assertTrue(summary.contains("ORA-12514"));
         assertFalse(summary.contains("password=hidden"));
-        assertFalse(summary.contains("sensitive wallet path"));
+        assertFalse(summary.contains("sensitive private directory"));
     }
 
     @Test
