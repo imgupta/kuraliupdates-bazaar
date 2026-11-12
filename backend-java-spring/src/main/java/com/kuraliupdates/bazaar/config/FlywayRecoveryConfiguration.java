@@ -1,7 +1,9 @@
 package com.kuraliupdates.bazaar.config;
 
 import java.sql.SQLException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -107,22 +109,46 @@ public class FlywayRecoveryConfiguration {
     static String safeFailureSummary(Throwable failure) {
         List<String> causes = new ArrayList<>();
         Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
-        Throwable current = failure;
-        while (current != null && seen.add(current) && causes.size() < 8) {
+        Deque<Throwable> pending = new ArrayDeque<>();
+        if (failure != null) {
+            pending.addLast(failure);
+        }
+        while (!pending.isEmpty() && causes.size() < 12) {
+            Throwable current = pending.removeFirst();
+            if (!seen.add(current)) {
+                continue;
+            }
+
             String description = current.getClass().getSimpleName();
             if (current instanceof SQLException sqlException) {
                 description += "[sqlState=" + sqlException.getSQLState()
                         + ",vendorCode=" + sqlException.getErrorCode() + "]";
+                // JDBC drivers frequently attach the actionable Oracle/TLS
+                // diagnostic through SQLException.getNextException(), not
+                // Throwable.getCause(). Include it without exposing raw URLs
+                // or credentials.
+                SQLException next = sqlException.getNextException();
+                if (next != null && !seen.contains(next)) {
+                    pending.addLast(next);
+                }
             }
-            String message = current.getMessage();
-            String safeMessage = sanitizeFailureMessage(message);
+            String safeMessage = sanitizeFailureMessage(current.getMessage());
             if (!safeMessage.isBlank()) {
                 description += "[detail=" + safeMessage + "]";
             }
             causes.add(description);
-            current = current.getCause();
+
+            Throwable cause = current.getCause();
+            if (cause != null && !seen.contains(cause)) {
+                pending.addLast(cause);
+            }
+            for (Throwable suppressed : current.getSuppressed()) {
+                if (suppressed != null && !seen.contains(suppressed)) {
+                    pending.addLast(suppressed);
+                }
+            }
         }
-        return String.join(" -> ", causes);
+        return causes.isEmpty() ? "Unknown" : String.join(" -> ", causes);
     }
 
     /**
