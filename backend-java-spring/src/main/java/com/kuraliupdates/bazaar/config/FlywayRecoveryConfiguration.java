@@ -17,8 +17,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.flyway.FlywayMigrationInitializer;
 import org.springframework.boot.autoconfigure.flyway.FlywayMigrationStrategy;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 
 /**
  * Runs Flyway after the servlet container has bound its HTTP port.
@@ -47,6 +49,16 @@ public class FlywayRecoveryConfiguration {
             DatabaseMigrationState migrationState,
             @Qualifier("flywayMigrationExecutor") Executor executor) {
         return flyway -> scheduleMigration(flyway, migrationState, executor);
+    }
+
+    @Bean
+    FilterRegistrationBean<MigrationReadinessFilter> migrationReadinessFilterRegistration(
+            DatabaseMigrationState migrationState) {
+        FilterRegistrationBean<MigrationReadinessFilter> registration =
+                new FilterRegistrationBean<>(new MigrationReadinessFilter(migrationState));
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 20);
+        registration.addUrlPatterns("/*");
+        return registration;
     }
 
     /**

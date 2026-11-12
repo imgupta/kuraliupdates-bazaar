@@ -6,18 +6,16 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Keeps business and documentation endpoints unavailable until the database
  * migrations have completed. Liveness and readiness endpoints remain reachable
  * so the hosting platform can distinguish a bound process from a usable API.
+ *
+ * Registered explicitly by FlywayRecoveryConfiguration so MVC slice tests do
+ * not accidentally import this runtime-only servlet filter without its state bean.
  */
-@Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 20)
 public class MigrationReadinessFilter extends OncePerRequestFilter {
     private final DatabaseMigrationState migrationState;
 
