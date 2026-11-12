@@ -7,7 +7,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-async function runSmoke({ livenessStatus = 200, readinessStatus = 200, migration = "READY" } = {}) {
+async function runSmoke({ livenessStatus = 200, readinessStatus = 200, migration = "READY", expectFailure = false } = {}) {
   const requests = [];
   const server = createServer((request, response) => {
     const path = new URL(request.url, "http://localhost").pathname;
@@ -56,7 +56,7 @@ async function runSmoke({ livenessStatus = 200, readinessStatus = 200, migration
     child.stdout.on("data", chunk => { stdout += chunk; });
     child.stderr.on("data", chunk => { stderr += chunk; });
     const [code] = await once(child, "close");
-    assert.equal(code, 0, `Smoke runner failed. stdout: ${stdout}\nstderr: ${stderr}`);
+    assert.equal(code === 0, !expectFailure, `Unexpected smoke exit code ${code}. stdout: ${stdout}\nstderr: ${stderr}`);
     const report = JSON.parse(await readFile(reportPath, "utf8"));
     return { report, requests, stdout, stderr };
   } finally {
@@ -99,7 +99,7 @@ test("terminal migration failure defers protected-route checks immediately", asy
 });
 
 test("unavailable liveness remains a real smoke failure", async () => {
-  const { report, requests } = await runSmoke({ livenessStatus: 404 });
+  const { report, requests } = await runSmoke({ livenessStatus: 404, expectFailure: true });
 
   assert.equal(report.apiLive, false);
   assert.ok(report.failed > 0);
