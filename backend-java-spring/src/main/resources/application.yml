@@ -30,18 +30,16 @@ spring:
       initialization-fail-timeout: 30000
       max-lifetime: 1200000
       pool-name: KuraliHikariPool
-      # Oracle session setting must be applied before Spring opens a transaction.
       connection-init-sql: ALTER SESSION DISABLE PARALLEL DML
       data-source-properties:
-        # Use the downloaded Oracle auto-login wallet as the single mTLS source.
-        # Do not mix this with javax.net.ssl.keyStore/trustStore JKS properties:
-        # Oracle documents Wallet and JKS as alternative connection modes.
-        oracle.net.wallet_location: (SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=${ORACLE_WALLET_DIR})))
+        # Explicitly select the password-protected PKCS12 wallet. Supplying
+        # wallet_password makes Oracle JDBC use ewallet.p12 instead of trying
+        # to load the auto-login cwallet.sso (which failed ASN.1 parsing).
+        oracle.net.wallet_location: file:${ORACLE_WALLET_DIR}/ewallet.p12
+        oracle.net.wallet_password: ${WALLET_PASSWORD}
         oracle.net.tns_admin: ${ORACLE_WALLET_DIR}
         oracle.net.ssl_server_dn_match: true
-        # Bound Oracle Net connection establishment and socket reads. Hikari's
-        # connectionTimeout only bounds waiting for a pooled connection; it
-        # does not reliably interrupt a JDBC driver's physical connect call.
+        # Bound Oracle Net connection establishment and socket reads.
         oracle.net.CONNECT_TIMEOUT: 10000
         oracle.net.OUTBOUND_CONNECT_TIMEOUT: 15000
         oracle.jdbc.ReadTimeout: 20000
@@ -63,11 +61,7 @@ spring:
     init:
       mode: never
   flyway:
-    # FlywayMigrationStrategy dispatches migrations off-thread after the HTTP listener binds.
-    # Application requests remain gated until migration succeeds; liveness stays independent.
     enabled: true
-    # Existing staging schema is at version 13. Keep older migration history
-    # records even though the repository now retains only the current migration.
     baseline-on-migrate: true
     baseline-version: 13
     ignore-migration-patterns: "*:missing"
