@@ -42,6 +42,9 @@ class SecurityConfigTest {
     @org.springframework.boot.test.mock.mockito.MockBean
     private DataSource dataSource;
 
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private DatabaseMigrationState migrationState;
+
     @Test
     void permitsOnlyExplicitPublicEntryPointsWithoutBearerToken() throws Exception {
         mockMvc.perform(get("/health/live")).andExpect(status().isOk());
