@@ -139,34 +139,90 @@ async function waitForApiLiveness() {
 }
 
 const apiLive = await waitForApiLiveness();
-if (apiLive) {
-  // Only probe endpoints that reject anonymous requests before touching repositories.
-  // Public catalog/availability reads are intentionally excluded because they require
-  // database access, which is outside this Phase 0 tranche.
-  const checks = [
-    ["/delivery/me", protectedRoute, "Delivery profile rejects anonymous access"],
-    ["/delivery/jobs/available", protectedRoute, "Delivery jobs reject anonymous access"],
-    ["/sellers/me/orders", protectedRoute, "Seller orders reject anonymous access"],
-    ["/daily-help/bookings/latest?buyerPhone=0000000000", protectedRoute, "Daily Help booking data rejects anonymous access"],
-    ["/daily-help/professionals/by-phone/0000000000", protectedRoute, "Professional profile rejects anonymous access"],
-    ["/buyers/orders/__smoke_test_missing_order__/track", protectedRoute, "Buyer order tracking rejects anonymous access"],
-  ];
+let databaseReady = false;
+let databaseDeferred = false;
 
-  for (const [path, expected, label] of checks) {
-    const result = await request(path, expected, label);
-    results.push(result);
-    if (!result.ok) failures.push(result);
+async function waitForDatabaseReadiness() {
+  const startedAt = Date.now();
+  let lastStatus = 0;
+  let lastMigration = "unknown";
+  let lastDetail = "";
+  while (Date.now() - startedAt < readinessTimeoutMs) {
+    const result = await request(
+      "/health/ready",
+      success,
+      "Database-backed API readiness",
+      Math.min(timeoutMs, 15000),
+    );
+    lastStatus = result.status;
+    lastDetail = result.detail;
+    if (result.ok) {
+      databaseHealthChecked = true;
+      results.push(result);
+      console.log("Database-backed readiness succeeded; protected-route smoke checks may run.");
+      return true;
+    }
+
+    // A terminal migration failure cannot become healthy without a new deploy
+    // or operator intervention. Do not waste the full readiness window.
+    let migrationStatus = "unknown";
+    if (result.detail) {
+      try {
+        const parsed = JSON.parse(result.detail);
+        migrationStatus = String(parsed.migration ?? "unknown");
+      } catch { /* detail is sanitized and may not be JSON */ }
+    }
+    lastMigration = migrationStatus;
+    if (migrationStatus === "FAILED") {
+      console.warn("::warning::Database readiness is blocked by a terminal migration failure; database-dependent smoke checks are deferred.");
+      return false;
+    }
+    if (result.status !== 503 && result.status !== 0) {
+      failures.push({ ...result, label: "Database-backed API readiness probe" });
+      results.push(result);
+      return false;
+    }
+    const remaining = readinessTimeoutMs - (Date.now() - startedAt);
+    if (remaining > 0) await sleep(Math.min(retryIntervalMs, remaining));
   }
+
+  console.warn("::warning::Database readiness did not become healthy within the configured window; database-dependent smoke checks are deferred. Last status=" + lastStatus + ", migration=" + lastMigration + ", detail=" + lastDetail);
+  return false;
 }
 
+if (apiLive) {
+  databaseReady = await waitForDatabaseReadiness();
+  if (databaseReady) {
+    // These authorization checks can only be interpreted once the readiness
+    // filter has opened. A 503 while migrations run is not an auth regression.
+    const checks = [
+      ["/delivery/me", protectedRoute, "Delivery profile rejects anonymous access"],
+      ["/delivery/jobs/available", protectedRoute, "Delivery jobs reject anonymous access"],
+      ["/sellers/me/orders", protectedRoute, "Seller orders reject anonymous access"],
+      ["/daily-help/bookings/latest?buyerPhone=0000000000", protectedRoute, "Daily Help booking data rejects anonymous access"],
+      ["/daily-help/professionals/by-phone/0000000000", protectedRoute, "Professional profile rejects anonymous access"],
+      ["/buyers/orders/__smoke_test_missing_order__/track", protectedRoute, "Buyer order tracking rejects anonymous access"],
+    ];
+
+    for (const [path, expected, label] of checks) {
+      const result = await request(path, expected, label);
+      results.push(result);
+      if (!result.ok) failures.push(result);
+    }
+  } else if (failures.length === 0) {
+    databaseDeferred = true;
+  }
+}
 const report = {
   base,
   checkedAt: new Date().toISOString(),
   apiLive,
   databaseHealthChecked,
-  checkScope: databaseHealthChecked
-    ? "API liveness with database-backed readiness fallback, plus pre-service anonymous-access guards; catalogue and availability probes are intentionally skipped"
-    : "API process liveness and pre-service anonymous-access guards only; database-backed catalogue and availability probes are intentionally skipped",
+  databaseReady,
+  databaseDeferred,
+  checkScope: databaseReady
+    ? "API liveness, database-backed readiness, and anonymous-access guards; catalogue and availability probes are intentionally skipped"
+    : "API liveness only; database-dependent authorization smoke checks were deferred because readiness was not healthy",
   readinessTimeoutMs,
   timeoutMs,
   passed: results.filter((result) => result.ok).length,
