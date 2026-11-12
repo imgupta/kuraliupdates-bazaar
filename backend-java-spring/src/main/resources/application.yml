@@ -33,12 +33,12 @@ spring:
       # Oracle session setting must be applied before Spring opens a transaction.
       connection-init-sql: ALTER SESSION DISABLE PARALLEL DML
       data-source-properties:
+        # Use the downloaded Oracle auto-login wallet as the single mTLS source.
+        # Do not mix this with javax.net.ssl.keyStore/trustStore JKS properties:
+        # Oracle documents Wallet and JKS as alternative connection modes.
         oracle.net.wallet_location: (SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=${ORACLE_WALLET_DIR})))
         oracle.net.tns_admin: ${ORACLE_WALLET_DIR}
-        javax.net.ssl.trustStore: ${ORACLE_WALLET_DIR}/truststore.jks
-        javax.net.ssl.trustStorePassword: ${WALLET_PASSWORD}
-        javax.net.ssl.keyStore: ${ORACLE_WALLET_DIR}/keystore.jks
-        javax.net.ssl.keyStorePassword: ${WALLET_PASSWORD}
+        oracle.net.ssl_server_dn_match: true
         # Bound Oracle Net connection establishment and socket reads. Hikari's
         # connectionTimeout only bounds waiting for a pooled connection; it
         # does not reliably interrupt a JDBC driver's physical connect call.
