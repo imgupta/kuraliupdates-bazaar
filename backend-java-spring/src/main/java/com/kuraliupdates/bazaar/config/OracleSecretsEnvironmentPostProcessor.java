@@ -98,15 +98,23 @@ public final class OracleSecretsEnvironmentPostProcessor implements EnvironmentP
     }
 
     /**
-     * Safe diagnostic only: never exposes file contents, environment values, or exception messages.
+     * Resolve a wallet entry (Render may expose secret files as symlinks) and
+     * ensure the resolved target remains inside the configured wallet directory.
+     * Diagnostics never expose file contents, environment values, or exception messages.
      */
     private static String describeFileFailure(Path walletFile, Exception failure) {
         try {
-            if (!Files.exists(walletFile, LinkOption.NOFOLLOW_LINKS)) return "not present at configured wallet directory";
-            if (Files.isSymbolicLink(walletFile)) return "symbolic links are not permitted";
-            if (!Files.isRegularFile(walletFile, LinkOption.NOFOLLOW_LINKS)) return "not a regular file";
-            if (!Files.isReadable(walletFile)) return "not readable by the application process";
-            if (Files.size(walletFile) == 0L) return "file is empty";
+            if (!Files.exists(walletFile, LinkOption.NOFOLLOW_LINKS)) {
+                return "not present at configured wallet directory";
+            }
+            Path realDirectory = walletFile.getParent().toRealPath();
+            Path realFile = walletFile.toRealPath();
+            if (!realFile.startsWith(realDirectory)) {
+                return "symbolic link target is outside configured wallet directory";
+            }
+            if (!Files.isRegularFile(realFile, LinkOption.NOFOLLOW_LINKS)) return "not a regular file";
+            if (!Files.isReadable(realFile)) return "not readable by the application process";
+            if (Files.size(realFile) == 0L) return "file is empty";
             return "could not be opened (" + failure.getClass().getSimpleName() + ")";
         } catch (IOException | SecurityException diagnosticFailure) {
             return "file metadata could not be read (" + diagnosticFailure.getClass().getSimpleName() + ")";
@@ -114,10 +122,18 @@ public final class OracleSecretsEnvironmentPostProcessor implements EnvironmentP
     }
 
     private static void ensureReadableWalletFile(Path walletFile) throws IOException {
-        if (!Files.isRegularFile(walletFile, LinkOption.NOFOLLOW_LINKS)) {
+        Path realDirectory = walletFile.getParent().toRealPath();
+        Path realFile = walletFile.toRealPath();
+        if (!realFile.startsWith(realDirectory)) {
+            throw new IOException("wallet file target is outside configured wallet directory");
+        }
+        if (!Files.isRegularFile(realFile, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("not a regular file");
         }
-        try (InputStream input = Files.newInputStream(walletFile, LinkOption.NOFOLLOW_LINKS)) {
+        if (!Files.isReadable(realFile)) {
+            throw new IOException("not readable");
+        }
+        try (InputStream input = Files.newInputStream(realFile, LinkOption.NOFOLLOW_LINKS)) {
             if (input.read() < 0) {
                 throw new IOException("empty file");
             }
