@@ -1,7 +1,12 @@
 package com.kuraliupdates.bazaar.config;
 
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.stream.Collectors;
@@ -85,14 +90,34 @@ public class FlywayRecoveryConfiguration {
                     log.info("Flyway startup migration completed; API readiness gate opened.");
                 } catch (RuntimeException failure) {
                     migrationState.markFailed(failure);
-                    log.error("Flyway startup migration failed; API remains unready. Failure type: {}",
-                            failure.getClass().getSimpleName());
+                    log.error("Flyway startup migration failed; API remains unready. Safe cause summary: {}",
+                            safeFailureSummary(failure));
                 }
             });
         } catch (RejectedExecutionException failure) {
             migrationState.markFailed(failure);
             throw failure;
         }
+    }
+
+    /**
+     * Summarize exception types and JDBC diagnostic codes without logging
+     * exception messages, which may contain connection details or secrets.
+     */
+    static String safeFailureSummary(Throwable failure) {
+        List<String> causes = new ArrayList<>();
+        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        Throwable current = failure;
+        while (current != null && seen.add(current) && causes.size() < 8) {
+            String description = current.getClass().getSimpleName();
+            if (current instanceof SQLException sqlException) {
+                description += "[sqlState=" + sqlException.getSQLState()
+                        + ",vendorCode=" + sqlException.getErrorCode() + "]";
+            }
+            causes.add(description);
+            current = current.getCause();
+        }
+        return String.join(" -> ", causes);
     }
 
     static void migrateWithKnownV30Recovery(Flyway flyway) {

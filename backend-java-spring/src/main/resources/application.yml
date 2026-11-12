@@ -39,6 +39,13 @@ spring:
         javax.net.ssl.trustStorePassword: ${WALLET_PASSWORD}
         javax.net.ssl.keyStore: ${ORACLE_WALLET_DIR}/keystore.jks
         javax.net.ssl.keyStorePassword: ${WALLET_PASSWORD}
+        # Bound Oracle Net connection establishment and socket reads. Hikari's
+        # connectionTimeout only bounds waiting for a pooled connection; it
+        # does not reliably interrupt a JDBC driver's physical connect call.
+        oracle.net.CONNECT_TIMEOUT: 10000
+        oracle.net.OUTBOUND_CONNECT_TIMEOUT: 15000
+        oracle.jdbc.ReadTimeout: 20000
+        oracle.net.keepAlive: true
   data:
     jpa:
       repositories:

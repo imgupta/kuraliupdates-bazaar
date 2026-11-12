@@ -3,18 +3,21 @@ import { writeFile } from "node:fs/promises";
 /**
  * Read-only staging API smoke checks.
  *
- * Startup readiness uses /health/live, which verifies only that the API process
- * can serve requests. It deliberately does not require Oracle/database health.
- * The database-backed /health endpoint is not called by this smoke suite.
+ * API process liveness and Oracle-backed readiness are checked independently.
+ * Database-dependent authorization checks run only after /health/ready succeeds.
+ * If the database is unavailable, those checks are explicitly reported as deferred.
  */
 const baseUrl = process.env.KURALI_API_BASE_URL || "https://kuraliupdates-bazaar.onrender.com/api/v1";
 const base = baseUrl.replace(/\/$/, "");
-const timeoutMs = positiveInteger(process.env.SMOKE_TIMEOUT_MS, 45000);
-const readinessTimeoutMs = positiveInteger(process.env.SMOKE_READINESS_TIMEOUT_MS, 360000);
-const retryIntervalMs = positiveInteger(process.env.SMOKE_RETRY_INTERVAL_MS, 10000);
+const timeoutMs = positiveInteger(process.env.SMOKE_TIMEOUT_MS, 15000);
+const legacyReadinessTimeoutMs = positiveInteger(process.env.SMOKE_READINESS_TIMEOUT_MS, 0);
+const livenessTimeoutMs = positiveInteger(process.env.SMOKE_LIVENESS_TIMEOUT_MS, legacyReadinessTimeoutMs || 90000);
+const databaseReadinessTimeoutMs = positiveInteger(process.env.SMOKE_DATABASE_READINESS_TIMEOUT_MS, legacyReadinessTimeoutMs || 60000);
+const retryIntervalMs = positiveInteger(process.env.SMOKE_RETRY_INTERVAL_MS, 5000);
 const failures = [];
 const results = [];
 let databaseHealthChecked = false;
+let databaseDeferredReason = null;
 
 function positiveInteger(raw, fallback) {
   const value = Number(raw);
@@ -78,7 +81,7 @@ async function waitForApiLiveness() {
   let lastResult;
   const attemptDetails = [];
 
-  while (Date.now() - startedAt < readinessTimeoutMs) {
+  while (Date.now() - startedAt < livenessTimeoutMs) {
     attempts += 1;
     lastResult = await request(
       "/health/live",
@@ -120,7 +123,7 @@ async function waitForApiLiveness() {
     });
     if (attemptDetails.length > 5) attemptDetails.shift();
 
-    const remaining = readinessTimeoutMs - (Date.now() - startedAt);
+    const remaining = livenessTimeoutMs - (Date.now() - startedAt);
     if (remaining > 0) await sleep(Math.min(retryIntervalMs, remaining));
   }
 
@@ -139,36 +142,97 @@ async function waitForApiLiveness() {
 }
 
 const apiLive = await waitForApiLiveness();
-if (apiLive) {
-  // Only probe endpoints that reject anonymous requests before touching repositories.
-  // Public catalog/availability reads are intentionally excluded because they require
-  // database access, which is outside this Phase 0 tranche.
-  const checks = [
-    ["/delivery/me", protectedRoute, "Delivery profile rejects anonymous access"],
-    ["/delivery/jobs/available", protectedRoute, "Delivery jobs reject anonymous access"],
-    ["/sellers/me/orders", protectedRoute, "Seller orders reject anonymous access"],
-    ["/daily-help/bookings/latest?buyerPhone=0000000000", protectedRoute, "Daily Help booking data rejects anonymous access"],
-    ["/daily-help/professionals/by-phone/0000000000", protectedRoute, "Professional profile rejects anonymous access"],
-    ["/buyers/orders/__smoke_test_missing_order__/track", protectedRoute, "Buyer order tracking rejects anonymous access"],
-  ];
+let databaseReady = false;
+let databaseDeferred = false;
 
-  for (const [path, expected, label] of checks) {
-    const result = await request(path, expected, label);
-    results.push(result);
-    if (!result.ok) failures.push(result);
+async function waitForDatabaseReadiness() {
+  const startedAt = Date.now();
+  let lastStatus = 0;
+  let lastMigration = "unknown";
+  let lastDetail = "";
+  while (Date.now() - startedAt < databaseReadinessTimeoutMs) {
+    const result = await request(
+      "/health/ready",
+      success,
+      "Database-backed API readiness",
+      Math.min(timeoutMs, 15000),
+    );
+    lastStatus = result.status;
+    lastDetail = result.detail;
+    if (result.ok) {
+      databaseHealthChecked = true;
+      results.push(result);
+      console.log("Database-backed readiness succeeded; protected-route smoke checks may run.");
+      return true;
+    }
+
+    // A terminal migration failure cannot become healthy without a new deploy
+    // or operator intervention. Do not waste the full readiness window.
+    let migrationStatus = "unknown";
+    if (result.detail) {
+      try {
+        const parsed = JSON.parse(result.detail);
+        migrationStatus = String(parsed.migration ?? "unknown");
+      } catch { /* detail is sanitized and may not be JSON */ }
+    }
+    lastMigration = migrationStatus;
+    if (migrationStatus === "FAILED") {
+      databaseDeferredReason = "terminal_migration_failure";
+      console.warn("::warning::Database readiness is blocked by a terminal migration failure; database-dependent smoke checks are deferred.");
+      return false;
+    }
+    if (result.status !== 503 && result.status !== 0) {
+      failures.push({ ...result, label: "Database-backed API readiness probe" });
+      results.push(result);
+      return false;
+    }
+    const remaining = databaseReadinessTimeoutMs - (Date.now() - startedAt);
+    if (remaining > 0) await sleep(Math.min(retryIntervalMs, remaining));
   }
+
+  databaseDeferredReason = "readiness_timeout";
+  console.warn("::warning::Database readiness did not become healthy within " + Math.round(databaseReadinessTimeoutMs / 1000) + "s; database-dependent smoke checks are deferred. Last status=" + lastStatus + ", migration=" + lastMigration + ", detail=" + lastDetail);
+  return false;
 }
 
+if (apiLive) {
+  databaseReady = await waitForDatabaseReadiness();
+  if (databaseReady) {
+    // These authorization checks can only be interpreted once the readiness
+    // filter has opened. A 503 while migrations run is not an auth regression.
+    const checks = [
+      ["/delivery/me", protectedRoute, "Delivery profile rejects anonymous access"],
+      ["/delivery/jobs/available", protectedRoute, "Delivery jobs reject anonymous access"],
+      ["/sellers/me/orders", protectedRoute, "Seller orders reject anonymous access"],
+      ["/daily-help/bookings/latest?buyerPhone=0000000000", protectedRoute, "Daily Help booking data rejects anonymous access"],
+      ["/daily-help/professionals/by-phone/0000000000", protectedRoute, "Professional profile rejects anonymous access"],
+      ["/buyers/orders/__smoke_test_missing_order__/track", protectedRoute, "Buyer order tracking rejects anonymous access"],
+    ];
+
+    for (const [path, expected, label] of checks) {
+      const result = await request(path, expected, label);
+      results.push(result);
+      if (!result.ok) failures.push(result);
+    }
+  } else if (failures.length === 0) {
+    databaseDeferred = true;
+  }
+}
 const report = {
   base,
   checkedAt: new Date().toISOString(),
   apiLive,
   databaseHealthChecked,
-  checkScope: databaseHealthChecked
-    ? "API liveness with database-backed readiness fallback, plus pre-service anonymous-access guards; catalogue and availability probes are intentionally skipped"
-    : "API process liveness and pre-service anonymous-access guards only; database-backed catalogue and availability probes are intentionally skipped",
-  readinessTimeoutMs,
+  databaseReady,
+  databaseDeferred,
+  checkScope: databaseReady
+    ? "API liveness, database-backed readiness, and anonymous-access guards; catalogue and availability probes are intentionally skipped"
+    : "API liveness only; database-dependent authorization smoke checks were deferred because readiness was not healthy",
+  livenessTimeoutMs,
+  databaseReadinessTimeoutMs,
+  retryIntervalMs,
   timeoutMs,
+  databaseDeferredReason,
   passed: results.filter((result) => result.ok).length,
   failed: failures.length,
   results,

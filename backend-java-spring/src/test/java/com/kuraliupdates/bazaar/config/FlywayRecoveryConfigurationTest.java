@@ -1,9 +1,11 @@
 package com.kuraliupdates.bazaar.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
+import java.sql.SQLException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import org.flywaydb.core.Flyway;
@@ -46,6 +48,18 @@ class FlywayRecoveryConfigurationTest {
         assertEquals(DatabaseMigrationState.Status.FAILED, state.getStatus());
         assertEquals("IllegalStateException", state.getFailureType());
         verify(flyway, never()).migrate();
+    }
+
+    @Test
+    void safeFailureSummaryIncludesJdbcCodesButNeverExceptionMessages() {
+        SQLException sqlException = new SQLException("jdbc:oracle:thin password=do-not-log", "08001", 17002);
+        RuntimeException failure = new RuntimeException("sensitive connection details", sqlException);
+
+        String summary = FlywayRecoveryConfiguration.safeFailureSummary(failure);
+
+        assertEquals("RuntimeException -> SQLException[sqlState=08001,vendorCode=17002]", summary);
+        assertFalse(summary.contains("password"));
+        assertFalse(summary.contains("sensitive"));
     }
 
     @Test
