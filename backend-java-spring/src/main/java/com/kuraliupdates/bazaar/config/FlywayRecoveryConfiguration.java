@@ -114,10 +114,39 @@ public class FlywayRecoveryConfiguration {
                 description += "[sqlState=" + sqlException.getSQLState()
                         + ",vendorCode=" + sqlException.getErrorCode() + "]";
             }
+            String message = current.getMessage();
+            String safeMessage = sanitizeFailureMessage(message);
+            if (!safeMessage.isBlank()) {
+                description += "[detail=" + safeMessage + "]";
+            }
             causes.add(description);
             current = current.getCause();
         }
         return String.join(" -> ", causes);
+    }
+
+    /**
+     * Retain useful parser/driver diagnostics while removing common credential
+     * and connection-string patterns. Messages are bounded to keep logs safe.
+     */
+    static String sanitizeFailureMessage(String message) {
+        if (message == null || message.isBlank()) {
+            return "";
+        }
+        String safe = message
+                .replaceAll("(?i)(password|passwd|pwd|token|secret|credential)(\\s*[=:]\\s*)[^\\s,;]+",
+                        "$1$2[REDACTED]")
+                .replaceAll("(?i)jdbc:[^\\s,;]+", "[JDBC_URL_REDACTED]")
+                .replaceAll("(?i)https?://[^\\s,;]+", "[URL_REDACTED]")
+                .replaceAll("(?i)(wallet|keystore|truststore)(\\s*[=:]\\s*)[^\\s,;]+",
+                        "$1$2[PATH_REDACTED]");
+        safe = safe.replaceAll("[\\r\\n\\t]+", " ").trim();
+        // Only retain known technical diagnostics; generic exception text can
+        // contain arbitrary configuration or application data.
+        if (!safe.matches("(?is).*(ASN.?1|length is too big|unable to initialize|network adapter|ORA-[0-9]{4,5}|SQLRecoverableException|keystore|truststore|wallet).*")) {
+            return "";
+        }
+        return safe.length() > 240 ? safe.substring(0, 240) + "..." : safe;
     }
 
     static void migrateWithKnownV30Recovery(Flyway flyway) {

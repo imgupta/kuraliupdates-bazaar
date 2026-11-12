@@ -3,6 +3,7 @@ package com.kuraliupdates.bazaar.config;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
 import java.sql.SQLException;
@@ -60,6 +61,21 @@ class FlywayRecoveryConfigurationTest {
         assertEquals("RuntimeException -> SQLException[sqlState=08001,vendorCode=17002]", summary);
         assertFalse(summary.contains("password"));
         assertFalse(summary.contains("sensitive"));
+    }
+
+    @Test
+    void safeFailureSummaryRetainsParserDetailAndRedactsSecretsAndUrls() {
+        RuntimeException failure = new RuntimeException(
+                "Unable to load wallet password=topsecret jdbc:oracle:thin:@example.invalid/service",
+                new IllegalArgumentException("Length is too big: takes 111 bytes"));
+
+        String summary = FlywayRecoveryConfiguration.safeFailureSummary(failure);
+
+        assertEquals(true, summary.contains("Length is too big: takes 111 bytes"));
+        assertFalse(summary.contains("topsecret"));
+        assertFalse(summary.contains("example.invalid"));
+        assertFalse(summary.contains("jdbc:oracle"));
+        assertTrue(summary.contains("[REDACTED]"));
     }
 
     @Test
