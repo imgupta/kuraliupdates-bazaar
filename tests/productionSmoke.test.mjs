@@ -7,7 +7,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-async function runSmoke({ livenessStatus = 200 } = {}) {
+async function runSmoke({ livenessStatus = 200, readinessStatus = 200, migration = "READY" } = {}) {
   const requests = [];
   const server = createServer((request, response) => {
     const path = new URL(request.url, "http://localhost").pathname;
@@ -17,9 +17,13 @@ async function runSmoke({ livenessStatus = 200 } = {}) {
       response.end(JSON.stringify({ status: livenessStatus === 200 ? "UP" : "NOT_FOUND" }));
       return;
     }
-    if (path === "/api/v1/health") {
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ status: "UP", database: "UP" }));
+    if (path === "/api/v1/health/ready") {
+      response.writeHead(readinessStatus, { "content-type": "application/json" });
+      response.end(JSON.stringify({
+        status: readinessStatus === 200 ? "UP" : "DEGRADED",
+        database: readinessStatus === 200 ? "UP" : "NOT_CHECKED",
+        migration,
+      }));
       return;
     }
     response.writeHead(401, { "content-type": "application/json" });
@@ -39,7 +43,7 @@ async function runSmoke({ livenessStatus = 200 } = {}) {
         ...process.env,
         KURALI_API_BASE_URL: baseUrl,
         SMOKE_TIMEOUT_MS: "1000",
-        SMOKE_READINESS_TIMEOUT_MS: "2000",
+        SMOKE_READINESS_TIMEOUT_MS: "50",
         SMOKE_RETRY_INTERVAL_MS: "10",
         SMOKE_REPORT_PATH: reportPath,
       },
@@ -62,35 +66,42 @@ async function runSmoke({ livenessStatus = 200 } = {}) {
   }
 }
 
-test("smoke runner uses process liveness and never calls database-backed probes", async () => {
+test("database-ready smoke runs protected-route authorization checks", async () => {
   const { report, requests } = await runSmoke();
 
   assert.equal(report.apiLive, true);
-  assert.equal(report.databaseHealthChecked, false);
+  assert.equal(report.databaseReady, true);
+  assert.equal(report.databaseDeferred, false);
   assert.equal(report.failed, 0);
   assert.ok(requests.includes("/api/v1/health/live"));
-  assert.ok(!requests.includes("/api/v1/health"));
-  assert.ok(!requests.some(path => path.includes("/buyers/products/search")));
-  assert.ok(!requests.includes("/api/v1/daily-help/services"));
-  assert.ok(!requests.some(path => path.includes("/daily-help/availability")));
+  assert.ok(requests.includes("/api/v1/health/ready"));
+  assert.ok(requests.includes("/api/v1/delivery/me"));
 });
 
-test("smoke runner falls back to database readiness endpoint when liveness route is absent (404)", async () => {
+test("database-unready smoke defers protected-route checks without a false failure", async () => {
+  const { report, requests } = await runSmoke({ readinessStatus: 503, migration: "RUNNING" });
+
+  assert.equal(report.apiLive, true);
+  assert.equal(report.databaseReady, false);
+  assert.equal(report.databaseDeferred, true);
+  assert.equal(report.failed, 0);
+  assert.ok(requests.includes("/api/v1/health/ready"));
+  assert.ok(!requests.includes("/api/v1/delivery/me"));
+});
+
+test("terminal migration failure defers protected-route checks immediately", async () => {
+  const { report, requests } = await runSmoke({ readinessStatus: 503, migration: "FAILED" });
+
+  assert.equal(report.databaseReady, false);
+  assert.equal(report.databaseDeferred, true);
+  assert.equal(report.failed, 0);
+  assert.ok(!requests.includes("/api/v1/delivery/me"));
+});
+
+test("unavailable liveness remains a real smoke failure", async () => {
   const { report, requests } = await runSmoke({ livenessStatus: 404 });
 
-  assert.equal(report.apiLive, true);
-  assert.equal(report.databaseHealthChecked, true);
-  assert.ok(requests.includes("/api/v1/health/live"));
-  assert.ok(requests.includes("/api/v1/health"));
-  assert.equal(report.failed, 0);
-});
-
-test("smoke runner also handles the framework generic-error response for an absent liveness route using database readiness", async () => {
-  const { report, requests } = await runSmoke({ livenessStatus: 500 });
-
-  assert.equal(report.apiLive, true);
-  assert.equal(report.databaseHealthChecked, true);
-  assert.ok(requests.includes("/api/v1/health/live"));
-  assert.ok(requests.includes("/api/v1/health"));
-  assert.equal(report.failed, 0);
+  assert.equal(report.apiLive, false);
+  assert.ok(report.failed > 0);
+  assert.ok(!requests.includes("/api/v1/delivery/me"));
 });
