@@ -8,7 +8,12 @@
 - API base: `https://kuraliupdates-bazaar.onrender.com/api/v1`
 
 ## Release verification
-After a merge, compare Render deployment SHA with intended main SHA. Require image build success, rollout LIVE, application readiness and successful Flyway outcome. A build success alone is not a completed deployment.
+After a merge, compare Render deployment SHA with intended main SHA. Require image build success, rollout LIVE, application listener bound, readiness and successful Flyway outcome. A build success or open port alone is not a completed deployment.
+
+- `/health/live` is process liveness only and must not acquire a database connection.
+- `/health/ready` (also exposed as `/health`) is migration plus Oracle database readiness. It must remain HTTP 503 until Flyway succeeds and the datasource connection validates.
+- Application routes return HTTP 503 while database migration is pending or failed.
+- See [Render port binding and Oracle startup readiness](RENDER-PORT-BINDING.md) for startup order, failure behavior and rollout evidence.
 
 The owner-designated environment is one shared staging environment. Independently verify Oracle target/schema before write-heavy tests. Do not change environment variables or trigger manual deployment just to refresh status.
 
