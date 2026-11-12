@@ -141,6 +141,11 @@ public class FlywayRecoveryConfiguration {
                 .replaceAll("(?i)(wallet|keystore|truststore)(\\s*[=:]\\s*)[^\\s,;]+",
                         "$1$2[PATH_REDACTED]");
         safe = safe.replaceAll("[\\r\\n\\t]+", " ").trim();
+        // Only retain known technical diagnostics; generic exception text can
+        // contain arbitrary configuration or application data.
+        if (!safe.matches("(?is).*(ASN\\\\.?1|length is too big|unable to initialize|network adapter|ORA-[0-9]{4,5}|SQLRecoverableException|keystore|truststore|wallet).*")) {
+            return "";
+        }
         return safe.length() > 240 ? safe.substring(0, 240) + "..." : safe;
     }
 
