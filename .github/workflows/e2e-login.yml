@@ -133,9 +133,13 @@ jobs:
       KURALI_API_BASE_URL: "https://kuraliupdates-bazaar.onrender.com/api/v1"
       E2E_STAGING_CONFIG_JSON: ${{ secrets.E2E_STAGING_CONFIG_JSON }}
       RUN_TRANSACTIONAL_FLOWS: ${{ inputs.run_transactional_flows }}
-      SMOKE_READINESS_TIMEOUT_MS: "360000"
-      SMOKE_RETRY_INTERVAL_MS: "10000"
-      SMOKE_TIMEOUT_MS: "45000"
+      # Keep PR smoke feedback bounded even when the shared Oracle database is unhealthy.
+      # API liveness gets up to 90s for a cold Render start; DB readiness gets 60s.
+      # A DB-unready result is reported as deferred, never as a DB test pass.
+      SMOKE_LIVENESS_TIMEOUT_MS: "90000"
+      SMOKE_DATABASE_READINESS_TIMEOUT_MS: "60000"
+      SMOKE_RETRY_INTERVAL_MS: "5000"
+      SMOKE_TIMEOUT_MS: "15000"
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
