@@ -94,16 +94,32 @@ class OracleSecretsEnvironmentPostProcessorTest {
     }
 
     @Test
-    void rejectsSymlinkedWalletFile() throws Exception {
+    void acceptsSymlinkedWalletFileWhenTargetStaysInsideWalletDirectory() throws Exception {
         Path target = tempDirectory.resolve("wallet-target");
         Files.write(target, new byte[] { 1 });
         Path tnsNames = tempDirectory.resolve("tnsnames.ora");
         Files.delete(tnsNames);
         Files.createSymbolicLink(tnsNames, target);
-        IllegalStateException error = assertThrows(IllegalStateException.class,
-                () -> OracleSecretsEnvironmentPostProcessor.validate(environment));
-        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("tnsnames.ora"));
-        assertFalse(error.getMessage().contains("unit-test-"));
+        assertDoesNotThrow(() -> OracleSecretsEnvironmentPostProcessor.validate(environment));
+    }
+
+    @Test
+    void rejectsSymlinkedWalletFileWhenTargetEscapesWalletDirectory() throws Exception {
+        Path target = tempDirectory.resolveSibling("wallet-target-outside");
+        Files.write(target, new byte[] { 1 });
+        try {
+            Path tnsNames = tempDirectory.resolve("tnsnames.ora");
+            Files.delete(tnsNames);
+            Files.createSymbolicLink(tnsNames, target);
+            IllegalStateException error = assertThrows(IllegalStateException.class,
+                    () -> OracleSecretsEnvironmentPostProcessor.validate(environment));
+            org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("tnsnames.ora"));
+            org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains(
+                    "symbolic link target is outside configured wallet directory"));
+            assertFalse(error.getMessage().contains("unit-test-"));
+        } finally {
+            Files.deleteIfExists(target);
+        }
     }
 
     @Test
