@@ -59,6 +59,8 @@ spring:
     # FlywayMigrationStrategy dispatches migrations off-thread after the HTTP listener binds.
     # Application requests remain gated until migration succeeds; liveness stays independent.
     enabled: true
+    # Existing staging schema is at version 13. Keep older migration history
+    # records even though the repository now retains only the current migration.
     baseline-on-migrate: true
     baseline-version: 13
     ignore-migration-patterns: "*:missing"
