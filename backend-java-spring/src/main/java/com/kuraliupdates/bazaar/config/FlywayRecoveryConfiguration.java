@@ -2,6 +2,8 @@ package com.kuraliupdates.bazaar.config;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.stream.Collectors;
 
 import org.flywaydb.core.Flyway;
@@ -9,25 +11,88 @@ import org.flywaydb.core.api.MigrationInfo;
 import org.flywaydb.core.api.MigrationState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.flyway.FlywayMigrationInitializer;
 import org.springframework.boot.autoconfigure.flyway.FlywayMigrationStrategy;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
- * Performs a narrowly-scoped recovery for the known failed Oracle V30 migration.
+ * Runs Flyway after the servlet container has bound its HTTP port.
  *
- * Flyway's repair operation removes failed migration records from schema history;
- * the corrected V30 migration is then re-executed by migrate(). No other failed
- * migration is automatically repaired.
+ * The listener can therefore satisfy Render's port detection while Oracle
+ * connectivity/migration proceeds. MigrationReadinessFilter blocks all
+ * application traffic until migration succeeds. The narrowly-scoped V30
+ * recovery remains unchanged and is never broadened automatically.
  */
 @Configuration
 public class FlywayRecoveryConfiguration {
     private static final Logger log = LoggerFactory.getLogger(FlywayRecoveryConfiguration.class);
     private static final String RECOVERABLE_VERSION = "30";
 
+    @Bean(name = "flywayMigrationExecutor")
+    ThreadPoolTaskExecutor flywayMigrationExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(1);
+        executor.setQueueCapacity(1);
+        executor.setThreadNamePrefix("flyway-startup-migration-");
+        // Allow an in-flight Oracle migration a bounded graceful shutdown window.
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(120);
+        return executor;
+    }
+
     @Bean
-    FlywayMigrationStrategy flywayMigrationStrategy() {
-        return flyway -> migrateWithKnownV30Recovery(flyway);
+    FlywayMigrationStrategy flywayMigrationStrategy(
+            DatabaseMigrationState migrationState,
+            @Qualifier("flywayMigrationExecutor") Executor executor) {
+        return flyway -> scheduleMigration(flyway, migrationState, executor);
+    }
+
+    @Bean
+    FilterRegistrationBean<MigrationReadinessFilter> migrationReadinessFilterRegistration(
+            DatabaseMigrationState migrationState) {
+        FilterRegistrationBean<MigrationReadinessFilter> registration =
+                new FilterRegistrationBean<>(new MigrationReadinessFilter(migrationState));
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 20);
+        registration.addUrlPatterns("/*");
+        return registration;
+    }
+
+    /**
+     * Global lazy initialization can defer the Flyway initializer. An
+     * ApplicationRunner is invoked after context refresh, when the embedded
+     * server has already bound its port. Its dependency forces Flyway's
+     * initializer to run even when no JPA repository has requested it yet.
+     */
+    @Bean
+    ApplicationRunner ensureFlywayMigrationScheduled(FlywayMigrationInitializer initializer) {
+        return args -> log.info("Flyway migration initializer is active; API readiness remains gated.");
+    }
+
+    static void scheduleMigration(Flyway flyway, DatabaseMigrationState migrationState, Executor executor) {
+        migrationState.markRunning();
+        try {
+            executor.execute(() -> {
+                try {
+                    migrateWithKnownV30Recovery(flyway);
+                    migrationState.markReady();
+                    log.info("Flyway startup migration completed; API readiness gate opened.");
+                } catch (RuntimeException failure) {
+                    migrationState.markFailed(failure);
+                    log.error("Flyway startup migration failed; API remains unready. Failure type: {}",
+                            failure.getClass().getSimpleName());
+                }
+            });
+        } catch (RejectedExecutionException failure) {
+            migrationState.markFailed(failure);
+            throw failure;
+        }
     }
 
     static void migrateWithKnownV30Recovery(Flyway flyway) {

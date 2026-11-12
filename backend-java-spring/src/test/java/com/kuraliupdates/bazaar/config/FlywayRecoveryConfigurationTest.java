@@ -1,8 +1,11 @@
 package com.kuraliupdates.bazaar.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationInfo;
 import org.flywaydb.core.api.MigrationInfoService;
@@ -11,6 +14,39 @@ import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.Test;
 
 class FlywayRecoveryConfigurationTest {
+
+    @Test
+    void schedulesMigrationWithoutBlockingTheCallingStartupThread() {
+        Flyway flyway = mock(Flyway.class);
+        MigrationInfoService infoService = mock(MigrationInfoService.class);
+        when(flyway.info()).thenReturn(infoService);
+        when(infoService.all()).thenReturn(new MigrationInfo[0]);
+        DatabaseMigrationState state = new DatabaseMigrationState();
+        AtomicReference<Runnable> queuedTask = new AtomicReference<>();
+        Executor executor = queuedTask::set;
+
+        FlywayRecoveryConfiguration.scheduleMigration(flyway, state, executor);
+
+        assertEquals(DatabaseMigrationState.Status.RUNNING, state.getStatus());
+        verifyNoInteractions(infoService);
+        queuedTask.get().run();
+
+        verify(flyway).migrate();
+        assertEquals(DatabaseMigrationState.Status.READY, state.getStatus());
+    }
+
+    @Test
+    void migrationFailureKeepsApplicationUnready() {
+        Flyway flyway = mock(Flyway.class);
+        when(flyway.info()).thenThrow(new IllegalStateException("sensitive database details"));
+        DatabaseMigrationState state = new DatabaseMigrationState();
+
+        FlywayRecoveryConfiguration.scheduleMigration(flyway, state, Runnable::run);
+
+        assertEquals(DatabaseMigrationState.Status.FAILED, state.getStatus());
+        assertEquals("IllegalStateException", state.getFailureType());
+        verify(flyway, never()).migrate();
+    }
 
     @Test
     void repairsOnlyKnownFailedV30ThenMigrates() {
