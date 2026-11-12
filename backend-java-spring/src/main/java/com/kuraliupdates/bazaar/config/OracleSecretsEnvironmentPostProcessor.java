@@ -91,8 +91,25 @@ public final class OracleSecretsEnvironmentPostProcessor implements EnvironmentP
             try {
                 walletFileValidator.validate(walletFile);
             } catch (IOException | SecurityException ex) {
-                throw new IllegalStateException("Required Oracle wallet file is unreadable: " + fileName);
+                throw new IllegalStateException("Oracle wallet file validation failed: "
+                        + fileName + " (" + describeFileFailure(walletFile, ex) + ")");
             }
+        }
+    }
+
+    /**
+     * Safe diagnostic only: never exposes file contents, environment values, or exception messages.
+     */
+    private static String describeFileFailure(Path walletFile, Exception failure) {
+        try {
+            if (!Files.exists(walletFile, LinkOption.NOFOLLOW_LINKS)) return "not present at configured wallet directory";
+            if (Files.isSymbolicLink(walletFile)) return "symbolic links are not permitted";
+            if (!Files.isRegularFile(walletFile, LinkOption.NOFOLLOW_LINKS)) return "not a regular file";
+            if (!Files.isReadable(walletFile)) return "not readable by the application process";
+            if (Files.size(walletFile) == 0L) return "file is empty";
+            return "could not be opened (" + failure.getClass().getSimpleName() + ")";
+        } catch (IOException | SecurityException diagnosticFailure) {
+            return "file metadata could not be read (" + diagnosticFailure.getClass().getSimpleName() + ")";
         }
     }
 
