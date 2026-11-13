@@ -695,3 +695,15 @@ These are request-validation and fail-fast guarantees. They do not replace authe
 ## 14 November 2026 — admin seller-lead mutation payload validation
 
 Admin seller-lead update and note endpoints now return HTTP 400 for a missing request body rather than dereferencing null. Controller regression coverage verifies both endpoints reject the request before invoking the lead service. Authenticated actor attribution and role enforcement are unchanged; this narrow input-validation test does not constitute the complete admin permission/audit acceptance matrix.
+
+
+## 14 November 2026 — authenticated lifecycle, five-role access and seller-document correction coverage
+
+The guarded Playwright lifecycle suite now includes:
+- Bargaining rejection, read-back and replay rejection, in addition to the existing offer/counter/accept/checkout-price reconciliation path.
+- A five-role portal matrix covering seller document self-service, delivery job access, professional job access, admin document review and buyer/seller bargaining inboxes. It also verifies that a professional cannot substitute another professional profile ID.
+- Existing guarded authenticated journeys continue to cover buyer checkout, seller fulfilment, concurrent rider claim, seller pickup, invalid/valid/replayed delivery OTP, Daily Help slot contention, service-start OTP and completion, plus run-scoped cleanup.
+
+The seller-document workflow is covered without creating persistent staging documents: a controller regression test now proves a rejected document can be corrected and uploaded as a new pending, clean document while the rejected record and its reason remain unchanged. Existing controller tests cover clean upload, scanner fail-closed quarantine, required rejection reason, admin verification, non-admin denial, seller scoping, cross-seller document-ID path protection, private download headers and metadata byte exclusion.
+
+The guarded transactional Playwright flows remain disabled on ordinary pull-request events. They are configured to run only through the trusted scheduled/manual opt-in paths in the workflow, against the designated staging API and owner-provisioned five-role identities. Therefore the PR CI result alone does not establish that these mutating authenticated journeys ran against staging. A trusted opt-in run is still required for runtime acceptance. The role-matrix E2E uses the same owner-approved multi-role account with distinct role-scoped tokens; unrelated-user ownership is additionally covered by existing service/controller tests, not inferred from same-account role switching.
