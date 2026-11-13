@@ -155,3 +155,10 @@ The public seller-lead start endpoint may locate an existing lead by email/phone
 The public lead-start endpoint now returns the same `STARTED` status for both newly created and resumed leads. This removes the explicit `EXISTING` response signal while preserving the lead ID required by the current OTP-resume API. A service regression test covers the resumed-lead path and continues to assert that applicant identity fields are not updated before contact verification.
 
 **Residual risk:** the stable lead ID is still returned for a matching email/phone pair, and lead-specific OTP endpoints remain addressable by that ID. This bounded response normalization does not close lead enumeration or replace contact verification. A stronger opaque, short-lived challenge design would require an API/schema/UI migration and separate review.
+
+
+## 14 November 2026 — seller lead state-transition hardening
+
+Contact OTP verification is now limited to leads in the `STARTED` state and uses a conditional database update so concurrent or replayed requests cannot move an advanced lead back to `CONTACT_VERIFIED`. Callback requests are limited to `CONTACT_VERIFIED` and likewise use a conditional update. Conflicting or stale transitions return HTTP 409. Regression tests cover invalid/replayed state transitions.
+
+This does not replace Oracle-backed concurrency testing; the conditional update is designed to make the database the final arbiter under concurrent requests.

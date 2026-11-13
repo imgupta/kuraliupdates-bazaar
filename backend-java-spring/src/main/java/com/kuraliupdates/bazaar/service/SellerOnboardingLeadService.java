@@ -72,6 +72,7 @@ public class SellerOnboardingLeadService {
     @Transactional
     public Map<String, Object> verifyContact(String leadId, String emailOtp, String phoneOtp) {
         Map<String, Object> lead = getLead(leadId);
+        requireLeadStatus(lead, "STARTED", "Contact verification is no longer available for this registration");
         String email = String.valueOf(lead.get("email"));
         String phone = String.valueOf(lead.get("phone"));
         boolean emailRequired = Boolean.TRUE.equals(lead.get("emailOtpRequired"));
@@ -79,9 +80,12 @@ public class SellerOnboardingLeadService {
         if (emailRequired) otpService.verify(email, "SELLER_EMAIL", emailOtp);
         if (phoneRequired) otpService.verify(phone, "SELLER_PHONE", phoneOtp);
         LocalDateTime now = LocalDateTime.now();
-        jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET EMAIL_VERIFIED=?, PHONE_VERIFIED=?, EMAIL_OTP_SKIPPED=?, PHONE_OTP_SKIPPED=?, STATUS='CONTACT_VERIFIED', UPDATED_AT=? WHERE LEAD_ID=?",
+        int updated = jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET EMAIL_VERIFIED=?, PHONE_VERIFIED=?, EMAIL_OTP_SKIPPED=?, PHONE_OTP_SKIPPED=?, STATUS='CONTACT_VERIFIED', UPDATED_AT=? WHERE LEAD_ID=? AND STATUS='STARTED'",
                 emailRequired ? 1 : 0, phoneRequired ? 1 : 0,
                 emailRequired ? 0 : 1, phoneRequired ? 0 : 1, now, leadId);
+        if (updated != 1) {
+            throw new ApiException(HttpStatus.CONFLICT, "Seller registration has already advanced; restart the verification flow if needed");
+        }
         audit(leadId, "APPLICANT", "CONTACT_VERIFICATION_COMPLETED",
                 "email=" + (emailRequired ? "VERIFIED" : "OTP_NOT_REQUIRED") + "; mobile=" + (phoneRequired ? "VERIFIED" : "OTP_NOT_REQUIRED"));
         return Map.of("success", true, "leadId", leadId, "status", "CONTACT_VERIFIED");
@@ -92,12 +96,16 @@ public class SellerOnboardingLeadService {
         if (!consent) throw new ApiException(HttpStatus.BAD_REQUEST, "Please provide consent before requesting a callback");
         if (preferredTime != null && preferredTime.length() > 120) throw new ApiException(HttpStatus.BAD_REQUEST, "Preferred callback time must be 120 characters or fewer");
         Map<String, Object> lead = getLead(leadId);
+        requireLeadStatus(lead, "CONTACT_VERIFIED", "This registration is not awaiting a callback");
         if (!contactRequirementSatisfied(lead, "email") || !contactRequirementSatisfied(lead, "phone")) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Complete the enabled contact verification steps before requesting a callback");
         }
         LocalDateTime now = LocalDateTime.now();
-        jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET CONTACT_CONSENT=1, CONTACT_CONSENT_AT=?, CONTACT_CONSENT_VERSION='SELLER-CALLBACK-2026-11', CALLBACK_REQUESTED=1, STATUS='CALLBACK_REQUESTED', UPDATED_AT=? WHERE LEAD_ID=?",
+        int updated = jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET CONTACT_CONSENT=1, CONTACT_CONSENT_AT=?, CONTACT_CONSENT_VERSION='SELLER-CALLBACK-2026-11', CALLBACK_REQUESTED=1, STATUS='CALLBACK_REQUESTED', UPDATED_AT=? WHERE LEAD_ID=? AND STATUS='CONTACT_VERIFIED'",
                 now, now, leadId);
+        if (updated != 1) {
+            throw new ApiException(HttpStatus.CONFLICT, "Seller registration has already advanced; callback cannot be requested");
+        }
         audit(leadId, "APPLICANT", "CALLBACK_REQUESTED", clean(preferredTime, 120));
         return Map.of("success", true, "message", "KuraliUpdates will contact you during the requested time");
     }
@@ -235,6 +243,12 @@ public class SellerOnboardingLeadService {
     private void audit(String leadId, String actor, String action, String details) {
         jdbc.update("INSERT INTO SELLER_ONBOARDING_LEAD_AUDIT (AUDIT_ID,LEAD_ID,ACTOR,ACTION,DETAILS,CREATED_AT) VALUES (?,?,?,?,?,?)",
                 UUID.randomUUID().toString(), leadId, clean(actor,150), action, clean(details,2000), LocalDateTime.now());
+    }
+
+    static void requireLeadStatus(Map<String, Object> lead, String expected, String message) {
+        if (!expected.equalsIgnoreCase(String.valueOf(lead.get("status")))) {
+            throw new ApiException(HttpStatus.CONFLICT, message);
+        }
     }
 
     static boolean contactRequirementSatisfied(Map<String,Object> lead, String channel) {
