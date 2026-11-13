@@ -7,8 +7,6 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.List;
 import java.security.Security;
-import java.security.Provider;
-import java.util.Arrays;
 
 import oracle.security.pki.OraclePKIProvider;
 
@@ -52,23 +50,10 @@ public final class OracleSecretsEnvironmentPostProcessor implements EnvironmentP
      */
     static void registerOraclePkiProvider() {
         OraclePKIProvider provider = new OraclePKIProvider();
-        // Provider positions vary by JDK distribution/version. Place Oracle's
-        // PKI provider immediately before the provider currently selected for
-        // KeyStore.PKCS12 rather than assuming a fixed slot. This preserves the
-        // JDK's earlier providers (including JSSE) while ensuring Oracle handles
-        // orapki KeyBag entries.
-        Security.removeProvider(provider.getName());
-        Provider[] pkcs12Providers = Security.getProviders("KeyStore.PKCS12");
-        if (pkcs12Providers == null || pkcs12Providers.length == 0) {
-            throw new IllegalStateException("No PKCS12 KeyStore provider is installed");
-        }
-        Provider currentPkcs12Provider = pkcs12Providers[0];
-        Provider[] orderedProviders = Security.getProviders();
-        int providerIndex = Arrays.asList(orderedProviders).indexOf(currentPkcs12Provider);
-        if (providerIndex < 0) {
-            throw new IllegalStateException("Unable to determine PKCS12 provider priority");
-        }
-        Security.insertProviderAt(provider, providerIndex + 1);
+        // Oracle's documented PKCS12 configuration places OraclePKIProvider
+        // at position 3: after the core SUN and SunRsaSign providers, but ahead
+        // of providers that may interfere with JSSE initialization.
+        Security.insertProviderAt(provider, 3);
     }
 
     @Override
