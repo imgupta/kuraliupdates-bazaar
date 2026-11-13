@@ -50,10 +50,25 @@ public final class OracleSecretsEnvironmentPostProcessor implements EnvironmentP
      */
     static void registerOraclePkiProvider() {
         OraclePKIProvider provider = new OraclePKIProvider();
-        // Oracle's documented PKCS12 configuration places OraclePKIProvider
-        // at position 3: after the core SUN and SunRsaSign providers, but ahead
-        // of providers that may interfere with JSSE initialization.
-        Security.insertProviderAt(provider, 3);
+        // Keep OraclePKI out of the global provider priority order: placing it
+        // ahead of SunJSSE can break default SSLContext initialization. Register
+        // it normally, then prefer it only for the PKCS12 KeyStore service.
+        if (Security.getProvider(provider.getName()) == null) {
+            Security.addProvider(provider);
+        }
+
+        String preference = "KeyStore.PKCS12:" + provider.getName();
+        String configuredPreferences = Security.getProperty("jdk.security.provider.preferred");
+        if (configuredPreferences == null || configuredPreferences.isBlank()) {
+            Security.setProperty("jdk.security.provider.preferred", preference);
+        } else {
+            java.util.List<String> entries = new java.util.ArrayList<>(
+                    java.util.Arrays.asList(configuredPreferences.split("\\s*,\\s*")));
+            entries.removeIf(entry -> entry.regionMatches(true, 0, "KeyStore.PKCS12:", 0,
+                    "KeyStore.PKCS12:".length()));
+            entries.add(preference);
+            Security.setProperty("jdk.security.provider.preferred", String.join(",", entries));
+        }
     }
 
     @Override
