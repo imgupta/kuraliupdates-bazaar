@@ -1,0 +1,214 @@
+name: Oracle Staging Portal Handoff Concurrency
+
+on:
+  # The only automatic execution is the merge commit that adds this workflow.
+  # It uses the dedicated staging API/Oracle database and only creates,
+  # redeems, and logs out short-lived test handoffs/sessions.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/oracle-staging-portal-handoff-concurrency.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kuraliupdates-single-staging-e2e
+  cancel-in-progress: false
+
+jobs:
+  oracle-portal-handoff-race:
+    name: Race one-time handoff redemption on Oracle staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      E2E_STAGING_CONFIG_JSON: ${{ secrets.E2E_STAGING_CONFIG_JSON }}
+      E2E_API_BASE_URL: https://kuraliupdates-bazaar.onrender.com/api/v1
+    steps:
+      - name: Checkout exact workflow commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Verify staging target and deployed backend commit
+        shell: bash
+        run: |
+          expected="$(git log -1 --format=%H -- backend-java-spring/)"
+          if [[ ! "$expected" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Could not resolve expected backend commit."
+            exit 1
+          fi
+          echo "EXPECTED_STAGING_COMMIT=$expected" >> "$GITHUB_ENV"
+
+      - name: Run Oracle-backed concurrent one-time redemption
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { randomUUID } from 'node:crypto';
+
+          const raw = process.env.E2E_STAGING_CONFIG_JSON;
+          if (!raw?.trim()) throw new Error('Missing E2E_STAGING_CONFIG_JSON; no staging request was made.');
+          let config;
+          try { config = JSON.parse(raw); } catch { throw new Error('E2E_STAGING_CONFIG_JSON is invalid JSON.'); }
+
+          const apiBase = process.env.E2E_API_BASE_URL;
+          const api = new URL(apiBase);
+          if (config.E2E_ENVIRONMENT !== 'staging' || api.protocol !== 'https:' ||
+              api.hostname !== 'kuraliupdates-bazaar.onrender.com' || api.pathname !== '/api/v1') {
+            throw new Error('Refusing to run outside the pinned KuraliUpdates staging API.');
+          }
+          const flowToken = String(config.E2E_FLOW_AUTH_TOKEN ?? '');
+          const identity = String(config.E2E_SELLER_IDENTITY ?? '').trim();
+          if (flowToken.length < 32 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identity)) {
+            throw new Error('Staging flow token or dedicated seller test identity is missing/invalid.');
+          }
+          if (String(config.E2E_TRANSACTIONAL_FLOWS_ENABLED) !== 'true' &&
+              config.E2E_TRANSACTIONAL_FLOWS_ENABLED !== true) {
+            throw new Error('Staging test configuration has not explicitly enabled transactional tests.');
+          }
+
+          const expectedCommit = String(process.env.EXPECTED_STAGING_COMMIT ?? '').toLowerCase();
+          if (!/^[0-9a-f]{40}$/.test(expectedCommit)) throw new Error('Expected backend commit SHA is invalid.');
+
+          const mask = (value) => {
+            if (typeof value === 'string' && value.length) {
+              console.log('::add-mask::' + value.replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A'));
+            }
+          };
+          mask(flowToken);
+
+          async function request(path, { method = 'GET', token, headers = {}, body } = {}) {
+            const response = await fetch(apiBase + path, {
+              method,
+              headers: {
+                ...(token ? { Authorization: 'Bearer ' + token } : {}),
+                ...headers,
+                ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+                'Cache-Control': 'no-store',
+                Accept: 'application/json'
+              },
+              ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+              signal: AbortSignal.timeout(20000)
+            });
+            const payload = await response.json().catch(() => ({}));
+            return { status: response.status, payload };
+          }
+
+          // Do not run against an old Render release or a database that is not ready.
+          const deadline = Date.now() + 8 * 60 * 1000;
+          let stable = 0;
+          let last = 'no response';
+          while (Date.now() < deadline && stable < 3) {
+            try {
+              const health = await request('/health');
+              const body = health.payload;
+              if (health.status === 200 && body.status === 'UP' && body.database === 'UP' &&
+                  String(body.commit ?? '').toLowerCase() === expectedCommit) {
+                stable++;
+                console.log('Staging API/database exact-commit readiness: ' + stable + '/3.');
+              } else {
+                stable = 0;
+                last = 'HTTP ' + health.status + ', database=' + String(body.database ?? 'unknown') +
+                  ', commit=' + String(body.commit ?? 'unknown');
+              }
+            } catch { stable = 0; last = 'network/timeout'; }
+            if (stable < 3) await new Promise(resolve => setTimeout(resolve, 5000));
+          }
+          if (stable !== 3) throw new Error('Staging API/database did not pass three exact-commit readiness probes: ' + last);
+
+          const runId = 'E2E-PORTAL-RACE-' + randomUUID();
+          let sessionIssued = false;
+          let failure = null;
+          let wins = 0;
+          let losses = 0;
+          try {
+            const session = await request('/e2e/auth/token', {
+              method: 'POST',
+              headers: { 'X-E2E-Flow-Token': flowToken, 'X-E2E-Run-Id': runId },
+              body: { role: 'SELLER', identifier: identity }
+            });
+            if (session.status !== 200 || session.payload.authenticated !== true ||
+                String(session.payload.role ?? '').toUpperCase() !== 'SELLER' ||
+                typeof session.payload.token !== 'string' || session.payload.token.length < 21) {
+              throw new Error('Could not obtain the dedicated staging SELLER test session (HTTP ' + session.status + ').');
+            }
+            sessionIssued = true;
+            const sellerToken = session.payload.token;
+            mask(sellerToken);
+
+            // Repeat independent two-request races to catch non-deterministic lost-update bugs.
+            for (let iteration = 1; iteration <= 10; iteration++) {
+              const created = await request('/auth/portal-handoff', {
+                method: 'POST',
+                token: sellerToken,
+                body: { role: 'SELLER' }
+              });
+              if (created.status !== 200 || typeof created.payload.code !== 'string' ||
+                  created.payload.code.length !== 64) {
+                throw new Error('Could not create handoff for race ' + iteration + ' (HTTP ' + created.status + ').');
+              }
+              const code = created.payload.code;
+              mask(code);
+
+              let release;
+              const gate = new Promise(resolve => { release = resolve; });
+              const redeem = async () => {
+                await gate;
+                return request('/auth/portal-handoff/redeem', {
+                  method: 'POST',
+                  body: { code }
+                });
+              };
+              const pending = [redeem(), redeem()];
+              release();
+              const results = await Promise.all(pending);
+              const successful = results.filter(x => x.status === 200 &&
+                x.payload.success === true && x.payload.authenticated === true &&
+                typeof x.payload.token === 'string' && x.payload.token.length >= 21);
+              const rejected = results.filter(x => x.status === 401);
+              if (successful.length !== 1 || rejected.length !== 1) {
+                for (const item of successful) {
+                  mask(item.payload.token);
+                  await request('/auth/logout', { method: 'POST', token: item.payload.token, body: {} });
+                }
+                throw new Error('Race ' + iteration + ' expected exactly one HTTP 200 and one HTTP 401; observed ' +
+                  results.map(x => x.status).join(',') + '.');
+              }
+              wins++;
+              losses++;
+              const winnerToken = successful[0].payload.token;
+              mask(winnerToken);
+              const winnerRole = String(successful[0].payload.role ?? '').toUpperCase();
+              if (winnerRole !== 'SELLER') throw new Error('Winning redemption returned an unexpected role.');
+              const logout = await request('/auth/logout', {
+                method: 'POST',
+                token: winnerToken,
+                body: {}
+              });
+              if (logout.status !== 200) throw new Error('Could not log out the one winning synthetic portal session.');
+              console.log('Race ' + iteration + '/10: exactly one redemption succeeded; the competing request was rejected; winner session logged out.');
+            }
+          } catch (error) {
+            failure = error;
+          } finally {
+            if (sessionIssued) {
+              try {
+                const cleanup = await request('/e2e/cleanup/' + encodeURIComponent(runId), {
+                  method: 'POST',
+                  headers: { 'X-E2E-Flow-Token': flowToken }
+                });
+                if (cleanup.status !== 200) throw new Error('Run-scoped synthetic session cleanup returned HTTP ' + cleanup.status);
+                console.log('PASS: run-scoped E2E session cleanup completed.');
+              } catch (cleanupError) {
+                failure = failure ?? cleanupError;
+                console.error('CLEANUP FAILED: ' + cleanupError.message);
+              }
+            }
+          }
+          if (failure) throw failure;
+          if (wins !== 10 || losses !== 10) throw new Error('Expected ten winning and ten losing outcomes.');
+          console.log('PASS: 10/10 Oracle staging handoff races produced exactly one winner and one rejected replay (10 successful, 10 rejected).');
+          console.log('Only short-lived portal handoff/session rows were created and consumed; each winning session was logged out. No orders, bookings, inventory or customer profile data was changed.');
+          NODE
