@@ -65,6 +65,17 @@ spring:
     baseline-on-migrate: true
     baseline-version: 13
     ignore-migration-patterns: "*:missing"
+
+# Temporary, targeted diagnostics for the Oracle startup/readiness investigation.
+# Avoid enabling global DEBUG or SQL/bind-value logging in production.
+logging:
+  level:
+    com.zaxxer.hikari: DEBUG
+    org.flywaydb: DEBUG
+    org.springframework.jdbc: DEBUG
+    oracle.jdbc: DEBUG
+    oracle.net: DEBUG
+
 app:
   document-scanner:
     clamav:
