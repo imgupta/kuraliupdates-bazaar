@@ -134,6 +134,7 @@ public class SecurityConfig {
             "Origin",
             "X-Requested-With",
             "X-Active-Role",
+            "X-Seller-Application-Token",
             "X-E2E-Run-Id",
             "X-E2E-Flow-Token",
             "X-E2E-OTP-Token"
