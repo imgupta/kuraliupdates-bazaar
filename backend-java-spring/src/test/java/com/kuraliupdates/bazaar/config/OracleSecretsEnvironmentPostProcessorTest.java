@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.security.Security;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,13 @@ class OracleSecretsEnvironmentPostProcessorTest {
     void setUp() throws Exception {
         environment = testEnvironment(completeProperties());
         createWalletFiles();
+    }
+
+    @Test
+    void registersOraclePkiProviderBeforeDatasourceInitialization() {
+        OracleSecretsEnvironmentPostProcessor.registerOraclePkiProvider();
+        assertFalse(java.util.Arrays.stream(Security.getProviders())
+                .noneMatch(provider -> provider.getClass().getName().equals("oracle.security.pki.OraclePKIProvider")));
     }
 
     @Test
