@@ -37,7 +37,7 @@ class OracleSecretsEnvironmentPostProcessorTest {
         assertFalse(java.util.Arrays.stream(Security.getProviders())
                 .noneMatch(provider -> provider.getClass().getName().equals("oracle.security.pki.OraclePKIProvider")));
         org.junit.jupiter.api.Assertions.assertEquals(
-                "OraclePKIProvider", Security.getProviders()[0].getClass().getSimpleName());
+                "OraclePKIProvider", Security.getProviders()[2].getClass().getSimpleName());
     }
 
     @Test
