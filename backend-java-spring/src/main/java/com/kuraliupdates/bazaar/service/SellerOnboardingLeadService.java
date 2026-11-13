@@ -41,8 +41,9 @@ public class SellerOnboardingLeadService {
                 "SELECT LEAD_ID FROM SELLER_ONBOARDING_LEADS WHERE EMAIL=? AND PHONE=? AND STATUS NOT IN ('CONVERTED','NOT_INTERESTED') ORDER BY CREATED_AT DESC FETCH FIRST 1 ROWS ONLY",
                 rs -> rs.next() ? rs.getString(1) : null, email, phone);
         if (existing != null) {
-            jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET OWNER_NAME=?, UPDATED_AT=? WHERE LEAD_ID=?",
-                    name, LocalDateTime.now(), existing);
+            // The contact pair has not been verified in this request. Do not let
+            // an unauthenticated repeat submission overwrite the existing lead's
+            // applicant name before the OTP challenge proves control of the contacts.
             return Map.of("success", true, "leadId", existing, "status", "EXISTING");
         }
         String id = UUID.randomUUID().toString();

@@ -57,6 +57,24 @@ class SellerOnboardingLeadServiceTest {
     }
 
     @Test
+    void reusingAnExistingLeadDoesNotOverwriteApplicantNameBeforeContactVerification() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        OtpService otp = mock(OtpService.class);
+        SellerRegistrationOtpConfigService config = mock(SellerRegistrationOtpConfigService.class);
+        when(config.get()).thenReturn(Map.of("emailOtpEnabled", true, "mobileOtpEnabled", false));
+        when(jdbc.query(anyString(), org.mockito.ArgumentMatchers.<org.springframework.jdbc.core.ResultSetExtractor<String>>any(),
+                any(Object[].class))).thenReturn("existing-lead-id");
+        SellerOnboardingLeadService service = new SellerOnboardingLeadService(jdbc, otp, config);
+
+        Map<String, Object> result = service.start("Attacker supplied name", "owner@example.test", "9876500000");
+
+        assertEquals("EXISTING", result.get("status"));
+        assertEquals("existing-lead-id", result.get("leadId"));
+        verify(jdbc, never()).update(startsWith("UPDATE SELLER_ONBOARDING_LEADS SET OWNER_NAME"), any(Object[].class));
+        verify(jdbc, never()).update(startsWith("INSERT INTO SELLER_ONBOARDING_LEADS"), any(Object[].class));
+    }
+
+    @Test
     void skippedOtpChannelsDoNotCountAsVerifiedContactWithoutOneActualVerification() {
         Map<String, Object> bothSkipped = Map.of(
                 "emailVerified", false, "phoneVerified", false,
