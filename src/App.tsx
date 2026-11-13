@@ -6,6 +6,7 @@ import { DeliveryDashboard } from './features/delivery';
 import { DailyHelpProfessionalDashboard } from './features/daily-help';
 import { AdminDashboard } from './features/admin';
 import type { UserRole } from './types';
+import { SellerApplicationContinuation } from './components/Auth/SellerApplicationContinuation';
 
 interface DashboardProps {
   role: UserRole;
@@ -26,5 +27,6 @@ const AllRoleDashboards: React.FC<DashboardProps> = ({ role, searchQuery, setSea
 );
 
 export default function App() {
+  if (window.location.pathname === '/seller-application') return <SellerApplicationContinuation />;
   return <PortalAppShell Dashboard={AllRoleDashboards} />;
 }
