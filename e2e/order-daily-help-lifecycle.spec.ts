@@ -713,6 +713,204 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
  });
 
 test.describe("Admin login, approval queues, and role restrictions", () => {
+  test("five-role portal authorization matrix rejects role switching and profile IDOR", async ({ request }, testInfo) => {
+    test.setTimeout(90_000);
+    const runId = runScopedId(testInfo);
+    runIds.set(testKey(testInfo), runId);
+    const roles = {
+      buyer: await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId),
+      seller: await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY", runId),
+      delivery: await flowToken(request, "DELIVERY", "E2E_DELIVERY_IDENTITY", runId),
+      professional: await flowToken(request, "PROVIDER", "E2E_PROVIDER_IDENTITY", runId),
+      admin: await flowToken(request, "ADMIN", "E2E_ADMIN_IDENTITY", runId),
+    };
+    const fixture = await prepareFixtures(request, runId,
+      stagingProfileId("E2E_FLOW_SELLER_ID"), stagingProfileId("E2E_FLOW_DELIVERY_AGENT_ID"),
+      required("E2E_PROVIDER_IDENTITY"));
+
+    const checks = [
+      { path: "/sellers/me/documents", allowed: "seller" as const },
+      { path: "/delivery/jobs/available", allowed: "delivery" as const },
+      { path: "/daily-help/professionals/" + encodeURIComponent(fixture.professionalId) + "/jobs/available", allowed: "professional" as const },
+      { path: "/admin/sellers/" + encodeURIComponent(fixture.sellerId) + "/documents", allowed: "admin" as const },
+    ];
+    for (const check of checks) {
+      for (const [role, token] of Object.entries(roles) as [keyof typeof roles, string][]) {
+        const response = await request.get(apiBase + check.path, { headers: auth(token), timeout: 20_000 });
+        if (role === check.allowed) {
+          expect(response.status(), role + " must access " + check.path).toBe(200);
+        } else {
+          expect([401, 403], role + " must not access " + check.path).toContain(response.status());
+        }
+      }
+    }
+
+    for (const role of ["BUYER", "SELLER"] as const) {
+      const token = role === "BUYER" ? roles.buyer : roles.seller;
+      const allowed = await request.get(apiBase + "/negotiations?role=" + role, { headers: auth(token), timeout: 20_000 });
+      expect(allowed.status(), role + " can only read its own bargaining inbox").toBe(200);
+    }
+    for (const token of [roles.delivery, roles.professional, roles.admin]) {
+      for (const role of ["BUYER", "SELLER"]) {
+        const denied = await request.get(apiBase + "/negotiations?role=" + role, { headers: auth(token), timeout: 20_000 });
+        expect([401, 403]).toContain(denied.status());
+      }
+    }
+
+    const wrongProfessional = await request.get(apiBase + "/daily-help/professionals/E2E-NOT-OWNED/jobs/available", {
+      headers: auth(roles.professional), timeout: 20_000,
+    });
+    expect(wrongProfessional.status(), "a professional cannot substitute another profile ID").toBe(403);
+  });
+
+  test("seller document rejection → corrected resubmission → admin verification and private download", async ({ request }, testInfo) => {
+    test.setTimeout(90_000);
+    const runId = runScopedId(testInfo);
+    runIds.set(testKey(testInfo), runId);
+    const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY", runId);
+    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
+    const deliveryToken = await flowToken(request, "DELIVERY", "E2E_DELIVERY_IDENTITY", runId);
+    const professionalToken = await flowToken(request, "PROVIDER", "E2E_PROVIDER_IDENTITY", runId);
+    const adminToken = await flowToken(request, "ADMIN", "E2E_ADMIN_IDENTITY", runId);
+    const fixture = await prepareFixtures(request, runId,
+      stagingProfileId("E2E_FLOW_SELLER_ID"), stagingProfileId("E2E_FLOW_DELIVERY_AGENT_ID"),
+      required("E2E_PROVIDER_IDENTITY"));
+    const sellerId = fixture.sellerId;
+    const multipartHeaders = (token: string) => ({
+      Authorization: "Bearer " + token,
+      "Cache-Control": "no-store",
+    });
+    const upload = (token: string, filename: string, content: string) => request.post(
+      apiBase + "/sellers/me/documents",
+      {
+        headers: multipartHeaders(token),
+        multipart: {
+          documentType: "SHOP_FRONT_PHOTO",
+          file: { name: filename, mimeType: "application/pdf", buffer: Buffer.from(content) },
+        },
+        timeout: 30_000,
+      },
+    );
+
+    const firstUpload = await upload(sellerToken, "shop-front-original.pdf", "%PDF-1.7 synthetic original shop front");
+    const firstText = await firstUpload.text();
+    expect(firstUpload.status(), "seller's original document should pass validation and malware scan: " + firstText).toBe(201);
+    const first = JSON.parse(firstText);
+    expect(first.scanStatus).toBe("CLEAN");
+    expect(first.verificationStatus).toBe("PENDING");
+    const firstId = String(first.documentId);
+    expect(firstId).toMatch(/^sdoc-/);
+
+    const ownMetadata = await request.get(apiBase + "/sellers/me/documents", { headers: auth(sellerToken) });
+    expect(ownMetadata.status()).toBe(200);
+    expect((await ownMetadata.json()).some((doc: any) => doc.documentId === firstId)).toBeTruthy();
+
+    const adminList = await request.get(apiBase + "/admin/sellers/" + encodeURIComponent(sellerId) + "/documents", {
+      headers: auth(adminToken), timeout: 20_000,
+    });
+    expect(adminList.status()).toBe(200);
+    expect((await adminList.json()).some((doc: any) => doc.documentId === firstId)).toBeTruthy();
+
+    for (const [role, token] of [["buyer", buyerToken], ["seller", sellerToken],
+      ["delivery", deliveryToken], ["professional", professionalToken]] as const) {
+      const denied = await request.get(apiBase + "/admin/sellers/" + encodeURIComponent(sellerId) + "/documents", {
+        headers: auth(token), timeout: 20_000,
+      });
+      expect([401, 403], role + " cannot access admin document review").toContain(denied.status());
+    }
+
+    const rejectionReason = "Please upload a clearer, current shop-front photograph.";
+    const reject = await request.post(apiBase + "/admin/sellers/" + encodeURIComponent(sellerId)
+      + "/documents/" + encodeURIComponent(firstId) + "/verification?status=REJECTED&reason="
+      + encodeURIComponent(rejectionReason), { headers: auth(adminToken), timeout: 20_000 });
+    expect(reject.status(), "admin rejection requires and records a correction reason").toBe(200);
+    expect((await reject.json()).verificationStatus).toBe("REJECTED");
+
+    const afterRejection = await request.get(apiBase + "/sellers/me/documents", { headers: auth(sellerToken) });
+    const rejectedMetadata = (await afterRejection.json()).find((doc: any) => doc.documentId === firstId);
+    expect(rejectedMetadata.verificationStatus).toBe("REJECTED");
+    expect(rejectedMetadata.rejectionReason).toBe(rejectionReason);
+
+    const resubmission = await upload(sellerToken, "shop-front-corrected.pdf", "%PDF-1.7 synthetic corrected shop front");
+    const resubmissionText = await resubmission.text();
+    expect(resubmission.status(), "seller can submit a corrected document after rejection: " + resubmissionText).toBe(201);
+    const corrected = JSON.parse(resubmissionText);
+    const correctedId = String(corrected.documentId);
+    expect(correctedId).toMatch(/^sdoc-/);
+    expect(correctedId).not.toBe(firstId);
+    expect(corrected.verificationStatus).toBe("PENDING");
+    expect(corrected.scanStatus).toBe("CLEAN");
+
+    const verify = await request.post(apiBase + "/admin/sellers/" + encodeURIComponent(sellerId)
+      + "/documents/" + encodeURIComponent(correctedId) + "/verification?status=VERIFIED", {
+        headers: auth(adminToken), timeout: 20_000,
+      });
+    expect(verify.status(), "admin can verify the corrected clean document").toBe(200);
+    expect((await verify.json()).verificationStatus).toBe("VERIFIED");
+
+    const wrongSellerDownload = await request.get(apiBase + "/admin/sellers/E2E-NOT-OWNED/documents/"
+      + encodeURIComponent(correctedId), { headers: auth(adminToken), timeout: 20_000 });
+    expect(wrongSellerDownload.status(), "document IDs cannot be replayed under another seller path").toBe(404);
+
+    const privateDownload = await request.get(apiBase + "/admin/sellers/" + encodeURIComponent(sellerId)
+      + "/documents/" + encodeURIComponent(correctedId), { headers: auth(adminToken), timeout: 20_000 });
+    expect(privateDownload.status()).toBe(200);
+    expect(privateDownload.headers()["cache-control"]).toContain("no-store");
+    expect(privateDownload.headers()["x-content-type-options"]).toBe("nosniff");
+    expect(privateDownload.headers()["content-type"]).toContain("application/pdf");
+    expect((await privateDownload.body()).toString("utf8").startsWith("%PDF-1.7")).toBeTruthy();
+  });
+
+  test("bargaining rejection is terminal and replay-safe", async ({ request }, testInfo) => {
+    test.setTimeout(60_000);
+    const runId = runScopedId(testInfo);
+    runIds.set(testKey(testInfo), runId);
+    const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
+    const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY", runId);
+    const fixture = await prepareFixtures(request, runId,
+      stagingProfileId("E2E_FLOW_SELLER_ID"), stagingProfileId("E2E_FLOW_DELIVERY_AGENT_ID"),
+      required("E2E_PROVIDER_IDENTITY"));
+    const products = await getJson(request, "/buyers/products/search?query=" + encodeURIComponent(fixture.productId), buyerToken);
+    const product = products.find((item: any) => item.productId === fixture.productId);
+    expect(product).toBeTruthy();
+    const price = Number(product.effectivePrice ?? product.price ?? product.sellerPrice);
+    expect(Number.isFinite(price) && price > 0).toBeTruthy();
+
+    const opened = await request.post(apiBase + "/negotiations", {
+      headers: taggedAuth(buyerToken, runId),
+      data: { productId: fixture.productId, startingOfferPrice: Math.round(price * 0.9 * 100) / 100,
+        openingMessage: "E2E rejection-path conversation" },
+      timeout: 20_000,
+    });
+    expect(opened.status()).toBe(200);
+    const chat = await opened.json();
+    const chatId = String(chat.id);
+    const offer = (chat.messages ?? []).find((message: any) => message.senderRole === "buyer" && message.offer?.status === "pending");
+    expect(offer).toBeTruthy();
+
+    const rejected = await request.post(apiBase + "/negotiations/" + encodeURIComponent(chatId)
+      + "/offers/" + encodeURIComponent(offer.offer.id) + "/respond", {
+        headers: { ...auth(sellerToken), "X-Active-Role": "SELLER" },
+        data: { action: "REJECT" }, timeout: 20_000,
+      });
+    expect(rejected.status()).toBe(200);
+    const rejectedChat = await rejected.json();
+    expect(rejectedChat.messages.some((message: any) => String(message.offer?.id) === String(offer.offer.id)
+      && message.offer?.status === "rejected")).toBeTruthy();
+
+    const replay = await request.post(apiBase + "/negotiations/" + encodeURIComponent(chatId)
+      + "/offers/" + encodeURIComponent(offer.offer.id) + "/respond", {
+        headers: { ...auth(sellerToken), "X-Active-Role": "SELLER" },
+        data: { action: "REJECT" }, timeout: 20_000,
+      });
+    expect([400, 409]).toContain(replay.status());
+    const buyerReadBack = await getJson(request, "/negotiations?role=BUYER", buyerToken);
+    const finalChat = buyerReadBack.find((item: any) => item.id === chatId);
+    expect(finalChat).toBeTruthy();
+    expect(finalChat.messages.some((message: any) => String(message.offer?.id) === String(offer.offer.id)
+      && message.offer?.status === "rejected")).toBeTruthy();
+  });
+
   test("root admin can read approval queues; buyer and seller sessions cannot", async ({ request }, testInfo) => {
     const trustedEvent = process.env.GITHUB_EVENT_NAME === "push"
       || process.env.GITHUB_EVENT_NAME === "schedule"
