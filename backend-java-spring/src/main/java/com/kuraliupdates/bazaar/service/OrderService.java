@@ -42,6 +42,9 @@ public class OrderService {
     public com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse placeMultiSellerOrder(
             MultiSellerCheckoutRequest request, UserEntity buyer, String e2eRunId) {
         requireBuyer(buyer);
+        if (request == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Checkout request is required");
+        }
         if (!"COD".equalsIgnoreCase(request.paymentMethod())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Online payment is not enabled yet. Please select Cash on Delivery.");
         }

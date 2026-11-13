@@ -677,3 +677,8 @@ This is service-level regression evidence for cancellation invariants and group 
 ## 14 November 2026 — consolidated seller-lead transition regression
 
 The current mainline seller-onboarding lead service already enforces forward-only state checks in verifyContact and requestCallback, followed by conditional SQL updates requiring the expected prior state. The consolidated regression batch adds service-entry tests proving that an already-submitted lead is rejected before OTP verification and that a repeated callback request is rejected before any write. The tests use mocked JDBC row mapping; they do not establish Oracle locking or concurrent-update behavior. Exact-head Maven and standard CI remain required. Phase 0 and Phase 1 remain open, including seller-document correction/approval E2E, complete five-role authorization, isolated Oracle rollback/concurrency, abuse/privacy, secret rotation, India production residency and qualified professional review.
+
+
+## 14 November 2026 — multi-seller checkout preflight hardening
+
+The consolidated PR adds an explicit null-request guard to the multi-seller checkout service and regression coverage for null requests, unsupported payment methods, invalid fulfilment modes, empty carts, disabled store pickup, and configured seller-count limits. The tests assert invalid requests fail before order persistence and, where applicable, before catalogue access. These are service-level validation tests using mocks; they do not prove cross-seller transaction rollback after a database write, Oracle locking, or concurrent checkout behavior. Those remain isolated Oracle/staging acceptance gates.

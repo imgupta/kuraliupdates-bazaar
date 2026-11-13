@@ -1,6 +1,7 @@
 package com.kuraliupdates.bazaar.service;
 
 import com.kuraliupdates.bazaar.dto.order.OrderItemRequest;
+import com.kuraliupdates.bazaar.dto.order.MultiSellerCheckoutRequest;
 import com.kuraliupdates.bazaar.dto.order.PlaceOrderRequest;
 import com.kuraliupdates.bazaar.entity.ProductEntity;
 import com.kuraliupdates.bazaar.entity.SellerEntity;
@@ -455,6 +456,106 @@ class OrderServiceTest {
         assertEquals(new BigDecimal("60.00"), result.order().subtotal());
         verify(productRepository, times(1)).findLockedByProductId("P-1");
         verify(orderRepository).save(any(OrderEntity.class));
+    }
+
+
+    @Test
+    void nullMultiSellerCheckoutRequestReturnsBadRequestBeforeDatabaseAccess() {
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.placeMultiSellerOrder(null, buyer(), null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verifyNoInteractions(orderRepository, sellerRepository, productRepository, jdbc, googleRoutesService);
+    }
+
+    @Test
+    void multiSellerCheckoutRejectsOnlinePaymentBeforeCatalogAccess() {
+        MultiSellerCheckoutRequest request = multiSellerRequest("UPI", "DELIVERY",
+                List.of(new OrderItemRequest("P-1", 1, null)));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.placeMultiSellerOrder(request, buyer(), null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verifyNoInteractions(orderRepository, sellerRepository, productRepository, jdbc, googleRoutesService);
+    }
+
+    @Test
+    void multiSellerCheckoutRejectsUnsupportedFulfilmentModeBeforeDatabaseAccess() {
+        MultiSellerCheckoutRequest request = multiSellerRequest("COD", "COURIER",
+                List.of(new OrderItemRequest("P-1", 1, null)));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.placeMultiSellerOrder(request, buyer(), null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verifyNoInteractions(orderRepository, sellerRepository, productRepository, googleRoutesService);
+    }
+
+    @Test
+    void multiSellerCheckoutRejectsEmptyCartBeforeCatalogAccess() {
+        MultiSellerCheckoutRequest request = multiSellerRequest("COD", "DELIVERY", List.of());
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.placeMultiSellerOrder(request, buyer(), null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verifyNoInteractions(orderRepository, sellerRepository, productRepository, googleRoutesService);
+    }
+
+    @Test
+    void multiSellerCheckoutRejectsDisabledStorePickupBeforeCatalogAccess() {
+        MultiSellerCheckoutRequest request = multiSellerRequest("COD", "STORE_PICKUP",
+                List.of(new OrderItemRequest("P-1", 1, null)));
+        when(jdbc.queryForObject(contains("STORE_PICKUP_ENABLED"), eq(Integer.class))).thenReturn(0);
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.placeMultiSellerOrder(request, buyer(), null));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        verifyNoInteractions(orderRepository, sellerRepository, productRepository, googleRoutesService);
+        verify(jdbc, never()).queryForObject(contains("MAX_SELLERS_PER_BATCH"), eq(Integer.class));
+    }
+
+    @Test
+    void multiSellerCheckoutEnforcesConfiguredSellerLimitBeforeCreatingOrders() {
+        List<SellerEntity> sellers = List.of(
+                sellerWithId("SELLER-A"), sellerWithId("SELLER-B"),
+                sellerWithId("SELLER-C"), sellerWithId("SELLER-D"));
+        for (int i = 0; i < sellers.size(); i++) {
+            ProductEntity product = ProductEntity.builder()
+                    .productId("P-" + i).seller(sellers.get(i)).stock(10)
+                    .sellerPrice(BigDecimal.TEN).additionalDiscountPercent(BigDecimal.ZERO).build();
+            when(productRepository.findById("P-" + i)).thenReturn(Optional.of(product));
+        }
+        when(jdbc.queryForObject(contains("MAX_SELLERS_PER_BATCH"), eq(Integer.class))).thenReturn(3);
+        List<OrderItemRequest> items = List.of(
+                new OrderItemRequest("P-0", 1, null),
+                new OrderItemRequest("P-1", 1, null),
+                new OrderItemRequest("P-2", 1, null),
+                new OrderItemRequest("P-3", 1, null));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.placeMultiSellerOrder(multiSellerRequest("COD", "DELIVERY", items), buyer(), null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verify(productRepository, times(4)).findById(anyString());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+        verify(orderRepository, never()).saveAll(any(Iterable.class));
+        verify(productRepository, never()).findLockedByProductId(anyString());
+    }
+
+    private SellerEntity sellerWithId(String id) {
+        return SellerEntity.builder().sellerId(id).storeName("Synthetic " + id)
+                .status("APPROVED").storeOpen(true)
+                .minOrderForFreeDelivery(BigDecimal.valueOf(499))
+                .baseDeliveryFee(BigDecimal.valueOf(35)).build();
+    }
+
+    private MultiSellerCheckoutRequest multiSellerRequest(String paymentMethod, String fulfilmentMode,
+                                                           List<OrderItemRequest> items) {
+        return new MultiSellerCheckoutRequest("Synthetic Test Address", "Kurali", paymentMethod,
+                fulfilmentMode, BigDecimal.ZERO, 30.0, 76.5, "synthetic-place", items);
     }
 
     private UserEntity buyer() {
