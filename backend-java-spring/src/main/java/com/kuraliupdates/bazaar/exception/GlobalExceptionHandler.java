@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -46,6 +47,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleMalformedRequest(HttpMessageNotReadableException ex) {
         return ResponseEntity.badRequest().body(ErrorResponse.of("Request body is invalid", "INVALID_REQUEST"));
+    }
+
+    /**
+     * A caller may disconnect while a response is being written (for example,
+     * when a bounded smoke probe times out). Spring wraps that condition in
+     * AsyncRequestNotUsableException. The response is no longer writable, so
+     * do not attempt to serialize a second error body or report it as a 500.
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void handleClientAbort(AsyncRequestNotUsableException ex) {
+        log.debug("Client disconnected before the API response completed.");
     }
 
     @ExceptionHandler(Exception.class)
