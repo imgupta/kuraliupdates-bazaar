@@ -116,6 +116,23 @@ jobs:
           JWT_SECRET: ci-placeholder-0123456789-0123456789-0123456789
           ORACLE_WALLET_DIR: ${{ github.workspace }}/backend-java-spring/src/test/resources/oracle-wallet-fixture
 
+      - name: SonarCloud analysis and quality gate
+        # Configure SONAR_PROJECT_KEY and SONAR_ORGANIZATION as repository variables
+        # and SONAR_TOKEN as a repository secret to activate this required analysis.
+        if: ${{ vars.SONAR_PROJECT_KEY != '' && vars.SONAR_ORGANIZATION != '' }}
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          args: >
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+            -Dsonar.sources=src,backend-java-spring/src/main/java
+            -Dsonar.tests=tests,backend-java-spring/src/test/java
+            -Dsonar.java.binaries=backend-java-spring/target/classes
+            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/target/**,**/playwright-report/**,**/test-results/**
+            -Dsonar.qualitygate.wait=true
   e2e:
     name: Browser E2E and read-only smoke checks
     runs-on: ubuntu-latest
