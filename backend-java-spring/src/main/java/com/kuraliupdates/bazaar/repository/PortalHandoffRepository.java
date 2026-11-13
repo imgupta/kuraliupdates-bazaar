@@ -12,7 +12,21 @@ import java.time.LocalDateTime;
 @Repository
 public interface PortalHandoffRepository extends JpaRepository<PortalHandoffEntity, String> {
 
-    void deleteByExpiresAtBefore(LocalDateTime now);
+    /**
+     * Deletes expired rows with one set-based SQL statement.
+     *
+     * A derived deleteBy... method loads entities and deletes them individually.
+     * Concurrent requests can then both hold the same entity and the second
+     * delete raises Hibernate StaleStateException when the first has removed it.
+     * This bulk delete is idempotent under concurrent callers: a row deleted by
+     * another transaction simply contributes zero affected rows.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            delete from PortalHandoffEntity handoff
+             where handoff.expiresAt < :now
+            """)
+    int deleteExpiredBefore(@Param("now") LocalDateTime now);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""

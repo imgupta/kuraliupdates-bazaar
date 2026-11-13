@@ -26,7 +26,9 @@ public class PortalHandoffService {
     @Transactional
     public String create(String sessionToken, String role) {
         LocalDateTime now = LocalDateTime.now();
-        repository.deleteByExpiresAtBefore(now);
+        // Set-based deletion avoids loading expired entities into the persistence
+        // context, where concurrent creators could race and trigger stale deletes.
+        repository.deleteExpiredBefore(now);
         byte[] randomCode = new byte[32];
         RANDOM.nextBytes(randomCode);
         String code = HexFormat.of().formatHex(randomCode);

@@ -36,6 +36,7 @@ class PortalHandoffServiceTest {
         assertEquals("active-session", stored.getSessionToken());
         assertEquals("SELLER", stored.getRole());
         assertEquals(60, java.time.Duration.between(stored.getCreatedAt(), stored.getExpiresAt()).getSeconds());
+        verify(repository).deleteExpiredBefore(any(LocalDateTime.class));
     }
 
     @Test
