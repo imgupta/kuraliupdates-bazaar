@@ -682,3 +682,11 @@ The current mainline seller-onboarding lead service already enforces forward-onl
 ## 14 November 2026 — multi-seller checkout preflight hardening
 
 The consolidated PR adds an explicit null-request guard to the multi-seller checkout service and regression coverage for null requests, unsupported payment methods, invalid fulfilment modes, empty carts, disabled store pickup, and configured seller-count limits. The tests assert invalid requests fail before order persistence and, where applicable, before catalogue access. These are service-level validation tests using mocks; they do not prove cross-seller transaction rollback after a database write, Oracle locking, or concurrent checkout behavior. Those remain isolated Oracle/staging acceptance gates.
+
+
+
+## 14 November 2026 — Daily Help and delivery request-boundary hardening
+
+The consolidated continuation now rejects a null Daily Help booking request before repository access, rejects a null service-start request or missing professional identity before booking lookup, and validates the service-start OTP as exactly four digits before locking or loading a booking. Regression tests assert these invalid requests do not touch repositories. Delivery OTP verification now rejects a null payload, missing OTP, or malformed four-character numeric OTP at the controller boundary before calling the delivery service; a controller regression test covers all three cases.
+
+These are request-validation and fail-fast guarantees. They do not replace authenticated end-to-end acceptance for provider acceptance/rejection, slot contention, delivery claim races, OTP resend expiry, Oracle locking, or transaction rollback. Those remain isolated staging/Oracle gates.
