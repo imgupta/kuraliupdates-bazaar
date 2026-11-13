@@ -51,10 +51,10 @@ public class SellerApplicationController {
         String id = "sapp-" + UUID.randomUUID();
         String accessToken = UUID.randomUUID().toString() + UUID.randomUUID();
         LocalDateTime now = LocalDateTime.now();
-        jdbc.update("INSERT INTO SELLER_APPLICATIONS (APPLICATION_ID,OWNER_NAME,EMAIL,PHONE,SHOP_NAME,STATUS,APPLICATION_JSON,ACCESS_TOKEN_HASH,CREATED_BY,CREATED_AT,UPDATED_AT) VALUES (?,?,?,?,?,'DRAFT',?,?,?,?,?)",
+        jdbc.update("INSERT INTO SELLER_APPLICATIONS (APPLICATION_ID,OWNER_NAME,EMAIL,PHONE,SHOP_NAME,STATUS,APPLICATION_JSON,ACCESS_TOKEN_HASH,ACCESS_TOKEN_EXPIRES_AT,CREATED_BY,CREATED_AT,UPDATED_AT) VALUES (?,?,?,?,?,'DRAFT',?,?,?,?,?,?)",
                 id, text(body,"ownerName"), text(body,"email").toLowerCase(Locale.ROOT),
                 text(body,"phone").replaceAll("\\D",""), text(body,"shopName"), json(body),
-                hash(accessToken), auth.getName(), now, now);
+                hash(accessToken), now.plusDays(30), auth.getName(), now, now);
         audit(id, auth.getName(), "APPLICATION_CREATED", "CRM created application");
         return Map.of("applicationId",id,"status","DRAFT","sellerAccessToken",accessToken,
                 "message","Copy this secure continuation token now. It is not stored in readable form.");
@@ -134,7 +134,7 @@ public class SellerApplicationController {
     @PostMapping("/admin/seller-applications/{id}/submit")
     public Map<String,Object> submit(@PathVariable String id,Authentication auth) {
         requireAdmin(auth);
-        return submitApplication(id,auth.getName(),false);
+        return submitApplication(id,auth.getName(),false,null);
     }
 
     @PostMapping("/seller-applications/{id}/submit")
@@ -144,7 +144,7 @@ public class SellerApplicationController {
         read(id,true,token);
         if (!Boolean.TRUE.equals(body.get("agreementAccepted")))
             throw new ApiException(HttpStatus.BAD_REQUEST,"Seller must personally accept the seller agreement");
-        return submitApplication(id,"SELLER",true);
+        return submitApplication(id,"SELLER",true,token);
     }
 
     @PatchMapping("/admin/seller-applications/{id}/status")
@@ -162,8 +162,8 @@ public class SellerApplicationController {
         return read(id,false);
     }
 
-    private Map<String,Object> submitApplication(String id,String actor,boolean sellerAccepted) {
-        Map<String,Object> app = read(id,sellerAccepted, null);
+    private Map<String,Object> submitApplication(String id,String actor,boolean sellerAccepted,String token) {
+        Map<String,Object> app = read(id,sellerAccepted, token);
         if (!"IN_PROGRESS".equals(app.get("status")) && !"DRAFT".equals(app.get("status")))
             throw new ApiException(HttpStatus.CONFLICT,"Application is not ready to submit");
         Map<String,Object> details = (Map<String,Object>) app.get("details");
@@ -209,19 +209,19 @@ public class SellerApplicationController {
 
     private Map<String,Object> read(String id,boolean tokenRequired) { return read(id,tokenRequired,null); }
     private Map<String,Object> read(String id,boolean tokenRequired,String token) {
-        List<Map<String,Object>> rows=jdbc.query("SELECT APPLICATION_JSON,STATUS,STATUS_REASON,ASSIGNED_TO,UPDATED_AT,ACCESS_TOKEN_HASH FROM SELLER_APPLICATIONS WHERE APPLICATION_ID=?",
+        List<Map<String,Object>> rows=jdbc.query("SELECT APPLICATION_JSON,STATUS,STATUS_REASON,ASSIGNED_TO,UPDATED_AT,ACCESS_TOKEN_HASH,ACCESS_TOKEN_EXPIRES_AT FROM SELLER_APPLICATIONS WHERE APPLICATION_ID=?",
                 (rs,n)->{
                     Map<String,Object> m=new LinkedHashMap<>();
                     try { m.put("details",mapper.readValue(rs.getString(1),new TypeReference<Map<String,Object>>(){})); }
                     catch(Exception e) { throw new IllegalStateException("Invalid stored application",e); }
                     m.put("status",rs.getString(2));m.put("statusReason",rs.getString(3));
-                    m.put("assignedTo",rs.getString(4));m.put("updatedAt",rs.getTimestamp(5));m.put("tokenHash",rs.getString(6));return m;
+                    m.put("assignedTo",rs.getString(4));m.put("updatedAt",rs.getTimestamp(5));m.put("tokenHash",rs.getString(6));m.put("tokenExpiresAt",rs.getTimestamp(7));return m;
                 },id);
         if(rows.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND,"Seller application not found");
         Map<String,Object> result=rows.get(0);
-        if(tokenRequired && (token==null || !constantEquals(String.valueOf(result.get("tokenHash")),hash(token))))
+        if(tokenRequired && (token==null || !constantEquals(String.valueOf(result.get("tokenHash")),hash(token)) || result.get("tokenExpiresAt")==null || ((java.sql.Timestamp)result.get("tokenExpiresAt")).toLocalDateTime().isBefore(LocalDateTime.now())))
             throw new ApiException(HttpStatus.FORBIDDEN,"Invalid seller application access token");
-        result.remove("tokenHash");
+        result.remove("tokenHash"); result.remove("tokenExpiresAt");
         result.put("applicationId",id);
         return result;
     }
