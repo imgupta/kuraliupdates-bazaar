@@ -32,9 +32,7 @@ spring:
       pool-name: KuraliHikariPool
       connection-init-sql: ALTER SESSION DISABLE PARALLEL DML
       data-source-properties:
-        # Explicitly select the password-protected PKCS12 wallet. Supplying
-        # wallet_password makes Oracle JDBC use ewallet.p12 instead of trying
-        # to load the auto-login cwallet.sso (which failed ASN.1 parsing).
+        # Explicitly select the password-protected PKCS12 wallet.
         oracle.net.wallet_location: file:${ORACLE_WALLET_DIR}/ewallet.p12
         oracle.net.wallet_password: ${WALLET_PASSWORD}
         oracle.net.tns_admin: ${ORACLE_WALLET_DIR}
@@ -66,13 +64,15 @@ spring:
     baseline-version: 13
     ignore-migration-patterns: "*:missing"
 
-# Temporary, targeted diagnostics for the Oracle startup/readiness investigation.
-# Avoid enabling global DEBUG or SQL/bind-value logging in production.
+# Targeted startup diagnostics. Keep HikariConfig at WARN because its DEBUG
+# configuration dump includes data-source properties such as wallet_password.
 logging:
   level:
-    com.zaxxer.hikari: DEBUG
+    com.zaxxer.hikari: INFO
+    com.zaxxer.hikari.HikariConfig: WARN
+    com.zaxxer.hikari.pool.HikariPool: DEBUG
     org.flywaydb: DEBUG
-    org.springframework.jdbc: DEBUG
+    org.springframework.jdbc: INFO
     oracle.jdbc: DEBUG
     oracle.net: DEBUG
 
