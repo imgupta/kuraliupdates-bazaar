@@ -62,6 +62,20 @@ class E2eRunCleanupServiceTest {
                 "DAILY_HELP_BOOKINGS has no SLOT_ID column");
         assertTrue(statements.stream().anyMatch(statement -> statement.contains("s.BOOKING_ID = b.BOOKING_ID")),
                 "booking preflight must locate its run-owned slot through the slot's BOOKING_ID");
+        String orderPreflight = statements.stream()
+                .filter(statement -> statement.contains("FROM ORDERS o"))
+                .findFirst().orElseThrow();
+        assertTrue(orderPreflight.contains("o.PAYMENT_STATUS"),
+                "cancelled test orders are safe only when COD remains unpaid");
+        assertTrue(orderPreflight.contains("o.FULFILMENT_STATUS"),
+                "cancelled test orders are safe only after fulfilment is cancelled");
+        assertFalse(orderPreflight.contains("OR UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%CANCEL%'"),
+                "a correctly cancelled synthetic COD order must not be rejected solely for being cancelled");
+        String stockRestore = statements.stream()
+                .filter(statement -> statement.contains("UPDATE PRODUCTS p"))
+                .findFirst().orElseThrow();
+        assertTrue(stockRestore.contains("NOT LIKE '%CANCEL%'"),
+                "cleanup must not restore stock a second time after cancellation already restored it");
         assertFalse(statements.stream().anyMatch(statement -> statement.contains("b.PROFESSIONAL_ID NOT LIKE 'E2E-%'")),
                 "a booking may reference the pre-provisioned staging professional; only its run-owned slot is deleted");
         assertFalse(statements.stream().anyMatch(statement -> statement.contains("o.SELLER_ID NOT LIKE 'E2E-%'")),
