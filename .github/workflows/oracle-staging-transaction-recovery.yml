@@ -26,13 +26,13 @@ jobs:
       E2E_ENVIRONMENT: staging
       E2E_BASE_URL: https://bazaar.kuraliupdates.com
       E2E_API_BASE_URL: https://kuraliupdates-bazaar.onrender.com/api/v1
-      E2E_STAGING_CONFIG_JSON: \${{ secrets.E2E_STAGING_CONFIG_JSON }}
+      E2E_STAGING_CONFIG_JSON: ${{ secrets.E2E_STAGING_CONFIG_JSON }}
       E2E_TRANSACTIONAL_FLOWS_ENABLED: "true"
     steps:
       - name: Checkout exact workflow commit
         uses: actions/checkout@v4
         with:
-          ref: \${{ github.sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Resolve expected deployed backend commit
