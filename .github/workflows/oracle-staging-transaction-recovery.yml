@@ -35,15 +35,19 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Resolve expected deployed backend commit
+      - name: Resolve expected Render deployment commit
         shell: bash
         run: |
-          expected="$(git log -1 --format=%H -- backend-java-spring/)"
+          # Render's RENDER_GIT_COMMIT reports the deployed Git revision. A
+          # path-limited git log can resolve to a PR head commit instead of
+          # the merge commit Render actually deploys, causing a false timeout.
+          expected="${GITHUB_SHA,,}"
           if [[ ! "$expected" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "Could not resolve expected backend commit."
+            echo "Could not resolve the expected GitHub deployment commit."
             exit 1
           fi
           echo "EXPECTED_STAGING_COMMIT=$expected" >> "$GITHUB_ENV"
+          echo "Expected Render deployment commit: $expected"
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -133,10 +137,17 @@ jobs:
                 console.log('Exact backend commit and Oracle readiness: ' + stable + '/3.');
               } else {
                 stable = 0;
-                last = 'HTTP ' + response.status + ', database=' + String(body.database ?? 'unknown')
+                last = 'HTTP ' + response.status + ', status=' + String(body.status ?? 'unknown')
+                  + ', database=' + String(body.database ?? 'unknown')
+                  + ', migration=' + String(body.migration ?? 'unknown')
                   + ', commit=' + String(body.commit ?? 'unknown');
+                console.log('Readiness not yet satisfied: ' + last);
               }
-            } catch { stable = 0; last = 'network/timeout'; }
+            } catch (error) {
+              stable = 0;
+              last = error?.name === 'TimeoutError' ? 'request timeout' : 'network error';
+              console.log('Readiness request failed: ' + last);
+            }
             if (stable < 3) await new Promise(resolve => setTimeout(resolve, 5000));
           }
           if (stable !== 3) throw new Error('Staging readiness failed: ' + last);
