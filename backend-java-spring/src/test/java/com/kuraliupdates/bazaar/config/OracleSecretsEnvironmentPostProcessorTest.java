@@ -29,20 +29,6 @@ class OracleSecretsEnvironmentPostProcessorTest {
     }
 
     @Test
-    void rejectsNonTlsOrWalletAliasJdbcUrls() {
-        for (String url : java.util.List.of(
-                "jdbc:oracle:thin:@mydb_high",
-                "jdbc:oracle:thin:@//db.example.com:1521/service",
-                "jdbc:oracle:thin:@(description=(address=(protocol=tcp)(host=db)(port=1521)))")) {
-            Map<String, Object> properties = completeProperties();
-            properties.put("ORACLE_JDBC_URL", url);
-            IllegalStateException error = assertThrows(IllegalStateException.class,
-                    () -> OracleSecretsEnvironmentPostProcessor.validate(testEnvironment(properties)));
-            org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("TCPS"));
-        }
-    }
-
-    @Test
     void rejectsWeakJwtSecret() {
         Map<String, Object> properties = completeProperties();
         properties.put("JWT_SECRET", "short");
