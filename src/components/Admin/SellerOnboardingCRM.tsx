@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { adminAuthHeaders, API_BASE_URL } from '../../services/http/apiConfig';
 import { Phone, RefreshCw, Search, MessageSquare, UserRoundCheck } from 'lucide-react';
+import { SellerApplicationWorkspace } from './SellerApplicationWorkspace';
 
 type Lead = {
   leadId: string; ownerName: string; email: string; phone: string; status: string;
@@ -96,7 +97,7 @@ export const SellerOnboardingCRM: React.FC = () => {
     finally { setBusy(false); }
   };
 
-  return <section className="space-y-5">
+  return <><section className="space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="text-xl font-black text-slate-900">Merchant onboarding leads</h2><p className="mt-1 text-xs text-slate-500">Verified contact, callback consent, assignment and call follow-up. Unverified leads are visible but must not be contacted.</p></div>
       <button type="button" onClick={() => void load()} disabled={busy} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold"><RefreshCw className={`h-4 w-4 ${busy?'animate-spin':''}`}/>Refresh</button>
@@ -134,5 +135,6 @@ export const SellerOnboardingCRM: React.FC = () => {
         </div>}
       </div>
     </div>
-  </section>;
+  </section><SellerApplicationWorkspace />
+  </>;
 };

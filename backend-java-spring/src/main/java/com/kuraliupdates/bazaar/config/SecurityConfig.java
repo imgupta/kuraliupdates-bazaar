@@ -96,6 +96,12 @@ public class SecurityConfig {
                 .requestMatchers("/e2e/**").permitAll()
 
                 .requestMatchers("/admin/**").hasRole("ADMIN")
+
+                // Seller application continuation uses an unguessable, hashed, time-limited application token.
+                .requestMatchers(HttpMethod.GET, "/seller-applications/*", "/seller-applications/*/documents").permitAll()
+                .requestMatchers(HttpMethod.PUT, "/seller-applications/*").permitAll()
+                .requestMatchers(HttpMethod.POST, "/seller-applications/*/documents", "/seller-applications/*/submit").permitAll()
+
                 .anyRequest().authenticated()
             );
 
