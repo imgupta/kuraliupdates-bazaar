@@ -32,10 +32,7 @@ spring:
       pool-name: KuraliHikariPool
       connection-init-sql: ALTER SESSION DISABLE PARALLEL DML
       data-source-properties:
-        # Use the auto-login SSO wallet. Oracle JDBC resolves OraclePKI for SSO
-        # without changing the JVM-wide PKCS12 provider order.
-        oracle.net.wallet_location: file:${ORACLE_WALLET_DIR}/cwallet.sso
-        oracle.net.tns_admin: ${ORACLE_WALLET_DIR}
+        # Walletless TLS: server identity is verified by the TCPS connection descriptor.
         oracle.net.ssl_server_dn_match: true
         # Bound Oracle Net connection establishment and socket reads.
         oracle.net.CONNECT_TIMEOUT: 10000
@@ -73,8 +70,6 @@ logging:
     com.zaxxer.hikari.pool.HikariPool: DEBUG
     org.flywaydb: DEBUG
     org.springframework.jdbc: INFO
-    oracle.jdbc: DEBUG
-    oracle.net: DEBUG
 
 app:
   document-scanner:
