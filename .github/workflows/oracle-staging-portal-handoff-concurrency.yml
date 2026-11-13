@@ -61,7 +61,7 @@ jobs:
           }
           const flowToken = String(config.E2E_FLOW_AUTH_TOKEN ?? '');
           const identity = String(config.E2E_SELLER_IDENTITY ?? '').trim();
-          if (flowToken.length < 32 || !/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(identity)) {
+          if (flowToken.length < 32 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identity)) {
             throw new Error('Staging flow token or dedicated seller test identity is missing/invalid.');
           }
           if (String(config.E2E_TRANSACTIONAL_FLOWS_ENABLED) !== 'true' &&
