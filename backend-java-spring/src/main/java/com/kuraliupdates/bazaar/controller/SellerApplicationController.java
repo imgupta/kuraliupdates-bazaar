@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.service.MalwareScanner;
+import com.kuraliupdates.bazaar.service.AuthService;
+import com.kuraliupdates.bazaar.entity.UserEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -27,6 +29,48 @@ public class SellerApplicationController {
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
     private final MalwareScanner scanner;
+    private final AuthService authService;
+
+
+    /** Authenticated seller entry point for the shared CRM/self-service application. */
+    @PostMapping("/seller-applications/self")
+    public Map<String,Object> createOrResumeSelf(@RequestHeader(value="Authorization", required=false) String authorization,
+                                                  @RequestBody Map<String,Object> body) {
+        String bearer = authorization != null && authorization.startsWith("Bearer ")
+                ? authorization.substring(7).trim() : null;
+        UserEntity user = authService.requireUser(bearer);
+        if (!"SELLER".equalsIgnoreCase(authService.requireSessionRole(bearer)))
+            throw new ApiException(HttpStatus.FORBIDDEN,"An active seller session is required");
+        Map<String,Object> details = new LinkedHashMap<>(body == null ? Map.of() : body);
+        details.put("ownerName", text(details,"ownerName").isBlank() ? user.getName() : text(details,"ownerName"));
+        details.put("email", user.getEmail());
+        details.put("phone", user.getPhone());
+        validate(details);
+        String id;
+        List<Map<String,String>> existing = jdbc.query(
+                "SELECT APPLICATION_ID,STATUS FROM SELLER_APPLICATIONS WHERE SELLER_USER_ID=?",
+                (rs,n) -> Map.of("id",rs.getString(1),"status",rs.getString(2)), user.getUserId());
+        String accessToken = UUID.randomUUID().toString() + UUID.randomUUID();
+        LocalDateTime now = LocalDateTime.now();
+        if (!existing.isEmpty()) {
+            id = existing.get(0).get("id");
+            if (!Set.of("DRAFT","IN_PROGRESS","ACTION_REQUIRED").contains(existing.get(0).get("status")))
+                throw new ApiException(HttpStatus.CONFLICT,"Your seller application has already been submitted and is read-only");
+            jdbc.update("UPDATE SELLER_APPLICATIONS SET OWNER_NAME=?,EMAIL=?,PHONE=?,SHOP_NAME=?,APPLICATION_JSON=?,STATUS='IN_PROGRESS',ACCESS_TOKEN_HASH=?,ACCESS_TOKEN_EXPIRES_AT=?,UPDATED_AT=? WHERE APPLICATION_ID=?",
+                    text(details,"ownerName"),text(details,"email").toLowerCase(Locale.ROOT),
+                    text(details,"phone").replaceAll("\\D",""),text(details,"shopName"),json(details),
+                    hash(accessToken),now.plusDays(30),now,id);
+            audit(id,user.getUserId(),"SELLER_APPLICATION_RESUMED","Seller resumed the shared application");
+        } else {
+            id = "sapp-" + UUID.randomUUID();
+            jdbc.update("INSERT INTO SELLER_APPLICATIONS (APPLICATION_ID,SELLER_USER_ID,OWNER_NAME,EMAIL,PHONE,SHOP_NAME,STATUS,APPLICATION_JSON,ACCESS_TOKEN_HASH,ACCESS_TOKEN_EXPIRES_AT,CREATED_BY,CREATED_AT,UPDATED_AT) VALUES (?,?,?,?,?,?,'IN_PROGRESS',?,?,?,?,?,?)",
+                    id,user.getUserId(),text(details,"ownerName"),text(details,"email").toLowerCase(Locale.ROOT),
+                    text(details,"phone").replaceAll("\\D",""),text(details,"shopName"),json(details),
+                    hash(accessToken),now.plusDays(30),user.getUserId(),now,now);
+            audit(id,user.getUserId(),"APPLICATION_CREATED","Seller created shared application after contact verification");
+        }
+        return Map.of("applicationId",id,"status","IN_PROGRESS","sellerAccessToken",accessToken);
+    }
 
     @GetMapping("/admin/seller-applications")
     public List<Map<String,Object>> list(@RequestParam(required=false) String search,

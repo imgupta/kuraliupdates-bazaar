@@ -101,6 +101,8 @@ export const SellerRegistrationWizard: React.FC = () => {
   const [callbackRequested, setCallbackRequested] = useState(false);
   const [token, setToken] = useState('');
   const [applicationCreated, setApplicationCreated] = useState(false);
+  const [sharedApplicationId, setSharedApplicationId] = useState('');
+  const [sharedApplicationToken, setSharedApplicationToken] = useState('');
   const [submissionComplete, setSubmissionComplete] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -173,19 +175,15 @@ export const SellerRegistrationWizard: React.FC = () => {
     return true;
   };
 
-  const uploadDocuments = async (authToken: string) => {
-    const pending = [
-      ['SHOP_FRONT_PHOTO', shopFrontPhoto],
-      ['GST_CERTIFICATE', gstCertificate],
-      ['FSSAI_CERTIFICATE', fssaiCertificate],
-    ] as const;
+  const uploadDocuments = async () => {
+    if (!sharedApplicationId || !sharedApplicationToken) throw new Error('Shared seller application session is missing. Sign in again to resume.');
+    const pending = [['SHOP_FRONT_PHOTO', shopFrontPhoto],['GST_CERTIFICATE', gstCertificate],['FSSAI_CERTIFICATE', fssaiCertificate]] as const;
     const uploaded = new Set(uploadedDocumentTypes);
-    for (const [documentType, file] of pending) {
+    for (const [documentType,file] of pending) {
       if (!file || uploaded.has(documentType)) continue;
-      const result = await bazaarApi.uploadSellerDocument(authToken, documentType, file);
-      if (!result.success) throw new Error(result.message || `Unable to upload ${documentType}. Retry the upload.`);
-      uploaded.add(documentType);
-      setUploadedDocumentTypes([...uploaded]);
+      const result = await sellerOnboardingApi.uploadSharedDocument(sharedApplicationId,sharedApplicationToken,documentType,file);
+      if (result.scanStatus !== 'CLEAN') throw new Error(`${documentType} did not pass malware scanning (${result.scanStatus}). Replace the file and retry.`);
+      uploaded.add(documentType); setUploadedDocumentTypes([...uploaded]);
     }
   };
 
@@ -204,16 +202,25 @@ export const SellerRegistrationWizard: React.FC = () => {
       email: email.trim().toLowerCase(), phone: phone.replace(/\D/g, ''), leadId
     });
     if (!response.success || !response.token || !response.user) throw new Error(response.message || 'Seller registration failed');
-    setToken(response.token);
-    setApplicationCreated(true);
     registerUserWithOtp({
       name, identifier: email.trim().toLowerCase(), email: email.trim().toLowerCase(),
       phone: phone.replace(/\D/g, ''), locality, role: 'seller', address,
       token: response.token, serverUser: response.user
     });
-    await uploadDocuments(response.token);
+    const shared = await sellerOnboardingApi.createOrResumeSharedApplication({
+      ownerName:name.trim(),email:email.trim().toLowerCase(),phone:phone.replace(/\D/g,''),
+      shopName:storeName.trim(),category,businessType,registeredBusinessName:registeredBusinessName.trim()||name.trim(),
+      locality,address,shopNumber,wardNumber,streetLocality,pinCode,
+      latitude:location?.latitude,longitude:location?.longitude,formattedAddress:location?.formattedAddress,placeId:location?.placeId,
+      gstNumber,fssaiNumber,fssaiLicenseType,openingTime,closingTime,weeklyClosedDay,
+      agreementAccepted:false,agreementVersion:'seller-terms-2026-11-01'
+    });
+    setSharedApplicationId(shared.applicationId); setSharedApplicationToken(shared.sellerAccessToken);
+    setToken(response.token); setApplicationCreated(true);
+    await uploadDocuments();
+    await sellerOnboardingApi.submitSharedApplication(shared.applicationId,shared.sellerAccessToken);
     try { await sellerApi.deleteSellerRegistrationDraft(); } catch (draftCleanupError) { console.warn('Seller draft cleanup skipped:', draftCleanupError); }
-    showToast('Seller application submitted. It will be reviewed by the Kurali admin team.', 'success');
+    showToast('Seller application submitted. It is now available in the KuraliUpdates admin review workspace.','success');
     setSubmissionComplete(true);
   };
 
@@ -403,7 +410,8 @@ export const SellerRegistrationWizard: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      await uploadDocuments(token);
+      await uploadDocuments();
+      await sellerOnboardingApi.submitSharedApplication(sharedApplicationId,sharedApplicationToken);
       showToast('Documents uploaded successfully. Your seller application is submitted for review.', 'success');
       setSubmissionComplete(true);
     } catch (cause) {
