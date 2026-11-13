@@ -9,8 +9,8 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.security.Security;
 import java.security.KeyStore;
+import javax.net.ssl.SSLContext;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,12 +33,13 @@ class OracleSecretsEnvironmentPostProcessorTest {
     }
 
     @Test
-    void registersOraclePkiProviderBeforeDatasourceInitialization() throws Exception {
-        OracleSecretsEnvironmentPostProcessor.registerOraclePkiProvider();
-        assertFalse(java.util.Arrays.stream(Security.getProviders())
-                .noneMatch(provider -> provider.getClass().getName().equals("oracle.security.pki.OraclePKIProvider")));
+    void leavesDefaultPkcs12AndJsseProvidersUnchangedForSsoWallet() throws Exception {
+        String originalPkcs12Provider = KeyStore.getInstance("PKCS12").getProvider().getName();
+        assertDoesNotThrow(() -> new OracleSecretsEnvironmentPostProcessor()
+                .postProcessEnvironment(environment, new org.springframework.boot.SpringApplication()));
         org.junit.jupiter.api.Assertions.assertEquals(
-                "OraclePKIProvider", KeyStore.getInstance("PKCS12").getProvider().getClass().getSimpleName());
+                originalPkcs12Provider, KeyStore.getInstance("PKCS12").getProvider().getName());
+        assertDoesNotThrow(SSLContext::getDefault);
     }
 
     @Test
@@ -147,16 +148,6 @@ class OracleSecretsEnvironmentPostProcessorTest {
         assertFalse(error.getMessage().contains("unit-test-"));
     }
 
-    @Test
-    void rejectsMissingWalletPassword() {
-        Map<String, Object> properties = completeProperties();
-        properties.remove("WALLET_PASSWORD");
-        MockEnvironment missing = testEnvironment(properties);
-        IllegalStateException error = assertThrows(IllegalStateException.class,
-                () -> OracleSecretsEnvironmentPostProcessor.validate(missing));
-        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("WALLET_PASSWORD"));
-        assertFalse(error.getMessage().contains("unit-test-"));
-    }
 
     @Test
     void rejectsWeakJwtSecret() {
@@ -174,7 +165,6 @@ class OracleSecretsEnvironmentPostProcessorTest {
         properties.put("ORACLE_JDBC_URL", "jdbc:oracle:thin:@unit-test");
         properties.put("ORACLE_USERNAME", "unit-test-user");
         properties.put("ORACLE_PASSWORD", "unit-test-database-password");
-        properties.put("WALLET_PASSWORD", "unit-test-wallet-password");
         properties.put("JWT_SECRET", "unit-test-jwt-secret-with-at-least-32-chars");
         properties.put("ORACLE_WALLET_DIR", tempDirectory.toString());
         return properties;
