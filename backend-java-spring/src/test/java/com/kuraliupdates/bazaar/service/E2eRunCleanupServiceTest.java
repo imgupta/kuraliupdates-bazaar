@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -71,7 +72,9 @@ class E2eRunCleanupServiceTest {
                 "cancelled test orders are safe only after fulfilment is cancelled");
         assertFalse(orderPreflight.contains("OR UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%CANCEL%'"),
                 "a correctly cancelled synthetic COD order must not be rejected solely for being cancelled");
-        String stockRestore = statements.stream()
+        ArgumentCaptor<String> updateSql = ArgumentCaptor.forClass(String.class);
+        verify(jdbc, atLeastOnce()).update(updateSql.capture(), any(Object[].class));
+        String stockRestore = updateSql.getAllValues().stream()
                 .filter(statement -> statement.contains("UPDATE PRODUCTS p"))
                 .findFirst().orElseThrow();
         assertTrue(stockRestore.contains("NOT LIKE '%CANCEL%'"),
