@@ -9,8 +9,8 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.security.Security;
 import java.security.KeyStore;
+import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLContext;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -152,7 +152,6 @@ class OracleSecretsEnvironmentPostProcessorTest {
     @Test
     void rejectsMissingWalletPassword() {
         Map<String, Object> properties = completeProperties();
-        properties.remove("WALLET_PASSWORD");
         MockEnvironment missing = testEnvironment(properties);
         IllegalStateException error = assertThrows(IllegalStateException.class,
                 () -> OracleSecretsEnvironmentPostProcessor.validate(missing));
@@ -176,7 +175,6 @@ class OracleSecretsEnvironmentPostProcessorTest {
         properties.put("ORACLE_JDBC_URL", "jdbc:oracle:thin:@unit-test");
         properties.put("ORACLE_USERNAME", "unit-test-user");
         properties.put("ORACLE_PASSWORD", "unit-test-database-password");
-        properties.put("WALLET_PASSWORD", "unit-test-wallet-password");
         properties.put("JWT_SECRET", "unit-test-jwt-secret-with-at-least-32-chars");
         properties.put("ORACLE_WALLET_DIR", tempDirectory.toString());
         return properties;
