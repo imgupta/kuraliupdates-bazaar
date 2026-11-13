@@ -12,6 +12,4 @@ COPY --from=builder /app/target/kurali-bazaar-api-1.0.0-SNAPSHOT.jar app.jar
 
 EXPOSE 8080
 ENV PORT=8080
-ENV ORACLE_WALLET_DIR=/etc/secrets
-ENV TNS_ADMIN=/etc/secrets
 ENTRYPOINT ["java", "-jar", "app.jar"]
