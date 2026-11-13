@@ -1,8 +1,8 @@
 name: Phase 1 Staging Transactional E2E
 
 on:
-  push:
-    branches: [main]
+  # Transactional tests mutate the single shared staging environment. Run
+  # only through an explicit dispatch with the confirmation input below.
   workflow_dispatch:
     inputs:
       confirm_staging_mutations:
@@ -25,7 +25,7 @@ jobs:
   # the transactional job still performs the authoritative exact-commit check.
   warm-staging:
     name: Best-effort staging API warm-up
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.confirm_staging_mutations == true)
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_staging_mutations == true
     runs-on: ubuntu-latest
     timeout-minutes: 4
     continue-on-error: true
@@ -74,7 +74,7 @@ jobs:
 
   transactional-e2e:
     name: Synthetic COD order and Daily Help lifecycle
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.confirm_staging_mutations == true)
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_staging_mutations == true
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
