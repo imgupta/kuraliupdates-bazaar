@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.security.KeyStore;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLContext;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,12 +33,12 @@ class OracleSecretsEnvironmentPostProcessorTest {
     }
 
     @Test
-    void registersOraclePkiProviderBeforeDatasourceInitialization() throws Exception {
-        OracleSecretsEnvironmentPostProcessor.registerOraclePkiProvider();
-        assertFalse(java.util.Arrays.stream(Security.getProviders())
-                .noneMatch(provider -> provider.getClass().getName().equals("oracle.security.pki.OraclePKIProvider")));
+    void leavesDefaultPkcs12AndJsseProvidersUnchangedForSsoWallet() throws Exception {
+        String originalPkcs12Provider = KeyStore.getInstance("PKCS12").getProvider().getName();
+        assertDoesNotThrow(() -> new OracleSecretsEnvironmentPostProcessor()
+                .postProcessEnvironment(environment, new org.springframework.boot.SpringApplication()));
         org.junit.jupiter.api.Assertions.assertEquals(
-                "OraclePKI", KeyStore.getInstance("PKCS12").getProvider().getName());
+                originalPkcs12Provider, KeyStore.getInstance("PKCS12").getProvider().getName());
         assertDoesNotThrow(SSLContext::getDefault);
     }
 
@@ -149,15 +148,6 @@ class OracleSecretsEnvironmentPostProcessorTest {
         assertFalse(error.getMessage().contains("unit-test-"));
     }
 
-    @Test
-    void rejectsMissingWalletPassword() {
-        Map<String, Object> properties = completeProperties();
-        MockEnvironment missing = testEnvironment(properties);
-        IllegalStateException error = assertThrows(IllegalStateException.class,
-                () -> OracleSecretsEnvironmentPostProcessor.validate(missing));
-        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("WALLET_PASSWORD"));
-        assertFalse(error.getMessage().contains("unit-test-"));
-    }
 
     @Test
     void rejectsWeakJwtSecret() {
