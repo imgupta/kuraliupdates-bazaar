@@ -10,6 +10,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.security.Security;
+import java.security.KeyStore;
+import javax.net.ssl.SSLContext;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,7 +39,8 @@ class OracleSecretsEnvironmentPostProcessorTest {
         assertFalse(java.util.Arrays.stream(Security.getProviders())
                 .noneMatch(provider -> provider.getClass().getName().equals("oracle.security.pki.OraclePKIProvider")));
         org.junit.jupiter.api.Assertions.assertEquals(
-                "OraclePKIProvider", Security.getProviders()[2].getClass().getSimpleName());
+                "OraclePKIProvider", KeyStore.getInstance("PKCS12").getProvider().getClass().getSimpleName());
+        assertDoesNotThrow(SSLContext::getDefault);
     }
 
     @Test
