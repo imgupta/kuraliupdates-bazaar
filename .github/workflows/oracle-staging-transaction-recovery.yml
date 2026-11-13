@@ -35,19 +35,20 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Resolve expected Render deployment commit
+      - name: Resolve expected Render backend deployment commit
         shell: bash
         run: |
-          # Render's RENDER_GIT_COMMIT reports the deployed Git revision. A
-          # path-limited git log can resolve to a PR head commit instead of
-          # the merge commit Render actually deploys, causing a false timeout.
-          expected="${GITHUB_SHA,,}"
+          # Render's RENDER_GIT_COMMIT identifies the commit deployed by the
+          # backend service, not necessarily this workflow-only commit.
+          # First-parent history selects the main-branch merge commit that
+          # introduced the latest backend change (rather than a PR head SHA).
+          expected="$(git log --first-parent -1 --format=%H -- backend-java-spring/)"
           if [[ ! "$expected" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "Could not resolve the expected GitHub deployment commit."
+            echo "Could not resolve the latest mainline backend deployment commit."
             exit 1
           fi
           echo "EXPECTED_STAGING_COMMIT=$expected" >> "$GITHUB_ENV"
-          echo "Expected Render deployment commit: $expected"
+          echo "Expected Render backend deployment commit: $expected"
 
       - uses: oven-sh/setup-bun@v2
         with:
