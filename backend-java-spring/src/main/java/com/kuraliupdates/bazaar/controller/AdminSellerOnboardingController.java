@@ -28,7 +28,8 @@ public class AdminSellerOnboardingController {
     }
 
     @PatchMapping("/{leadId}")
-    public Map<String,Object> update(@PathVariable String leadId, @RequestBody Map<String,String> body) {
+    public Map<String,Object> update(@PathVariable String leadId, @RequestBody(required = false) Map<String,String> body) {
+        requireBody(body);
         return leads.update(leadId, actor(), body.get("assignedTo"), body.get("status"),
                 body.get("followUpAt"), body.get("outcome"));
     }
@@ -39,8 +40,15 @@ public class AdminSellerOnboardingController {
     }
 
     @PostMapping("/{leadId}/notes")
-    public Map<String,Object> addNote(@PathVariable String leadId, @RequestBody Map<String,String> body) {
+    public Map<String,Object> addNote(@PathVariable String leadId, @RequestBody(required = false) Map<String,String> body) {
+        requireBody(body);
         return leads.addNote(leadId, actor(), body.get("note"), body.get("outcome"), body.get("followUpAt"));
+    }
+
+    private void requireBody(Map<String, String> body) {
+        if (body == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Request body is required");
+        }
     }
 
     private String actor() {
