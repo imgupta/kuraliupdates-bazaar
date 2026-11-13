@@ -175,13 +175,13 @@ export const SellerRegistrationWizard: React.FC = () => {
     return true;
   };
 
-  const uploadDocuments = async () => {
-    if (!sharedApplicationId || !sharedApplicationToken) throw new Error('Shared seller application session is missing. Sign in again to resume.');
+  const uploadDocuments = async (applicationId = sharedApplicationId, accessToken = sharedApplicationToken) => {
+    if (!applicationId || !accessToken) throw new Error('Shared seller application session is missing. Sign in again to resume.');
     const pending = [['SHOP_FRONT_PHOTO', shopFrontPhoto],['GST_CERTIFICATE', gstCertificate],['FSSAI_CERTIFICATE', fssaiCertificate]] as const;
     const uploaded = new Set(uploadedDocumentTypes);
     for (const [documentType,file] of pending) {
       if (!file || uploaded.has(documentType)) continue;
-      const result = await sellerOnboardingApi.uploadSharedDocument(sharedApplicationId,sharedApplicationToken,documentType,file);
+      const result = await sellerOnboardingApi.uploadSharedDocument(applicationId,accessToken,documentType,file);
       if (result.scanStatus !== 'CLEAN') throw new Error(`${documentType} did not pass malware scanning (${result.scanStatus}). Replace the file and retry.`);
       uploaded.add(documentType); setUploadedDocumentTypes([...uploaded]);
     }
@@ -214,7 +214,7 @@ export const SellerRegistrationWizard: React.FC = () => {
       latitude:location?.latitude,longitude:location?.longitude,formattedAddress:location?.formattedAddress,placeId:location?.placeId,
       gstNumber,fssaiNumber,fssaiLicenseType,openingTime,closingTime,weeklyClosedDay,
       agreementAccepted:false,agreementVersion:'seller-terms-2026-11-01'
-    });
+    }, response.token);
     setSharedApplicationId(shared.applicationId); setSharedApplicationToken(shared.sellerAccessToken);
     setToken(response.token); setApplicationCreated(true);
     await uploadDocuments();

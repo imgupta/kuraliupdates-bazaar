@@ -12,8 +12,8 @@ async function request<T>(path: string, method: string, body?: unknown): Promise
 }
 
 export const sellerOnboardingApi = {
-  createOrResumeSharedApplication: async (details: Record<string, unknown>) => {
-    const token = localStorage.getItem('kurali_auth_token');
+  createOrResumeSharedApplication: async (details: Record<string, unknown>, sessionToken?: string) => {
+    const token = sessionToken || localStorage.getItem('kurali_auth_token');
     if (!token) throw new Error('Your seller session has expired. Sign in again to continue.');
     const response = await fetch(`${API_BASE_URL}/seller-applications/self`, {
       method: 'POST',
