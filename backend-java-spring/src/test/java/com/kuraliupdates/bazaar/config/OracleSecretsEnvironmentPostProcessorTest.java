@@ -34,7 +34,7 @@ class OracleSecretsEnvironmentPostProcessorTest {
     }
 
     @Test
-    void registersOraclePkiProviderBeforeDatasourceInitialization() {
+    void registersOraclePkiProviderBeforeDatasourceInitialization() throws Exception {
         OracleSecretsEnvironmentPostProcessor.registerOraclePkiProvider();
         assertFalse(java.util.Arrays.stream(Security.getProviders())
                 .noneMatch(provider -> provider.getClass().getName().equals("oracle.security.pki.OraclePKIProvider")));
