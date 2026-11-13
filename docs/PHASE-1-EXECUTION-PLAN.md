@@ -690,3 +690,8 @@ The consolidated PR adds an explicit null-request guard to the multi-seller chec
 The consolidated continuation now rejects a null Daily Help booking request before repository access, rejects a null service-start request or missing professional identity before booking lookup, and validates the service-start OTP as exactly four digits before locking or loading a booking. Regression tests assert these invalid requests do not touch repositories. Delivery OTP verification now rejects a null payload, missing OTP, or malformed four-character numeric OTP at the controller boundary before calling the delivery service; a controller regression test covers all three cases.
 
 These are request-validation and fail-fast guarantees. They do not replace authenticated end-to-end acceptance for provider acceptance/rejection, slot contention, delivery claim races, OTP resend expiry, Oracle locking, or transaction rollback. Those remain isolated staging/Oracle gates.
+
+
+## 14 November 2026 — admin seller-lead mutation payload validation
+
+Admin seller-lead update and note endpoints now return HTTP 400 for a missing request body rather than dereferencing null. Controller regression coverage verifies both endpoints reject the request before invoking the lead service. Authenticated actor attribution and role enforcement are unchanged; this narrow input-validation test does not constitute the complete admin permission/audit acceptance matrix.
