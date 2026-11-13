@@ -68,7 +68,7 @@ class SellerOnboardingLeadServiceTest {
 
         Map<String, Object> result = service.start("Attacker supplied name", "owner@example.test", "9876500000");
 
-        assertEquals("EXISTING", result.get("status"));
+        assertEquals("STARTED", result.get("status"));
         assertEquals("existing-lead-id", result.get("leadId"));
         verify(jdbc, never()).update(startsWith("UPDATE SELLER_ONBOARDING_LEADS SET OWNER_NAME"), any(Object[].class));
         verify(jdbc, never()).update(startsWith("INSERT INTO SELLER_ONBOARDING_LEADS"), any(Object[].class));

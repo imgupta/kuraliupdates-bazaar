@@ -148,3 +148,10 @@ Seller operations and seller document upload/list now require SELLER role; deliv
 ## 14 November 2026 — seller lead pre-verification integrity
 
 The public seller-lead start endpoint may locate an existing lead by email/phone so the applicant can continue its OTP challenge. Re-submitting the same contact pair must not mutate the stored applicant name before contact ownership is verified. The implementation now returns the existing lead reference without updating applicant fields; a service regression test asserts that neither an UPDATE nor a duplicate INSERT occurs on this path. This narrows the unauthenticated mutation surface but does **not** close the separate public lead-enumeration/anti-bot review or replace OTP verification.
+
+
+## 14 November 2026 — seller lead response normalization
+
+The public lead-start endpoint now returns the same `STARTED` status for both newly created and resumed leads. This removes the explicit `EXISTING` response signal while preserving the lead ID required by the current OTP-resume API. A service regression test covers the resumed-lead path and continues to assert that applicant identity fields are not updated before contact verification.
+
+**Residual risk:** the stable lead ID is still returned for a matching email/phone pair, and lead-specific OTP endpoints remain addressable by that ID. This bounded response normalization does not close lead enumeration or replace contact verification. A stronger opaque, short-lived challenge design would require an API/schema/UI migration and separate review.

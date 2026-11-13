@@ -44,7 +44,7 @@ public class SellerOnboardingLeadService {
             // The contact pair has not been verified in this request. Do not let
             // an unauthenticated repeat submission overwrite the existing lead's
             // applicant name before the OTP challenge proves control of the contacts.
-            return Map.of("success", true, "leadId", existing, "status", "EXISTING");
+            // Keep the public response shape and status identical to a new lead. The stable\n            // lead ID is still needed to resume OTP verification; this is only a\n            // response-level enumeration mitigation, not proof of contact ownership.\n            return Map.of("success", true, "leadId", existing, "status", "STARTED");
         }
         String id = UUID.randomUUID().toString();
         LocalDateTime now = LocalDateTime.now();
