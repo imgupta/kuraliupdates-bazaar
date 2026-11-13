@@ -143,3 +143,8 @@ Source review found that record ownership alone allowed a valid multi-profile ac
 Seller operations and seller document upload/list now require SELLER role; delivery job operations and location updates require DELIVERY role. Tracking reads require BUYER for buyer-owned orders or DELIVERY for assigned rider orders, and only BUYER receives the delivery OTP. Existing record-owner, active-profile and order-state checks remain in force. New deterministic regressions cover cross-role denial and valid delivery/seller role paths.
 
 **Evidence boundary:** exact-head CI and Oracle runtime checks are pending. Tests use mocked services/repositories; no data was accessed or mutated.
+
+
+## 14 November 2026 — seller lead pre-verification integrity
+
+The public seller-lead start endpoint may locate an existing lead by email/phone so the applicant can continue its OTP challenge. Re-submitting the same contact pair must not mutate the stored applicant name before contact ownership is verified. The implementation now returns the existing lead reference without updating applicant fields; a service regression test asserts that neither an UPDATE nor a duplicate INSERT occurs on this path. This narrows the unauthenticated mutation surface but does **not** close the separate public lead-enumeration/anti-bot review or replace OTP verification.
