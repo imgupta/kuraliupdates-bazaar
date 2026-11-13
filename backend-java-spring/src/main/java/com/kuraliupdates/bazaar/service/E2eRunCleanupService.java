@@ -29,8 +29,11 @@ public class E2eRunCleanupService {
         long unsafeOrders = count("""
                 SELECT COUNT(*) FROM ORDERS o
                 WHERE o.E2E_RUN_ID = ?
-                  AND ((UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%CANCEL%' OR UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%REFUND%'
-                           OR UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%RETURN%')
+                  AND ((UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%REFUND%'
+                           OR UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%RETURN%'
+                           OR (UPPER(NVL(o.STATUS, 'UNKNOWN')) LIKE '%CANCEL%'
+                               AND (UPPER(NVL(o.PAYMENT_STATUS, 'UNKNOWN')) <> 'PENDING_COD'
+                                    OR UPPER(NVL(o.FULFILMENT_STATUS, 'UNKNOWN')) <> 'CANCELLED')))
                        OR EXISTS (SELECT 1 FROM ORDER_ITEMS oi
                                   WHERE oi.ORDER_ID = o.ORDER_ID
                                     AND (oi.PRODUCT_ID NOT LIKE 'E2E-%' OR oi.QUANTITY <= 0
@@ -130,6 +133,7 @@ public class E2eRunCleanupService {
                     SELECT SUM(oi.QUANTITY)
                     FROM ORDER_ITEMS oi JOIN ORDERS o ON o.ORDER_ID = oi.ORDER_ID
                     WHERE o.E2E_RUN_ID = ? AND oi.PRODUCT_ID = p.PRODUCT_ID
+                      AND UPPER(NVL(o.STATUS, 'UNKNOWN')) NOT LIKE '%CANCEL%'
                 )
                 WHERE p.PRODUCT_ID LIKE 'E2E-%'
                   AND p.E2E_RUN_ID = ?
