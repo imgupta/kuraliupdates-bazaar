@@ -33,15 +33,23 @@ public class SellerApplicationController {
                                          @RequestParam(required=false) String status) {
         String term = search == null ? "" : search.trim().toLowerCase(Locale.ROOT);
         String state = status == null ? "" : status.trim().toUpperCase(Locale.ROOT);
-        return jdbc.query("SELECT APPLICATION_ID,OWNER_NAME,EMAIL,PHONE,SHOP_NAME,STATUS,ASSIGNED_TO,UPDATED_AT FROM SELLER_APPLICATIONS WHERE (?='' OR STATUS=?) AND (?='' OR LOWER(OWNER_NAME) LIKE ? OR LOWER(EMAIL) LIKE ? OR LOWER(SHOP_NAME) LIKE ?) ORDER BY UPDATED_AT DESC FETCH FIRST 200 ROWS ONLY",
-                (rs,n) -> {
-                    Map<String,Object> row = new LinkedHashMap<>();
-                    row.put("applicationId",rs.getString(1)); row.put("ownerName",rs.getString(2));
-                    row.put("email",rs.getString(3)); row.put("phone",rs.getString(4));
-                    row.put("shopName",rs.getString(5)); row.put("status",rs.getString(6));
-                    row.put("assignedTo",rs.getString(7)); row.put("updatedAt",rs.getTimestamp(8));
-                    return row;
-                }, state,state,term,like(term),like(term),like(term));
+        StringBuilder sql = new StringBuilder("SELECT APPLICATION_ID,OWNER_NAME,EMAIL,PHONE,SHOP_NAME,STATUS,ASSIGNED_TO,UPDATED_AT FROM SELLER_APPLICATIONS WHERE 1=1");
+        List<Object> args = new ArrayList<>();
+        if (!state.isBlank()) { sql.append(" AND STATUS=?"); args.add(state); }
+        if (!term.isBlank()) {
+            sql.append(" AND (LOWER(OWNER_NAME) LIKE ? OR LOWER(EMAIL) LIKE ? OR LOWER(SHOP_NAME) LIKE ?)");
+            String pattern = like(term);
+            args.add(pattern); args.add(pattern); args.add(pattern);
+        }
+        sql.append(" ORDER BY UPDATED_AT DESC FETCH FIRST 200 ROWS ONLY");
+        return jdbc.query(sql.toString(), (rs,n) -> {
+            Map<String,Object> row = new LinkedHashMap<>();
+            row.put("applicationId",rs.getString(1)); row.put("ownerName",rs.getString(2));
+            row.put("email",rs.getString(3)); row.put("phone",rs.getString(4));
+            row.put("shopName",rs.getString(5)); row.put("status",rs.getString(6));
+            row.put("assignedTo",rs.getString(7)); row.put("updatedAt",rs.getTimestamp(8));
+            return row;
+        }, args.toArray());
     }
 
     @PostMapping("/admin/seller-applications")
@@ -116,7 +124,9 @@ public class SellerApplicationController {
     public Map<String,Object> sellerUpload(@PathVariable String id,
              @RequestHeader("X-Seller-Application-Token") String token,@RequestParam String documentType,
              @RequestParam MultipartFile file) throws IOException {
-        read(id,true,token);
+        Map<String,Object> application = read(id,true,token);
+        if (Set.of("SUBMITTED","UNDER_REVIEW","APPROVED","REJECTED").contains(String.valueOf(application.get("status"))))
+            throw new ApiException(HttpStatus.CONFLICT,"Documents cannot be changed after submission");
         return upload(id,documentType,file,"SELLER");
     }
 
