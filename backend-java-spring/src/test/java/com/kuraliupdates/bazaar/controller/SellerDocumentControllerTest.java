@@ -107,6 +107,41 @@ class SellerDocumentControllerTest {
     }
 
     @Test
+    void rejectedDocumentCanBeCorrectedAndResubmittedAsANewPendingDocument() throws Exception {
+        SellerDocumentEntity rejected = cleanDocument();
+        rejected.setVerificationStatus("REJECTED");
+        rejected.setRejectionReason("Please upload a clearer shop-front image.");
+        rejected.setVerifiedBy("unit-admin");
+        rejected.setVerifiedAt(java.time.LocalDateTime.now());
+
+        when(malwareScanner.scan(any(byte[].class))).thenReturn(MalwareScanner.ScanResult.CLEAN);
+        when(docs.save(any(SellerDocumentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ResponseEntity<Map<String, Object>> response = controller.upload(
+                "Bearer seller-token", "SHOP_FRONT_PHOTO",
+                new MockMultipartFile("file", "shop-front-corrected.pdf", "application/pdf",
+                        "%PDF-1.7 corrected synthetic shop front".getBytes()));
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        String replacementId = (String) response.getBody().get("documentId");
+        assertNotNull(replacementId);
+        assertNotEquals(DOCUMENT_ID, replacementId);
+        assertEquals("PENDING", response.getBody().get("verificationStatus"));
+        assertEquals("CLEAN", response.getBody().get("scanStatus"));
+        assertEquals("REJECTED", rejected.getVerificationStatus());
+        assertEquals("Please upload a clearer shop-front image.", rejected.getRejectionReason());
+
+        ArgumentCaptor<SellerDocumentEntity> saved = ArgumentCaptor.forClass(SellerDocumentEntity.class);
+        verify(docs, atLeast(2)).save(saved.capture());
+        SellerDocumentEntity replacement = saved.getAllValues().get(saved.getAllValues().size() - 1);
+        assertEquals(replacementId, replacement.getDocumentId());
+        assertEquals("PENDING", replacement.getVerificationStatus());
+        assertEquals("CLEAN", replacement.getScanStatus());
+        assertEquals("shop-front-corrected.pdf", replacement.getFileName());
+        assertNotSame(rejected, replacement);
+    }
+
+    @Test
     void adminCannotVerifyRejectedDocumentWithoutCorrectionReason() {
         SellerDocumentEntity document = cleanDocument();
         when(docs.findByDocumentIdAndSellerId(DOCUMENT_ID, SELLER_ID)).thenReturn(Optional.of(document));
