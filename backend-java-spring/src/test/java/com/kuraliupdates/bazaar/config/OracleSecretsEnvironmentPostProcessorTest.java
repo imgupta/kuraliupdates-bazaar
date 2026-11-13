@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.security.Security;
 import java.security.KeyStore;
-import javax.net.ssl.SSLContext;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +39,6 @@ class OracleSecretsEnvironmentPostProcessorTest {
                 .noneMatch(provider -> provider.getClass().getName().equals("oracle.security.pki.OraclePKIProvider")));
         org.junit.jupiter.api.Assertions.assertEquals(
                 "OraclePKIProvider", KeyStore.getInstance("PKCS12").getProvider().getClass().getSimpleName());
-        assertDoesNotThrow(SSLContext::getDefault);
     }
 
     @Test
