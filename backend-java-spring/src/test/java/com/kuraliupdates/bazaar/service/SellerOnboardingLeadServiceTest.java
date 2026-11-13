@@ -68,10 +68,36 @@ class SellerOnboardingLeadServiceTest {
 
         Map<String, Object> result = service.start("Attacker supplied name", "owner@example.test", "9876500000");
 
-        assertEquals("EXISTING", result.get("status"));
+        assertEquals("STARTED", result.get("status"));
         assertEquals("existing-lead-id", result.get("leadId"));
         verify(jdbc, never()).update(startsWith("UPDATE SELLER_ONBOARDING_LEADS SET OWNER_NAME"), any(Object[].class));
         verify(jdbc, never()).update(startsWith("INSERT INTO SELLER_ONBOARDING_LEADS"), any(Object[].class));
+    }
+
+
+    @Test
+    void contactVerificationCannotReplayAfterLeadHasAdvanced() {
+        ApiException error = assertThrows(ApiException.class, () ->
+                SellerOnboardingLeadService.requireLeadStatus(Map.of("status", "APPLICATION_SUBMITTED"),
+                        "STARTED", "Contact verification is no longer available for this registration"));
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+    }
+
+    @Test
+    void callbackCanOnlyBeRequestedFromContactVerifiedState() {
+        ApiException error = assertThrows(ApiException.class, () ->
+                SellerOnboardingLeadService.requireLeadStatus(Map.of("status", "CALLBACK_REQUESTED"),
+                        "CONTACT_VERIFIED", "This registration is not awaiting a callback"));
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+    }
+
+    @Test
+    void terminalLeadStateCannotBeMovedBackToContactVerified() {
+        for (String status : java.util.List.of("APPLICATION_SUBMITTED", "CONVERTED", "NOT_INTERESTED")) {
+            assertThrows(ApiException.class, () ->
+                    SellerOnboardingLeadService.requireLeadStatus(Map.of("status", status),
+                            "STARTED", "Contact verification is no longer available for this registration"));
+        }
     }
 
     @Test
