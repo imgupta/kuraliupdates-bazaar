@@ -90,6 +90,9 @@ public class DailyHelpService {
 
     @Transactional
     public DailyHelpBookingResponse createBooking(DailyHelpBookingRequest request, String e2eRunId) {
+        if (request == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Daily Help booking details are required");
+        }
         DailyHelpServiceEntity service = serviceRepository.findById(request.serviceId())
                 .filter(s -> Integer.valueOf(1).equals(s.getActive()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help service not found"));
@@ -315,6 +318,12 @@ public class DailyHelpService {
     // Invalid OTP attempts must commit even though the request returns an error.
     @Transactional(noRollbackFor = ApiException.class)
     public DailyHelpBookingResponse startBooking(String bookingId, DailyHelpStartRequest request) {
+        if (request == null || request.professionalId() == null || request.professionalId().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Professional identity is required");
+        }
+        if (request.otp() == null || !request.otp().matches("\\d{4}")) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Service start OTP must be 4 digits");
+        }
         DailyHelpBookingEntity booking = bookingRepository.findLockedByBookingId(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
 

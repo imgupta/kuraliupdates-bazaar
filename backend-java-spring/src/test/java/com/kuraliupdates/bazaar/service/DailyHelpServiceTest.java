@@ -40,6 +40,34 @@ class DailyHelpServiceTest {
     @InjectMocks private DailyHelpService dailyHelpService;
 
     @Test
+    void nullBookingRequestReturnsBadRequestBeforeRepositoryAccess() {
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.createBooking(null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verifyNoInteractions(serviceRepository, professionalRepository, bookingRepository, slotRepository);
+    }
+
+    @Test
+    void nullStartRequestReturnsBadRequestBeforeBookingLookup() {
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.startBooking("BOOK-1", null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verifyNoInteractions(bookingRepository);
+    }
+
+    @Test
+    void malformedStartOtpIsRejectedBeforeBookingLookup() {
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.startBooking("BOOK-1",
+                        new DailyHelpStartRequest("DHP-1", "not-an-otp")));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verifyNoInteractions(bookingRepository);
+    }
+
+    @Test
     void bookingRejectsSlotAlreadyBooked() {
         DailyHelpServiceEntity service = service();
         DailyHelpProfessionalEntity professional = professional();

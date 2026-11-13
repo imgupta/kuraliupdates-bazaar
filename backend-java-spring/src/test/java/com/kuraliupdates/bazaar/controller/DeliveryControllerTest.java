@@ -59,6 +59,24 @@ class DeliveryControllerTest {
     }
 
     @Test
+    void malformedDeliveryOtpPayloadIsRejectedBeforeServiceAccess() {
+        UserEntity user = rider();
+        Authentication authentication = deliveryAuthentication(user);
+
+        ApiException nullPayload = assertThrows(ApiException.class,
+                () -> controller.verifyDeliveryOtp("ORD-1", null, authentication));
+        ApiException missingOtp = assertThrows(ApiException.class,
+                () -> controller.verifyDeliveryOtp("ORD-1", Map.of(), authentication));
+        ApiException malformedOtp = assertThrows(ApiException.class,
+                () -> controller.verifyDeliveryOtp("ORD-1", Map.of("otp", "12x4"), authentication));
+
+        assertEquals(HttpStatus.BAD_REQUEST, nullPayload.getStatus());
+        assertEquals(HttpStatus.BAD_REQUEST, missingOtp.getStatus());
+        assertEquals(HttpStatus.BAD_REQUEST, malformedOtp.getStatus());
+        verifyNoInteractions(deliveryService);
+    }
+
+    @Test
     void authenticatedPrincipalIsPassedToClaimAndClientAgentIdIsOnlyAServiceInput() {
         UserEntity user = rider();
         Authentication authentication = deliveryAuthentication(user);

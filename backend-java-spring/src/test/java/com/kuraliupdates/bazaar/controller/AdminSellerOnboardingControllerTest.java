@@ -68,6 +68,20 @@ class AdminSellerOnboardingControllerTest {
         verifyNoInteractions(leads);
     }
 
+    @Test
+    void nullLeadMutationBodiesReturnBadRequestBeforeServiceAccess() {
+        authenticateAdmin("admin-user-3");
+
+        ApiException updateError = assertThrows(ApiException.class,
+                () -> controller.update("lead-3", null));
+        ApiException noteError = assertThrows(ApiException.class,
+                () -> controller.addNote("lead-3", null));
+
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, updateError.getStatus());
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, noteError.getStatus());
+        verifyNoInteractions(leads);
+    }
+
     private void authenticateAdmin(String userId) {
         UserEntity admin = UserEntity.builder().userId(userId).email(userId + "@kuraliupdates.test")
                 .role("ADMIN").build();

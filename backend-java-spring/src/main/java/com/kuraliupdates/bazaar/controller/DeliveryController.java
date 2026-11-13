@@ -100,6 +100,9 @@ public class DeliveryController {
             @RequestBody Map<String, String> payload,
             Authentication authentication) {
         UserEntity user = requireUser(authentication);
+        if (payload == null || payload.get("otp") == null || !payload.get("otp").matches("\\d{4}")) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Delivery OTP must be 4 digits");
+        }
         return ResponseEntity.ok(deliveryService.verifyDeliveryOtp(orderId, payload.get("otp"), user));
     }
 

@@ -672,3 +672,38 @@ PR #321 local/staging Playwright isolation was corrected in commit `1073969e93dd
 The consolidated Phase 1 continuation carries forward the cancellation regression coverage from PR #322 rather than maintaining a separate implementation PR. `OrderServiceTest` asserts that buyer cancellation sets order and fulfilment statuses to `CANCELLED` while unpaid COD remains `PENDING_COD`, including every eligible order in a multi-seller checkout. A negative-path test places a `READY_FOR_PICKUP` suborder in an otherwise cancellable group and verifies that the service rejects the entire request before inventory repository access or order persistence; mocked entities retain their original statuses and stock values.
 
 This is service-level regression evidence for cancellation invariants and group preflight only. It does not prove transaction rollback after a database write, Oracle row-lock behavior, concurrent cancellation/checkout, or shared staging behavior. Those require separately authorized isolated Oracle/staging gates. Payment/refund semantics are unchanged. This test/doc change is part of the single consolidated Phase 1 continuation branch; it is not a separate PR.
+
+
+## 14 November 2026 — consolidated seller-lead transition regression
+
+The current mainline seller-onboarding lead service already enforces forward-only state checks in verifyContact and requestCallback, followed by conditional SQL updates requiring the expected prior state. The consolidated regression batch adds service-entry tests proving that an already-submitted lead is rejected before OTP verification and that a repeated callback request is rejected before any write. The tests use mocked JDBC row mapping; they do not establish Oracle locking or concurrent-update behavior. Exact-head Maven and standard CI remain required. Phase 0 and Phase 1 remain open, including seller-document correction/approval E2E, complete five-role authorization, isolated Oracle rollback/concurrency, abuse/privacy, secret rotation, India production residency and qualified professional review.
+
+
+## 14 November 2026 — multi-seller checkout preflight hardening
+
+The consolidated PR adds an explicit null-request guard to the multi-seller checkout service and regression coverage for null requests, unsupported payment methods, invalid fulfilment modes, empty carts, disabled store pickup, and configured seller-count limits. The tests assert invalid requests fail before order persistence and, where applicable, before catalogue access. These are service-level validation tests using mocks; they do not prove cross-seller transaction rollback after a database write, Oracle locking, or concurrent checkout behavior. Those remain isolated Oracle/staging acceptance gates.
+
+
+
+## 14 November 2026 — Daily Help and delivery request-boundary hardening
+
+The consolidated continuation now rejects a null Daily Help booking request before repository access, rejects a null service-start request or missing professional identity before booking lookup, and validates the service-start OTP as exactly four digits before locking or loading a booking. Regression tests assert these invalid requests do not touch repositories. Delivery OTP verification now rejects a null payload, missing OTP, or malformed four-character numeric OTP at the controller boundary before calling the delivery service; a controller regression test covers all three cases.
+
+These are request-validation and fail-fast guarantees. They do not replace authenticated end-to-end acceptance for provider acceptance/rejection, slot contention, delivery claim races, OTP resend expiry, Oracle locking, or transaction rollback. Those remain isolated staging/Oracle gates.
+
+
+## 14 November 2026 — admin seller-lead mutation payload validation
+
+Admin seller-lead update and note endpoints now return HTTP 400 for a missing request body rather than dereferencing null. Controller regression coverage verifies both endpoints reject the request before invoking the lead service. Authenticated actor attribution and role enforcement are unchanged; this narrow input-validation test does not constitute the complete admin permission/audit acceptance matrix.
+
+
+## 14 November 2026 — authenticated lifecycle, five-role access and seller-document correction coverage
+
+The guarded Playwright lifecycle suite now includes:
+- Bargaining rejection, read-back and replay rejection, in addition to the existing offer/counter/accept/checkout-price reconciliation path.
+- A five-role portal matrix covering seller document self-service, delivery job access, professional job access, admin document review and buyer/seller bargaining inboxes. It also verifies that a professional cannot substitute another professional profile ID.
+- Existing guarded authenticated journeys continue to cover buyer checkout, seller fulfilment, concurrent rider claim, seller pickup, invalid/valid/replayed delivery OTP, Daily Help slot contention, service-start OTP and completion, plus run-scoped cleanup.
+
+The seller-document workflow is covered without creating persistent staging documents: a controller regression test now proves a rejected document can be corrected and uploaded as a new pending, clean document while the rejected record and its reason remain unchanged. Existing controller tests cover clean upload, scanner fail-closed quarantine, required rejection reason, admin verification, non-admin denial, seller scoping, cross-seller document-ID path protection, private download headers and metadata byte exclusion.
+
+The guarded transactional Playwright flows remain disabled on ordinary pull-request events. They are configured to run only through the trusted scheduled/manual opt-in paths in the workflow, against the designated staging API and owner-provisioned five-role identities. Therefore the PR CI result alone does not establish that these mutating authenticated journeys ran against staging. A trusted opt-in run is still required for runtime acceptance. The role-matrix E2E uses the same owner-approved multi-role account with distinct role-scoped tokens; unrelated-user ownership is additionally covered by existing service/controller tests, not inferred from same-account role switching.
