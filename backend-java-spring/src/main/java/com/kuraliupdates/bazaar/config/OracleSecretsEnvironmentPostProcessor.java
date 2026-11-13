@@ -49,12 +49,13 @@ public final class OracleSecretsEnvironmentPostProcessor implements EnvironmentP
      * Registration is idempotent and does not expose wallet material.
      */
     static void registerOraclePkiProvider() {
-        if (Security.getProvider(OraclePKIProvider.class.getName()) == null) {
-            OraclePKIProvider provider = new OraclePKIProvider();
-            if (Security.getProvider(provider.getName()) == null) {
-                Security.addProvider(provider);
-            }
-        }
+        OraclePKIProvider provider = new OraclePKIProvider();
+        // SunPKCS12 is normally registered before application providers. Merely
+        // appending OraclePKIProvider leaves Sun's unsupported Key Bag parser first.
+        // Move Oracle's provider to position 1 so KeyStore.getInstance("PKCS12")
+        // selects the implementation that understands orapki wallet key bags.
+        Security.removeProvider(provider.getName());
+        Security.insertProviderAt(provider, 1);
     }
 
     @Override
