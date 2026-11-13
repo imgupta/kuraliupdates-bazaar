@@ -48,6 +48,7 @@ public class SellerApplicationController {
     public Map<String,Object> create(@RequestBody Map<String,Object> body, Authentication auth) {
         requireAdmin(auth);
         validate(body);
+        body.remove("agreementAccepted");
         String id = "sapp-" + UUID.randomUUID();
         String accessToken = UUID.randomUUID().toString() + UUID.randomUUID();
         LocalDateTime now = LocalDateTime.now();
@@ -72,6 +73,7 @@ public class SellerApplicationController {
         Map<String,Object> current = read(id, false);
         Map<String,Object> merged = new LinkedHashMap<>((Map<String,Object>) current.get("details"));
         merged.putAll(body);
+        merged.put("agreementAccepted", Boolean.FALSE);
         validate(merged);
         String next = "ACTION_REQUIRED".equals(current.get("status")) ? "IN_PROGRESS" : String.valueOf(current.get("status"));
         jdbc.update("UPDATE SELLER_APPLICATIONS SET OWNER_NAME=?,EMAIL=?,PHONE=?,SHOP_NAME=?,APPLICATION_JSON=?,STATUS=?,UPDATED_AT=? WHERE APPLICATION_ID=?",
