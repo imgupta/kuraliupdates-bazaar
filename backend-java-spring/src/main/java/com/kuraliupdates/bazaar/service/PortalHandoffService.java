@@ -43,6 +43,16 @@ public class PortalHandoffService {
     }
 
     /**
+     * Execute the production expiry-cleanup statement in its own transaction.
+     * Used by the staging-only Oracle rehearsal to race two cleanup callers
+     * against one naturally expired handoff.
+     */
+    @Transactional
+    public int cleanupExpired() {
+        return repository.deleteExpiredBefore(LocalDateTime.now());
+    }
+
+    /**
      * Commits the one-time consume in its own transaction before the caller
      * revalidates the underlying session and target role. A failed role/session
      * check must not roll back the consume and make the handoff replayable.

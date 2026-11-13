@@ -3,6 +3,7 @@ package com.kuraliupdates.bazaar.controller;
 import com.kuraliupdates.bazaar.service.E2eFixtureService;
 import com.kuraliupdates.bazaar.service.E2eRunTagging;
 import com.kuraliupdates.bazaar.service.ApiRateLimitService;
+import com.kuraliupdates.bazaar.service.PortalHandoffService;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import org.springframework.http.HttpStatus;
 import java.time.Duration;
@@ -21,6 +22,7 @@ public class E2eFixtureController {
     private final E2eFixtureService fixtureService;
     private final E2eRunTagging runTagging;
     private final ApiRateLimitService rateLimit;
+    private final PortalHandoffService portalHandoffService;
 
     @PostMapping("/prepare/{runId}")
     public ResponseEntity<E2eFixtureService.FixtureResult> prepare(
@@ -31,6 +33,22 @@ public class E2eFixtureController {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .body(fixtureService.prepare(runId, request));
     }
+
+    /**
+     * Runs the same set-based expiry delete used during handoff creation.
+     * The strong staging flow token and run-scoped ID keep this diagnostic
+     * operation unavailable to ordinary application callers.
+     */
+    @PostMapping("/portal-handoff-expiry-cleanup/{runId}")
+    public ResponseEntity<Map<String, Object>> cleanupExpiredPortalHandoffs(
+            @PathVariable String runId,
+            @RequestHeader(value = "X-E2E-Flow-Token", required = false) String token) {
+        runTagging.requireAuthorized(runId, token);
+        int deletedRows = portalHandoffService.cleanupExpired();
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(Map.of("success", true, "deletedRows", deletedRows));
+    }
+
     @PostMapping("/rate-limit-probe/{runId}")
     public ResponseEntity<Map<String, Object>> verifyRateLimit(
             @PathVariable String runId,
@@ -56,4 +74,3 @@ public class E2eFixtureController {
         throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Rate limit probe did not enforce the configured bucket");
     }
 }
-

@@ -40,6 +40,17 @@ class PortalHandoffServiceTest {
     }
 
     @Test
+    void cleanupExpiredUsesTheProductionBulkDeleteQuery() {
+        when(repository.deleteExpiredBefore(any(LocalDateTime.class))).thenReturn(1);
+        PortalHandoffService service = new PortalHandoffService(repository);
+
+        assertEquals(1, service.cleanupExpired());
+
+        verify(repository).deleteExpiredBefore(any(LocalDateTime.class));
+        verifyNoMoreInteractions(repository);
+    }
+
+    @Test
     void doesNotLookupOrReturnHandoffWhenAtomicConsumeFails() {
         when(repository.consume(anyString(), any(LocalDateTime.class))).thenReturn(0);
         PortalHandoffService service = new PortalHandoffService(repository);

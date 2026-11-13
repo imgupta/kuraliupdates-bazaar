@@ -1,0 +1,222 @@
+name: Oracle Staging Transaction Recovery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/oracle-staging-transaction-recovery.yml'
+      - 'backend-java-spring/**'
+      - 'e2e/order-daily-help-lifecycle.spec.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kuraliupdates-single-staging-e2e
+  cancel-in-progress: false
+
+jobs:
+  oracle-transaction-recovery:
+    name: Oracle expiry-cleanup race and checkout rollback rehearsal
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      E2E_ENVIRONMENT: staging
+      E2E_BASE_URL: https://bazaar.kuraliupdates.com
+      E2E_API_BASE_URL: https://kuraliupdates-bazaar.onrender.com/api/v1
+      E2E_STAGING_CONFIG_JSON: \${{ secrets.E2E_STAGING_CONFIG_JSON }}
+      E2E_TRANSACTIONAL_FLOWS_ENABLED: "true"
+    steps:
+      - name: Checkout exact workflow commit
+        uses: actions/checkout@v4
+        with:
+          ref: \${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Resolve expected deployed backend commit
+        shell: bash
+        run: |
+          expected="$(git log -1 --format=%H -- backend-java-spring/)"
+          if [[ ! "$expected" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Could not resolve expected backend commit."
+            exit 1
+          fi
+          echo "EXPECTED_STAGING_COMMIT=$expected" >> "$GITHUB_ENV"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install test dependencies
+        run: |
+          bun install
+          bun add --dev @playwright/test
+          bash scripts/ci/install-playwright-chromium.sh
+
+      - name: Validate and load isolated staging test configuration
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const raw = process.env.E2E_STAGING_CONFIG_JSON;
+          if (!raw?.trim()) throw new Error('Missing E2E_STAGING_CONFIG_JSON; no staging request was made.');
+          let config;
+          try { config = JSON.parse(raw); } catch { throw new Error('E2E_STAGING_CONFIG_JSON is invalid JSON.'); }
+          const api = new URL(process.env.E2E_API_BASE_URL);
+          if (config.E2E_ENVIRONMENT !== 'staging' || api.protocol !== 'https:'
+              || api.hostname !== 'kuraliupdates-bazaar.onrender.com' || api.pathname !== '/api/v1') {
+            throw new Error('Refusing to run outside the pinned KuraliUpdates staging API.');
+          }
+          const required = ['E2E_FLOW_AUTH_TOKEN','E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY',
+            'E2E_DELIVERY_IDENTITY','E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY',
+            'E2E_FLOW_BUYER_PHONE','E2E_FLOW_BUYER_EMAIL','E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID'];
+          for (const key of required) if (!String(config[key] ?? '').trim()) {
+            throw new Error('Missing required staging E2E configuration key: ' + key);
+          }
+          const identities = ['E2E_BUYER_IDENTITY','E2E_SELLER_IDENTITY','E2E_DELIVERY_IDENTITY',
+            'E2E_PROVIDER_IDENTITY','E2E_ADMIN_IDENTITY'].map(key => String(config[key]).trim().toLowerCase());
+          if (identities.some(value => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+              || new Set(identities).size !== 1
+              || String(config.E2E_FLOW_BUYER_EMAIL).trim().toLowerCase() !== identities[0]) {
+            throw new Error('All five role identities and the buyer contact email must match the dedicated shared staging account.');
+          }
+          if (config.E2E_TRANSACTIONAL_FLOWS_ENABLED !== true
+              && config.E2E_TRANSACTIONAL_FLOWS_ENABLED !== 'true') {
+            throw new Error('Transactional staging tests are not explicitly enabled in the owner-approved secret.');
+          }
+          if (String(config.E2E_FLOW_AUTH_TOKEN).length < 32) throw new Error('E2E flow token is too short.');
+          const ids = ['E2E_FLOW_SELLER_ID','E2E_FLOW_DELIVERY_AGENT_ID'].map(key => String(config[key]).trim());
+          if (new Set(ids).size !== 2 || ids.some(id => !/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(id))) {
+            throw new Error('Dedicated staging profile IDs are invalid or not distinct.');
+          }
+          const values = {
+            E2E_FLOW_AUTH_TOKEN: String(config.E2E_FLOW_AUTH_TOKEN),
+            E2E_SELLER_IDENTITY: String(config.E2E_SELLER_IDENTITY),
+            E2E_BUYER_IDENTITY: String(config.E2E_BUYER_IDENTITY),
+            E2E_DELIVERY_IDENTITY: String(config.E2E_DELIVERY_IDENTITY),
+            E2E_PROVIDER_IDENTITY: String(config.E2E_PROVIDER_IDENTITY),
+            E2E_ADMIN_IDENTITY: String(config.E2E_ADMIN_IDENTITY),
+            E2E_FLOW_BUYER_PHONE: String(config.E2E_FLOW_BUYER_PHONE),
+            E2E_FLOW_BUYER_EMAIL: String(config.E2E_FLOW_BUYER_EMAIL),
+            E2E_FLOW_SELLER_ID: String(config.E2E_FLOW_SELLER_ID),
+            E2E_FLOW_DELIVERY_AGENT_ID: String(config.E2E_FLOW_DELIVERY_AGENT_ID)
+          };
+          for (const value of Object.values(values)) {
+            console.log('::add-mask::' + value.replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A'));
+          }
+          const fs = await import('node:fs');
+          fs.appendFileSync(process.env.GITHUB_ENV, Object.entries(values).map(([key,value]) => key + '=' + value).join('\n') + '\n');
+          console.log('Validated pinned staging host and dedicated synthetic test identity. Secret values masked.');
+          NODE
+
+      - name: Verify staging API and Oracle readiness for exact backend commit
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const url = process.env.E2E_API_BASE_URL + '/health';
+          const expected = (process.env.EXPECTED_STAGING_COMMIT ?? '').toLowerCase();
+          if (!/^[0-9a-f]{40}$/.test(expected)) throw new Error('Expected backend commit SHA is invalid.');
+          const deadline = Date.now() + 8 * 60 * 1000;
+          let stable = 0;
+          let last = 'no response';
+          while (Date.now() < deadline && stable < 3) {
+            try {
+              const response = await fetch(url, { headers: { 'Cache-Control': 'no-store' }, signal: AbortSignal.timeout(10000) });
+              const body = await response.json().catch(() => ({}));
+              if (response.status === 200 && body.status === 'UP' && body.database === 'UP'
+                  && String(body.commit ?? '').toLowerCase() === expected) {
+                stable++;
+                console.log('Exact backend commit and Oracle readiness: ' + stable + '/3.');
+              } else {
+                stable = 0;
+                last = 'HTTP ' + response.status + ', database=' + String(body.database ?? 'unknown')
+                  + ', commit=' + String(body.commit ?? 'unknown');
+              }
+            } catch { stable = 0; last = 'network/timeout'; }
+            if (stable < 3) await new Promise(resolve => setTimeout(resolve, 5000));
+          }
+          if (stable !== 3) throw new Error('Staging readiness failed: ' + last);
+          NODE
+
+      - name: Race Oracle expired-handoff cleanup and verify expiry rejection
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { randomUUID } from 'node:crypto';
+          const base = process.env.E2E_API_BASE_URL;
+          const flowToken = process.env.E2E_FLOW_AUTH_TOKEN;
+          const identity = process.env.E2E_SELLER_IDENTITY;
+          const runId = 'E2E-ORACLE-EXPIRY-' + randomUUID();
+          const headers = { 'X-E2E-Flow-Token': flowToken, 'X-E2E-Run-Id': runId,
+            'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+          const request = async (path, options = {}) => {
+            const response = await fetch(base + path, { ...options, headers: {
+              ...headers, ...(options.token ? { Authorization: 'Bearer ' + options.token } : {}),
+              ...(options.headers ?? {}) }, signal: AbortSignal.timeout(30000) });
+            const body = await response.json().catch(() => ({}));
+            return { status: response.status, body };
+          };
+          let sessionIssued = false;
+          let failure;
+          try {
+            const session = await request('/e2e/auth/token', {
+              method: 'POST', body: JSON.stringify({ role: 'SELLER', identifier: identity })
+            });
+            if (session.status !== 200 || session.body.authenticated !== true
+                || typeof session.body.token !== 'string') throw new Error('Could not issue the dedicated staging seller session.');
+            sessionIssued = true;
+            const sellerToken = session.body.token;
+            console.log('Dedicated synthetic seller session issued.');
+
+            const handoff = await request('/auth/portal-handoff', {
+              method: 'POST', token: sellerToken, body: JSON.stringify({ role: 'SELLER' })
+            });
+            if (handoff.status !== 200 || typeof handoff.body.code !== 'string'
+                || handoff.body.code.length !== 64) throw new Error('Could not create the expiring portal handoff.');
+            console.log('Created one synthetic handoff; waiting for its configured 60-second TTL to elapse.');
+            await new Promise(resolve => setTimeout(resolve, 65000));
+
+            const cleanupPath = '/e2e/fixtures/portal-handoff-expiry-cleanup/' + encodeURIComponent(runId);
+            const cleanups = await Promise.all([1, 2].map(() => request(cleanupPath, { method: 'POST' })));
+            for (const result of cleanups) {
+              if (result.status !== 200 || result.body.success !== true
+                  || !Number.isInteger(result.body.deletedRows) || result.body.deletedRows < 0) {
+                throw new Error('Oracle expired-handoff cleanup request failed (HTTP ' + result.status + ').');
+              }
+            }
+            const removed = cleanups.reduce((sum, result) => sum + result.body.deletedRows, 0);
+            if (removed < 1) throw new Error('Concurrent Oracle cleanup did not delete the expired synthetic handoff.');
+            const replay = await request('/auth/portal-handoff/redeem', {
+              method: 'POST', body: JSON.stringify({ code: handoff.body.code })
+            });
+            if (replay.status !== 401) throw new Error('Expired handoff must be rejected after cleanup; observed HTTP ' + replay.status + '.');
+            console.log('PASS: concurrent Oracle cleanup callers completed; at least one expired handoff row was deleted; expired redemption returned HTTP 401.');
+          } catch (error) {
+            failure = error;
+          } finally {
+            if (sessionIssued) {
+              const cleanup = await request('/e2e/cleanup/' + encodeURIComponent(runId), { method: 'POST' });
+              if (cleanup.status !== 200) failure = failure ?? new Error('Run-scoped synthetic session cleanup failed (HTTP ' + cleanup.status + ').');
+              else console.log('PASS: expiry rehearsal synthetic session cleanup completed.');
+            }
+          }
+          if (failure) throw failure;
+          NODE
+
+      - name: Run real Oracle multi-seller checkout rollback rehearsal
+        run: bunx playwright test e2e/order-daily-help-lifecycle.spec.ts --grep "multi-seller checkout failure rolls back the earlier seller order and stock"
+
+      - name: Upload Oracle transaction recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oracle-staging-transaction-recovery
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
