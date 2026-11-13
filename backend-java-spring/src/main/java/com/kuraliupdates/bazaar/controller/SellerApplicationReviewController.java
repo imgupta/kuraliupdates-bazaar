@@ -89,7 +89,7 @@ public class SellerApplicationReviewController {
         catch (Exception ignored) { type = MediaType.APPLICATION_OCTET_STREAM; }
         return ResponseEntity.ok().contentType(type)
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(name, StandardCharsets.UTF_8).build().toString())
-                .header(HttpHeaders.X_CONTENT_TYPE_OPTIONS,"nosniff")
+                .header("X-Content-Type-Options","nosniff")
                 .body((byte[])file.get("data"));
     }
 
