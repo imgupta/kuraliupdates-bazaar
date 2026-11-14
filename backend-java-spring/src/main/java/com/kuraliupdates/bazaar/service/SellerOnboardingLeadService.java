@@ -161,8 +161,8 @@ public class SellerOnboardingLeadService {
     @Transactional
     public Map<String,Object> resendContactOtpsByAdmin(String leadId, String actor) {
         Map<String,Object> lead = getLead(leadId);
-        if (List.of("CONVERTED","NOT_INTERESTED").contains(String.valueOf(lead.get("status"))))
-            throw new ApiException(HttpStatus.CONFLICT,"This lead is closed; OTP resend is unavailable");
+        if (!"STARTED".equals(String.valueOf(lead.get("status"))))
+            throw new ApiException(HttpStatus.CONFLICT,"Contact verification is not pending for this lead; OTP resend is unavailable");
         Map<String,Object> sent = sendContactOtps(leadId);
         audit(leadId, actor, "ADMIN_OTP_RESEND_REQUESTED",
                 "emailRequired=" + lead.get("emailOtpRequired") + "; mobileRequired=" + lead.get("phoneOtpRequired"));
