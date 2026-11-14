@@ -122,7 +122,7 @@ public class SellerOnboardingLeadService {
         if (!contactRequirementSatisfied(lead, "email") || !contactRequirementSatisfied(lead, "phone")) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Complete the enabled contact verification steps before submitting seller details");
         }
-        if (!List.of("CONTACT_VERIFIED", "CALLBACK_REQUESTED").contains(String.valueOf(lead.get("status")))) {
+        if (!List.of("CONTACT_VERIFIED", "CALLBACK_REQUESTED", "IN_PROGRESS").contains(String.valueOf(lead.get("status")))) {
             throw new ApiException(HttpStatus.CONFLICT, "This registration lead has already been submitted or closed");
         }
         jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET STATUS='APPLICATION_SUBMITTED', APPLICATION_ID=?, UPDATED_AT=? WHERE LEAD_ID=?",
