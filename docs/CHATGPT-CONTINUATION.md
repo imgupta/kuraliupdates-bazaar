@@ -169,3 +169,12 @@ Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller
 - PR #323 includes the source-level wallet remediation previously in #317, including fail-closed startup validation and Docker wallet exclusion. It is not safe to merge/deploy until replacement wallet/credentials are provisioned by authorized owners and runtime Oracle readiness is verified. Credential rotation/revocation and history purge are not performed here.
 - #209 scanning/quarantine code and V26 are historical merged work; private ClamAV runtime, retention/audit acceptance and #210 complete seller onboarding lifecycle remain outstanding.
 - Exact-head PR #323 tests/CI are not yet verified. Continue all remaining Phase 1 changes in #323 only; no separate implementation PRs. Phase 1 remains open.
+
+
+## 14 November 2026 — current main handoff after PR #357
+
+- Main commit: `11556e423a7c0128848ccd4788f2da372fb6ee94`; PR #357 merged from tested head `b82a1d1073da08f268c7c4d3677c376544c2b608`.
+- Exact-head CI run `43588014410` passed frontend checks/build, focused and full backend verification, read-only API smoke and configured browser E2E. Docker security gate `43588014452` passed; SonarCloud was skipped.
+- PR #357 delivered admin CRM customer search/edit with prefilled values, admin Orders workspace, guarded item quantity changes/stock recalculation, event history, admin-only notes, refund reconciliation ledger and durable notice outbox. V39 migration source is merged.
+- Next: verify V39 on isolated staging Oracle; run approved synthetic CRM/order acceptance on staging; build/test the notice-outbox delivery worker; validate seller-funded/external refund reconciliation. Do not assume these have happened.
+- Phase 0 formal closure remains OPEN. Phase 1 remains IN PROGRESS; #357 completes one admin CRM/order feature milestone, not the entire phase. Keep Phase 2 and production launch gates closed until their respective evidence packs are approved.
