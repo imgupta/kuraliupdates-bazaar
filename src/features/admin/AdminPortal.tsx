@@ -59,6 +59,12 @@ export const AdminDashboard: React.FC = () => {
   const [accountAuditUserId, setAccountAuditUserId] = useState<string | null>(null);
   const [accountAuditEntries, setAccountAuditEntries] = useState<any[]>([]);
   const [buyersLoading, setBuyersLoading] = useState(false);
+  const [buyerSearch, setBuyerSearch] = useState('');
+  const [editingBuyer, setEditingBuyer] = useState<any | null>(null);
+  const [buyerForm, setBuyerForm] = useState({ name: '', email: '', phone: '', locality: '', address: '', formattedAddress: '' });
+  const [buyerSaving, setBuyerSaving] = useState(false);
+  const [buyerEditError, setBuyerEditError] = useState('');
+
   const [adminSellers, setAdminSellers] = useState<any[]>([]);
   const [pendingSellerApplications, setPendingSellerApplications] = useState<any[]>([]);
   const [adminDeliveryAgents, setAdminDeliveryAgents] = useState<any[]>([]);
@@ -1266,47 +1272,37 @@ export const AdminDashboard: React.FC = () => {
       {/* Tab: Buyers */}
       {activeAdminTab === 'buyers' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-extrabold text-slate-900">Registered Buyer Accounts ({buyers.length})</h2>
-              <p className="text-xs text-slate-500 mt-1">Buyer profiles registered in the Bazaar user database.</p>
-            </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div><h2 className="text-base font-extrabold text-slate-900">Registered buyers ({buyers.length})</h2><p className="mt-1 text-xs text-slate-500">Search existing customer accounts and update their contact or delivery address details.</p></div>
+            <input type="search" value={buyerSearch} onChange={event => setBuyerSearch(event.target.value)} placeholder="Search name, email or mobile…" aria-label="Search buyers" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm sm:max-w-sm"/>
           </div>
-          {buyersLoading ? (
-            <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 text-xs text-slate-500">Loading buyer accounts...</div>
-          ) : buyers.length === 0 ? (
-            <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 space-y-2">
-              <Users className="w-10 h-10 text-slate-300 mx-auto" />
-              <p className="text-sm font-bold text-slate-700">No buyer accounts found</p>
-              <p className="text-xs text-slate-500">New buyer registrations will appear here automatically.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {buyers.map(buyer => (
-                <div key={buyer.userId} className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs">
+          {buyersLoading ? <div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">Loading buyers…</div> : (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {buyers.filter(buyer => [buyer.name,buyer.email,buyer.phone,buyer.userId,buyer.locality].some(value=>String(value||'').toLowerCase().includes(buyerSearch.trim().toLowerCase()))).map(buyer => (
+                <article key={buyer.userId} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="font-extrabold text-sm text-slate-900 truncate">{buyer.name}</h3>
-                      <p className="text-xs text-slate-500 mt-1 truncate">{buyer.email || buyer.phone || 'No contact details'}</p>
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
-                      {Number(buyer.isVerified) === 1 ? 'Verified' : 'Unverified'}
-                    </span>
+                    <div className="min-w-0"><h3 className="truncate text-sm font-extrabold text-slate-900">{buyer.name || 'Unnamed customer'}</h3><p className="mt-1 break-all text-xs text-slate-500">{buyer.email || 'No email'} · {buyer.phone || 'No mobile'}</p></div>
+                    <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">{Number(buyer.isVerified)===1?'Verified':'Unverified'}</span>
                   </div>
-                  <div className="mt-4 grid grid-cols-1 gap-2 text-xs text-slate-600">
-                    <div><span className="text-slate-400">Phone:</span> <strong>{buyer.phone || '—'}</strong></div>
-                    <div><span className="text-slate-400">Locality:</span> <strong>{buyer.locality || '—'}</strong></div>
-                    <div><span className="text-slate-400">Address:</span> <strong>{buyer.formattedAddress || buyer.address || '—'}</strong></div>
-                    <div><span className="text-slate-400">Registered:</span> <strong>{buyer.createdAt ? new Date(buyer.createdAt).toLocaleString() : '—'}</strong></div>
-                    <div><span className="text-slate-400">Last login:</span> <strong>{buyer.lastLogin ? new Date(buyer.lastLogin).toLocaleString() : '—'}</strong></div>
-                  </div>
-                </div>
+                  <div className="mt-3 space-y-1 text-xs text-slate-600"><p><span className="text-slate-400">Locality:</span> {buyer.locality || '—'}</p><p><span className="text-slate-400">Address:</span> {buyer.formattedAddress || buyer.address || '—'}</p><p className="font-mono text-[10px] text-slate-400">{buyer.userId}</p></div>
+                  <button type="button" onClick={() => { setEditingBuyer(buyer); setBuyerForm({name:buyer.name||'',email:buyer.email||'',phone:buyer.phone||'',locality:buyer.locality||'',address:buyer.address||'',formattedAddress:buyer.formattedAddress||''}); setBuyerEditError(''); }} className="mt-4 min-h-11 w-full rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50"><Pencil className="mr-1 inline h-3.5 w-3.5"/> Edit customer details</button>
+                </article>
               ))}
+              {buyers.filter(buyer => [buyer.name,buyer.email,buyer.phone,buyer.userId,buyer.locality].some(value=>String(value||'').toLowerCase().includes(buyerSearch.trim().toLowerCase()))).length===0 && <div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">No customers match your search.</div>}
             </div>
           )}
+          {editingBuyer && <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Edit customer details">
+            <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl">
+              <div className="mb-4 flex items-center justify-between gap-3"><div><h3 className="text-lg font-black text-slate-900">Edit customer</h3><p className="text-xs text-slate-500">Changes are recorded in the admin audit history.</p></div><button type="button" onClick={()=>setEditingBuyer(null)} className="rounded-lg border px-3 py-2 text-xs font-bold">Close</button></div>
+              {buyerEditError && <p role="alert" className="mb-3 rounded-xl bg-rose-50 p-3 text-xs text-rose-800">{buyerEditError}</p>}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(['name','email','phone','locality','address','formattedAddress'] as const).map(field=><label key={field} className="block space-y-1 text-xs font-bold text-slate-700 sm:col-span-1"><span>{({name:'Customer name',email:'Email',phone:'Mobile number',locality:'Locality',address:'Address',formattedAddress:'Formatted address'})[field]}</span><input value={buyerForm[field]} onChange={event=>setBuyerForm(current=>({...current,[field]:event.target.value}))} className="min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"/></label>)}
+              </div>
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={()=>setEditingBuyer(null)} className="min-h-11 rounded-xl border px-4 py-2 text-xs font-bold">Cancel</button><button type="button" disabled={buyerSaving} onClick={async()=>{setBuyerSaving(true);setBuyerEditError('');try{await adminApi.updateAdminBuyer(editingBuyer.userId,buyerForm);setBuyers(current=>current.map(item=>item.userId===editingBuyer.userId?{...item,...buyerForm}:item));setEditingBuyer(null);showToast('Customer details updated successfully.','success');}catch(error:any){setBuyerEditError(error?.message||'Unable to update customer details.');}finally{setBuyerSaving(false);}}} className="min-h-11 rounded-xl bg-purple-700 px-5 py-2 text-xs font-bold text-white disabled:opacity-50">{buyerSaving?'Saving…':'Save customer details'}</button></div>
+            </div>
+          </div>}
         </div>
       )}
-
       {/* Tab: Delivery Fleet */}
       {activeAdminTab === 'fleet' && (
         <div className="space-y-4">
