@@ -135,6 +135,18 @@ export const SellerOnboardingCRM: React.FC = () => {
         </div>}
       </div>
     </div>
-  </section><SellerApplicationWorkspace />
+  </section>
+  <details className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+      <span className="min-w-0">
+        <span className="block text-sm font-extrabold text-slate-900">Seller application workspace</span>
+        <span className="mt-1 block text-xs text-slate-500">Create, continue and review seller applications</span>
+      </span>
+      <span className="shrink-0 rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">Open workspace</span>
+    </summary>
+    <div className="border-t border-slate-100 p-3 sm:p-4">
+      <SellerApplicationWorkspace />
+    </div>
+  </details>
   </>;
 };
