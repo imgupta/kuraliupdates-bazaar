@@ -92,3 +92,39 @@ The test runner writes per-suite output under ignored `test-reports/local/` and 
 - Seller ClamAV scanning/quarantine and clean-only access code were already merged in #211–#213; V26 was reported applied to staging in issue #210's 2 November comments. The remaining #209 gates are private/internal ClamAV runtime availability, retention/deletion policy and document-access audit evidence. Issue #210 still requires the full isolated synthetic seller/admin correction lifecycle run.
 - Exact-head local Codespaces tests and GitHub Actions results have **not** been run/returned for PR #323. Earlier PR #317 CI is historical evidence only and is not transferable to this new combined head. Oracle locking, rollback, concurrency and mutating seller lifecycle remain separately authorized verification gates.
 - Phase 1 remains **IN PROGRESS**. This PR is draft and not merge-ready.
+
+
+## 14 November 2026 — Admin CRM and Order Management milestone (PR #357)
+
+PR [#357](https://github.com/imgupta/kuraliupdates-bazaar/pull/357), “Improve admin mobile UX and seller onboarding”, was merged to `main` as `11556e423a7c0128848ccd4788f2da372fb6ee94`. Exact tested PR head: `b82a1d1073da08f268c7c4d3677c376544c2b608`.
+
+### Delivered scope
+
+- Admin CRM supports customer search and editing existing customer details, with existing values prefilled in the edit journey.
+- Admin Orders workspace supports order search/filter/detail, contact/delivery snapshot updates and cancellation of eligible unpaid COD checkout groups.
+- Controlled order-item quantity changes are limited to eligible pre-fulfilment states; inventory is adjusted under database row locks and order totals are recalculated while retaining the existing unit-price/discount snapshots.
+- Order operation history is append-only; internal support notes are stored separately and admin-only.
+- Paid-order refund request/reconciliation records are capped against the order total and require an external provider transaction reference before marking a refund processed. No payment transfer is performed by this feature.
+- Customer notices for order edits, cancellations and refund events are written to a durable outbox. Actual email/SMS delivery requires a worker/provider integration and is not claimed as complete.
+- Additive Flyway migration V39 creates the event, notes, refund and notice-outbox tables.
+
+### Exact-head verification
+
+| Workflow | Run | Result |
+|---|---:|---|
+| KuraliUpdates CI and E2E | `43588014410` | Success |
+| Frontend checks | Job `132426566228` | Success; TypeScript/regression checks and production build passed |
+| Backend tests | Job `132426566539` | Success; focused regressions and full backend verification passed |
+| Browser E2E/read-only smoke | Job `132426566611` | Success; configured read-only smoke and browser checks passed |
+| Docker image security gate | `43588014452` | Success; final image/build context excludes Oracle wallet and CI fixtures |
+| SonarCloud | — | Skipped by workflow |
+
+### Verification boundaries and remaining work
+
+- The CI read-only smoke is not proof of live Oracle database readiness; it reported no database-health verification. Authenticated/transactional scenarios guarded off in PR CI must not be counted as passes.
+- V39 is present in source but application to the staging Oracle database, fresh-schema bootstrap, Oracle locking/rollback/concurrency, and backup/restore have not been verified by this PR evidence.
+- The customer-notice outbox does not itself deliver messages. Configure and test a delivery worker/provider, retries, idempotency, suppression and failure monitoring before promising notifications.
+- Refund reconciliation is administrative bookkeeping only; actual refunds remain external to the platform and must follow the direct seller/customer payment model and provider/bank process.
+- Staging UI acceptance on mobile and desktop, real authorised CRM/order API journeys with synthetic identities, and runtime deployment health remain to be performed/recorded.
+
+**Phase 1 disposition: IN PROGRESS / NOT CLOSED.** PR #357 completes this admin CRM/order-operations implementation milestone and its exact-head CI gates, but does not close the broader Phase 1 matrix (five-role authorization and lifecycle evidence, seller document correction/retention/audit acceptance, isolated Oracle transactional tests, abuse/privacy controls and release gates). Do not mark Phase 1 complete or authorize Phase 2 solely on this PR.
