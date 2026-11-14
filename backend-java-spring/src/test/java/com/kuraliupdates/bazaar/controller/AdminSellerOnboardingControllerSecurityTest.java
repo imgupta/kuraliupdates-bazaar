@@ -57,7 +57,7 @@ class AdminSellerOnboardingControllerSecurityTest {
     @Test
     void adminCanReadLeadListAndLeadNotes() throws Exception {
         when(authService.requireUser("admin-session")).thenReturn(user("admin-1", "ADMIN"));
-        when(leads.list(null, null, 0, 25)).thenReturn(
+        when(leads.list(null, null, 0, 25, false)).thenReturn(
                 List.of(Map.of("leadId", "lead-1", "status", "CALLBACK_REQUESTED")));
         when(leads.notes("lead-1")).thenReturn(
                 List.of(Map.of("note", "Applicant requested a callback")));
