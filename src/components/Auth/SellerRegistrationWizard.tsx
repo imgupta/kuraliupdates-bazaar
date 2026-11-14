@@ -185,6 +185,8 @@ export const SellerRegistrationWizard: React.FC = () => {
       if (gstNumber.trim() && !/^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/.test(gstNumber.trim().toUpperCase())) throw new Error('Enter a valid GSTIN format');
       if (fssaiNumber.trim() && !/^\d{14}$/.test(fssaiNumber.trim())) throw new Error('FSSAI number must contain 14 digits');
       if (fssaiNumber.trim() && !fssaiCertificate) throw new Error('Upload the FSSAI certificate when providing an FSSAI number');
+      if (!shopFrontPhoto) throw new Error('Upload a shop-front photograph');
+      if (!agreementAccepted) throw new Error('Accept the seller agreement to continue');
     }
     return true;
   };
