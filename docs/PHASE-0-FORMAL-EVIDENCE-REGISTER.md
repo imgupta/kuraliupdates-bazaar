@@ -97,3 +97,15 @@ No reviewer identity, approval, legal opinion, restore result, region or secret 
 Phase 1 continues independently as functional/security validation. Current Phase 1 merged authorization slices include PRs #232–#264 as recorded in `PHASE-1-EXECUTION-PLAN.md`. Remaining work includes the broader IDOR matrix, authenticated role journeys with isolated identities/OTP/cleanup, Oracle-backed concurrency and rollback, abuse/privacy controls, and operational recovery proof. Phase 1 test progress must not be used to declare Phase 0 legal, residency, backup or secret-management gates complete.
 
 **Formal disposition as of 6 November 2026: Phase 0 milestone delivered; formal exit not evidenced. Keep Phase 0 closure and production release gates open until the closure evidence pack is complete and approved.**
+
+
+## 14 November 2026 — PR #357 admin CRM/order-operations evidence addendum
+
+- PR [#357](https://github.com/imgupta/kuraliupdates-bazaar/pull/357) merged to main as `11556e423a7c0128848ccd4788f2da372fb6ee94`; exact PR head: `b82a1d1073da08f268c7c4d3677c376544c2b608`.
+- Added root-admin protected buyer/customer search and edit support in CRM, with prefilled existing customer details, and admin Orders operations for search/detail/contact/delivery updates and eligible unpaid-COD cancellation.
+- Added controlled pre-fulfilment item quantity updates with locked inventory adjustment and order total recalculation; append-only order events; private admin-only notes; paid-order refund request/reconciliation ledger; and transactional customer-notice outbox records.
+- Exact-head CI: `43588014410` completed successfully. Frontend checks/build, backend focused regression tests, full backend verification suite, read-only API smoke and browser E2E job passed. Docker security gate `43588014452` passed final image/build-context exclusion checks. SonarCloud was skipped. The read-only smoke result is not Oracle readiness; standard PR E2E does not prove transactional Oracle behavior.
+- V39 migration source is merged, but no authorized evidence of V39 application to the staging Oracle schema, fresh-schema bootstrap, rollback, backup/restore or Oracle concurrency behavior is attached by this PR.
+- Customer notifications are persisted to an outbox; a delivery worker/provider integration is still required for actual email/SMS delivery. Refund endpoints record requests and provider reconciliation references; they do not transfer funds.
+
+**Disposition:** This is additional implementation and CI evidence only. It does not change the formal Phase 0 decision. Phase 0 remains OPEN / NOT COMPLETE until the complete evidence pack in section 4 is reviewed and signed off.
