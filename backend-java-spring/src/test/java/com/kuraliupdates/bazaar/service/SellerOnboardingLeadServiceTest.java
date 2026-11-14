@@ -147,7 +147,7 @@ class SellerOnboardingLeadServiceTest {
 
     private static void stubLead(JdbcTemplate jdbc, String status) throws Exception {
         when(jdbc.query(
-                eq("SELECT LEAD_ID,OWNER_NAME,EMAIL,PHONE,EMAIL_VERIFIED,PHONE_VERIFIED,EMAIL_OTP_REQUIRED,PHONE_OTP_REQUIRED,EMAIL_OTP_SKIPPED,PHONE_OTP_SKIPPED,CONTACT_CONSENT,STATUS,ASSIGNED_TO,CALLBACK_AT FROM SELLER_ONBOARDING_LEADS WHERE LEAD_ID=?"),
+                eq("SELECT LEAD_ID,OWNER_NAME,EMAIL,PHONE,EMAIL_VERIFIED,PHONE_VERIFIED,EMAIL_OTP_REQUIRED,PHONE_OTP_REQUIRED,EMAIL_OTP_SKIPPED,PHONE_OTP_SKIPPED,CONTACT_CONSENT,STATUS,ASSIGNED_TO,CALLBACK_AT,APPLICATION_ID FROM SELLER_ONBOARDING_LEADS WHERE LEAD_ID=?"),
                 org.mockito.ArgumentMatchers.<RowMapper<Map<String, Object>>>any(),
                 any(Object[].class))).thenAnswer(invocation -> {
             RowMapper<Map<String, Object>> mapper = invocation.getArgument(1);
@@ -166,6 +166,7 @@ class SellerOnboardingLeadServiceTest {
             when(rs.getString("STATUS")).thenReturn(status);
             when(rs.getString("ASSIGNED_TO")).thenReturn(null);
             when(rs.getTimestamp("CALLBACK_AT")).thenReturn(null);
+            when(rs.getString("APPLICATION_ID")).thenReturn(null);
             return List.of(mapper.mapRow(rs, 0));
         });
     }
