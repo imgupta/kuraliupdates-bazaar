@@ -129,6 +129,7 @@ public class SellerApplicationController {
         Map<String,Object> merged = new LinkedHashMap<>((Map<String,Object>) current.get("details"));
         merged.putAll(body);
         merged.put("agreementAccepted", Boolean.FALSE);
+        ensureVerifiedContactsUnchanged((Map<String,Object>) current.get("details"),merged);
         validate(merged);
         String next = "ACTION_REQUIRED".equals(current.get("status")) ? "IN_PROGRESS" : String.valueOf(current.get("status"));
         jdbc.update("UPDATE SELLER_APPLICATIONS SET OWNER_NAME=?,EMAIL=?,PHONE=?,SHOP_NAME=?,APPLICATION_JSON=?,STATUS=?,UPDATED_AT=? WHERE APPLICATION_ID=?",
@@ -147,6 +148,7 @@ public class SellerApplicationController {
             throw new ApiException(HttpStatus.CONFLICT,"This application is no longer editable");
         Map<String,Object> merged = new LinkedHashMap<>((Map<String,Object>) current.get("details"));
         merged.putAll(body);
+        ensureVerifiedContactsUnchanged((Map<String,Object>) current.get("details"),merged);
         validate(merged);
         jdbc.update("UPDATE SELLER_APPLICATIONS SET OWNER_NAME=?,EMAIL=?,PHONE=?,SHOP_NAME=?,APPLICATION_JSON=?,STATUS='IN_PROGRESS',UPDATED_AT=? WHERE APPLICATION_ID=?",
                 text(merged,"ownerName"),text(merged,"email").toLowerCase(Locale.ROOT),
@@ -315,6 +317,14 @@ public class SellerApplicationController {
         result.remove("tokenHash"); result.remove("tokenExpiresAt");
         result.put("applicationId",id);
         return result;
+    }
+
+    private void ensureVerifiedContactsUnchanged(Map<String,Object> original,Map<String,Object> updated) {
+        if (original == null || text(original,"leadId").isBlank()) return;
+        if (!text(original,"email").equalsIgnoreCase(text(updated,"email"))
+                || !text(original,"phone").replaceAll("\\D","").equals(text(updated,"phone").replaceAll("\\D",""))) {
+            throw new ApiException(HttpStatus.CONFLICT,"Verified email and mobile cannot be changed on a linked application. Restart contact verification for updated details.");
+        }
     }
 
     private void requireCleanDocument(List<Map<String,Object>> docs,String type) {
