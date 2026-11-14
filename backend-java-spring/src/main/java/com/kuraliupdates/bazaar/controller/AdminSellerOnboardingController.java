@@ -27,6 +27,21 @@ public class AdminSellerOnboardingController {
         return leads.list(status, search, page, size);
     }
 
+    @GetMapping("/summary")
+    public Map<String,Object> summary() {
+        return leads.summary();
+    }
+
+    @GetMapping("/{leadId}/activity")
+    public List<Map<String,Object>> activity(@PathVariable String leadId) {
+        return leads.activity(leadId);
+    }
+
+    @PostMapping("/{leadId}/resend-contact-otps")
+    public Map<String,Object> resendContactOtps(@PathVariable String leadId) {
+        return leads.resendContactOtpsByAdmin(leadId, actor());
+    }
+
     @PatchMapping("/{leadId}")
     public Map<String,Object> update(@PathVariable String leadId, @RequestBody(required = false) Map<String,String> body) {
         requireBody(body);
