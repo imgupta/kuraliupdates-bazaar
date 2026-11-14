@@ -318,3 +318,32 @@ The audit does not close Phase 1. The local E2E suite is a narrow mock-only UI c
 - Added regression coverage for an in-directory symlink (accepted) and an escaping symlink (rejected). Existing wallet-directory symlink rejection remains in place. No wallet contents, credentials, environment values or exception messages are logged.
 - This change affects startup validation only: no database/schema, API, payment, authentication, secret values, hosting region or runtime topology changes. Render staging remains in Singapore; production India-residency gate is unchanged.
 - Verification and deployment status for this follow-up must be recorded against its exact PR head. Do not claim Oracle connectivity or backend health until the new Render deployment starts successfully and a read-only health check confirms it.
+
+
+## 14 November 2026 — latest main checkpoint after PR #357
+
+**Current main commit:** `11556e423a7c0128848ccd4788f2da372fb6ee94` (PR #357 merged). **Tested PR head:** `b82a1d1073da08f268c7c4d3677c376544c2b608`.
+
+### Delivered in PR #357
+
+- Admin CRM customer search and edit with existing customer details prefilled.
+- Admin Orders workspace for search/filter, order detail, contact/delivery snapshot updates and eligible unpaid-COD checkout cancellation.
+- Controlled pre-fulfilment item quantity updates with inventory row locking and order total recalculation.
+- Append-only order event history and private admin-only internal notes.
+- Paid-order refund request/reconciliation ledger; no funds are transferred by this feature.
+- Durable customer-notice outbox; actual email/SMS delivery worker/provider remains to be implemented and verified.
+- Additive Flyway V39 migration for order events, notes, refunds and notice outbox.
+
+### Verification
+
+- CI/E2E workflow `43588014410`: frontend checks/build, backend focused regressions and full backend verification, read-only API smoke and configured browser E2E all succeeded.
+- Docker image security gate `43588014452`: passed final image/build-context checks for excluding Oracle wallet and CI fixtures.
+- SonarCloud was skipped. PR CI read-only smoke is not Oracle readiness. V39 application to staging Oracle, staging UI acceptance, and Render/Vercel deployment health are not verified by this checkpoint.
+
+### Phase status and next gates
+
+- **Phase 0:** security-hardening milestone delivered; formal phase exit remains OPEN / NOT COMPLETE. Exhaustive route/table/transaction inventories, Oracle migration/live-schema and restore evidence, India production residency, credential rotation/history remediation, and qualified legal/tax/payment/labour sign-offs remain open as recorded in [Phase 0 formal register](PHASE-0-FORMAL-EVIDENCE-REGISTER.md).
+- **Phase 1:** PR #357 admin CRM/order-management implementation milestone is merged and exact-head CI passed; overall Phase 1 remains IN PROGRESS. Remaining gates include complete five-role authorization/lifecycle evidence, seller-document retention/access audit and correction E2E, isolated Oracle migration/concurrency/rollback, outbox delivery, staging CRM/order acceptance, abuse/privacy and release approvals.
+- **Deployment:** merge confirmed; no Render/Vercel deployment or Oracle migration is claimed. Verify the deployment and database state independently before customer-facing use.
+
+See [Phase 1 completion report](PHASE-1-COMPLETION-REPORT.md), [Phase 1 matrix](PHASE-1-REQUIREMENT-MATRIX.md), and [Phase 0 formal register](PHASE-0-FORMAL-EVIDENCE-REGISTER.md).
