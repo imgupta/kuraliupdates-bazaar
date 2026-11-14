@@ -35,13 +35,17 @@ public class SellerApplicationReviewController {
         requireApplication(id);
         String assignee = body == null ? null : body.get("assignedTo");
         if (assignee != null) assignee = assignee.trim();
-        if (assignee != null && assignee.length() > 150)
-            throw new ApiException(HttpStatus.BAD_REQUEST,"Assignee must be 150 characters or fewer");
+        if (assignee != null && !assignee.isBlank()) {
+            Integer activeAdmin = jdbc.queryForObject("SELECT COUNT(*) FROM USERS WHERE USER_ID=? AND IS_ADMIN=1 AND ACCOUNT_STATUS='ACTIVE'",Integer.class,assignee);
+            if (activeAdmin == null || activeAdmin == 0)
+                throw new ApiException(HttpStatus.BAD_REQUEST,"Choose an active administrator from the assignment list");
+        }
+        String assignedUserId = assignee == null || assignee.isBlank() ? null : assignee;
         jdbc.update("UPDATE SELLER_APPLICATIONS SET ASSIGNED_TO=?,UPDATED_AT=? WHERE APPLICATION_ID=?",
-                assignee == null || assignee.isBlank() ? null : assignee, LocalDateTime.now(), id);
-        record(id,auth.getName(),"ASSIGNMENT_CHANGED",assignee == null || assignee.isBlank() ? "Assignment cleared" : "Assigned to " + assignee);
+                assignedUserId, LocalDateTime.now(), id);
+        record(id,auth.getName(),"ASSIGNMENT_CHANGED",assignedUserId == null ? "Assignment cleared" : "Assigned to administrator " + assignedUserId);
         Map<String,Object> result = new LinkedHashMap<>();
-        result.put("applicationId",id); result.put("assignedTo",assignee == null || assignee.isBlank() ? null : assignee);
+        result.put("applicationId",id); result.put("assignedTo",assignedUserId);
         return result;
     }
 
