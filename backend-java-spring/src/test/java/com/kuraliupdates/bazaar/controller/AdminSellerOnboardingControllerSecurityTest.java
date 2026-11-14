@@ -72,7 +72,7 @@ class AdminSellerOnboardingControllerSecurityTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].note").value("Applicant requested a callback"));
 
-        verify(leads).list(null, null, 0, 25);
+        verify(leads).list(null, null, 0, 25, false);
         verify(leads).notes("lead-1");
     }
 
