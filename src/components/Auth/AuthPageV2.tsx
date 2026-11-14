@@ -137,7 +137,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
           if (!(shopNumberRef.current?.value || '').trim()) throw new Error('Please enter the shop number');
           if (!(wardNumberRef.current?.value || '').trim()) throw new Error('Please enter the ward number');
           if (!(streetLocalityRef.current?.value || '').trim()) throw new Error('Please enter the street or locality');
-          if (!/^\\d{6}$/.test(pinCodeRef.current?.value || '')) throw new Error('Please enter a valid 6-digit shop PIN code');
+          if (!/^\d{6}$/.test(pinCodeRef.current?.value || '')) throw new Error('Please enter a valid 6-digit shop PIN code');
           if (!agreementRef.current?.checked) throw new Error('Please accept the Seller Agreement and Terms');
           if (!shopLocation) throw new Error('Please set your shop location on the map');
           if (!shopFrontPhotoRef.current?.files?.[0]) throw new Error('Please upload a shop-front photo');
