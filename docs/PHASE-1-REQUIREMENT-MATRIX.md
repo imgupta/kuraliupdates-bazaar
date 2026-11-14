@@ -38,3 +38,12 @@ Statuses: **Local verified** means the current checkout has relevant passing aut
 - P1-SELL-01: ClamAV scanner/quarantine/clean-only download implementation and V26 migration were already merged in prior PRs; issue #210 comments report V26 applied on the owner-designated staging backend. **Acceptance remains PARTIAL** pending private scanner runtime verification, retention/deletion and document-access audit controls, plus the full seller document correction E2E.
 - P1-ORD-02: cancellation group-preflight regression assertions from PR #322 are now included in #323. They are Mockito tests and do not prove Oracle transaction rollback, row locks or concurrent lifecycle behavior.
 - No exact-head test/CI result is yet recorded for #323. Do not reuse historical CI evidence from #317/#322 as a pass for this head.
+
+
+## 14 November 2026 — PR #357 admin CRM/order-operations evidence update
+
+- PR #357 merged as `11556e423a7c0128848ccd4788f2da372fb6ee94`; exact tested head `b82a1d1073da08f268c7c4d3677c376544c2b608`.
+- Admin CRM customer lookup/edit and prefilled customer update flow are implemented. Admin order search/detail/update/cancellation and the five requested advanced operations are implemented in source: item quantity adjustment with stock locking/recalculation, event history, private notes, refund request/reconciliation and durable notice outbox.
+- CI run `43588014410` passed frontend and backend verification plus configured read-only smoke/browser checks; Docker security gate `43588014452` passed. SonarCloud skipped.
+- Evidence classification: **merged + exact-head CI verified** for code/build/test scope. **Not runtime verified** for V39 on Oracle, staging CRM/order journeys, outbox delivery, actual refund transfer, Oracle locking/rollback/concurrency, or backup/restore.
+- The matrix remains open: this implementation does not close the full five-role route/owner matrix, authenticated transactional lifecycle evidence, seller-document policy/E2E, public abuse/privacy, or Phase 0 production gates.
