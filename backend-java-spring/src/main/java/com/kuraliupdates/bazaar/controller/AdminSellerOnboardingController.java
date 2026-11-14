@@ -23,8 +23,9 @@ public class AdminSellerOnboardingController {
             @RequestParam(required=false) String status,
             @RequestParam(required=false) String search,
             @RequestParam(defaultValue="0") int page,
-            @RequestParam(defaultValue="25") int size) {
-        return leads.list(status, search, page, size);
+            @RequestParam(defaultValue="25") int size,
+            @RequestParam(defaultValue="false") boolean dueOnly) {
+        return leads.list(status, search, page, size, dueOnly);
     }
 
     @GetMapping("/assignees")
