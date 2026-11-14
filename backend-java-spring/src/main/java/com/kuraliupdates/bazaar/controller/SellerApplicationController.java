@@ -211,6 +211,7 @@ public class SellerApplicationController {
     }
 
     @PatchMapping("/admin/seller-applications/{id}/status")
+    @Transactional
     public Map<String,Object> status(@PathVariable String id,@RequestBody Map<String,String> body,Authentication auth) {
         requireAdmin(auth);
         String next = body == null ? "" : String.valueOf(body.getOrDefault("status","")).toUpperCase(Locale.ROOT);
