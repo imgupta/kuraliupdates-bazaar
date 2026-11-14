@@ -24,6 +24,7 @@ export const SellerOnboardingCRM: React.FC = () => {
   const [notes, setNotes] = useState<any[]>([]);
   const [activity, setActivity] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>({});
+  const [assignees, setAssignees] = useState<Array<{userId:string;name:string;email:string}>>([]);
   const [page, setPage] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -41,6 +42,9 @@ export const SellerOnboardingCRM: React.FC = () => {
       const [summaryResponse] = await Promise.all([fetch(`${API_BASE_URL}/admin/seller-leads/summary`, { headers: adminAuthHeaders() })]);
       const summaryData = await summaryResponse.json().catch(() => ({}));
       if (summaryResponse.ok) setSummary(summaryData);
+      const assigneeResponse = await fetch(`${API_BASE_URL}/admin/seller-leads/assignees`, { headers: adminAuthHeaders() });
+      const assigneeData = await assigneeResponse.json().catch(() => []);
+      if (assigneeResponse.ok) setAssignees(Array.isArray(assigneeData) ? assigneeData : []);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load seller leads'); }
     finally { setBusy(false); }
   }, [search, status, page]);
@@ -159,7 +163,7 @@ export const SellerOnboardingCRM: React.FC = () => {
             <a href={selected.contactConsent&&(selected.emailVerified||selected.emailOtpSkipped)?`mailto:${selected.email}`:undefined} onClick={e=>{if(!selected.contactConsent||(!selected.emailVerified&&!selected.emailOtpSkipped))e.preventDefault();}} aria-disabled={!selected.contactConsent||!selected.emailVerified} className="rounded-lg border px-3 py-2 text-xs font-bold">Email</a>
           </div>
           {(!selected.contactConsent||(!selected.phoneVerified&&!selected.phoneOtpSkipped))&&<p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800">Contact is disabled until the applicant verifies their mobile and explicitly consents to a callback.</p>}
-          <label className="block text-xs font-bold">Assigned admin / agent<input value={assignedTo} onChange={e=>setAssignedTo(e.target.value)} className="mt-1 w-full rounded-lg border p-2 text-sm" placeholder="Admin name or team member"/></label>
+          <label className="block text-xs font-bold">Assigned administrator<select value={assignedTo} onChange={e=>setAssignedTo(e.target.value)} className="mt-1 w-full rounded-lg border p-2 text-sm"><option value="">Unassigned</option>{assignees.map(admin=><option key={admin.userId} value={admin.userId}>{admin.name} · {admin.email}</option>)}</select>{assignees.length===0&&<span className="mt-1 block font-normal text-amber-700">No active admin accounts were returned. Create/activate an admin account before assigning leads.</span>}</label>
           <label className="block text-xs font-bold">Follow-up date & time<input type="datetime-local" value={followUpAt} onChange={e=>setFollowUpAt(e.target.value)} className="mt-1 w-full rounded-lg border p-2 text-sm"/></label>
           <button type="button" onClick={updateLead} disabled={busy} className="w-full rounded-lg bg-amber-600 p-2.5 text-xs font-black text-white"><UserRoundCheck className="mr-1 inline h-4 w-4"/>Save assignment / follow-up</button>
           <label className="block text-xs font-bold">Application / call status<select value={selected.status} onChange={e=>void changeStatus(e.target.value)} disabled={busy} className="mt-1 w-full rounded-lg border p-2 text-sm">{STATUSES.map(s=><option key={s}>{s}</option>)}</select></label>
