@@ -375,4 +375,34 @@ export const adminApi = {
     return data;
   },
 
+
+  async updateAdminOrderItems(orderId: string, items: Array<{itemId:string;quantity:number}>): Promise<any> {
+    const res=await fetch(`${API_BASE_URL}/admin/orders/${encodeURIComponent(orderId)}/items`,{method:'PUT',headers:{...adminAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({items})});
+    const data=await res.json().catch(()=>null); if(!res.ok) throw new Error(data?.message||`Unable to update order items (HTTP ${res.status})`); return data;
+  },
+  async getAdminOrderHistory(orderId:string):Promise<any[]> {
+    const res=await fetch(`${API_BASE_URL}/admin/orders/${encodeURIComponent(orderId)}/history`,{headers:adminAuthHeaders(),cache:'no-store'});
+    const data=await res.json().catch(()=>null); if(!res.ok) throw new Error(data?.message||'Unable to load order history'); return Array.isArray(data)?data:[];
+  },
+  async getAdminOrderNotes(orderId:string):Promise<any[]> {
+    const res=await fetch(`${API_BASE_URL}/admin/orders/${encodeURIComponent(orderId)}/notes`,{headers:adminAuthHeaders(),cache:'no-store'});
+    const data=await res.json().catch(()=>null); if(!res.ok) throw new Error(data?.message||'Unable to load internal notes'); return Array.isArray(data)?data:[];
+  },
+  async addAdminOrderNote(orderId:string,note:string):Promise<any> {
+    const res=await fetch(`${API_BASE_URL}/admin/orders/${encodeURIComponent(orderId)}/notes`,{method:'POST',headers:{...adminAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({note})});
+    const data=await res.json().catch(()=>null); if(!res.ok) throw new Error(data?.message||'Unable to save internal note'); return data;
+  },
+  async getAdminOrderRefunds(orderId:string):Promise<any[]> {
+    const res=await fetch(`${API_BASE_URL}/admin/orders/${encodeURIComponent(orderId)}/refunds`,{headers:adminAuthHeaders(),cache:'no-store'});
+    const data=await res.json().catch(()=>null); if(!res.ok) throw new Error(data?.message||'Unable to load refunds'); return Array.isArray(data)?data:[];
+  },
+  async requestAdminOrderRefund(orderId:string,amount:string,reason:string):Promise<any> {
+    const res=await fetch(`${API_BASE_URL}/admin/orders/${encodeURIComponent(orderId)}/refunds`,{method:'POST',headers:{...adminAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({amount,reason})});
+    const data=await res.json().catch(()=>null); if(!res.ok) throw new Error(data?.message||'Unable to request refund'); return data;
+  },
+  async markAdminOrderRefundProcessed(orderId:string,refundId:string,transactionReference:string):Promise<any> {
+    const res=await fetch(`${API_BASE_URL}/admin/orders/${encodeURIComponent(orderId)}/refunds/${encodeURIComponent(refundId)}/processed`,{method:'POST',headers:{...adminAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({transactionReference})});
+    const data=await res.json().catch(()=>null); if(!res.ok) throw new Error(data?.message||'Unable to mark refund processed'); return data;
+  },
+
 };
