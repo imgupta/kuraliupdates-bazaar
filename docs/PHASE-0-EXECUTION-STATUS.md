@@ -164,3 +164,12 @@ Added docs/PHASE-0-TRANSACTION-WRITE-INVENTORY.md. Static source review found tr
 - Full backend and frontend regression checks passed on the preceding code head; the intervening changes are audit actor identity and documentation. The latest quality workflow has rerun on b98 and passed.
 - The latest CI/E2E workflow is pending behind an older run that is still in Playwright Chromium installation. Read-only smoke and browser E2E have not completed on the latest head.
 - V31 portal handoff persistence is compiled and unit-tested, but not yet deployed or applied to Oracle. Do not merge until staging applies V31 and readiness plus handoff checks pass.
+
+
+## 14 November 2026 — Admin CRM and order-operations implementation checkpoint (PR #357)
+
+PR [#357](https://github.com/imgupta/kuraliupdates-bazaar/pull/357) was merged to `main` as `11556e423a7c0128848ccd4788f2da372fb6ee94` (source head `b82a1d1073da08f268c7c4d3677c376544c2b608`). The change adds customer search/edit support to the admin CRM journey and an admin Orders workspace, including controlled pre-fulfilment item quantity changes with inventory locking/recalculation, order event history, admin-only internal notes, refund request/reconciliation records, and a durable customer-notice outbox.
+
+Exact-head CI evidence: workflow run `43588014410` passed frontend checks/build, backend focused regressions and full backend verification, read-only API smoke and browser E2E jobs. The E2E job's configured tests passed; this is not evidence of an Oracle migration run or a transactional lifecycle against isolated Oracle. Docker security gate `43588014452` passed the final image/build-context check excluding Oracle wallet and CI fixtures. SonarCloud was skipped.
+
+**Phase 0 disposition is unchanged: NOT COMPLETE / formal exit OPEN.** PR #357 is a delivered application feature slice, not closure evidence for exhaustive endpoint ownership, all table writers/transactions, Oracle schema/migration/restore verification, production India residency, credential rotation/history remediation, or qualified Indian legal/tax/payment/labour review. Migration V39 was added by the PR but its execution against staging Oracle is not verified here. See the formal evidence register for the closure pack.
