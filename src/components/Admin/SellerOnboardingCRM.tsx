@@ -51,6 +51,18 @@ export const SellerOnboardingCRM: React.FC = () => {
     if (selected) { setAssignedTo(selected.assignedTo || ''); setFollowUpAt(selected.callbackAt ? selected.callbackAt.slice(0,16) : ''); void loadNotes(selected); }
   }, [selected, loadNotes]);
 
+  const continueRegistration = (lead: Lead) => {
+    // Keep personal contact details out of the URL. The seller wizard consumes
+    // this one-time same-origin handoff and performs the applicant's own OTP checks.
+    sessionStorage.setItem('ku_admin_seller_registration_handoff', JSON.stringify({
+      leadId: lead.leadId,
+      name: lead.ownerName,
+      email: lead.email,
+      phone: lead.phone,
+    }));
+    window.location.assign('/register/seller');
+  };
+
   const updateLead = async () => {
     if (!selected) return;
     setBusy(true); setError('');
@@ -116,7 +128,7 @@ export const SellerOnboardingCRM: React.FC = () => {
       </div>
       <div className="rounded-2xl border bg-white p-4">
         {!selected ? <div className="py-10 text-center text-sm text-slate-500">Select a lead to view the calling workflow.</div> : <div className="space-y-4">
-          <div><h3 className="text-lg font-black">{selected.ownerName}</h3><p className="text-xs text-slate-500">{selected.leadId}</p></div>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-lg font-black">{selected.ownerName}</h3><p className="text-xs text-slate-500">{selected.leadId}</p></div><button type="button" onClick={() => continueRegistration(selected)} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-xs font-black text-white shadow-sm hover:bg-amber-700">Continue registration journey</button></div><p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">Opens the same five-step seller registration used by merchants. The applicant must complete the configured email/mobile OTP checks and submit their own details.</p>
           <div className="flex flex-wrap gap-2">
             <a href={selected.contactConsent&&(selected.phoneVerified||selected.phoneOtpSkipped)?`tel:${selected.phone}`:undefined} onClick={e=>{if(!selected.contactConsent||(!selected.phoneVerified&&!selected.phoneOtpSkipped))e.preventDefault();}} aria-disabled={!selected.contactConsent||!selected.phoneVerified} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white"><Phone className="h-3 w-3"/>Call merchant</a>
             <a href={selected.contactConsent&&(selected.emailVerified||selected.emailOtpSkipped)?`mailto:${selected.email}`:undefined} onClick={e=>{if(!selected.contactConsent||(!selected.emailVerified&&!selected.emailOtpSkipped))e.preventDefault();}} aria-disabled={!selected.contactConsent||!selected.emailVerified} className="rounded-lg border px-3 py-2 text-xs font-bold">Email</a>
@@ -135,6 +147,18 @@ export const SellerOnboardingCRM: React.FC = () => {
         </div>}
       </div>
     </div>
-  </section><SellerApplicationWorkspace />
+  </section>
+  <details className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+      <span className="min-w-0">
+        <span className="block text-sm font-extrabold text-slate-900">Seller application workspace</span>
+        <span className="mt-1 block text-xs text-slate-500">Create, continue and review seller applications</span>
+      </span>
+      <span className="shrink-0 rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">Open workspace</span>
+    </summary>
+    <div className="border-t border-slate-100 p-3 sm:p-4">
+      <SellerApplicationWorkspace />
+    </div>
+  </details>
   </>;
 };

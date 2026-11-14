@@ -51,7 +51,7 @@ export const AdminDashboard: React.FC = () => {
     showToast,
   } = useApp();
 
-  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory' | 'accounts' | 'delivery-config' | 'seller-area-config' | 'seller-documents' | 'seller-leads' | 'registration-otp-config'>('trends');
+  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'orders' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory' | 'accounts' | 'delivery-config' | 'seller-area-config' | 'seller-documents' | 'seller-leads' | 'registration-otp-config'>('trends');
   const [buyers, setBuyers] = useState<any[]>([]);
   const [adminAccounts, setAdminAccounts] = useState<any[]>([]);
   const [accountSearch, setAccountSearch] = useState('');
@@ -59,6 +59,20 @@ export const AdminDashboard: React.FC = () => {
   const [accountAuditUserId, setAccountAuditUserId] = useState<string | null>(null);
   const [accountAuditEntries, setAccountAuditEntries] = useState<any[]>([]);
   const [buyersLoading, setBuyersLoading] = useState(false);
+  const [buyerSearch, setBuyerSearch] = useState('');
+  const [editingBuyer, setEditingBuyer] = useState<any | null>(null);
+  const [buyerForm, setBuyerForm] = useState({ name: '', email: '', phone: '', locality: '', address: '', formattedAddress: '' });
+  const [buyerSaving, setBuyerSaving] = useState(false);
+  const [buyerEditError, setBuyerEditError] = useState('');
+  const [adminOrders, setAdminOrders] = useState<any[]>([]);
+  const [orderSearch, setOrderSearch] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState('');
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<any | null>(null);
+  const [orderForm, setOrderForm] = useState({ buyerName: '', buyerPhone: '', buyerEmail: '', deliveryAddress: '', deliveryLocality: '' });
+  const [orderSaving, setOrderSaving] = useState(false);
+  const [orderError, setOrderError] = useState('');
+
   const [adminSellers, setAdminSellers] = useState<any[]>([]);
   const [pendingSellerApplications, setPendingSellerApplications] = useState<any[]>([]);
   const [adminDeliveryAgents, setAdminDeliveryAgents] = useState<any[]>([]);
@@ -110,6 +124,7 @@ export const AdminDashboard: React.FC = () => {
       setAdminDeliveryAgents(remoteAgents);
       setAdminAnalytics(analytics);
       setBuyers(remoteBuyers);
+      setAdminOrders(await adminApi.getAdminOrders());
       setAdminSearchTrends(searchTrends);
       setDailyHelpServices(remoteDailyHelpServices);
       setDailyHelpHelpers(remoteDailyHelpHelpers);
@@ -573,6 +588,7 @@ export const AdminDashboard: React.FC = () => {
             <button onClick={() => setActiveAdminTab('approvals')} className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'approvals' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}><span>Pending merchant approvals</span>{pendingSellers.length > 0 && <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] text-white">{pendingSellers.length}</span>}</button>
             <button onClick={() => setActiveAdminTab('stores')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'stores' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>All active stores <span className="ml-1 text-slate-400">({approvedSellers.length})</span></button>
             <button onClick={() => setActiveAdminTab('buyers')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'buyers' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Buyers <span className="ml-1 text-slate-400">({buyers.length})</span></button>
+            <button onClick={() => setActiveAdminTab('orders')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'orders' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Orders <span className="ml-1 text-slate-400">({adminOrders.length})</span></button>
             <button onClick={() => setActiveAdminTab('seller-area-config')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-area-config' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Seller registration radius</button>
             <button onClick={() => setActiveAdminTab('seller-documents')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-documents' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Seller document review</button>
             <button onClick={() => setActiveAdminTab('seller-leads')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-leads' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Merchant onboarding CRM</button>
@@ -1266,44 +1282,82 @@ export const AdminDashboard: React.FC = () => {
       {/* Tab: Buyers */}
       {activeAdminTab === 'buyers' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-extrabold text-slate-900">Registered Buyer Accounts ({buyers.length})</h2>
-              <p className="text-xs text-slate-500 mt-1">Buyer profiles registered in the Bazaar user database.</p>
-            </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div><h2 className="text-base font-extrabold text-slate-900">Registered buyers ({buyers.length})</h2><p className="mt-1 text-xs text-slate-500">Search existing customer accounts and update their contact or delivery address details.</p></div>
+            <input type="search" value={buyerSearch} onChange={event => setBuyerSearch(event.target.value)} placeholder="Search name, email or mobile…" aria-label="Search buyers" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm sm:max-w-sm"/>
           </div>
-          {buyersLoading ? (
-            <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 text-xs text-slate-500">Loading buyer accounts...</div>
-          ) : buyers.length === 0 ? (
-            <div className="bg-white rounded-3xl p-10 text-center border border-slate-200 space-y-2">
-              <Users className="w-10 h-10 text-slate-300 mx-auto" />
-              <p className="text-sm font-bold text-slate-700">No buyer accounts found</p>
-              <p className="text-xs text-slate-500">New buyer registrations will appear here automatically.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {buyers.map(buyer => (
-                <div key={buyer.userId} className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs">
+          {buyersLoading ? <div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">Loading buyers…</div> : (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {buyers.filter(buyer => [buyer.name,buyer.email,buyer.phone,buyer.userId,buyer.locality].some(value=>String(value||'').toLowerCase().includes(buyerSearch.trim().toLowerCase()))).map(buyer => (
+                <article key={buyer.userId} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="font-extrabold text-sm text-slate-900 truncate">{buyer.name}</h3>
-                      <p className="text-xs text-slate-500 mt-1 truncate">{buyer.email || buyer.phone || 'No contact details'}</p>
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
-                      {Number(buyer.isVerified) === 1 ? 'Verified' : 'Unverified'}
-                    </span>
+                    <div className="min-w-0"><h3 className="truncate text-sm font-extrabold text-slate-900">{buyer.name || 'Unnamed customer'}</h3><p className="mt-1 break-all text-xs text-slate-500">{buyer.email || 'No email'} · {buyer.phone || 'No mobile'}</p></div>
+                    <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">{Number(buyer.isVerified)===1?'Verified':'Unverified'}</span>
                   </div>
-                  <div className="mt-4 grid grid-cols-1 gap-2 text-xs text-slate-600">
-                    <div><span className="text-slate-400">Phone:</span> <strong>{buyer.phone || '—'}</strong></div>
-                    <div><span className="text-slate-400">Locality:</span> <strong>{buyer.locality || '—'}</strong></div>
-                    <div><span className="text-slate-400">Address:</span> <strong>{buyer.formattedAddress || buyer.address || '—'}</strong></div>
-                    <div><span className="text-slate-400">Registered:</span> <strong>{buyer.createdAt ? new Date(buyer.createdAt).toLocaleString() : '—'}</strong></div>
-                    <div><span className="text-slate-400">Last login:</span> <strong>{buyer.lastLogin ? new Date(buyer.lastLogin).toLocaleString() : '—'}</strong></div>
-                  </div>
-                </div>
+                  <div className="mt-3 space-y-1 text-xs text-slate-600"><p><span className="text-slate-400">Locality:</span> {buyer.locality || '—'}</p><p><span className="text-slate-400">Address:</span> {buyer.formattedAddress || buyer.address || '—'}</p><p className="font-mono text-[10px] text-slate-400">{buyer.userId}</p></div>
+                  <button type="button" onClick={() => { setEditingBuyer(buyer); setBuyerForm({name:buyer.name||'',email:buyer.email||'',phone:buyer.phone||'',locality:buyer.locality||'',address:buyer.address||'',formattedAddress:buyer.formattedAddress||''}); setBuyerEditError(''); }} className="mt-4 min-h-11 w-full rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50"><Pencil className="mr-1 inline h-3.5 w-3.5"/> Edit customer details</button>
+                </article>
               ))}
+              {buyers.filter(buyer => [buyer.name,buyer.email,buyer.phone,buyer.userId,buyer.locality].some(value=>String(value||'').toLowerCase().includes(buyerSearch.trim().toLowerCase()))).length===0 && <div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">No customers match your search.</div>}
             </div>
           )}
+          {editingBuyer && <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Edit customer details">
+            <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl">
+              <div className="mb-4 flex items-center justify-between gap-3"><div><h3 className="text-lg font-black text-slate-900">Edit customer</h3><p className="text-xs text-slate-500">Changes are recorded in the admin audit history.</p></div><button type="button" onClick={()=>setEditingBuyer(null)} className="rounded-lg border px-3 py-2 text-xs font-bold">Close</button></div>
+              {buyerEditError && <p role="alert" className="mb-3 rounded-xl bg-rose-50 p-3 text-xs text-rose-800">{buyerEditError}</p>}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(['name','email','phone','locality','address','formattedAddress'] as const).map(field=><label key={field} className="block space-y-1 text-xs font-bold text-slate-700 sm:col-span-1"><span>{({name:'Customer name',email:'Email',phone:'Mobile number',locality:'Locality',address:'Address',formattedAddress:'Formatted address'})[field]}</span><input value={buyerForm[field]} onChange={event=>setBuyerForm(current=>({...current,[field]:event.target.value}))} className="min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"/></label>)}
+              </div>
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={()=>setEditingBuyer(null)} className="min-h-11 rounded-xl border px-4 py-2 text-xs font-bold">Cancel</button><button type="button" disabled={buyerSaving} onClick={async()=>{setBuyerSaving(true);setBuyerEditError('');try{await adminApi.updateAdminBuyer(editingBuyer.userId,buyerForm);setBuyers(current=>current.map(item=>item.userId===editingBuyer.userId?{...item,...buyerForm}:item));setEditingBuyer(null);showToast('Customer details updated successfully.','success');}catch(error:any){setBuyerEditError(error?.message||'Unable to update customer details.');}finally{setBuyerSaving(false);}}} className="min-h-11 rounded-xl bg-purple-700 px-5 py-2 text-xs font-bold text-white disabled:opacity-50">{buyerSaving?'Saving…':'Save customer details'}</button></div>
+            </div>
+          </div>}
+        </div>
+      )}
+
+      {/* Tab: Orders */}
+      {activeAdminTab === 'orders' && (
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div><h2 className="text-base font-extrabold text-slate-900">Order management ({adminOrders.length})</h2><p className="mt-1 text-xs text-slate-500">Review orders, update customer delivery details, or cancel eligible COD orders.</p></div>
+            <button type="button" onClick={async()=>{setOrdersLoading(true);try{setAdminOrders(await adminApi.getAdminOrders(orderSearch,orderStatusFilter));}catch(e:any){showToast(e?.message||'Unable to refresh orders.','error');}finally{setOrdersLoading(false);}}} className="min-h-11 rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold">Refresh orders</button>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-[1fr_190px]">
+            <input type="search" value={orderSearch} onChange={e=>setOrderSearch(e.target.value)} placeholder="Search order ID, customer, mobile, email or store…" className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm"/>
+            <select value={orderStatusFilter} onChange={e=>setOrderStatusFilter(e.target.value)} className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm"><option value="">All statuses</option>{['PLACED','ACCEPTED_BY_SELLER','PREPARING','READY_FOR_PICKUP','OUT_FOR_DELIVERY','DELIVERED','CANCELLED'].map(s=><option key={s} value={s}>{s.replaceAll('_',' ')}</option>)}</select>
+          </div>
+          {ordersLoading ? <div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">Loading orders…</div> : (
+            <div className="grid gap-3 xl:grid-cols-2">
+              {adminOrders.filter(o=>(!orderStatusFilter||String(o.status).toUpperCase()===orderStatusFilter)&&[o.orderId,o.buyerName,o.buyerPhone,o.buyerEmail,o.sellerName].some(v=>String(v||'').toLowerCase().includes(orderSearch.trim().toLowerCase()))).map(order=>(
+                <article key={order.orderId} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-mono text-xs font-bold text-slate-800">{order.orderId}</p><h3 className="mt-1 text-sm font-extrabold text-slate-900">{order.buyerName||'Customer'}</h3><p className="text-xs text-slate-500">{order.buyerPhone} · {order.buyerEmail}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700">{String(order.status||'UNKNOWN').replaceAll('_',' ')}</span></div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs"><div><span className="text-slate-400">Store</span><p className="font-semibold text-slate-800">{order.sellerName||'—'}</p></div><div><span className="text-slate-400">Total</span><p className="font-bold text-slate-900">₹{Number(order.totalAmount||0).toFixed(2)}</p></div><div><span className="text-slate-400">Payment</span><p className="font-semibold">{order.paymentMethod} · {order.paymentStatus}</p></div><div><span className="text-slate-400">Fulfilment</span><p className="font-semibold">{order.fulfilmentStatus||order.fulfilmentMode||'—'}</p></div></div>
+                  <div className="mt-3 space-y-1 text-xs text-slate-600"><p>{order.deliveryAddress}, {order.deliveryLocality}</p><p>{(order.items||[]).map((it:any)=>(it.productName||it.title||'Item')+' × '+it.quantity).join(' · ')}</p></div>
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row"><button type="button" onClick={()=>{setEditingOrder(order);setOrderForm({buyerName:order.buyerName||'',buyerPhone:order.buyerPhone||'',buyerEmail:order.buyerEmail||'',deliveryAddress:order.deliveryAddress||'',deliveryLocality:order.deliveryLocality||''});setOrderError('');}} className="min-h-11 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-800"><Pencil className="mr-1 inline h-3.5 w-3.5"/> Update order details</button><button type="button" disabled={String(order.status).toUpperCase()==='CANCELLED'} onClick={async()=>{const reason=window.prompt('Reason for cancellation (required):');if(!reason?.trim())return;try{await adminApi.cancelAdminOrder(order.orderId,reason.trim());setAdminOrders(await adminApi.getAdminOrders(orderSearch,orderStatusFilter));showToast('Order checkout cancelled and eligible inventory restored.','success');}catch(e:any){showToast(e?.message||'Unable to cancel order.','error');}}} className="min-h-11 rounded-xl border border-rose-200 px-3 py-2 text-xs font-bold text-rose-700 disabled:opacity-40">Cancel order</button></div>
+                  <details className="mt-3"><summary className="cursor-pointer text-xs font-bold text-purple-700">View item breakdown ({(order.items||[]).length})</summary><div className="mt-2 space-y-1 rounded-xl bg-slate-50 p-3 text-xs">{(order.items||[]).map((it:any)=><div key={it.itemId||it.productId} className="flex justify-between gap-3"><span>{it.productName||it.title||it.productId} × {it.quantity}</span><span>₹{Number(it.totalPrice||0).toFixed(2)}</span></div>)}</div></details>
+ 
+                  <details className="mt-3 rounded-xl border border-slate-200 p-3">
+                    <summary className="cursor-pointer text-xs font-bold text-slate-800">Advanced order operations</summary>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <button type="button" className="min-h-10 rounded-lg border px-3 text-xs font-bold" onClick={async()=>{try{const items=[];for(const it of (order.items||[])){const raw=window.prompt(`New quantity for ${it.productName||it.title||it.productId}`,String(it.quantity));if(raw===null)return;const quantity=Number(raw);if(!Number.isInteger(quantity)||quantity<1)throw new Error('Enter a positive whole-number quantity.');items.push({itemId:it.itemId,quantity});}const updated=await adminApi.updateAdminOrderItems(order.orderId,items);setAdminOrders(v=>v.map(o=>o.orderId===updated.orderId?updated:o));showToast('Quantities, stock and order total recalculated.','success');}catch(e:any){showToast(e?.message||'Unable to update quantities.','error');}}}>Edit item quantities</button>
+                      <button type="button" className="min-h-10 rounded-lg border px-3 text-xs font-bold" onClick={async()=>{try{const rows=await adminApi.getAdminOrderHistory(order.orderId);window.alert(rows.length?rows.map((r:any)=>String(r.OCCURRED_AT)+' · '+r.EVENT_TYPE+' · '+r.ACTOR_EMAIL+'\n'+r.DETAILS).join('\n\n'):'No admin history recorded yet.');}catch(e:any){showToast(e?.message||'Unable to load history.','error');}}}>View change history</button>
+                      <button type="button" className="min-h-10 rounded-lg border px-3 text-xs font-bold" onClick={async()=>{try{const note=window.prompt('Add internal support note (not visible to customer):');if(note?.trim())await adminApi.addAdminOrderNote(order.orderId,note.trim());const all=await adminApi.getAdminOrderNotes(order.orderId);window.alert(all.length?all.map((r:any)=>String(r.CREATED_AT)+' · '+r.CREATED_BY+'\n'+r.NOTE_TEXT).join('\n\n'):'No internal notes.');}catch(e:any){showToast(e?.message||'Unable to save or load notes.','error');}}}>Internal notes</button>
+                      <button type="button" className="min-h-10 rounded-lg border px-3 text-xs font-bold" disabled={String(order.paymentStatus||'').toUpperCase()!=='PAID'} onClick={async()=>{try{const amount=window.prompt('Refund amount (INR):');if(!amount)return;const reason=window.prompt('Refund reason:')||'Admin refund';const result=await adminApi.requestAdminOrderRefund(order.orderId,amount,reason);showToast('Refund request recorded: '+result.refundId+'. Process payment externally and record its reference.','success');}catch(e:any){showToast(e?.message||'Refund request failed.','error');}}}>Request refund</button>
+                      <button type="button" className="min-h-10 rounded-lg border px-3 text-xs font-bold sm:col-span-2" onClick={async()=>{try{const rows=await adminApi.getAdminOrderRefunds(order.orderId);if(!rows.length){window.alert('No refund requests.');return;}window.alert(rows.map((r:any)=>r.REFUND_ID+' · ₹'+r.AMOUNT+' · '+r.STATUS+' · '+(r.TRANSACTION_REFERENCE||'No reference')).join('\n'));const pending=rows.find((r:any)=>r.STATUS==='REQUESTED');if(pending){const ref=window.prompt('Enter actual payment-provider transaction reference to mark refund processed:');if(ref?.trim()){await adminApi.markAdminOrderRefundProcessed(order.orderId,pending.REFUND_ID,ref.trim());showToast('Refund marked processed with provider reference.','success');}}}catch(e:any){showToast(e?.message||'Unable to reconcile refunds.','error');}}}>View / reconcile refunds</button>
+                    </div>
+                    <p className="mt-2 text-[11px] text-slate-500">Customer notices are queued for delivery after order changes/refund events. Internal notes remain private.</p>
+                  </details>
+                </article>
+              ))}
+              {!adminOrders.length && <div className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">No orders found.</div>}
+            </div>
+          )}
+          {editingOrder && <div className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Update order details"><div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl">
+            <div className="mb-4 flex items-center justify-between"><div><h3 className="text-lg font-black">Update order details</h3><p className="text-xs text-slate-500">{editingOrder.orderId}</p></div><button type="button" onClick={()=>setEditingOrder(null)} className="rounded-lg border px-3 py-2 text-xs font-bold">Close</button></div>
+            <p className="mb-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Updates the order customer and delivery snapshot only. Item quantities, prices, payment records and the saved buyer profile are not changed.</p>
+            {orderError&&<p role="alert" className="mb-3 rounded-xl bg-rose-50 p-3 text-xs text-rose-800">{orderError}</p>}
+            <div className="grid gap-3 sm:grid-cols-2">{(['buyerName','buyerPhone','buyerEmail','deliveryLocality','deliveryAddress'] as const).map(field=><label key={field} className="space-y-1 text-xs font-bold text-slate-700"><span>{({buyerName:'Customer name',buyerPhone:'Mobile number',buyerEmail:'Email',deliveryLocality:'Locality',deliveryAddress:'Delivery address'})[field]}</span><input value={orderForm[field]} onChange={e=>setOrderForm(v=>({...v,[field]:e.target.value}))} className="min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"/></label>)}</div>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={()=>setEditingOrder(null)} className="min-h-11 rounded-xl border px-4 py-2 text-xs font-bold">Cancel</button><button type="button" disabled={orderSaving} onClick={async()=>{setOrderSaving(true);setOrderError('');try{const updated=await adminApi.updateAdminOrder(editingOrder.orderId,orderForm);setAdminOrders(v=>v.map(o=>o.orderId===updated.orderId?updated:o));setEditingOrder(null);showToast('Order details updated.','success');}catch(e:any){setOrderError(e?.message||'Unable to update order details.');}finally{setOrderSaving(false);}}} className="min-h-11 rounded-xl bg-purple-700 px-5 py-2 text-xs font-bold text-white disabled:opacity-50">{orderSaving?'Saving…':'Save order details'}</button></div>
+          </div></div>}
         </div>
       )}
 
