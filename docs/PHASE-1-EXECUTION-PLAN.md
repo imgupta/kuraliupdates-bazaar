@@ -707,3 +707,16 @@ The guarded Playwright lifecycle suite now includes:
 The seller-document workflow is covered without creating persistent staging documents: a controller regression test now proves a rejected document can be corrected and uploaded as a new pending, clean document while the rejected record and its reason remain unchanged. Existing controller tests cover clean upload, scanner fail-closed quarantine, required rejection reason, admin verification, non-admin denial, seller scoping, cross-seller document-ID path protection, private download headers and metadata byte exclusion.
 
 The guarded transactional Playwright flows remain disabled on ordinary pull-request events. They are configured to run only through the trusted scheduled/manual opt-in paths in the workflow, against the designated staging API and owner-provisioned five-role identities. Therefore the PR CI result alone does not establish that these mutating authenticated journeys ran against staging. A trusted opt-in run is still required for runtime acceptance. The role-matrix E2E uses the same owner-approved multi-role account with distinct role-scoped tokens; unrelated-user ownership is additionally covered by existing service/controller tests, not inferred from same-account role switching.
+
+
+## 14 November 2026 — PR #357 admin CRM/order-operations milestone merged
+
+PR [#357](https://github.com/imgupta/kuraliupdates-bazaar/pull/357) merged to main as `11556e423a7c0128848ccd4788f2da372fb6ee94` from tested head `b82a1d1073da08f268c7c4d3677c376544c2b608`.
+
+Delivered: admin customer search/edit with prefilled values; admin Orders search/detail/update/eligible COD cancellation; pre-fulfilment item quantity editing with inventory locking and total recalculation; append-only operation history; private admin notes; refund request/reconciliation ledger; durable customer-notice outbox; and additive Flyway V39 schema.
+
+Exact-head CI run `43588014410` passed frontend checks/build, backend focused and full verification, and configured read-only smoke/browser E2E. Docker security gate `43588014452` passed. SonarCloud was skipped. No Oracle migration, rollback/concurrency or backup/restore proof is inferred from these jobs.
+
+Follow-up acceptance items: apply/verify V39 on the approved isolated staging Oracle target; exercise CRM and order workflows in the deployed staging UI with synthetic accounts; implement and test actual outbox delivery; and validate refund reconciliation against the external seller/provider process. These are required before calling the feature runtime-accepted.
+
+Phase 1 remains IN PROGRESS; PR #357 closes this implementation slice only. Phase 0 formal exit and production release gates remain separate and open.
