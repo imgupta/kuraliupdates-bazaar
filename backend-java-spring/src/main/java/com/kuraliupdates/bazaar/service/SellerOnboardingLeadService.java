@@ -131,6 +131,50 @@ public class SellerOnboardingLeadService {
     }
 
     @Transactional(readOnly = true)
+    public Map<String,Object> summary() {
+        Map<String,Object> result = new LinkedHashMap<>();
+        result.put("newLeads", count("STARTED"));
+        result.put("awaitingVerification", count("STARTED"));
+        result.put("callbackRequested", count("CALLBACK_REQUESTED"));
+        result.put("inProgress", count("IN_PROGRESS"));
+        result.put("applicationsPendingReview", jdbc.queryForObject(
+                "SELECT COUNT(*) FROM SELLER_APPLICATIONS WHERE STATUS IN ('SUBMITTED','UNDER_REVIEW','ACTION_REQUIRED')", Integer.class));
+        result.put("followUpsDue", jdbc.queryForObject(
+                "SELECT COUNT(*) FROM SELLER_ONBOARDING_LEADS WHERE CALLBACK_AT IS NOT NULL AND CALLBACK_AT<=? AND STATUS NOT IN ('CONVERTED','NOT_INTERESTED')",
+                Integer.class, LocalDateTime.now()));
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String,Object>> activity(String leadId) {
+        getLead(leadId);
+        return jdbc.query(
+                "SELECT ACTOR, ACTION, DETAILS, CREATED_AT FROM SELLER_ONBOARDING_LEAD_AUDIT WHERE LEAD_ID=? ORDER BY CREATED_AT DESC FETCH FIRST 100 ROWS ONLY",
+                (rs,n) -> {
+                    Map<String,Object> row = new LinkedHashMap<>();
+                    row.put("actor",rs.getString(1)); row.put("action",rs.getString(2));
+                    row.put("details",rs.getString(3)); row.put("createdAt",rs.getTimestamp(4));
+                    return row;
+                }, leadId);
+    }
+
+    @Transactional
+    public Map<String,Object> resendContactOtpsByAdmin(String leadId, String actor) {
+        Map<String,Object> lead = getLead(leadId);
+        if (List.of("CONVERTED","NOT_INTERESTED").contains(String.valueOf(lead.get("status"))))
+            throw new ApiException(HttpStatus.CONFLICT,"This lead is closed; OTP resend is unavailable");
+        Map<String,Object> sent = sendContactOtps(leadId);
+        audit(leadId, actor, "ADMIN_OTP_RESEND_REQUESTED",
+                "emailRequired=" + lead.get("emailOtpRequired") + "; mobileRequired=" + lead.get("phoneOtpRequired"));
+        return sent;
+    }
+
+    private int count(String status) {
+        Integer value = jdbc.queryForObject("SELECT COUNT(*) FROM SELLER_ONBOARDING_LEADS WHERE STATUS=?", Integer.class, status);
+        return value == null ? 0 : value;
+    }
+
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> list(String status, String search, int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(100, size));
@@ -166,8 +210,21 @@ public class SellerOnboardingLeadService {
     public Map<String, Object> update(String leadId, String actor, String assignee, String status, String followUpAt, String outcome) {
         getLead(leadId);
         String nextStatus = status == null || status.isBlank() ? null : status.trim().toUpperCase();
-        if (nextStatus != null && !List.of("STARTED","CONTACT_VERIFIED","CALLBACK_REQUESTED","IN_PROGRESS","APPLICATION_SUBMITTED","CONVERTED","NOT_INTERESTED","UNREACHABLE").contains(nextStatus)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported lead status");
+        if (nextStatus != null) {
+            String currentStatus = String.valueOf(getLead(leadId).get("status"));
+            Map<String,Set<String>> transitions = Map.of(
+                    "STARTED", Set.of("CONTACT_VERIFIED","UNREACHABLE","NOT_INTERESTED"),
+                    "CONTACT_VERIFIED", Set.of("CALLBACK_REQUESTED","IN_PROGRESS","UNREACHABLE","NOT_INTERESTED"),
+                    "CALLBACK_REQUESTED", Set.of("IN_PROGRESS","UNREACHABLE","NOT_INTERESTED"),
+                    "IN_PROGRESS", Set.of("UNREACHABLE","NOT_INTERESTED"),
+                    "UNREACHABLE", Set.of("IN_PROGRESS","NOT_INTERESTED"),
+                    "APPLICATION_SUBMITTED", Set.of(),
+                    "CONVERTED", Set.of(),
+                    "NOT_INTERESTED", Set.of("IN_PROGRESS")
+            );
+            if (!transitions.getOrDefault(currentStatus, Set.of()).contains(nextStatus)) {
+                throw new ApiException(HttpStatus.CONFLICT, "Invalid lead status transition from " + currentStatus + " to " + nextStatus);
+            }
         }
         LocalDateTime followUp = null;
         if (followUpAt != null && !followUpAt.isBlank()) {
