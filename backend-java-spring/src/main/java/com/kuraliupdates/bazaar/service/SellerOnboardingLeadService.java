@@ -190,6 +190,18 @@ public class SellerOnboardingLeadService {
     }
 
     @Transactional(readOnly = true)
+    public List<Map<String,Object>> assignees() {
+        return jdbc.query("SELECT USER_ID,NAME,EMAIL FROM USERS WHERE IS_ADMIN=1 AND ACCOUNT_STATUS='ACTIVE' ORDER BY NAME",
+                (rs,n) -> {
+                    Map<String,Object> row = new LinkedHashMap<>();
+                    row.put("userId",rs.getString("USER_ID"));
+                    row.put("name",rs.getString("NAME"));
+                    row.put("email",rs.getString("EMAIL"));
+                    return row;
+                });
+    }
+
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> list(String status, String search, int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(100, size));
@@ -248,7 +260,17 @@ public class SellerOnboardingLeadService {
         }
         java.util.List<String> assignments = new java.util.ArrayList<>();
         java.util.List<Object> params = new java.util.ArrayList<>();
-        if (assignee != null && !assignee.isBlank()) { assignments.add("ASSIGNED_TO=?"); params.add(clean(assignee,150)); }
+        if (assignee != null) {
+            String normalizedAssignee = assignee.trim();
+            if (!normalizedAssignee.isBlank()) {
+                Integer validAssignee = jdbc.queryForObject("SELECT COUNT(*) FROM USERS WHERE USER_ID=? AND IS_ADMIN=1 AND ACCOUNT_STATUS='ACTIVE'", Integer.class, normalizedAssignee);
+                if (validAssignee == null || validAssignee == 0)
+                    throw new ApiException(HttpStatus.BAD_REQUEST,"Choose an active administrator from the assignment list");
+                assignments.add("ASSIGNED_TO=?"); params.add(normalizedAssignee);
+            } else {
+                assignments.add("ASSIGNED_TO=NULL");
+            }
+        }
         if (nextStatus != null) { assignments.add("STATUS=?"); params.add(nextStatus); }
         if (followUp != null) { assignments.add("CALLBACK_AT=?"); params.add(followUp); }
         if (outcome != null && !outcome.isBlank()) { assignments.add("LAST_CONTACTED_AT=?"); params.add(LocalDateTime.now()); }
