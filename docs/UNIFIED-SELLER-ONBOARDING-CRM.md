@@ -28,3 +28,16 @@ This change consolidates the seller lead, contact-verification, application and 
 - Verify email/mobile OTP delivery and resend cooldown with configured providers.
 - Verify document scanning, latest-document replacement, approval and seller product-publishing restrictions in staging.
 - Verify the admin dashboard counts and pagination against more than 25 leads.
+
+## Follow-up completion additions
+- CRM assignment now resolves to active administrator accounts only. The backend validates the selected user ID against USERS (IS_ADMIN=1, ACCOUNT_STATUS='ACTIVE'); free-text assignee names are rejected.
+- The CRM exposes an actionable due-follow-up filter, ordered by overdue callback time, and the dashboard's due count can open that queue.
+- Seller draft persistence already existed; its accepted step range is now aligned to the four-step wizard, and the obsolete fifth step is rejected.
+- The registration progress indicator now renders four steps rather than five.
+
+## Remaining gaps after this increment
+- No scheduled reminder delivery has been added; due follow-ups are visible in CRM but still require an admin to act.
+- Duplicate contact matching reuses a lead pair, but there is no admin duplicate-review/merge workflow or fuzzy shop-name detection.
+- Reviewer assignment is limited to active admin accounts; a separate reviewer/team permission model is not present.
+- Application workspace assignment still needs the same active-admin validation and consistent UI treatment.
+- End-to-end staging acceptance remains required for draft resume, all OTP channel configurations, document replacement/scanning, activation guards and database migration.
