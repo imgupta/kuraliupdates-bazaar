@@ -224,7 +224,7 @@ export const SellerRegistrationWizard: React.FC = () => {
       token: response.token, serverUser: response.user
     });
     const shared = await sellerOnboardingApi.createOrResumeSharedApplication({
-      ownerName:name.trim(),email:email.trim().toLowerCase(),phone:phone.replace(/\D/g,''),
+      leadId,ownerName:name.trim(),email:email.trim().toLowerCase(),phone:phone.replace(/\D/g,''),
       shopName:storeName.trim(),category,businessType,registeredBusinessName:registeredBusinessName.trim()||name.trim(),
       locality,address,shopNumber,wardNumber,streetLocality,pinCode,
       latitude:location?.latitude,longitude:location?.longitude,formattedAddress:location?.formattedAddress,placeId:location?.placeId,
