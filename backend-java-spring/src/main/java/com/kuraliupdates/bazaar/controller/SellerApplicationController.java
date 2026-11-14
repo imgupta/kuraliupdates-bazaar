@@ -328,14 +328,15 @@ public class SellerApplicationController {
     }
 
     private void requireCleanDocument(List<Map<String,Object>> docs,String type) {
-        boolean valid = docs.stream().anyMatch(d -> type.equals(d.get("documentType")) && "CLEAN".equals(d.get("scanStatus")));
-        if (!valid) throw new ApiException(HttpStatus.BAD_REQUEST,"A clean " + type + " document is required before submission");
+        Map<String,Object> latest = docs.stream().filter(d -> type.equals(d.get("documentType"))).findFirst().orElse(null);
+        if (latest == null || !"CLEAN".equals(latest.get("scanStatus")))
+            throw new ApiException(HttpStatus.BAD_REQUEST,"A clean " + type + " document is required before submission");
     }
 
     private void requireVerifiedDocument(List<Map<String,Object>> docs,String type) {
-        boolean valid = docs.stream().anyMatch(d -> type.equals(d.get("documentType"))
-                && "CLEAN".equals(d.get("scanStatus")) && "VERIFIED".equals(d.get("verificationStatus")));
-        if (!valid) throw new ApiException(HttpStatus.CONFLICT,"A clean, admin-verified " + type + " document is required before approval");
+        Map<String,Object> latest = docs.stream().filter(d -> type.equals(d.get("documentType"))).findFirst().orElse(null);
+        if (latest == null || !"CLEAN".equals(latest.get("scanStatus")) || !"VERIFIED".equals(latest.get("verificationStatus")))
+            throw new ApiException(HttpStatus.CONFLICT,"The latest " + type + " document must be clean and admin-verified before approval");
     }
 
     private void validate(Map<String,Object> body) {
