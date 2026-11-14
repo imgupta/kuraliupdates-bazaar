@@ -135,6 +135,24 @@ export const SellerRegistrationWizard: React.FC = () => {
   const [draftBusy, setDraftBusy] = useState(false);
   const [draftNotice, setDraftNotice] = useState('');
 
+  useEffect(() => {
+    // One-time handoff from the admin CRM. Contact values stay in same-origin
+    // session storage rather than being exposed in a query string.
+    try {
+      const raw = sessionStorage.getItem('ku_admin_seller_registration_handoff');
+      if (!raw) return;
+      sessionStorage.removeItem('ku_admin_seller_registration_handoff');
+      const handoff = JSON.parse(raw) as { leadId?: string; name?: string; email?: string; phone?: string };
+      if (handoff.leadId) setLeadId(handoff.leadId);
+      if (handoff.name) setName(handoff.name);
+      if (handoff.email) setEmail(handoff.email);
+      if (handoff.phone) setPhone(handoff.phone);
+      if (handoff.leadId) showToast('Seller lead loaded. Ask the applicant to complete contact verification and the registration steps.', 'info');
+    } catch {
+      sessionStorage.removeItem('ku_admin_seller_registration_handoff');
+    }
+  }, [showToast]);
+
   const isFood = FOOD_CATEGORIES.has(category);
 
   useEffect(() => {
