@@ -6,8 +6,7 @@ import com.kuraliupdates.bazaar.entity.ProductEntity;
 import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.repository.OrderRepository;
 import com.kuraliupdates.bazaar.repository.ProductRepository;
-import com.kuraliupdates.bazaar.repository.UserRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -16,15 +15,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/v1/admin/orders")
+@RequestMapping("/admin/orders")
 @RequiredArgsConstructor
 public class AdminOrderController {
     private final OrderRepository orders;
     private final ProductRepository products;
-    private final UserRepository users;
     private final JdbcTemplate jdbc;
 
     private UserEntity requireRootAdmin() {
@@ -38,7 +35,7 @@ public class AdminOrderController {
     }
 
     @GetMapping
-    @Transactional(Transactional.TxType.SUPPORTS)
+    @Transactional(readOnly = true)
     public List<OrderResponse> list(@RequestParam(required = false) String search,
                                    @RequestParam(required = false) String status) {
         requireRootAdmin();
