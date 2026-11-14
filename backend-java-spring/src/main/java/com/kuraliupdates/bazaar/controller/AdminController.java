@@ -313,6 +313,64 @@ public class AdminController {
         return ResponseEntity.ok(result);
     }
 
+    @PatchMapping("/buyers/{userId}")
+    @Transactional
+    @Operation(summary = "Update buyer contact and address details from the admin console")
+    public ResponseEntity<Map<String, Object>> updateBuyerDetails(
+            @PathVariable String userId, @RequestBody Map<String, String> request) {
+        var target = userRepository.findById(userId).orElse(null);
+        if (target == null || !"BUYER".equalsIgnoreCase(target.getRole())) return ResponseEntity.notFound().build();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication == null ? null : authentication.getPrincipal();
+        com.kuraliupdates.bazaar.entity.UserEntity actor =
+                principal instanceof com.kuraliupdates.bazaar.entity.UserEntity u ? u : null;
+        if (actor == null || (actor.getIsAdmin() == null || actor.getIsAdmin() != 1)) {
+            return ResponseEntity.status(403).body(Map.of("message", "Root administrator access is required."));
+        }
+        String name = request.getOrDefault("name", "").trim();
+        String email = request.getOrDefault("email", "").trim().toLowerCase(Locale.ROOT);
+        String phone = request.getOrDefault("phone", "").replaceAll("\\D", "");
+        String locality = request.getOrDefault("locality", "").trim();
+        String address = request.getOrDefault("address", "").trim();
+        String formattedAddress = request.getOrDefault("formattedAddress", "").trim();
+        if (name.isBlank() || name.length() > 150) return ResponseEntity.badRequest().body(Map.of("message", "Name is required and must be at most 150 characters."));
+        if (!email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) return ResponseEntity.badRequest().body(Map.of("message", "Enter a valid email address."));
+        if (!phone.matches("^\\d{10}$")) return ResponseEntity.badRequest().body(Map.of("message", "Enter a valid 10-digit mobile number."));
+        if (locality.length() > 150 || address.length() > 500 || formattedAddress.length() > 500)
+            return ResponseEntity.badRequest().body(Map.of("message", "Address details exceed the allowed length."));
+        var emailOwner = userRepository.findByEmail(email).orElse(null);
+        if (emailOwner != null && !emailOwner.getUserId().equals(userId))
+            return ResponseEntity.status(409).body(Map.of("message", "This email address is already used by another account."));
+        var phoneOwner = userRepository.findByPhone(phone).orElse(null);
+        if (phoneOwner != null && !phoneOwner.getUserId().equals(userId))
+            return ResponseEntity.status(409).body(Map.of("message", "This mobile number is already used by another account."));
+        String previousStatus = target.getAccountStatus() == null ? "ACTIVE" : target.getAccountStatus();
+        List<String> changed = new ArrayList<>();
+        if (!java.util.Objects.equals(target.getName(), name)) { target.setName(name); changed.add("name"); }
+        if (!java.util.Objects.equals(target.getEmail(), email)) { target.setEmail(email); changed.add("email"); }
+        if (!java.util.Objects.equals(target.getPhone(), phone)) { target.setPhone(phone); changed.add("phone"); }
+        if (!java.util.Objects.equals(target.getLocality(), locality)) { target.setLocality(locality); changed.add("locality"); }
+        if (!java.util.Objects.equals(target.getAddress(), address)) { target.setAddress(address); changed.add("address"); }
+        if (!java.util.Objects.equals(target.getFormattedAddress(), formattedAddress)) { target.setFormattedAddress(formattedAddress); changed.add("formattedAddress"); }
+        userRepository.save(target);
+        if (!changed.isEmpty()) {
+            jdbcTemplate.update("""
+                    INSERT INTO ADMIN_ACCOUNT_AUDIT
+                      (AUDIT_ID, ACTOR_USER_ID, ACTOR_EMAIL, TARGET_USER_ID, TARGET_EMAIL,
+                       ACTION, PREVIOUS_STATUS, NEW_STATUS, REASON, OCCURRED_AT)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, UUID.randomUUID().toString(), actor.getUserId(), actor.getEmail(),
+                    target.getUserId(), target.getEmail(), "BUYER_PROFILE_UPDATE", previousStatus,
+                    previousStatus, "Updated fields: " + String.join(", ", changed), LocalDateTime.now());
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("userId", target.getUserId()); result.put("name", target.getName());
+        result.put("email", target.getEmail()); result.put("phone", target.getPhone());
+        result.put("locality", target.getLocality()); result.put("address", target.getAddress());
+        result.put("formattedAddress", target.getFormattedAddress());
+        return ResponseEntity.ok(result);
+    }
+
     @PostMapping("/accounts/{userId}/status")
     @Transactional
     public ResponseEntity<Map<String, Object>> updateAccountStatus(
