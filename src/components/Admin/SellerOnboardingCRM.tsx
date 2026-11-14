@@ -26,13 +26,14 @@ export const SellerOnboardingCRM: React.FC = () => {
   const [summary, setSummary] = useState<any>({});
   const [assignees, setAssignees] = useState<Array<{userId:string;name:string;email:string}>>([]);
   const [page, setPage] = useState(0);
+  const [dueOnly, setDueOnly] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setBusy(true); setError('');
     try {
-      const query = new URLSearchParams({ page: String(page), size: '25' });
+      const query = new URLSearchParams({ page: String(page), size: '25', dueOnly: String(dueOnly) });
       if (status) query.set('status', status);
       if (search.trim()) query.set('search', search.trim());
       const response = await fetch(`${API_BASE_URL}/admin/seller-leads?${query}`, { headers: adminAuthHeaders() });
@@ -47,7 +48,7 @@ export const SellerOnboardingCRM: React.FC = () => {
       if (assigneeResponse.ok) setAssignees(Array.isArray(assigneeData) ? assigneeData : []);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load seller leads'); }
     finally { setBusy(false); }
-  }, [search, status, page]);
+  }, [search, status, page, dueOnly]);
 
   const loadNotes = useCallback(async (lead: Lead) => {
     try {
@@ -141,7 +142,7 @@ export const SellerOnboardingCRM: React.FC = () => {
       <button type="button" onClick={() => void load()} disabled={busy} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold"><RefreshCw className={`h-4 w-4 ${busy?'animate-spin':''}`}/>Refresh</button>
     </div>
     {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">{[['New leads',summary.newLeads],['Awaiting verification',summary.awaitingVerification],['Callbacks',summary.callbackRequested],['In progress',summary.inProgress],['Applications pending',summary.applicationsPendingReview],['Follow-ups due',summary.followUpsDue]].map(([label,value])=><div key={String(label)} className="rounded-xl border bg-white p-3"><p className="text-lg font-black">{value ?? '—'}</p><p className="text-[10px] text-slate-500">{label}</p></div>)}</div>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">{[['New leads',summary.newLeads],['Awaiting verification',summary.awaitingVerification],['Callbacks',summary.callbackRequested],['In progress',summary.inProgress],['Applications pending',summary.applicationsPendingReview],['Follow-ups due',summary.followUpsDue]].map(([label,value])=><button type="button" key={String(label)} onClick={()=>{if(label==='Follow-ups due'){setDueOnly(v=>!v);setPage(0);}}} className={`rounded-xl border bg-white p-3 text-left ${label==='Follow-ups due'?'hover:border-amber-400':''}`}><p className="text-lg font-black">{value ?? '—'}</p><p className="text-[10px] text-slate-500">{label}{label==='Follow-ups due'?' · click to filter':''}</p></button>)}</div>
     <div className="flex flex-wrap gap-2">
       <label className="flex min-w-56 flex-1 items-center gap-2 rounded-xl border px-3"><Search className="h-4 w-4 text-slate-400"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name, email or mobile" className="w-full py-2 text-sm outline-none"/></label>
       <select value={status} onChange={e=>setStatus(e.target.value)} className="rounded-xl border px-3 py-2 text-sm"><option value="">All statuses</option>{FILTER_STATUSES.map(s=><option key={s}>{s}</option>)}</select>
