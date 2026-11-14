@@ -194,6 +194,30 @@ export const adminApi = {
     return data;
   },
 
+  async getAdminOrders(search = '', status = ''): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (search.trim()) params.set('search', search.trim());
+    if (status.trim()) params.set('status', status.trim());
+    const res = await fetch(`${API_BASE_URL}/admin/orders?${params.toString()}`, { headers: adminAuthHeaders(), cache: 'no-store' });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to load orders (HTTP ${res.status})`);
+    return Array.isArray(data) ? data : [];
+  },
+
+  async updateAdminOrder(orderId: string, payload: { buyerName: string; buyerPhone: string; buyerEmail: string; deliveryAddress: string; deliveryLocality: string }): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/orders/${encodeURIComponent(orderId)}`, { method: 'PATCH', headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to update order (HTTP ${res.status})`);
+    return data;
+  },
+
+  async cancelAdminOrder(orderId: string, reason: string): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/orders/${encodeURIComponent(orderId)}/cancel`, { method: 'POST', headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to cancel order (HTTP ${res.status})`);
+    return data;
+  },
+
   async getAdminBuyers(): Promise<any[]> {
       try {
         const res = await fetch(`${API_BASE_URL}/admin/buyers`, {
