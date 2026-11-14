@@ -133,7 +133,7 @@ public class SellerOnboardingLeadService {
     @Transactional(readOnly = true)
     public Map<String,Object> summary() {
         Map<String,Object> result = new LinkedHashMap<>();
-        result.put("newLeads", count("STARTED"));
+        result.put("newLeads", jdbc.queryForObject("SELECT COUNT(*) FROM SELLER_ONBOARDING_LEADS WHERE CREATED_AT>=?", Integer.class, LocalDateTime.now().minusDays(1)));
         result.put("awaitingVerification", count("STARTED"));
         result.put("callbackRequested", count("CALLBACK_REQUESTED"));
         result.put("inProgress", count("IN_PROGRESS"));
@@ -147,7 +147,6 @@ public class SellerOnboardingLeadService {
 
     @Transactional(readOnly = true)
     public List<Map<String,Object>> activity(String leadId) {
-        getLead(leadId);
         Map<String,Object> lead = getLead(leadId);
         List<Map<String,Object>> events = new java.util.ArrayList<>(jdbc.query(
                 "SELECT ACTOR, ACTION, DETAILS, CREATED_AT FROM SELLER_ONBOARDING_LEAD_AUDIT WHERE LEAD_ID=? ORDER BY CREATED_AT DESC FETCH FIRST 100 ROWS ONLY",
