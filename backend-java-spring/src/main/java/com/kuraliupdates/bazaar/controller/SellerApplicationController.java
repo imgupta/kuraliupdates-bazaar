@@ -212,8 +212,30 @@ public class SellerApplicationController {
         String reason = body.get("reason");
         if (("ACTION_REQUIRED".equals(next)||"REJECTED".equals(next)) && (reason==null||reason.isBlank()))
             throw new ApiException(HttpStatus.BAD_REQUEST,"A reason is required for this status");
+        Map<String,Object> current = read(id,false);
+        String currentStatus = String.valueOf(current.get("status"));
+        Map<String,Set<String>> transitions = Map.of(
+                "SUBMITTED", Set.of("UNDER_REVIEW","ACTION_REQUIRED","REJECTED"),
+                "UNDER_REVIEW", Set.of("ACTION_REQUIRED","APPROVED","REJECTED"),
+                "ACTION_REQUIRED", Set.of("UNDER_REVIEW","REJECTED"),
+                "APPROVED", Set.of(),
+                "REJECTED", Set.of("ACTION_REQUIRED")
+        );
+        if (!transitions.getOrDefault(currentStatus,Set.of()).contains(next))
+            throw new ApiException(HttpStatus.CONFLICT,"Invalid application status transition from " + currentStatus + " to " + next);
+        if ("APPROVED".equals(next)) {
+            Map<String,Object> details = (Map<String,Object>) current.get("details");
+            List<Map<String,Object>> docs = documentMetadata(id);
+            requireVerifiedDocument(docs,"SHOP_FRONT_PHOTO");
+            if (!text(details,"gstNumber").isBlank()) requireVerifiedDocument(docs,"GST_CERTIFICATE");
+            if (!text(details,"fssaiNumber").isBlank()) requireVerifiedDocument(docs,"FSSAI_CERTIFICATE");
+        }
         jdbc.update("UPDATE SELLER_APPLICATIONS SET STATUS=?,STATUS_REASON=?,UPDATED_AT=? WHERE APPLICATION_ID=?",
                 next,reason,LocalDateTime.now(),id);
+        if ("APPROVED".equals(next)) {
+            jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET STATUS='CONVERTED',UPDATED_AT=? WHERE APPLICATION_ID=? AND STATUS='APPLICATION_SUBMITTED'",
+                    LocalDateTime.now(),id);
+        }
         audit(id,auth.getName(),"STATUS_"+next,reason);
         return read(id,false);
     }
@@ -280,6 +302,12 @@ public class SellerApplicationController {
         result.remove("tokenHash"); result.remove("tokenExpiresAt");
         result.put("applicationId",id);
         return result;
+    }
+
+    private void requireVerifiedDocument(List<Map<String,Object>> docs,String type) {
+        boolean valid = docs.stream().anyMatch(d -> type.equals(d.get("documentType"))
+                && "CLEAN".equals(d.get("scanStatus")) && "VERIFIED".equals(d.get("verificationStatus")));
+        if (!valid) throw new ApiException(HttpStatus.CONFLICT,"A clean, admin-verified " + type + " document is required before approval");
     }
 
     private void validate(Map<String,Object> body) {
