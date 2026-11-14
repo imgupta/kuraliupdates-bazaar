@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -122,7 +124,7 @@ public class SellerOnboardingLeadService {
         if (!contactRequirementSatisfied(lead, "email") || !contactRequirementSatisfied(lead, "phone")) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Complete the enabled contact verification steps before submitting seller details");
         }
-        if (!List.of("CONTACT_VERIFIED", "CALLBACK_REQUESTED").contains(String.valueOf(lead.get("status")))) {
+        if (!List.of("CONTACT_VERIFIED", "CALLBACK_REQUESTED", "IN_PROGRESS").contains(String.valueOf(lead.get("status")))) {
             throw new ApiException(HttpStatus.CONFLICT, "This registration lead has already been submitted or closed");
         }
         jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET STATUS='APPLICATION_SUBMITTED', APPLICATION_ID=?, UPDATED_AT=? WHERE LEAD_ID=?",
@@ -131,7 +133,76 @@ public class SellerOnboardingLeadService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> list(String status, String search, int page, int size) {
+    public Map<String,Object> summary() {
+        Map<String,Object> result = new LinkedHashMap<>();
+        result.put("newLeads", jdbc.queryForObject("SELECT COUNT(*) FROM SELLER_ONBOARDING_LEADS WHERE CREATED_AT>=?", Integer.class, LocalDateTime.now().minusDays(1)));
+        result.put("awaitingVerification", count("STARTED"));
+        result.put("callbackRequested", count("CALLBACK_REQUESTED"));
+        result.put("inProgress", count("IN_PROGRESS"));
+        result.put("applicationsPendingReview", jdbc.queryForObject(
+                "SELECT COUNT(*) FROM SELLER_APPLICATIONS WHERE STATUS IN ('SUBMITTED','UNDER_REVIEW','ACTION_REQUIRED')", Integer.class));
+        result.put("followUpsDue", jdbc.queryForObject(
+                "SELECT COUNT(*) FROM SELLER_ONBOARDING_LEADS WHERE CALLBACK_AT IS NOT NULL AND CALLBACK_AT<=? AND STATUS NOT IN ('CONVERTED','NOT_INTERESTED')",
+                Integer.class, LocalDateTime.now()));
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String,Object>> activity(String leadId) {
+        Map<String,Object> lead = getLead(leadId);
+        List<Map<String,Object>> events = new java.util.ArrayList<>(jdbc.query(
+                "SELECT ACTOR, ACTION, DETAILS, CREATED_AT FROM SELLER_ONBOARDING_LEAD_AUDIT WHERE LEAD_ID=? ORDER BY CREATED_AT DESC FETCH FIRST 100 ROWS ONLY",
+                (rs,n) -> {
+                    Map<String,Object> row = new LinkedHashMap<>();
+                    row.put("actor",rs.getString(1)); row.put("action",rs.getString(2));
+                    row.put("details",rs.getString(3)); row.put("createdAt",rs.getTimestamp(4));
+                    return row;
+                }, leadId));
+        String applicationId = Objects.toString(lead.get("applicationId"),"");
+        if (!applicationId.isBlank()) {
+            events.addAll(jdbc.query(
+                    "SELECT ACTOR,ACTION,DETAILS,CREATED_AT FROM SELLER_APPLICATION_AUDIT WHERE APPLICATION_ID=? ORDER BY CREATED_AT DESC FETCH FIRST 100 ROWS ONLY",
+                    (rs,n) -> {
+                        Map<String,Object> row = new LinkedHashMap<>();
+                        row.put("actor",rs.getString(1)); row.put("action",rs.getString(2));
+                        row.put("details",rs.getString(3)); row.put("createdAt",rs.getTimestamp(4));
+                        return row;
+                    }, applicationId));
+        }
+        events.sort((a,b) -> String.valueOf(b.get("createdAt")).compareTo(String.valueOf(a.get("createdAt"))));
+        return events.stream().limit(150).toList();
+    }
+
+    @Transactional
+    public Map<String,Object> resendContactOtpsByAdmin(String leadId, String actor) {
+        Map<String,Object> lead = getLead(leadId);
+        if (!"STARTED".equals(String.valueOf(lead.get("status"))))
+            throw new ApiException(HttpStatus.CONFLICT,"Contact verification is not pending for this lead; OTP resend is unavailable");
+        Map<String,Object> sent = sendContactOtps(leadId);
+        audit(leadId, actor, "ADMIN_OTP_RESEND_REQUESTED",
+                "emailRequired=" + lead.get("emailOtpRequired") + "; mobileRequired=" + lead.get("phoneOtpRequired"));
+        return sent;
+    }
+
+    private int count(String status) {
+        Integer value = jdbc.queryForObject("SELECT COUNT(*) FROM SELLER_ONBOARDING_LEADS WHERE STATUS=?", Integer.class, status);
+        return value == null ? 0 : value;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String,Object>> assignees() {
+        return jdbc.query("SELECT USER_ID,NAME,EMAIL FROM USERS WHERE IS_ADMIN=1 AND ACCOUNT_STATUS='ACTIVE' ORDER BY NAME",
+                (rs,n) -> {
+                    Map<String,Object> row = new LinkedHashMap<>();
+                    row.put("userId",rs.getString("USER_ID"));
+                    row.put("name",rs.getString("NAME"));
+                    row.put("email",rs.getString("EMAIL"));
+                    return row;
+                });
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> list(String status, String search, int page, int size, boolean dueOnly) {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(100, size));
         String normalizedStatus = status == null ? "" : status.trim().toUpperCase();
@@ -144,7 +215,11 @@ public class SellerOnboardingLeadService {
             String pattern = "%" + term + "%";
             params.add(pattern); params.add(pattern); params.add(pattern);
         }
-        sql.append(" ORDER BY CASE WHEN STATUS='CALLBACK_REQUESTED' THEN 0 ELSE 1 END, CREATED_AT DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
+        if (dueOnly) {
+            sql.append(" AND CALLBACK_AT IS NOT NULL AND CALLBACK_AT<=? AND STATUS NOT IN ('CONVERTED','NOT_INTERESTED')");
+            params.add(LocalDateTime.now());
+        }
+        sql.append(" ORDER BY CASE WHEN CALLBACK_AT IS NOT NULL AND CALLBACK_AT<=CURRENT_TIMESTAMP THEN 0 WHEN STATUS='CALLBACK_REQUESTED' THEN 1 ELSE 2 END, CREATED_AT DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
         params.add(safePage * safeSize); params.add(safeSize);
         return jdbc.query(sql.toString(), (rs, row) -> {
             Map<String,Object> m = new LinkedHashMap<>();
@@ -166,8 +241,21 @@ public class SellerOnboardingLeadService {
     public Map<String, Object> update(String leadId, String actor, String assignee, String status, String followUpAt, String outcome) {
         getLead(leadId);
         String nextStatus = status == null || status.isBlank() ? null : status.trim().toUpperCase();
-        if (nextStatus != null && !List.of("STARTED","CONTACT_VERIFIED","CALLBACK_REQUESTED","IN_PROGRESS","APPLICATION_SUBMITTED","CONVERTED","NOT_INTERESTED","UNREACHABLE").contains(nextStatus)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported lead status");
+        if (nextStatus != null) {
+            String currentStatus = String.valueOf(getLead(leadId).get("status"));
+            Map<String,Set<String>> transitions = Map.of(
+                    "STARTED", Set.of("CONTACT_VERIFIED","UNREACHABLE","NOT_INTERESTED"),
+                    "CONTACT_VERIFIED", Set.of("CALLBACK_REQUESTED","IN_PROGRESS","UNREACHABLE","NOT_INTERESTED"),
+                    "CALLBACK_REQUESTED", Set.of("IN_PROGRESS","UNREACHABLE","NOT_INTERESTED"),
+                    "IN_PROGRESS", Set.of("UNREACHABLE","NOT_INTERESTED"),
+                    "UNREACHABLE", Set.of("IN_PROGRESS","NOT_INTERESTED"),
+                    "APPLICATION_SUBMITTED", Set.of(),
+                    "CONVERTED", Set.of(),
+                    "NOT_INTERESTED", Set.of("IN_PROGRESS")
+            );
+            if (!transitions.getOrDefault(currentStatus, Set.of()).contains(nextStatus)) {
+                throw new ApiException(HttpStatus.CONFLICT, "Invalid lead status transition from " + currentStatus + " to " + nextStatus);
+            }
         }
         LocalDateTime followUp = null;
         if (followUpAt != null && !followUpAt.isBlank()) {
@@ -176,7 +264,17 @@ public class SellerOnboardingLeadService {
         }
         java.util.List<String> assignments = new java.util.ArrayList<>();
         java.util.List<Object> params = new java.util.ArrayList<>();
-        if (assignee != null && !assignee.isBlank()) { assignments.add("ASSIGNED_TO=?"); params.add(clean(assignee,150)); }
+        if (assignee != null) {
+            String normalizedAssignee = assignee.trim();
+            if (!normalizedAssignee.isBlank()) {
+                Integer validAssignee = jdbc.queryForObject("SELECT COUNT(*) FROM USERS WHERE USER_ID=? AND IS_ADMIN=1 AND ACCOUNT_STATUS='ACTIVE'", Integer.class, normalizedAssignee);
+                if (validAssignee == null || validAssignee == 0)
+                    throw new ApiException(HttpStatus.BAD_REQUEST,"Choose an active administrator from the assignment list");
+                assignments.add("ASSIGNED_TO=?"); params.add(normalizedAssignee);
+            } else {
+                assignments.add("ASSIGNED_TO=NULL");
+            }
+        }
         if (nextStatus != null) { assignments.add("STATUS=?"); params.add(nextStatus); }
         if (followUp != null) { assignments.add("CALLBACK_AT=?"); params.add(followUp); }
         if (outcome != null && !outcome.isBlank()) { assignments.add("LAST_CONTACTED_AT=?"); params.add(LocalDateTime.now()); }
@@ -217,7 +315,7 @@ public class SellerOnboardingLeadService {
 
     private Map<String,Object> getLead(String id) {
         if (id == null || id.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "Lead reference is required");
-        List<Map<String,Object>> rows = jdbc.query("SELECT LEAD_ID,OWNER_NAME,EMAIL,PHONE,EMAIL_VERIFIED,PHONE_VERIFIED,EMAIL_OTP_REQUIRED,PHONE_OTP_REQUIRED,EMAIL_OTP_SKIPPED,PHONE_OTP_SKIPPED,CONTACT_CONSENT,STATUS,ASSIGNED_TO,CALLBACK_AT FROM SELLER_ONBOARDING_LEADS WHERE LEAD_ID=?",
+        List<Map<String,Object>> rows = jdbc.query("SELECT LEAD_ID,OWNER_NAME,EMAIL,PHONE,EMAIL_VERIFIED,PHONE_VERIFIED,EMAIL_OTP_REQUIRED,PHONE_OTP_REQUIRED,EMAIL_OTP_SKIPPED,PHONE_OTP_SKIPPED,CONTACT_CONSENT,STATUS,ASSIGNED_TO,CALLBACK_AT,APPLICATION_ID FROM SELLER_ONBOARDING_LEADS WHERE LEAD_ID=?",
                 (rs,row)->{
                     Map<String,Object> lead = new java.util.LinkedHashMap<>();
                     lead.put("leadId", rs.getString("LEAD_ID"));
@@ -234,6 +332,7 @@ public class SellerOnboardingLeadService {
                     lead.put("status", rs.getString("STATUS"));
                     lead.put("assignedTo", rs.getString("ASSIGNED_TO") == null ? "" : rs.getString("ASSIGNED_TO"));
                     lead.put("callbackAt", rs.getTimestamp("CALLBACK_AT") == null ? "" : rs.getTimestamp("CALLBACK_AT").toString());
+                    lead.put("applicationId", rs.getString("APPLICATION_ID"));
                     return lead;
                 }, id);
         if (rows.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "Seller registration lead was not found");

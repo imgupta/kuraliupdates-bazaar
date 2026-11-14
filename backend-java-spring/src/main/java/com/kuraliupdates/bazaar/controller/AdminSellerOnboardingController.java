@@ -23,8 +23,29 @@ public class AdminSellerOnboardingController {
             @RequestParam(required=false) String status,
             @RequestParam(required=false) String search,
             @RequestParam(defaultValue="0") int page,
-            @RequestParam(defaultValue="25") int size) {
-        return leads.list(status, search, page, size);
+            @RequestParam(defaultValue="25") int size,
+            @RequestParam(defaultValue="false") boolean dueOnly) {
+        return leads.list(status, search, page, size, dueOnly);
+    }
+
+    @GetMapping("/assignees")
+    public List<Map<String,Object>> assignees() {
+        return leads.assignees();
+    }
+
+    @GetMapping("/summary")
+    public Map<String,Object> summary() {
+        return leads.summary();
+    }
+
+    @GetMapping("/{leadId}/activity")
+    public List<Map<String,Object>> activity(@PathVariable String leadId) {
+        return leads.activity(leadId);
+    }
+
+    @PostMapping("/{leadId}/resend-contact-otps")
+    public Map<String,Object> resendContactOtps(@PathVariable String leadId) {
+        return leads.resendContactOtpsByAdmin(leadId, actor());
     }
 
     @PatchMapping("/{leadId}")

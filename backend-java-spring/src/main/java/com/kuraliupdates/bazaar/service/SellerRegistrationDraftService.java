@@ -38,7 +38,7 @@ public class SellerRegistrationDraftService {
     public Map<String, Object> save(String userId, Map<String, Object> payload) {
         Object rawStep = payload.get("currentStep");
         int step = rawStep instanceof Number number ? number.intValue() : 1;
-        if (step < 1 || step > 5) throw new ApiException(HttpStatus.BAD_REQUEST, "Seller draft step must be between 1 and 5");
+        if (step < 1 || step > 4) throw new ApiException(HttpStatus.BAD_REQUEST, "Seller draft step must be between 1 and 4");
         Map<String, Object> safe = sanitizeMap(payload);
         try {
             String json = objectMapper.writeValueAsString(safe);

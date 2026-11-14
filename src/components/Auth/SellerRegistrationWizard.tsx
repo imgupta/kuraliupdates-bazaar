@@ -8,13 +8,13 @@ import { sellerApi } from '../../services/domains/sellerApi';
 import { sellerOnboardingApi } from '../../services/domains/sellerOnboardingApi';
 
 type Language = 'en' | 'pa' | 'hi';
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = 1 | 2 | 3 | 4;
 type BusinessType = 'INDIVIDUAL' | 'PROPRIETORSHIP' | 'PARTNERSHIP' | 'COMPANY';
 
 const COPY = {
   en: {
-    title: 'Join as a Kurali Merchant', intro: 'Register your shop in five simple steps.',
-    steps: ['Owner & contact', 'Shop identity', 'Shop location', 'Compliance', 'Operations & review'],
+    title: 'Join as a Kurali Merchant', intro: 'Register your shop in four simple steps.',
+    steps: ['Owner & contact', 'Shop identity', 'Shop location', 'Documents & review'],
     next: 'Continue', back: 'Back', send: 'Send email OTP', verify: 'Verify & submit',
     name: 'Owner / authorised representative name', email: 'Email address', phone: 'Mobile number',
     locality: 'Kurali locality', address: 'Additional address / landmark', shop: 'Shop name',
@@ -26,12 +26,12 @@ const COPY = {
     shopPhoto: 'Shop-front photograph', agreement: 'I confirm that the information is accurate and accept the Seller Agreement, marketplace terms and privacy notice.',
     foodNote: 'If your activity requires FSSAI registration/licensing, provide the details and evidence before seller activation. This is reviewed by the admin team.',
     radius: 'Seller registration is currently limited to the configured radius around Kurali. Your shop location is checked by the server.',
-    otp: 'Enter the six-digit code sent to your email.', review: 'Review your details, then verify your email to submit the application.',
+    otp: 'Enter the six-digit code sent to your email.', review: 'Review your details, accept the agreement and submit your application.',
     error: 'Please review the highlighted information and try again.'
   },
   pa: {
     title: 'ਕੁਰਾਲੀ ਦੇ ਵਪਾਰੀ ਵਜੋਂ ਜੁੜੋ', intro: 'ਪੰਜ ਆਸਾਨ ਕਦਮਾਂ ਵਿੱਚ ਆਪਣੀ ਦੁਕਾਨ ਰਜਿਸਟਰ ਕਰੋ।',
-    steps: ['ਮਾਲਕ ਅਤੇ ਸੰਪਰਕ', 'ਦੁਕਾਨ ਦੀ ਜਾਣਕਾਰੀ', 'ਦੁਕਾਨ ਦਾ ਪਤਾ', 'ਦਸਤਾਵੇਜ਼', 'ਸਮਾਂ ਅਤੇ ਸਮੀਖਿਆ'],
+    steps: ['ਮਾਲਕ ਅਤੇ ਸੰਪਰਕ', 'ਦੁਕਾਨ ਦੀ ਜਾਣਕਾਰੀ', 'ਦੁਕਾਨ ਦਾ ਪਤਾ', 'ਦਸਤਾਵੇਜ਼ ਅਤੇ ਸਮੀਖਿਆ'],
     next: 'ਅੱਗੇ ਜਾਓ', back: 'ਪਿੱਛੇ', send: 'ਈਮੇਲ OTP ਭੇਜੋ', verify: 'ਤਸਦੀਕ ਕਰੋ ਅਤੇ ਜਮ੍ਹਾਂ ਕਰੋ',
     name: 'ਮਾਲਕ / ਅਧਿਕਾਰਤ ਨੁਮਾਇੰਦੇ ਦਾ ਨਾਮ', email: 'ਈਮੇਲ ਪਤਾ', phone: 'ਮੋਬਾਈਲ ਨੰਬਰ',
     locality: 'ਕੁਰਾਲੀ ਦਾ ਇਲਾਕਾ', address: 'ਵਾਧੂ ਪਤਾ / ਨਿਸ਼ਾਨੀ', shop: 'ਦੁਕਾਨ ਦਾ ਨਾਮ',
@@ -43,12 +43,12 @@ const COPY = {
     shopPhoto: 'ਦੁਕਾਨ ਦੇ ਸਾਹਮਣੇ ਦੀ ਤਸਵੀਰ', agreement: 'ਮੈਂ ਜਾਣਕਾਰੀ ਦੀ ਸਹੀ ਹੋਣ ਦੀ ਪੁਸ਼ਟੀ ਕਰਦਾ/ਕਰਦੀ ਹਾਂ ਅਤੇ ਵਪਾਰੀ ਸਮਝੌਤੇ ਅਤੇ ਨਿੱਜਤਾ ਨੋਟਿਸ ਨੂੰ ਸਵੀਕਾਰ ਕਰਦਾ/ਕਰਦੀ ਹਾਂ।',
     foodNote: 'ਜੇ ਤੁਹਾਡੇ ਕਾਰੋਬਾਰ ਲਈ FSSAI ਰਜਿਸਟ੍ਰੇਸ਼ਨ/ਲਾਇਸੈਂਸ ਲਾਜ਼ਮੀ ਹੈ, ਤਾਂ ਵਿਕਰੇਤਾ ਸਰਗਰਮ ਹੋਣ ਤੋਂ ਪਹਿਲਾਂ ਵੇਰਵੇ ਅਤੇ ਸਬੂਤ ਦਿਓ।',
     radius: 'ਦੁਕਾਨ ਦੀ ਥਾਂ ਦੀ ਜਾਂਚ ਸਰਵਰ ਵੱਲੋਂ ਕੁਰਾਲੀ ਦੇ ਨਿਰਧਾਰਤ ਘੇਰੇ ਅਨੁਸਾਰ ਕੀਤੀ ਜਾਵੇਗੀ।',
-    otp: 'ਈਮੇਲ ਤੇ ਭੇਜਿਆ ਛੇ ਅੰਕਾਂ ਦਾ ਕੋਡ ਦਰਜ ਕਰੋ।', review: 'ਵੇਰਵਿਆਂ ਦੀ ਜਾਂਚ ਕਰੋ ਅਤੇ ਈਮੇਲ ਤਸਦੀਕ ਕਰਕੇ ਅਰਜ਼ੀ ਜਮ੍ਹਾਂ ਕਰੋ।',
+    otp: 'ਈਮੇਲ ਤੇ ਭੇਜਿਆ ਛੇ ਅੰਕਾਂ ਦਾ ਕੋਡ ਦਰਜ ਕਰੋ।', review: 'ਵੇਰਵਿਆਂ ਦੀ ਜਾਂਚ ਕਰੋ, ਸਮਝੌਤਾ ਸਵੀਕਾਰ ਕਰੋ ਅਤੇ ਅਰਜ਼ੀ ਜਮ੍ਹਾਂ ਕਰੋ।',
     error: 'ਕਿਰਪਾ ਕਰਕੇ ਜਾਣਕਾਰੀ ਦੀ ਜਾਂਚ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।'
   },
   hi: {
-    title: 'कुराली के व्यापारी के रूप में जुड़ें', intro: 'पाँच आसान चरणों में अपनी दुकान पंजीकृत करें।',
-    steps: ['मालिक और संपर्क', 'दुकान की जानकारी', 'दुकान का स्थान', 'अनुपालन दस्तावेज़', 'समय और समीक्षा'],
+    title: 'कुराली के व्यापारी के रूप में जुड़ें', intro: 'चार आसान चरणों में अपनी दुकान पंजीकृत करें।',
+    steps: ['मालिक और संपर्क', 'दुकान की जानकारी', 'दुकान का स्थान', 'दस्तावेज़ और समीक्षा'],
     next: 'आगे बढ़ें', back: 'पीछे', send: 'ईमेल OTP भेजें', verify: 'सत्यापित करें और जमा करें',
     name: 'मालिक / अधिकृत प्रतिनिधि का नाम', email: 'ईमेल पता', phone: 'मोबाइल नंबर',
     locality: 'कुराली का इलाका', address: 'अतिरिक्त पता / पहचान', shop: 'दुकान का नाम',
@@ -60,7 +60,7 @@ const COPY = {
     shopPhoto: 'दुकान के सामने की तस्वीर', agreement: 'मैं पुष्टि करता/करती हूँ कि जानकारी सही है और विक्रेता समझौते तथा गोपनीयता सूचना को स्वीकार करता/करती हूँ।',
     foodNote: 'यदि आपके व्यवसाय के लिए FSSAI पंजीकरण/लाइसेंस आवश्यक है, तो विक्रेता सक्रिय होने से पहले विवरण और प्रमाण दें।',
     radius: 'दुकान के स्थान की जाँच सर्वर द्वारा कुराली के निर्धारित दायरे के अनुसार की जाएगी।',
-    otp: 'ईमेल पर भेजा गया छह अंकों का कोड दर्ज करें।', review: 'विवरण जाँचें और ईमेल सत्यापित करके आवेदन जमा करें।',
+    otp: 'ईमेल पर भेजा गया छह अंकों का कोड दर्ज करें।', review: 'विवरण जाँचें, समझौता स्वीकार करें और आवेदन जमा करें।',
     error: 'कृपया जानकारी जाँचें और पुनः प्रयास करें।'
   }
 } as const;
@@ -185,8 +185,6 @@ export const SellerRegistrationWizard: React.FC = () => {
       if (gstNumber.trim() && !/^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/.test(gstNumber.trim().toUpperCase())) throw new Error('Enter a valid GSTIN format');
       if (fssaiNumber.trim() && !/^\d{14}$/.test(fssaiNumber.trim())) throw new Error('FSSAI number must contain 14 digits');
       if (fssaiNumber.trim() && !fssaiCertificate) throw new Error('Upload the FSSAI certificate when providing an FSSAI number');
-    }
-    if (step === 5) {
       if (!shopFrontPhoto) throw new Error('Upload a shop-front photograph');
       if (!agreementAccepted) throw new Error('Accept the seller agreement to continue');
     }
@@ -226,7 +224,7 @@ export const SellerRegistrationWizard: React.FC = () => {
       token: response.token, serverUser: response.user
     });
     const shared = await sellerOnboardingApi.createOrResumeSharedApplication({
-      ownerName:name.trim(),email:email.trim().toLowerCase(),phone:phone.replace(/\D/g,''),
+      leadId,ownerName:name.trim(),email:email.trim().toLowerCase(),phone:phone.replace(/\D/g,''),
       shopName:storeName.trim(),category,businessType,registeredBusinessName:registeredBusinessName.trim()||name.trim(),
       locality,address,shopNumber,wardNumber,streetLocality,pinCode,
       latitude:location?.latitude,longitude:location?.longitude,formattedAddress:location?.formattedAddress,placeId:location?.placeId,
@@ -397,7 +395,7 @@ export const SellerRegistrationWizard: React.FC = () => {
         showToast('Contact verification complete. You can continue with your shop details.', 'success');
         return;
       }
-      if (step < 5) {
+      if (step < 4) {
         setStep((step + 1) as Step);
         return;
       }
@@ -485,8 +483,8 @@ export const SellerRegistrationWizard: React.FC = () => {
               {step === 2 && <div className="grid gap-4 sm:grid-cols-2"><Field label={t.shop}>{control(storeName,setStoreName,{placeholder:'Shop name'})}</Field><Field label={t.category}><select value={category} onChange={event=>setCategory(event.target.value)} className={inputClass}><option value="">Select category</option>{CATEGORIES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></Field><Field label={t.constitution}><select value={businessType} onChange={event=>setBusinessType(event.target.value as BusinessType)} className={inputClass}><option value="INDIVIDUAL">Individual</option><option value="PROPRIETORSHIP">Proprietorship</option><option value="PARTNERSHIP">Partnership</option><option value="COMPANY">Company / LLP</option></select></Field>{businessType!=='INDIVIDUAL'&&<Field label={t.legalName}>{control(registeredBusinessName,setRegisteredBusinessName,{placeholder:'Name as per registration'})}</Field>}</div>}
               {step === 3 && <div className="space-y-4"><p className="rounded-xl bg-blue-50 p-3 text-xs text-blue-900">{t.radius} {serviceArea?.enabled ? `Configured radius: ${serviceArea.radiusKm} km.` : serviceAreaError || 'Seller registration is currently unavailable until the service area is configured.'}</p><div className="grid gap-4 sm:grid-cols-2"><Field label={t.locality}><select value={locality} onChange={event=>setLocality(event.target.value)} className={inputClass}>{KURALI_LOCALITIES.map(item=><option key={item}>{item}</option>)}</select></Field><Field label={t.address}>{control(address,setAddress,{placeholder:'Landmark or additional address'})}</Field><Field label={t.shopNumber}>{control(shopNumber,setShopNumber)}</Field><Field label={t.ward}>{control(wardNumber,setWardNumber)}</Field><Field label={t.street}>{control(streetLocality,setStreetLocality)}</Field><Field label={t.pin}>{control(pinCode,setPinCode,{inputMode:'numeric',maxLength:6,placeholder:'140103'})}</Field></div><div><p className="mb-2 text-xs font-bold text-slate-700">{t.map}</p><LocationPicker value={location} onChange={setLocation} purpose="shop" initialCenter={serviceArea ? { latitude: serviceArea.centerLatitude, longitude: serviceArea.centerLongitude } : undefined}/></div></div>}
               {step === 4 && <div className="space-y-4"><Field label={t.gst}>{control(gstNumber,setGstNumber,{maxLength:15,placeholder:'15-character GSTIN',onChange:undefined})}</Field>{gstNumber.trim()&&<Field label={t.gstDoc}><input type="file" accept="application/pdf,image/jpeg,image/png" onChange={event=>setGstCertificate(event.target.files?.[0]||null)} className={inputClass}/></Field>}<div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900">{t.foodNote}</div>{isFood&&<><Field label={t.fssai}>{control(fssaiNumber,setFssaiNumber,{maxLength:14,placeholder:'14-digit FSSAI number'})}</Field><Field label={t.fssaiType}><select value={fssaiLicenseType} onChange={event=>setFssaiLicenseType(event.target.value)} className={inputClass}><option value="">Select licence type if applicable</option><option>Basic Registration</option><option>State Licence</option><option>Central Licence</option></select></Field><Field label={t.fssaiDoc}><input type="file" accept="application/pdf,image/jpeg,image/png" onChange={event=>setFssaiCertificate(event.target.files?.[0]||null)} className={inputClass}/></Field></>}</div>}
-              {step === 5 && <div className="space-y-4"><div className="grid gap-4 sm:grid-cols-2"><Field label={t.opening}>{control(openingTime,setOpeningTime,{type:'time'})}</Field><Field label={t.closing}>{control(closingTime,setClosingTime,{type:'time'})}</Field></div><Field label={t.closed}><select value={weeklyClosedDay} onChange={event=>setWeeklyClosedDay(event.target.value)} className={inputClass}><option value="">No fixed weekly closure</option>{['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day=><option key={day}>{day}</option>)}</select></Field><Field label={t.shopPhoto}><input type="file" accept="image/jpeg,image/png" capture="environment" onChange={event=>setShopFrontPhoto(event.target.files?.[0]||null)} className={inputClass}/></Field><label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs leading-relaxed text-slate-700"><input type="checkbox" checked={agreementAccepted} onChange={event=>setAgreementAccepted(event.target.checked)} className="mt-0.5 h-4 w-4"/><span>{t.agreement} <a href="/seller-agreement.html" target="_blank" rel="noreferrer" className="font-bold text-blue-700 underline">Seller Agreement</a></span></label><div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-700">{t.review}<div className="mt-2 font-semibold">{storeName} · {category} · {streetLocality}, {pinCode}</div></div></div>}
-              <div className="flex flex-wrap gap-3 pt-2">{draftSession && <button type="button" onClick={() => void saveSellerDraft()} disabled={draftBusy || loading} className="min-h-11 rounded-xl border border-blue-300 bg-blue-50 px-4 text-xs font-bold text-blue-900 disabled:opacity-50">{draftBusy ? 'Saving…' : 'Save draft'}</button>}{step>1&&<button type="button" onClick={()=>setStep((step-1) as Step)} disabled={loading} className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-bold text-slate-700">{t.back}</button>}<button type="button" onClick={handleContinue} disabled={loading||(step===3&&!serviceArea?.enabled)} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-600 px-5 text-sm font-black text-white disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<ArrowRight className="h-4 w-4"/>}{step<5?t.next:t.verify}</button></div>
+              {step === 4 && <div className="space-y-4"><div className="grid gap-4 sm:grid-cols-2"><Field label={t.opening}>{control(openingTime,setOpeningTime,{type:'time'})}</Field><Field label={t.closing}>{control(closingTime,setClosingTime,{type:'time'})}</Field></div><Field label={t.closed}><select value={weeklyClosedDay} onChange={event=>setWeeklyClosedDay(event.target.value)} className={inputClass}><option value="">No fixed weekly closure</option>{['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day=><option key={day}>{day}</option>)}</select></Field><Field label={t.shopPhoto}><input type="file" accept="image/jpeg,image/png" capture="environment" onChange={event=>setShopFrontPhoto(event.target.files?.[0]||null)} className={inputClass}/></Field><label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs leading-relaxed text-slate-700"><input type="checkbox" checked={agreementAccepted} onChange={event=>setAgreementAccepted(event.target.checked)} className="mt-0.5 h-4 w-4"/><span>{t.agreement} <a href="/seller-agreement.html" target="_blank" rel="noreferrer" className="font-bold text-blue-700 underline">Seller Agreement</a></span></label><div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-700">{t.review}<div className="mt-2 font-semibold">{storeName} · {category} · {streetLocality}, {pinCode}</div></div></div>}
+              <div className="flex flex-wrap gap-3 pt-2">{draftSession && <button type="button" onClick={() => void saveSellerDraft()} disabled={draftBusy || loading} className="min-h-11 rounded-xl border border-blue-300 bg-blue-50 px-4 text-xs font-bold text-blue-900 disabled:opacity-50">{draftBusy ? 'Saving…' : 'Save draft'}</button>}{step>1&&<button type="button" onClick={()=>setStep((step-1) as Step)} disabled={loading} className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-bold text-slate-700">{t.back}</button>}<button type="button" onClick={handleContinue} disabled={loading||(step===3&&!serviceArea?.enabled)} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-600 px-5 text-sm font-black text-white disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<ArrowRight className="h-4 w-4"/>}{step<4?t.next:t.verify}</button></div>
             </div>
           ) : (
             <div className="space-y-4"><div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Enter the verification code for each enabled channel. Disabled channels are recorded as “OTP not required” and do not block registration.</div>{emailOtpRequired && <Field label="Email verification code"><input value={emailOtp} onChange={event=>setEmailOtp(event.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} className={inputClass}/></Field>}{mobileOtpRequired && <Field label="Mobile verification code"><input value={phoneOtp} onChange={event=>setPhoneOtp(event.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} className={inputClass}/></Field>}<div className="flex flex-wrap gap-3"><button type="button" onClick={()=>{setOtpStep(false);setEmailOtp('');setPhoneOtp('');}} className="min-h-11 rounded-xl border border-slate-300 px-5 text-sm font-bold">{t.back}</button><button type="button" onClick={async()=>{setLoading(true);setError('');try{const sent=await sellerOnboardingApi.sendContactOtps(leadId);if(!sent.success)throw new Error('Unable to resend verification codes');setEmailOtp('');setPhoneOtp('');showToast('New verification codes sent.','info');}catch(cause){setError(cause instanceof Error?cause.message:'Unable to resend verification codes');}finally{setLoading(false);}}} disabled={loading} className="min-h-11 rounded-xl border border-amber-300 px-4 text-sm font-bold text-amber-800">Resend codes</button><button type="button" onClick={handleContinue} disabled={loading} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white disabled:opacity-50">{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<CheckCircle2 className="h-4 w-4"/>}Verify both contacts</button></div></div>

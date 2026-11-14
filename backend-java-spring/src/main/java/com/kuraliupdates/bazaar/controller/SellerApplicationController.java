@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.service.MalwareScanner;
 import com.kuraliupdates.bazaar.service.AuthService;
+import com.kuraliupdates.bazaar.service.SellerOnboardingLeadService;
+import org.springframework.transaction.annotation.Transactional;
 import com.kuraliupdates.bazaar.entity.UserEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
@@ -30,6 +32,7 @@ public class SellerApplicationController {
     private final ObjectMapper mapper;
     private final MalwareScanner scanner;
     private final AuthService authService;
+    private final SellerOnboardingLeadService sellerLeads;
 
 
     /** Authenticated seller entry point for the shared CRM/self-service application. */
@@ -126,6 +129,7 @@ public class SellerApplicationController {
         Map<String,Object> merged = new LinkedHashMap<>((Map<String,Object>) current.get("details"));
         merged.putAll(body);
         merged.put("agreementAccepted", Boolean.FALSE);
+        ensureVerifiedContactsUnchanged((Map<String,Object>) current.get("details"),merged);
         validate(merged);
         String next = "ACTION_REQUIRED".equals(current.get("status")) ? "IN_PROGRESS" : String.valueOf(current.get("status"));
         jdbc.update("UPDATE SELLER_APPLICATIONS SET OWNER_NAME=?,EMAIL=?,PHONE=?,SHOP_NAME=?,APPLICATION_JSON=?,STATUS=?,UPDATED_AT=? WHERE APPLICATION_ID=?",
@@ -144,6 +148,7 @@ public class SellerApplicationController {
             throw new ApiException(HttpStatus.CONFLICT,"This application is no longer editable");
         Map<String,Object> merged = new LinkedHashMap<>((Map<String,Object>) current.get("details"));
         merged.putAll(body);
+        ensureVerifiedContactsUnchanged((Map<String,Object>) current.get("details"),merged);
         validate(merged);
         jdbc.update("UPDATE SELLER_APPLICATIONS SET OWNER_NAME=?,EMAIL=?,PHONE=?,SHOP_NAME=?,APPLICATION_JSON=?,STATUS='IN_PROGRESS',UPDATED_AT=? WHERE APPLICATION_ID=?",
                 text(merged,"ownerName"),text(merged,"email").toLowerCase(Locale.ROOT),
@@ -188,12 +193,14 @@ public class SellerApplicationController {
     }
 
     @PostMapping("/admin/seller-applications/{id}/submit")
+    @Transactional
     public Map<String,Object> submit(@PathVariable String id,Authentication auth) {
         requireAdmin(auth);
         return submitApplication(id,auth.getName(),false,null);
     }
 
     @PostMapping("/seller-applications/{id}/submit")
+    @Transactional
     public Map<String,Object> sellerSubmit(@PathVariable String id,
              @RequestHeader("X-Seller-Application-Token") String token,
              @RequestBody Map<String,Object> body) {
@@ -204,6 +211,7 @@ public class SellerApplicationController {
     }
 
     @PatchMapping("/admin/seller-applications/{id}/status")
+    @Transactional
     public Map<String,Object> status(@PathVariable String id,@RequestBody Map<String,String> body,Authentication auth) {
         requireAdmin(auth);
         String next = body == null ? "" : String.valueOf(body.getOrDefault("status","")).toUpperCase(Locale.ROOT);
@@ -212,8 +220,30 @@ public class SellerApplicationController {
         String reason = body.get("reason");
         if (("ACTION_REQUIRED".equals(next)||"REJECTED".equals(next)) && (reason==null||reason.isBlank()))
             throw new ApiException(HttpStatus.BAD_REQUEST,"A reason is required for this status");
+        Map<String,Object> current = read(id,false);
+        String currentStatus = String.valueOf(current.get("status"));
+        Map<String,Set<String>> transitions = Map.of(
+                "SUBMITTED", Set.of("UNDER_REVIEW","ACTION_REQUIRED","REJECTED"),
+                "UNDER_REVIEW", Set.of("ACTION_REQUIRED","APPROVED","REJECTED"),
+                "ACTION_REQUIRED", Set.of("UNDER_REVIEW","REJECTED"),
+                "APPROVED", Set.of(),
+                "REJECTED", Set.of("ACTION_REQUIRED")
+        );
+        if (!transitions.getOrDefault(currentStatus,Set.of()).contains(next))
+            throw new ApiException(HttpStatus.CONFLICT,"Invalid application status transition from " + currentStatus + " to " + next);
+        if ("APPROVED".equals(next)) {
+            Map<String,Object> details = (Map<String,Object>) current.get("details");
+            List<Map<String,Object>> docs = documentMetadata(id);
+            requireVerifiedDocument(docs,"SHOP_FRONT_PHOTO");
+            if (!text(details,"gstNumber").isBlank()) requireVerifiedDocument(docs,"GST_CERTIFICATE");
+            if (!text(details,"fssaiNumber").isBlank()) requireVerifiedDocument(docs,"FSSAI_CERTIFICATE");
+        }
         jdbc.update("UPDATE SELLER_APPLICATIONS SET STATUS=?,STATUS_REASON=?,UPDATED_AT=? WHERE APPLICATION_ID=?",
                 next,reason,LocalDateTime.now(),id);
+        if ("APPROVED".equals(next)) {
+            jdbc.update("UPDATE SELLER_ONBOARDING_LEADS SET STATUS='CONVERTED',UPDATED_AT=? WHERE APPLICATION_ID=? AND STATUS='APPLICATION_SUBMITTED'",
+                    LocalDateTime.now(),id);
+        }
         audit(id,auth.getName(),"STATUS_"+next,reason);
         return read(id,false);
     }
@@ -227,9 +257,17 @@ public class SellerApplicationController {
         if (!sellerAccepted && !Boolean.TRUE.equals(details.get("agreementAccepted")))
             throw new ApiException(HttpStatus.BAD_REQUEST,"Seller must personally accept the seller agreement before submission");
         List<Map<String,Object>> docs = documentMetadata(id);
-        if (docs.stream().noneMatch(d -> "SHOP_FRONT_PHOTO".equals(d.get("documentType")) && "CLEAN".equals(d.get("scanStatus"))))
-            throw new ApiException(HttpStatus.BAD_REQUEST,"A clean shop-front photo is required");
+        requireCleanDocument(docs,"SHOP_FRONT_PHOTO");
+        if (!text(details,"gstNumber").isBlank()) requireCleanDocument(docs,"GST_CERTIFICATE");
+        if (!text(details,"fssaiNumber").isBlank()) requireCleanDocument(docs,"FSSAI_CERTIFICATE");
+        String leadId = text(details,"leadId");
+        if (sellerAccepted && leadId.isBlank())
+            throw new ApiException(HttpStatus.FORBIDDEN,"A verified seller registration lead must be linked before submission");
         jdbc.update("UPDATE SELLER_APPLICATIONS SET STATUS='SUBMITTED',UPDATED_AT=? WHERE APPLICATION_ID=?",LocalDateTime.now(),id);
+        if (!leadId.isBlank()) {
+            sellerLeads.markApplicationSubmitted(leadId,text(details,"email").toLowerCase(Locale.ROOT),
+                    text(details,"phone").replaceAll("\\D",""),id);
+        }
         audit(id,actor,"APPLICATION_SUBMITTED","Submitted for admin review");
         return Map.of("applicationId",id,"status","SUBMITTED");
     }
@@ -280,6 +318,26 @@ public class SellerApplicationController {
         result.remove("tokenHash"); result.remove("tokenExpiresAt");
         result.put("applicationId",id);
         return result;
+    }
+
+    private void ensureVerifiedContactsUnchanged(Map<String,Object> original,Map<String,Object> updated) {
+        if (original == null || text(original,"leadId").isBlank()) return;
+        if (!text(original,"email").equalsIgnoreCase(text(updated,"email"))
+                || !text(original,"phone").replaceAll("\\D","").equals(text(updated,"phone").replaceAll("\\D",""))) {
+            throw new ApiException(HttpStatus.CONFLICT,"Verified email and mobile cannot be changed on a linked application. Restart contact verification for updated details.");
+        }
+    }
+
+    private void requireCleanDocument(List<Map<String,Object>> docs,String type) {
+        Map<String,Object> latest = docs.stream().filter(d -> type.equals(d.get("documentType"))).findFirst().orElse(null);
+        if (latest == null || !"CLEAN".equals(latest.get("scanStatus")))
+            throw new ApiException(HttpStatus.BAD_REQUEST,"A clean " + type + " document is required before submission");
+    }
+
+    private void requireVerifiedDocument(List<Map<String,Object>> docs,String type) {
+        Map<String,Object> latest = docs.stream().filter(d -> type.equals(d.get("documentType"))).findFirst().orElse(null);
+        if (latest == null || !"CLEAN".equals(latest.get("scanStatus")) || !"VERIFIED".equals(latest.get("verificationStatus")))
+            throw new ApiException(HttpStatus.CONFLICT,"The latest " + type + " document must be clean and admin-verified before approval");
     }
 
     private void validate(Map<String,Object> body) {
