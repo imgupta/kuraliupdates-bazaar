@@ -148,14 +148,28 @@ public class SellerOnboardingLeadService {
     @Transactional(readOnly = true)
     public List<Map<String,Object>> activity(String leadId) {
         getLead(leadId);
-        return jdbc.query(
+        Map<String,Object> lead = getLead(leadId);
+        List<Map<String,Object>> events = new java.util.ArrayList<>(jdbc.query(
                 "SELECT ACTOR, ACTION, DETAILS, CREATED_AT FROM SELLER_ONBOARDING_LEAD_AUDIT WHERE LEAD_ID=? ORDER BY CREATED_AT DESC FETCH FIRST 100 ROWS ONLY",
                 (rs,n) -> {
                     Map<String,Object> row = new LinkedHashMap<>();
                     row.put("actor",rs.getString(1)); row.put("action",rs.getString(2));
                     row.put("details",rs.getString(3)); row.put("createdAt",rs.getTimestamp(4));
                     return row;
-                }, leadId);
+                }, leadId));
+        String applicationId = Objects.toString(lead.get("applicationId"),"");
+        if (!applicationId.isBlank()) {
+            events.addAll(jdbc.query(
+                    "SELECT ACTOR,ACTION,DETAILS,CREATED_AT FROM SELLER_APPLICATION_AUDIT WHERE APPLICATION_ID=? ORDER BY CREATED_AT DESC FETCH FIRST 100 ROWS ONLY",
+                    (rs,n) -> {
+                        Map<String,Object> row = new LinkedHashMap<>();
+                        row.put("actor",rs.getString(1)); row.put("action",rs.getString(2));
+                        row.put("details",rs.getString(3)); row.put("createdAt",rs.getTimestamp(4));
+                        return row;
+                    }, applicationId));
+        }
+        events.sort((a,b) -> String.valueOf(b.get("createdAt")).compareTo(String.valueOf(a.get("createdAt"))));
+        return events.stream().limit(150).toList();
     }
 
     @Transactional
@@ -274,7 +288,7 @@ public class SellerOnboardingLeadService {
 
     private Map<String,Object> getLead(String id) {
         if (id == null || id.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "Lead reference is required");
-        List<Map<String,Object>> rows = jdbc.query("SELECT LEAD_ID,OWNER_NAME,EMAIL,PHONE,EMAIL_VERIFIED,PHONE_VERIFIED,EMAIL_OTP_REQUIRED,PHONE_OTP_REQUIRED,EMAIL_OTP_SKIPPED,PHONE_OTP_SKIPPED,CONTACT_CONSENT,STATUS,ASSIGNED_TO,CALLBACK_AT FROM SELLER_ONBOARDING_LEADS WHERE LEAD_ID=?",
+        List<Map<String,Object>> rows = jdbc.query("SELECT LEAD_ID,OWNER_NAME,EMAIL,PHONE,EMAIL_VERIFIED,PHONE_VERIFIED,EMAIL_OTP_REQUIRED,PHONE_OTP_REQUIRED,EMAIL_OTP_SKIPPED,PHONE_OTP_SKIPPED,CONTACT_CONSENT,STATUS,ASSIGNED_TO,CALLBACK_AT,APPLICATION_ID FROM SELLER_ONBOARDING_LEADS WHERE LEAD_ID=?",
                 (rs,row)->{
                     Map<String,Object> lead = new java.util.LinkedHashMap<>();
                     lead.put("leadId", rs.getString("LEAD_ID"));
@@ -291,6 +305,7 @@ public class SellerOnboardingLeadService {
                     lead.put("status", rs.getString("STATUS"));
                     lead.put("assignedTo", rs.getString("ASSIGNED_TO") == null ? "" : rs.getString("ASSIGNED_TO"));
                     lead.put("callbackAt", rs.getTimestamp("CALLBACK_AT") == null ? "" : rs.getTimestamp("CALLBACK_AT").toString());
+                    lead.put("applicationId", rs.getString("APPLICATION_ID"));
                     return lead;
                 }, id);
         if (rows.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "Seller registration lead was not found");
