@@ -75,7 +75,12 @@ public class AdminOrderController {
         if (!Objects.equals(order.getDeliveryLocality(), locality)) { order.setDeliveryLocality(locality); changed.add("deliveryLocality"); }
         order.setUpdatedAt(LocalDateTime.now());
         OrderEntity saved = orders.save(order);
-        if (!changed.isEmpty()) audit(actor, saved, "ORDER_DETAILS_UPDATE", "Updated: " + String.join(", ", changed));
+        if (!changed.isEmpty()) {
+            String details = "Updated: " + String.join(", ", changed);
+            audit(actor, saved, "ORDER_DETAILS_UPDATE", details);
+            recordEvent(saved, actor, "ORDER_DETAILS_UPDATED", details);
+            queueCustomerNotice(saved, "ORDER_UPDATED", "Your KuraliUpdates order " + orderId + " delivery/contact details were updated by support.");
+        }
         return OrderResponse.from(saved);
     }
 
@@ -118,7 +123,10 @@ public class AdminOrderController {
             order.setStatus("CANCELLED");
             order.setFulfilmentStatus("CANCELLED");
             order.setUpdatedAt(now);
-            audit(actor, order, "ORDER_CANCELLED", body == null ? "Cancelled by administrator" : body.getOrDefault("reason", "Cancelled by administrator"));
+            String reason = body == null ? "Cancelled by administrator" : body.getOrDefault("reason", "Cancelled by administrator");
+            audit(actor, order, "ORDER_CANCELLED", reason);
+            recordEvent(order, actor, "ORDER_CANCELLED", reason);
+            queueCustomerNotice(order, "ORDER_CANCELLED", "Your KuraliUpdates order " + order.getOrderId() + " has been cancelled.");
         }
         orders.saveAll(group);
         return OrderResponse.from(group.stream().filter(o -> orderId.equals(o.getOrderId())).findFirst().orElseThrow());
