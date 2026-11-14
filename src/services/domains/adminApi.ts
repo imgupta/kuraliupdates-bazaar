@@ -183,6 +183,17 @@ export const adminApi = {
       }
     },
 
+  async updateAdminBuyer(userId: string, payload: { name: string; email: string; phone: string; locality: string; address: string; formattedAddress: string }): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/buyers/${encodeURIComponent(userId)}`, {
+      method: 'PATCH',
+      headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to update buyer details (HTTP ${res.status})`);
+    return data;
+  },
+
   async getAdminBuyers(): Promise<any[]> {
       try {
         const res = await fetch(`${API_BASE_URL}/admin/buyers`, {
