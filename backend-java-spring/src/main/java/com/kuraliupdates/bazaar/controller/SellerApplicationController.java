@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.service.MalwareScanner;
 import com.kuraliupdates.bazaar.service.AuthService;
+import com.kuraliupdates.bazaar.service.SellerOnboardingLeadService;
+import org.springframework.transaction.annotation.Transactional;
 import com.kuraliupdates.bazaar.entity.UserEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
@@ -30,6 +32,7 @@ public class SellerApplicationController {
     private final ObjectMapper mapper;
     private final MalwareScanner scanner;
     private final AuthService authService;
+    private final SellerOnboardingLeadService sellerLeads;
 
 
     /** Authenticated seller entry point for the shared CRM/self-service application. */
@@ -188,12 +191,14 @@ public class SellerApplicationController {
     }
 
     @PostMapping("/admin/seller-applications/{id}/submit")
+    @Transactional
     public Map<String,Object> submit(@PathVariable String id,Authentication auth) {
         requireAdmin(auth);
         return submitApplication(id,auth.getName(),false,null);
     }
 
     @PostMapping("/seller-applications/{id}/submit")
+    @Transactional
     public Map<String,Object> sellerSubmit(@PathVariable String id,
              @RequestHeader("X-Seller-Application-Token") String token,
              @RequestBody Map<String,Object> body) {
@@ -249,9 +254,17 @@ public class SellerApplicationController {
         if (!sellerAccepted && !Boolean.TRUE.equals(details.get("agreementAccepted")))
             throw new ApiException(HttpStatus.BAD_REQUEST,"Seller must personally accept the seller agreement before submission");
         List<Map<String,Object>> docs = documentMetadata(id);
-        if (docs.stream().noneMatch(d -> "SHOP_FRONT_PHOTO".equals(d.get("documentType")) && "CLEAN".equals(d.get("scanStatus"))))
-            throw new ApiException(HttpStatus.BAD_REQUEST,"A clean shop-front photo is required");
+        requireCleanDocument(docs,"SHOP_FRONT_PHOTO");
+        if (!text(details,"gstNumber").isBlank()) requireCleanDocument(docs,"GST_CERTIFICATE");
+        if (!text(details,"fssaiNumber").isBlank()) requireCleanDocument(docs,"FSSAI_CERTIFICATE");
+        String leadId = text(details,"leadId");
+        if (sellerAccepted && leadId.isBlank())
+            throw new ApiException(HttpStatus.FORBIDDEN,"A verified seller registration lead must be linked before submission");
         jdbc.update("UPDATE SELLER_APPLICATIONS SET STATUS='SUBMITTED',UPDATED_AT=? WHERE APPLICATION_ID=?",LocalDateTime.now(),id);
+        if (!leadId.isBlank()) {
+            sellerLeads.markApplicationSubmitted(leadId,text(details,"email").toLowerCase(Locale.ROOT),
+                    text(details,"phone").replaceAll("\\D",""),id);
+        }
         audit(id,actor,"APPLICATION_SUBMITTED","Submitted for admin review");
         return Map.of("applicationId",id,"status","SUBMITTED");
     }
@@ -302,6 +315,11 @@ public class SellerApplicationController {
         result.remove("tokenHash"); result.remove("tokenExpiresAt");
         result.put("applicationId",id);
         return result;
+    }
+
+    private void requireCleanDocument(List<Map<String,Object>> docs,String type) {
+        boolean valid = docs.stream().anyMatch(d -> type.equals(d.get("documentType")) && "CLEAN".equals(d.get("scanStatus")));
+        if (!valid) throw new ApiException(HttpStatus.BAD_REQUEST,"A clean " + type + " document is required before submission");
     }
 
     private void requireVerifiedDocument(List<Map<String,Object>> docs,String type) {
