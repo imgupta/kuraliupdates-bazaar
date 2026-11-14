@@ -64,6 +64,14 @@ class SellerRegistrationDraftServiceTest {
     }
 
     @Test
+    void rejectsLegacyFifthStepAfterFourStepWizardSimplification() {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("currentStep", 5);
+        assertThrows(ApiException.class, () -> service.save("user-1", payload));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     void returnsEmptyDraftForNewAccount() {
         assertEquals(Map.of("exists", false), service.get("user-1"));
     }
