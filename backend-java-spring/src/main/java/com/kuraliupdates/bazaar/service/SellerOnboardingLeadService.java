@@ -202,7 +202,7 @@ public class SellerOnboardingLeadService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> list(String status, String search, int page, int size) {
+    public List<Map<String, Object>> list(String status, String search, int page, int size, boolean dueOnly) {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(100, size));
         String normalizedStatus = status == null ? "" : status.trim().toUpperCase();
@@ -215,7 +215,11 @@ public class SellerOnboardingLeadService {
             String pattern = "%" + term + "%";
             params.add(pattern); params.add(pattern); params.add(pattern);
         }
-        sql.append(" ORDER BY CASE WHEN STATUS='CALLBACK_REQUESTED' THEN 0 ELSE 1 END, CREATED_AT DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
+        if (dueOnly) {
+            sql.append(" AND CALLBACK_AT IS NOT NULL AND CALLBACK_AT<=? AND STATUS NOT IN ('CONVERTED','NOT_INTERESTED')");
+            params.add(LocalDateTime.now());
+        }
+        sql.append(" ORDER BY CASE WHEN CALLBACK_AT IS NOT NULL AND CALLBACK_AT<=CURRENT_TIMESTAMP THEN 0 WHEN STATUS='CALLBACK_REQUESTED' THEN 1 ELSE 2 END, CREATED_AT DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
         params.add(safePage * safeSize); params.add(safeSize);
         return jdbc.query(sql.toString(), (rs, row) -> {
             Map<String,Object> m = new LinkedHashMap<>();
