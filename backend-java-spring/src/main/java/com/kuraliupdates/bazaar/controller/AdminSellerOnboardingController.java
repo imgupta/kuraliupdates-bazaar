@@ -27,6 +27,11 @@ public class AdminSellerOnboardingController {
         return leads.list(status, search, page, size);
     }
 
+    @GetMapping("/assignees")
+    public List<Map<String,Object>> assignees() {
+        return leads.assignees();
+    }
+
     @GetMapping("/summary")
     public Map<String,Object> summary() {
         return leads.summary();
