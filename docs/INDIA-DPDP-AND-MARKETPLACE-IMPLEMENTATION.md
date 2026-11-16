@@ -14,7 +14,7 @@
 - Adds admin-only configuration storage for GST/FSSAI applicability categories, minimum age, minor-account policy and privacy/grievance contacts.
 - Adds admin-only request triage endpoints and audit events.
 - Defaults preserve current seller onboarding: GST not universally mandatory; FSSAI categories are configurable and must be interpreted against actual food activity/licence class.
-- Adds migration V40. Apply through Flyway; do not manually create production tables.
+- Adds migration V40 for privacy/compliance tables and V41 for partner ward-number columns. V41 deliberately avoids the existing V23 seller-service-area migration version; duplicate Flyway versions prevent startup. Apply through Flyway; do not manually create production tables.
 
 ## Endpoints
 - GET /privacy/notice-metadata — public notice version/contact metadata.
@@ -58,10 +58,10 @@ Do not use one blanket retention period. Approve a record-class schedule with co
 Source code cannot prove actual provider regions. Record primary/backup/export/diagnostic locations and retention for Oracle; runtime/log/backup/support locations for Render; build/runtime/edge logs and artifacts for Vercel; and data locations/subprocessors for email, SMS, maps, analytics and monitoring. Keep CERT-In covered logs in India for the required period. DPDP and CERT-In logs are distinct.
 
 ## Release gates
-1. Apply V40 on isolated staging Oracle; prove migration/restart/recovery.
+1. Apply V40 and V41 on isolated staging Oracle; verify Flyway has one migration per version, then prove migration/restart/recovery.
 2. Add integration tests for ownership, admin authorization, validation, acknowledgement and config audit.
-3. Connect UI to notice metadata and authenticated rights endpoints.
-4. Make seller registration/activation consume GST/FSSAI settings; block food-seller activation when applicable evidence is missing/expired.
+3. Connect the registration flow to the published privacy notice and authenticated rights endpoints; require acknowledgement at the appropriate point and retain notice version/language.
+4. Verify seller registration and activation consume GST/FSSAI settings; block food-seller activation when applicable evidence is missing/expired and revalidate expiry.
 5. Implement scheduled purge for OTPs and retention classes, with legal holds and audit evidence.
 6. Implement token-hash migration with forced re-auth plan before changing sessions.
 7. Verify provider/region/backup/log settings from provider consoles/contracts.
