@@ -65,6 +65,8 @@ public class SecurityConfig {
                 ).permitAll()
 
                 // Public sign-in, registration verification and one-time portal handoff redemption.
+                .requestMatchers(HttpMethod.GET, "/privacy/notice-metadata").permitAll()
+
                 .requestMatchers(HttpMethod.POST,
                     "/auth/send-otp",
                     "/auth/registration-check",
