@@ -37,7 +37,6 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
     email: string;
     phone: string;
     locality: string;
-    wardNumber?: string;
     address: string;
     storeName?: string;
     category?: string;
@@ -260,7 +259,6 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
           gstNumber, fssaiNumber, fssaiLicenseType, openingTime, closingTime, weeklyClosedDay,
           agreementAccepted, agreementVersion, latitude, longitude, formattedAddress, placeId,
           vehicleType,
-          wardNumber,
           vehicleNumber,
           licenseNumber,
           email,
