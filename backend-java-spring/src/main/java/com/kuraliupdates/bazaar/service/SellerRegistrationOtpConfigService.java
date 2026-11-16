@@ -17,6 +17,13 @@ public class SellerRegistrationOtpConfigService {
     private final JdbcTemplate jdbc;
 
     @Transactional(readOnly = true)
+    public Map<String, String> complianceConfig() {
+        Map<String, String> values = new LinkedHashMap<>();
+        jdbc.query("SELECT CONFIG_KEY, CONFIG_VALUE FROM KU_COMPLIANCE_CONFIG", (org.springframework.jdbc.core.RowCallbackHandler) rs -> values.put(rs.getString(1), rs.getString(2)));
+        return values;
+    }
+
+    @Transactional(readOnly = true)
     public Map<String, Object> get() {
         return jdbc.queryForObject("SELECT EMAIL_OTP_ENABLED, MOBILE_OTP_ENABLED, UPDATED_BY, UPDATED_AT FROM SELLER_REGISTRATION_OTP_CONFIG WHERE CONFIG_ID='GLOBAL'",
             (rs, row) -> {

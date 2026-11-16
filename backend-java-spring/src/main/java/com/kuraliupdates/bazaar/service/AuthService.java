@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -350,6 +351,17 @@ public class AuthService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Ward number is required for partner registration");
         }
         if ("SELLER".equals(requestedRole)) {
+            Map<String, String> compliance = registrationOtpConfig.complianceConfig();
+            String category = req.category() == null ? "" : req.category().trim();
+            boolean gstCategoryRequired = csvContains(compliance.get("SELLER_GST_REQUIRED_CATEGORIES"), category);
+            boolean fssaiCategoryRequired = csvContains(compliance.get("SELLER_FSSAI_REQUIRED_CATEGORIES"), category);
+            boolean gstRequired = Boolean.parseBoolean(compliance.getOrDefault("SELLER_GST_REQUIRED", "false")) || gstCategoryRequired;
+            if (gstRequired && (req.gstNumber() == null || req.gstNumber().isBlank())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "GSTIN is required for this seller category under the current admin compliance policy");
+            }
+            if (fssaiCategoryRequired && (req.fssaiNumber() == null || req.fssaiNumber().isBlank())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "FSSAI registration/licence details are required for this seller category");
+            }
             requireSellerValue(req.businessType(), "Business type is required");
             if (!Set.of("INDIVIDUAL", "PROPRIETORSHIP", "PARTNERSHIP", "COMPANY").contains(req.businessType().trim().toUpperCase())) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "Select a valid business type");
@@ -382,6 +394,13 @@ public class AuthService {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "Enter a valid 14-digit FSSAI number");
             }
         }
+    }
+
+    private boolean csvContains(String csv, String value) {
+        if (csv == null || csv.isBlank() || value == null || value.isBlank()) return false;
+        return java.util.Arrays.stream(csv.split(","))
+                .map(String::trim).filter(s -> !s.isBlank())
+                .anyMatch(s -> s.equalsIgnoreCase(value.trim()));
     }
 
     private void requireSellerValue(String value, String message) {

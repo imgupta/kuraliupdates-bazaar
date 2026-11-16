@@ -8,7 +8,7 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 
 /** Persists ward numbers for delivery and Daily Help partner registrations. */
-public class V23__Partner_ward_numbers extends BaseJavaMigration {
+public class V41__Partner_ward_numbers extends BaseJavaMigration {
     @Override
     public void migrate(Context context) throws Exception {
         Connection connection = context.getConnection();
