@@ -22,9 +22,9 @@ public class PrivacyComplianceController {
     public Map<String,Object> noticeMetadata() {
         Map<String,String> c=readConfig();
         return Map.of("version",c.getOrDefault("PRIVACY_NOTICE_VERSION","2026-11-16-v1"),
-            "privacyContact",c.getOrDefault("PRIVACY_CONTACT_EMAIL","privacy@kuraliupdates.com"),
-            "grievanceContact",c.getOrDefault("GRIEVANCE_CONTACT_EMAIL","support@kuraliupdates.com"),
-            "noticeUrl","https://kuraliupdates.com/privacy");
+            "privacyContact",c.getOrDefault("PRIVACY_CONTACT_EMAIL","NOT_CONFIGURED"),
+            "grievanceContact",c.getOrDefault("GRIEVANCE_CONTACT_EMAIL","NOT_CONFIGURED"),
+            "publicationStatus","DRAFT_CONTACTS_REQUIRE_CONFIGURATION");
     }
 
     @PostMapping("/me/privacy/notice-acknowledgement")
@@ -80,6 +80,8 @@ public class PrivacyComplianceController {
         UserEntity admin=requireAdmin(auth); String s=required(body.get("status"),"Status is required").toUpperCase(Locale.ROOT);
         if(!REQUEST_STATUSES.contains(s)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unsupported status");
         String note=Optional.ofNullable(body.get("resolutionNote")).orElse("").trim();
+        if (("COMPLETED".equals(s) || "REJECTED".equals(s)) && note.isBlank())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"A resolution note and evidence reference are required before closing a request");
         if(note.length()>2000) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Resolution note too long");
         int n=jdbc.update("UPDATE KU_PRIVACY_REQUESTS SET STATUS=?,RESOLUTION_NOTE=?,RESOLVED_AT=? WHERE REQUEST_ID=?",s,note,
             ("COMPLETED".equals(s)||"REJECTED".equals(s))?Timestamp.valueOf(LocalDateTime.now()):null,id);
@@ -100,6 +102,8 @@ public class PrivacyComplianceController {
             if(!allowed.contains(e.getKey())) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Unsupported compliance setting: "+e.getKey());
             String v=required(e.getValue(),"Configuration values cannot be blank");
             if(v.length()>2000) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Configuration value too long");
+            if ("ALLOW_MINOR_REGISTRATION".equals(e.getKey()) && "true".equalsIgnoreCase(v))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Minor registration is disabled until verifiable parental consent and child-data safeguards are implemented");
             if(Set.of("SELLER_GST_REQUIRED","ALLOW_MINOR_REGISTRATION").contains(e.getKey())&&!Set.of("true","false").contains(v.toLowerCase(Locale.ROOT)))
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,e.getKey()+" must be true or false");
             if("MINIMUM_REGISTRATION_AGE".equals(e.getKey())) try {int a=Integer.parseInt(v);if(a<18||a>100)throw new NumberFormatException();}
