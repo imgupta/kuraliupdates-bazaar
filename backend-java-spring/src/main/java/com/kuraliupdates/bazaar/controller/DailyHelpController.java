@@ -48,8 +48,17 @@ public class DailyHelpController {
         if (!samePhone(user.getPhone(), request.buyerPhone())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You can only create a Daily Help booking for your own account");
         }
+        if (user.getName() == null || user.getName().isBlank()) {
+            throw new ApiException(HttpStatus.CONFLICT, "Complete your account name before creating a Daily Help booking");
+        }
+        // The buyer identity is authoritative from the verified session. The
+        // request may choose a service address, but cannot impersonate another
+        // person by supplying a different name or phone number.
+        DailyHelpBookingRequest authenticatedRequest = new DailyHelpBookingRequest(
+                request.serviceId(), user.getName().trim(), user.getPhone(), request.address(),
+                request.locality(), request.scheduledStart(), request.requestedHours(), request.slotId());
         String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
-        return ResponseEntity.ok(dailyHelpService.createBooking(request, e2eRunId));
+        return ResponseEntity.ok(dailyHelpService.createBooking(authenticatedRequest, e2eRunId));
     }
 
     @GetMapping("/availability")
