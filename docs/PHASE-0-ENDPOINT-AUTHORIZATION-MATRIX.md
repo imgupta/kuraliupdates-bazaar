@@ -162,3 +162,8 @@ The public lead-start endpoint now returns the same `STARTED` status for both ne
 Contact OTP verification is now limited to leads in the `STARTED` state and uses a conditional database update so concurrent or replayed requests cannot move an advanced lead back to `CONTACT_VERIFIED`. Callback requests are limited to `CONTACT_VERIFIED` and likewise use a conditional update. Conflicting or stale transitions return HTTP 409. Regression tests cover invalid/replayed state transitions.
 
 This does not replace Oracle-backed concurrency testing; the conditional update is designed to make the database the final arbiter under concurrent requests.
+
+
+## 17 November 2026 — Daily Help booking identity source
+
+The authenticated buyer's session is now authoritative for the persisted Daily Help booking name and phone. The request remains the source only for service selection, selected slot, requested duration, and the service address/locality chosen for that booking. The controller rejects a phone that does not match the authenticated account and does not persist a client-supplied display name. Regression tests cover spoofed-name replacement and blank account-name rejection. This is a narrow hardening item, not a complete endpoint/IDOR certification; all other open route-owner gaps remain open.
