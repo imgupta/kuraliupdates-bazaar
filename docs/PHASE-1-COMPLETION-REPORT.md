@@ -128,3 +128,23 @@ PR [#357](https://github.com/imgupta/kuraliupdates-bazaar/pull/357), “Improve 
 - Staging UI acceptance on mobile and desktop, real authorised CRM/order API journeys with synthetic identities, and runtime deployment health remain to be performed/recorded.
 
 **Phase 1 disposition: IN PROGRESS / NOT CLOSED.** PR #357 completes this admin CRM/order-operations implementation milestone and its exact-head CI gates, but does not close the broader Phase 1 matrix (five-role authorization and lifecycle evidence, seller document correction/retention/audit acceptance, isolated Oracle transactional tests, abuse/privacy controls and release gates). Do not mark Phase 1 complete or authorize Phase 2 solely on this PR.
+
+
+## 17 November 2026 — consolidated P1 security/regression batch (PR in progress)
+
+**Base:** `main` at `2e8bea0ccfcac00d5a37574310db4d9e95ee4936`.
+
+### Implemented in this batch
+- Daily Help booking identity is now taken from the authenticated buyer session. The client can still choose the service location/address, but cannot submit a different buyer name or phone and have that identity persisted.
+- An authenticated account with a blank name is rejected before booking service access.
+- Controller regression tests cover client-name spoofing and incomplete account identity; the existing wrong-phone rejection remains.
+
+### Verification boundary
+- Source and test changes are submitted together for exact-head CI.
+- No local Maven/Oracle run is claimed in this update.
+- No shared staging business data, orders, bookings, OTPs, seller inventory, credentials or database schema were changed.
+- This batch does **not** close Phase 1. The complete five-role route/owner matrix, trusted authenticated browser journeys, isolated Oracle concurrency/rollback/migration evidence, seller-document access/retention acceptance, outbox delivery, and operational/legal launch gates remain open or blocked as recorded in the requirement matrix and execution plan.
+
+### Risk and rollback
+- API route and DTO shape remain unchanged. Existing clients may continue sending their name and phone fields; the server now uses the verified account identity.
+- Rollback is a revert of the controller and its regression test. No migration or data backfill is required.
