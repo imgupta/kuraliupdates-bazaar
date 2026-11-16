@@ -1,13 +1,16 @@
 # Deployment and release runbook
 
 ## Environment
+
 There is one deployed environment designated **staging** by the owner. Public custom domains and Render API are part of this same environment; do not assume a separate production environment.
 
-- Frontend: six existing Vercel projects (combined Bazaar + Buyer, Seller, Delivery, Daily Help and Admin).
+- Frontend: Vercel projects for the combined Bazaar and role-specific portal builds.
 - Backend: Render service `kuraliupdates-bazaar`, branch `main`, Docker root `backend-java-spring/`.
-- Database: Oracle configured through Render environment settings. Independently verify database/schema identity before any mutating test.
+- Database: Oracle Autonomous Database configured through Render environment settings. Independently verify database/schema identity before any mutating test.
+- Oracle connection mode: walletless JDBC Thin TCPS. Configure `ORACLE_JDBC_URL` with the TLS-authentication connection string from OCI Console → Autonomous Database → Database connection → TLS Authentication → TLS. Do not use the mTLS/TNS alias string for this configuration. Keep `ORACLE_USERNAME` and `ORACLE_PASSWORD` in Render secret settings.
 
 ## Release gates
+
 1. Review PR diff for secrets, generated files and unintended runtime changes.
 2. Run frontend lint/type checks/build and backend `mvn clean verify`.
 3. Merge only after required checks pass.
@@ -19,17 +22,36 @@ There is one deployed environment designated **staging** by the owner. Public cu
 
 Vercel READY does not prove API readiness. A Render image build does not prove rollout completion. CI success does not prove transactional workflows executed.
 
-## Quota-aware Vercel builds
+## Quota-aware frontend builds
+
 Role-only changes should build only the affected role portal; shared runtime, dependencies, Vite config or global CSS can fan out to all portals. Combined Bazaar remains a separate target. Do not trigger artificial builds merely to test quota behavior.
 
-## Render
-Auto-deploy is enabled for `main`. Verify exact deployment SHA and final LIVE state after a merge. Do not manually redeploy or change environment variables unless required and approved.
+## Render and backend readiness
+
+- Auto-deploy is enabled for `main`. Verify exact deployment SHA and final LIVE state after a merge. Do not manually redeploy or change environment variables unless required and approved.
+- Allow for Render cold starts. Readiness workflows must wait for liveness before token/API smoke and must compare the health-reported backend commit with the expected deployed backend SHA.
+- A workflow-only commit may not trigger a backend deployment. Resolve the expected backend SHA from the latest first-parent mainline commit that changed `backend-java-spring/`; do not compare the backend's deployed SHA blindly with a later docs/workflow-only commit.
+- Inspect sanitized application logs for Flyway validation/migration success and readiness. Do not expose connection strings, credentials, wallet contents, tokens or personal data.
 
 ## Database safety
-Flyway owns schema changes. V13 is destructive staging/test-data cleanup; do not rerun as routine cleanup. V14 adds seller compliance fields and seller-document BLOB storage. Never edit applied migrations or expose JDBC URLs, credentials, wallet files or schema secrets.
+
+Flyway owns schema changes. Applied migrations are immutable and version numbers must be unique. Never restore a Java migration with a version already used by an SQL migration. V13 is destructive staging/test-data cleanup; do not rerun as routine cleanup. V14 adds seller compliance fields and seller-document BLOB storage.
+
+The current Oracle runtime path is walletless TLS. Do not reintroduce wallet-directory validation, wallet files, TNS alias configuration or OraclePKI dependencies without an explicit architecture change and reviewed rollout plan.
+
+## Staging test safety
+
+- Shared staging health, readiness and smoke checks must be read-only.
+- Pull-request preflight may create only short-lived run-tagged role sessions and must clean up only the exact run ID.
+- Transactional E2E is explicitly gated/manual and must use dedicated synthetic fixtures, the serialized staging lane and run-scoped cleanup.
+- Do not run destructive tests against customer data or an assumed production database.
+- A test marked skipped is not a pass. Record the exact passed/failed/skipped counts and whether Oracle-backed transactions actually ran.
+- H2 repository concurrency tests are useful deterministic regressions but do not replace Oracle concurrency/rollback evidence.
 
 ## Rollback
+
 Rollback application deployment to last known-good commit. Assess database compatibility separately; do not rewrite Flyway history or blindly reverse applied schema changes. Prefer a forward corrective migration.
 
 ## Security
-Keep credentials in hosting secret stores. Never commit or log OTPs, tokens, Oracle wallet material, private seller documents or personal data.
+
+Keep credentials in hosting secret stores. Never commit or log OTPs, tokens, Oracle credentials, private seller documents or personal data. Treat historical wallet files/credentials as potentially exposed if they were ever committed; verify rotation/revocation independently rather than assuming a code removal rotated secrets.

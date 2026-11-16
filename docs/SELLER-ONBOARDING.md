@@ -1,69 +1,71 @@
-# Seller onboarding and compliance workflow
+# Seller onboarding, CRM and compliance workflow
 
-> **Target redesign:** The approved future-state registration experience, 5 km proposed configurable seller radius, English/Punjabi/Hindi support, conditional document rules, API proposal, 86-ticket backlog and release gates are documented in [SELLER-REGISTRATION-REDESIGN.md](SELLER-REGISTRATION-REDESIGN.md). That document is a target specification, not a statement that the redesign is implemented.
+> Current implementation checkpoint: 17 November 2026. See [Implementation Baseline — November 2026](IMPLEMENTATION-BASELINE-2026-11.md) for the wider product, security and release context.
 
 ## Lifecycle
 
-1. Seller submits OTP-verified identity and shop/business profile.
-2. Seller provides shop location/map pin and mandatory shop-front photo.
-3. Seller supplies applicable compliance details/documents.
-4. Seller accepts the versioned seller agreement/marketplace terms.
-5. Documents are uploaded to private Oracle BLOB storage.
-6. Admin reviews seller profile and verifies applicable documents.
+1. Seller lead is created and contact verification is completed through the configured OTP flow.
+2. A verified lead is linked to the seller application; the verified email/mobile identity cannot be silently changed in a lead-linked application.
+3. Seller completes the four-step application with shop/business identity, location, conditional compliance information, operating hours, shop photo and agreement acceptance.
+4. Seller or Admin CRM uploads applicable documents. Seller continuation is provided through a one-time token; the token is cryptographically hashed at rest and expires after 30 days.
+5. Documents are checked for allowed type/size/signature and malware-scanned.
+6. Admin reviews application, documents and audit history; correction/rejection reasons are returned through the application workflow.
 7. Admin approval activates the seller. Pending/rejected sellers must not publish or fulfil live orders.
 
-## Current registration fields
+## Current registration and CRM behavior
 
-- Contact: full name, email, mobile.
-- Business: shop name/category, constitution (individual, proprietorship, partnership, company/LLP), registered legal name.
-- Shop: shop number, ward, street/locality, PIN, map coordinates/address and optional landmark.
+- Contact: full name, email and mobile, with contact verification in the lead/application flow.
+- Business: shop name/category, constitution and registered legal name where requested by the application.
+- Shop: shop number, ward, street/locality, PIN, map coordinates/address and optional landmark according to the current form.
 - Operations: opening/closing times and weekly closed day.
-- Agreement: accepted flag and version.
-- Documents: shop-front photo; GST certificate when GSTIN is supplied; FSSAI certificate for applicable food businesses.
-
-Schema/DTO fields may exceed the UI. Do not assume FSSAI expiry, interior photo, trade licence or Udyam certificate are collected end-to-end until verified in the frontend workflow.
+- Agreement: seller personally accepts the terms in the continuation flow; preserve the accepted version/evidence.
+- Admin CRM: assisted application creation/editing, assignment, continuation link, document review, correction status and application audit history.
+- Seller wizard: four steps; the service-area availability gate belongs to the shop-location step, not the initial contact step.
 
 ## Conditional compliance
 
 - GSTIN is optional where the seller is not legally required to register. Format validation is not government verification.
-- FSSAI applies to relevant food businesses/activities as required by law; it is not a blanket requirement for every seller. Current category keyword matching is a known heuristic and should be replaced by a centrally maintained applicability mapping with legal review.
+- FSSAI applies to relevant food businesses/activities as required by law; it is not a blanket requirement for every seller.
+- PR #365 adds admin-configured GST applicability and FSSAI-required seller categories, and seller registration enforces those configured requirements. Correctness depends on legally reviewed configuration; category keyword matching or a form-level check is not a legal determination.
 - Trade/shop licence, Udyam and other registrations depend on business type, activity and applicable rules.
 - Do not collect Aadhaar or sensitive identity data without documented lawful basis and secure handling.
+- Minimum-age/minor policy is configurable metadata only. No DOB/age-assurance or verifiable parental-consent workflow is implemented; minors must remain disabled.
 
-## Document storage and access
+## Document storage, scanning and access
 
-- Flyway V22.1 creates seller compliance/document schema and Oracle BLOB content storage; V26 adds malware scan state and quarantines pre-existing rows pending scan.
-- On current `main`, `POST /sellers/me/documents` and `GET /sellers/me/documents` require a valid authenticated session and resolve the seller profile through the authenticated account's user ID. The controller does not yet enforce the active SELLER role on `main`; cross-portal session-role enforcement is proposed in PR #318 and must not be considered implemented until merged. Uploads accept the configured document types, up to 5 MB, PDF/JPEG/PNG content types, and matching file signatures.
-- New bytes are first persisted with `QUARANTINED` scan status. ClamAV must return `CLEAN` before the document is available for admin download or verification. Scanner absence, timeout, protocol error, infection or indeterminate response leaves the document unavailable. Upload returns `202 Accepted` while quarantined and `201 Created` after a clean scan.
-- Sellers can list their own metadata and upload another document of the same type through the Seller portal correction flow. There is no destructive replacement/delete endpoint; prior uploads remain stored until an owner-approved retention/deletion policy is implemented.
-- Admin APIs and UI support listing seller documents, downloading clean documents, rescanning quarantined documents, and verifying/rejecting clean documents with a rejection reason. These actions require ADMIN access. The current row stores reviewer/status timestamps and reason, but this is not an append-only audit history.
-- File size/type/signature checks complement malware scanning; they do not establish that a document is genuine or legally sufficient. Oracle encryption at rest and transport TLS do not equal application-layer encryption.
+- Seller documents are stored privately in Oracle BLOB storage; they must not be exposed through public URLs.
+- Allowed uploads: PDF/JPEG/PNG, maximum 5 MB, with content-type and file-signature checks.
+- New uploads are quarantined until malware scanning reports CLEAN. Scanner absence, timeout, protocol error, infection or indeterminate response leaves the document unavailable (fail closed).
+- Only clean documents may be downloaded or verified by Admin. Responses should retain safe content-disposition and nosniff protections.
+- Seller can upload corrections/resubmissions; previous document records remain as history. Do not assume old files are automatically deleted or superseded under a retention policy.
+- Admin CRM supports assignment, document verification/rejection with reason, clean-file download and application audit-history viewing.
+- File size/type/signature checks and malware scanning do not prove document authenticity or legal sufficiency. Oracle encryption at rest and transport TLS do not equal application-layer document encryption.
 
 ## Approval checklist
 
-- Shop-front photo present and verified.
-- GST certificate verified when GSTIN is supplied.
-- FSSAI evidence verified when required for the seller's food activity.
+- Shop-front photo present and reviewed.
+- GST evidence reviewed when GST registration is supplied/required.
+- FSSAI evidence reviewed when required for the seller's food activity.
 - Business/shop profile complete and no unresolved review flags.
 - Agreement version and acceptance evidence retained.
-- Reviewer identity, timestamp, decision and reason recorded; prefer stable internal reviewer IDs.
+- Reviewer identity, timestamp, decision and reason recorded.
 
 ## Known gaps / acceptance criteria
 
-- [x] Admin UI/API to inspect seller document metadata, download clean documents, rescan and verify/reject with a reason. Source: `AdminPortal.tsx`, `SellerDocumentController`, and `SellerDocumentControllerTest`.
-- [ ] Enforce active SELLER session role on seller document upload/list and add cross-portal regression tests on `main`; this guard is proposed in PR #318 and remains unmerged.
-- [ ] Append-only audit history for upload, view, download, scan, verify, reject and delete; current document row fields are not a full audit log.
-- [ ] FSSAI expiry captured and validated where applicable; expired evidence blocks approval where required.
-- [ ] Explicit category-to-compliance mapping replaces free-text keyword matching.
-- [ ] Agreement acceptance timestamp/version captured consistently; IP only if legally justified and covered by privacy notice/retention.
-- [x] Seller retry/resume after OTP account creation when initial document upload fails. Source: `SellerRegistrationWizard.tsx` retry screen and `SellerPortal.tsx` correction upload action.
-- [ ] A formal replacement lifecycle that marks superseded documents, prevents stale documents from satisfying approval, and deletes them only under an owner-approved retention policy. Current re-upload is additive.
-- [x] Malware scanning and quarantine before review/download/verification; scanner failures fail closed. Source: `SellerDocumentController`, `ClamAvMalwareScanner`, and `SellerDocumentControllerTest` scanner-unavailable and quarantine access tests.
+- [x] Admin CRM supports assisted seller application, seller continuation and review workflow.
+- [x] Verified lead is linked to the application; verified contact identity is protected from silent changes.
+- [x] Document type/size/signature validation and fail-closed malware quarantine.
+- [x] Admin document review, correction/rejection and application audit-history workflow.
+- [x] Configurable GST/FSSAI requirements enforced during seller registration (legal correctness of configuration remains a human/professional responsibility).
+- [ ] Append-only document-level audit history for every upload, view, download, scan, verify, reject and delete action; application audit history is not necessarily a complete document access log.
+- [ ] FSSAI expiry capture/revalidation and blocking behavior where legally required.
+- [ ] Centrally maintained, legally reviewed category-to-compliance mapping; avoid relying on free-text heuristics.
+- [ ] Formal document supersession/deletion and retention lifecycle.
 - [ ] Decide application-layer encryption/key rotation from threat model.
-- [ ] Retention, deletion, access revocation and incident-response policy.
-- [ ] Expand tests for cross-seller ownership isolation, admin-only operations, signature/size/type boundaries, approval gating, and Oracle BLOB round-trip. Current controller tests cover principal/role checks, scanner failure, quarantine restrictions, file signature validation, rejection reason, and verification flow; Oracle persistence is not runtime-verified here.
-- [ ] Confirm V22.1/V26 and end-to-end API behavior on the intended Oracle schema; source migrations do not prove they were applied to the runtime database.
+- [ ] Retention, deletion, access revocation, backup expiry and incident-response evidence.
+- [ ] Oracle BLOB round-trip and full authenticated seller-to-admin CRM lifecycle verified on the designated staging database.
+- [ ] Complete role/record-owner negative tests and transactional E2E for correction, resubmission, approval and rejection.
 
 ## Legal review
 
-Indian counsel/accounting professionals should review seller agreement, marketplace disclosures, GST/FSSAI applicability, consumer grievance/refund process, privacy/DPDP obligations, retention and contracting entity before public onboarding. This is an engineering workflow, not legal advice.
+Indian counsel/accounting professionals should review seller agreement, marketplace disclosures, GST/FSSAI applicability, consumer grievance/refund process, privacy/DPDP obligations, retention and contracting entity before public onboarding. This is an engineering workflow, not legal advice or a legal-compliance certificate.
