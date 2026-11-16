@@ -19,7 +19,7 @@ public class SellerRegistrationOtpConfigService {
     @Transactional(readOnly = true)
     public Map<String, String> complianceConfig() {
         Map<String, String> values = new LinkedHashMap<>();
-        jdbc.query("SELECT CONFIG_KEY, CONFIG_VALUE FROM KU_COMPLIANCE_CONFIG", rs -> values.put(rs.getString(1), rs.getString(2)));
+        jdbc.query("SELECT CONFIG_KEY, CONFIG_VALUE FROM KU_COMPLIANCE_CONFIG", (org.springframework.jdbc.core.RowCallbackHandler) rs -> values.put(rs.getString(1), rs.getString(2)));
         return values;
     }
 
