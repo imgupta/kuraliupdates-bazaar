@@ -16,6 +16,7 @@ public class DailyHelpProfessionalEntity {
     @Column(name = "RATING", nullable = false, precision = 3, scale = 2) private BigDecimal rating;
     @Column(name = "REVIEW_COUNT", nullable = false) private Integer reviewCount;
     @Column(name = "CURRENT_LOCALITY", length = 150) private String currentLocality;
+    @Column(name = "WARD_NUMBER", length = 30) private String wardNumber;
     @Column(name = "STATUS", nullable = false, length = 30) private String status;
     @Column(name = "VERIFIED", nullable = false) private Integer verified;
     @Column(name = "CURRENT_LATITUDE", precision = 10, scale = 7) private BigDecimal currentLatitude;

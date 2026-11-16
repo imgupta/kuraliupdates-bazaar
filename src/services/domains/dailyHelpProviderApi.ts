@@ -50,7 +50,7 @@ export const dailyHelpProviderApi = {
       }
     },
 
-  async registerDailyHelpProfessional(payload: { name: string; phone: string; locality: string }): Promise<DailyHelpProfessional | null> {
+  async registerDailyHelpProfessional(payload: { name: string; phone: string; locality: string; wardNumber: string }): Promise<DailyHelpProfessional | null> {
       const token = localStorage.getItem('kurali_auth_token');
       if (!token) throw new Error('Your session has expired. Sign in again before creating a Daily Help profile.');
       const res = await fetch(`${API_BASE_URL}/daily-help/professionals/register`, {

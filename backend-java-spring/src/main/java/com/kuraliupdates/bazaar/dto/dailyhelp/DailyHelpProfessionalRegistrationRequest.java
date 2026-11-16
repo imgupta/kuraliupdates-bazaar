@@ -5,5 +5,6 @@ import jakarta.validation.constraints.NotBlank;
 public record DailyHelpProfessionalRegistrationRequest(
         @NotBlank String name,
         @NotBlank String phone,
-        @NotBlank String locality
+        @NotBlank String locality,
+        @NotBlank String wardNumber
 ) {}

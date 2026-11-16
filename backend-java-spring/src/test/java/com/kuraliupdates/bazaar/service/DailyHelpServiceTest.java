@@ -206,12 +206,13 @@ class DailyHelpServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = dailyHelpService.registerProfessional(
-                new DailyHelpProfessionalRegistrationRequest("New Helper", "9876500000", "Kurali"));
+                new DailyHelpProfessionalRegistrationRequest("New Helper", "9876500000", "Kurali", "4"));
 
         assertFalse(response.verified(), "self-registration must not bypass admin verification");
         assertEquals("OFFLINE", response.status());
         verify(professionalRepository).save(argThat(p -> Integer.valueOf(0).equals(p.getVerified())
-                && "OFFLINE".equals(p.getStatus())));
+                && "OFFLINE".equals(p.getStatus())
+                && "4".equals(p.getWardNumber())));
     }
 
     @Test

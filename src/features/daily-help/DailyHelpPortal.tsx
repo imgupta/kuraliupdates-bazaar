@@ -3,7 +3,6 @@ import {
   BadgeCheck, CalendarClock, CheckCircle2, Clock3, IndianRupee, MapPin,
   Navigation, Phone, Power, RefreshCw, ShieldCheck, Timer, Wallet, XCircle, KeyRound
 } from 'lucide-react';
-import { KURALI_LOCALITIES } from '../../data/initialData';
 import { useDailyHelpProviderOperations } from './useDailyHelpProviderOperations';
 
 const formatDuration = (seconds: number) => {
@@ -30,7 +29,7 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
     professional, earnings, availableJobs, jobs, loading, refreshing, setRefreshing, load, otpInputs, setOtpInputs, now,
     slotDate, setSlotDate, slotStart, setSlotStart, slotEnd, setSlotEnd, mySlots,
     registrationName, setRegistrationName,
-    registrationLocality, setRegistrationLocality, registering, activeJobs,
+    registrationWardNumber, setRegistrationWardNumber, registering, activeJobs,
     register, toggleAvailability, accept, setStatus, start, complete, openNavigation, createSlot, cancelSlot,
   } = useDailyHelpProviderOperations();
 
@@ -43,16 +42,14 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
       <div className="max-w-xl mx-auto bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 text-center shadow-sm">
         <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center"><ShieldCheck className="w-8 h-8" /></div>
         <h1 className="text-xl font-black text-slate-900 mt-4">Become a Daily Help professional</h1>
-        <p className="text-sm text-slate-500 mt-2">Enter your name and locality. We’ll use the mobile number from your signed-in account.</p>
+        <p className="text-sm text-slate-500 mt-2">Enter your name and ward number. We’ll use the mobile number from your signed-in account.</p>
         <div className="mt-5 space-y-3 text-left">
           <label className="block text-xs font-bold text-slate-700">Full name
             <input value={registrationName} onChange={e => setRegistrationName(e.target.value)} autoComplete="name" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" required />
           </label>
           <p className="text-xs text-slate-500">Mobile: linked to your signed-in account</p>
-          <label className="block text-xs font-bold text-slate-700">Locality
-            <select value={registrationLocality} onChange={e => setRegistrationLocality(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
-              {KURALI_LOCALITIES.filter(l => !l.startsWith('All')).map(locality => <option key={locality} value={locality}>{locality}</option>)}
-            </select>
+          <label className="block text-xs font-bold text-slate-700">Ward number
+            <input value={registrationWardNumber} onChange={e => setRegistrationWardNumber(e.target.value)} placeholder="Enter your ward number" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" required />
           </label>
         </div>
         <button onClick={register} disabled={registering} className="mt-5 px-5 py-3 rounded-xl bg-slate-900 text-white text-sm font-black cursor-pointer disabled:opacity-60">{registering ? 'Creating profile…' : 'Create Professional Profile'}</button>

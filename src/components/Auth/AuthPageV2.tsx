@@ -145,6 +145,9 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
           const foodCategory = (categoryRef.current?.value || '').toLowerCase();
           if (/(grocery|food|bakery|restaurant|dairy|meat)/.test(foodCategory) && !fssaiCertificateRef.current?.files?.[0]) throw new Error('Please upload the FSSAI certificate for this food business');
         }
+        if (registrationRole === 'delivery' || registrationRole === 'professional') {
+          if (!(wardNumberRef.current?.value || '').trim()) throw new Error('Please enter your ward number');
+        }
         if (registrationRole === 'delivery') {
           if (!(vehicleNumberRef.current?.value || '').trim()) throw new Error('Please enter your vehicle number');
           if (!(licenseNumberRef.current?.value || '').trim()) throw new Error('Please enter your driving licence number');
@@ -478,10 +481,16 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
                       <div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input ref={phoneRef} type="tel" inputMode="numeric" maxLength={10} placeholder="10-digit mobile number" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-amber-500 focus:bg-white" /></div>
                       <p className="mt-1 text-[10px] text-slate-400">Used for your account and future mobile OTP sign-in.</p>
                     </div>
-                    <div>
-                      <label className="block mb-1 text-xs font-bold text-slate-700">Locality</label>
-                      <div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><select ref={localityRef} defaultValue={KURALI_LOCALITIES[1] || 'Main Bazaar & Clock Tower'} className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-amber-500 focus:bg-white">{KURALI_LOCALITIES.map(locality => <option key={locality}>{locality}</option>)}</select></div>
-                    </div>
+                    {registrationRole !== 'delivery' && registrationRole !== 'professional' && <div>
+                                          <label className="block mb-1 text-xs font-bold text-slate-700">Locality</label>
+                                          <div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><select ref={localityRef} defaultValue={KURALI_LOCALITIES[1] || 'Main Bazaar & Clock Tower'} className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-amber-500 focus:bg-white">{KURALI_LOCALITIES.map(locality => <option key={locality}>{locality}</option>)}</select></div>
+                                        </div>}
+                    {(registrationRole === 'delivery' || registrationRole === 'professional') && (
+                      <div>
+                        <label className="block mb-1 text-xs font-bold text-slate-700">Ward number <span className="text-rose-500">*</span></label>
+                        <input ref={wardNumberRef} type="text" placeholder="Enter your ward number" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white" />
+                      </div>
+                    )}
                     <div>
                       <label className="block mb-1 text-xs font-bold text-slate-700">Address <span className="font-normal text-slate-400">(optional)</span></label>
                       <input ref={addressRef} type="text" placeholder="House / shop / landmark" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white" />

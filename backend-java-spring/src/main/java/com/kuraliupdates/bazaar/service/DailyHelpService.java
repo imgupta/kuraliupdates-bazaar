@@ -394,6 +394,7 @@ public class DailyHelpService {
             DailyHelpProfessionalEntity professional = existing.get();
             professional.setFullName(request.name().trim());
             professional.setCurrentLocality(request.locality().trim());
+            professional.setWardNumber(request.wardNumber().trim());
             professional.setUpdatedAt(LocalDateTime.now());
             return DailyHelpProfessionalResponse.from(professionalRepository.save(professional));
         }
@@ -405,6 +406,7 @@ public class DailyHelpService {
                 .rating(BigDecimal.ZERO)
                 .reviewCount(0)
                 .currentLocality(request.locality().trim())
+                .wardNumber(request.wardNumber().trim())
                 .status("OFFLINE")
                 .verified(0)
                 .registeredAt(now)
