@@ -554,38 +554,6 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
                 {loading ? 'Sending verification code...' : authMode === 'signin' ? 'Send 6-Digit OTP' : 'Register with Email OTP'}
               </button>
 
-              {authMode === 'signin' && (
-                <div className="space-y-3">
-                  <div className="text-center">
-                    <p className="text-xs font-black text-slate-900">Join KuraliUpdates in more than one role</p>
-                    <p className="mt-1 text-[11px] text-slate-500">One email + mobile account can have Buyer, Seller, Rider and Daily Help profiles.</p>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <RoleRegistrationCard
-                      href="/register/seller"
-                      icon={<Store className="w-5 h-5" />}
-                      title="Seller"
-                      description="Register your shop and sell locally."
-                      className="border-blue-200 bg-blue-50 text-blue-800"
-                    />
-                    <RoleRegistrationCard
-                      href="/register/delivery"
-                      icon={<Bike className="w-5 h-5" />}
-                      title="Rider"
-                      description="Join the delivery fleet."
-                      className="border-emerald-200 bg-emerald-50 text-emerald-800"
-                    />
-                    <RoleRegistrationCard
-                      href="/register/daily-help"
-                      icon={<Home className="w-5 h-5" />}
-                      title="Daily Help"
-                      description="Offer home-help services."
-                      className="border-amber-200 bg-amber-50 text-amber-800"
-                    />
-                  </div>
-                </div>
-              )}
-
               {authMode === 'register' && registrationRole === 'buyer' && (
                 <div className="text-center text-[11px] text-slate-500">
                   <a href="/register/seller" className="font-bold text-blue-700 hover:underline">Register as a Merchant</a>

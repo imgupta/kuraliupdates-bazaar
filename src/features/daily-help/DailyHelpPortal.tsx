@@ -29,7 +29,7 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
   const {
     professional, earnings, availableJobs, jobs, loading, refreshing, setRefreshing, load, otpInputs, setOtpInputs, now,
     slotDate, setSlotDate, slotStart, setSlotStart, slotEnd, setSlotEnd, mySlots,
-    registrationName, setRegistrationName, registrationPhone, setRegistrationPhone,
+    registrationName, setRegistrationName,
     registrationLocality, setRegistrationLocality, registering, activeJobs,
     register, toggleAvailability, accept, setStatus, start, complete, openNavigation, createSlot, cancelSlot,
   } = useDailyHelpProviderOperations();
@@ -43,14 +43,12 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
       <div className="max-w-xl mx-auto bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 text-center shadow-sm">
         <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center"><ShieldCheck className="w-8 h-8" /></div>
         <h1 className="text-xl font-black text-slate-900 mt-4">Become a Daily Help professional</h1>
-        <p className="text-sm text-slate-500 mt-2">Confirm your contact details and locality to create your professional account.</p>
+        <p className="text-sm text-slate-500 mt-2">Enter your name and locality. We’ll use the mobile number from your signed-in account.</p>
         <div className="mt-5 space-y-3 text-left">
           <label className="block text-xs font-bold text-slate-700">Full name
             <input value={registrationName} onChange={e => setRegistrationName(e.target.value)} autoComplete="name" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" required />
           </label>
-          <label className="block text-xs font-bold text-slate-700">Mobile number
-            <input value={registrationPhone} onChange={e => setRegistrationPhone(e.target.value)} type="tel" autoComplete="tel" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" required />
-          </label>
+          <p className="text-xs text-slate-500">Mobile: linked to your signed-in account</p>
           <label className="block text-xs font-bold text-slate-700">Locality
             <select value={registrationLocality} onChange={e => setRegistrationLocality(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
               {KURALI_LOCALITIES.filter(l => !l.startsWith('All')).map(locality => <option key={locality} value={locality}>{locality}</option>)}
@@ -58,6 +56,18 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
           </label>
         </div>
         <button onClick={register} disabled={registering} className="mt-5 px-5 py-3 rounded-xl bg-slate-900 text-white text-sm font-black cursor-pointer disabled:opacity-60">{registering ? 'Creating profile…' : 'Create Professional Profile'}</button>
+      </div>
+    );
+  }
+
+  if (!professional.verified) {
+    return (
+      <div className="max-w-xl mx-auto bg-white rounded-3xl border border-amber-200 p-6 sm:p-8 text-center shadow-sm">
+        <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center"><ShieldCheck className="w-8 h-8" /></div>
+        <h1 className="text-xl font-black text-slate-900 mt-4">Application submitted</h1>
+        <p className="text-sm text-slate-600 mt-2">Your Daily Help profile is waiting for admin verification. You can go online and receive jobs after approval.</p>
+        <p className="text-xs text-slate-500 mt-4">{professional.fullName} · {professional.currentLocality}</p>
+        <button onClick={() => { setRefreshing(true); void load(true).finally(() => setRefreshing(false)); }} disabled={refreshing} className="mt-5 px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold disabled:opacity-60">{refreshing ? "Checking…" : "Check approval status"}</button>
       </div>
     );
   }
@@ -71,7 +81,7 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
               <div className="w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center"><ShieldCheck className="w-6 h-6 text-amber-300" /></div>
               <div>
                 <h1 className="text-xl font-black">{professional.fullName}</h1>
-                <p className="text-xs text-slate-300 flex items-center gap-1"><BadgeCheck className="w-3.5 h-3.5 text-emerald-300" /> Verified Daily Help professional</p>
+                <p className="text-xs text-slate-300 flex items-center gap-1"><BadgeCheck className="w-3.5 h-3.5 text-emerald-300" /> Approved Daily Help professional</p>
               </div>
             </div>
             <div className="mt-3 text-xs text-slate-300">★ {professional.rating} ({professional.reviewCount} reviews) · {professional.currentLocality}</div>

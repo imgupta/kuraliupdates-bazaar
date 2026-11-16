@@ -21,7 +21,6 @@ export const useDailyHelpProviderOperations = () => {
   const [slotEnd, setSlotEnd] = useState('11:00');
   const [mySlots, setMySlots] = useState<DailyHelpSlot[]>([]);
   const [registrationName, setRegistrationName] = useState(user.name || '');
-  const [registrationPhone, setRegistrationPhone] = useState(user.phone || '');
   const [registrationLocality, setRegistrationLocality] = useState(user.locality || KURALI_LOCALITIES.find(l => !l.startsWith('All')) || 'Kurali');
   const [registering, setRegistering] = useState(false);
 
@@ -74,10 +73,10 @@ export const useDailyHelpProviderOperations = () => {
 
   const register = async () => {
     const name = registrationName.trim();
-    const phone = registrationPhone.trim();
     const locality = registrationLocality.trim();
+    const phone = user.phone?.trim() || '';
     if (!name || !phone || !locality) {
-      showToast('Enter your full name, mobile number and locality to register.', 'error');
+      showToast('Enter your full name and locality. Your signed-in mobile number is required.', 'error');
       return;
     }
     setRegistering(true);
@@ -216,7 +215,7 @@ export const useDailyHelpProviderOperations = () => {
   return {
     professional, earnings, availableJobs, jobs, loading, refreshing, setRefreshing, otpInputs, setOtpInputs, now,
     slotDate, setSlotDate, slotStart, setSlotStart, slotEnd, setSlotEnd, mySlots,
-    registrationName, setRegistrationName, registrationPhone, setRegistrationPhone,
+    registrationName, setRegistrationName,
     registrationLocality, setRegistrationLocality, registering, activeJobs,
     register, toggleAvailability, accept, setStatus, start, complete, openNavigation, createSlot, cancelSlot, load,
   };
