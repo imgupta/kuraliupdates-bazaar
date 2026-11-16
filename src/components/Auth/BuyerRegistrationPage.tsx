@@ -45,11 +45,13 @@ export const BuyerRegistrationPage: React.FC = () => {
     if (!normalizedName) return setError('Please enter your full name.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) return setError('Please enter a valid email address.');
     if (!/^\d{10}$/.test(normalizedPhone)) return setError('Please enter a valid 10-digit mobile number.');
-    if (!normalizedAddressLine) return setError('Please enter your house / flat / building number or name.');
-    if (!normalizedWard) return setError('Please enter your ward number.');
-    if (!normalizedLocality) return setError('Please enter your street, mohalla or locality.');
-    if (!/^\d{6}$/.test(normalizedPinCode)) return setError('Please enter a valid 6-digit PIN code.');
-    if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) return setError('Please select your exact delivery location on the map or use Locate me.');
+    if (addressExpanded) {
+      if (!normalizedAddressLine) return setError('Please enter your house / flat / building number or name.');
+      if (!normalizedWard) return setError('Please enter your ward number.');
+      if (!normalizedLocality) return setError('Please enter your street, mohalla or locality.');
+      if (!/^\d{6}$/.test(normalizedPinCode)) return setError('Please enter a valid 6-digit PIN code.');
+      if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) return setError('Please select your exact delivery location on the map or use Locate me.');
+    }
 
     setLoading(true);
     try {
@@ -160,7 +162,7 @@ export const BuyerRegistrationPage: React.FC = () => {
       <div className="mx-auto max-w-5xl overflow-hidden rounded-3xl bg-white shadow-2xl">
         <div className="bg-gradient-to-r from-amber-600 to-orange-600 p-6 sm:p-8 text-white">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-black"><Sparkles className="w-3.5 h-3.5" /> Kurali Express Delivery</div>
-          <h1 className="mt-4 text-2xl sm:text-3xl font-black">Set up your doorstep delivery</h1>
+          <h1 className="mt-4 text-2xl sm:text-3xl font-black">Create your buyer account</h1>
           <p className="mt-2 text-sm text-amber-50 max-w-2xl">Create your account with your name and verified contact details. You can add a delivery address now or when you place your first order.</p>
         </div>
         <div className="p-5 sm:p-8 space-y-6">
