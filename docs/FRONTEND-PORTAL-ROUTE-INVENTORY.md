@@ -113,3 +113,19 @@ Source-confirmed implementation on branch `finalize/unified-registration-entry`:
 - Accessibility/responsive acceptance: links remain semantic anchors, keyboard reachable, labelled by role, and stack vertically on narrow screens.
 
 Validation required on the exact PR head: frontend typecheck, route regression suite, production build, role portal builds and existing browser E2E. CI and live deployment status must be recorded separately; no runtime behavior is claimed from source inspection alone.
+
+
+## 16 November 2026 — buyer registration simplification
+
+Implementation on branch `feature/buyer-registration-minimal-contact-optional-address`:
+
+- Canonical route remains `/register/buyer`; the login screen and partner application links/routes are unchanged.
+- Required initial fields: full name, email and 10-digit mobile number.
+- Before OTP dispatch, the existing registration identity check and admin-configured OTP settings are loaded. Buyer registration proceeds only when both email and mobile OTP channels are enabled; the existing OTP send/verify APIs and backend configuration remain unchanged.
+- Both 6-digit codes are required to complete buyer registration. Resend continues to use the existing configured OTP service and cooldown behavior.
+- Delivery address is collapsed and optional by default. If expanded, house/building, ward, locality, PIN code and a precise map location are required; landmark remains optional.
+- When skipped, no address/locality/map fields are submitted during registration. Customers can add an address later from My Account or during first-order checkout; checkout must still require a valid delivery address.
+- No backend API, database schema, OTP configuration, authentication/session, payment, or hosting changes are included.
+- Accessibility: the optional section uses a labelled button with `aria-expanded` and `aria-controls`; partner links remain semantic anchors.
+
+Verification required on the exact PR head: frontend TypeScript check, production build, route/registration regression checks and browser E2E. OTP delivery to both channels and first-order address capture require approved staging runtime verification; CI alone does not prove delivery or persistence.
