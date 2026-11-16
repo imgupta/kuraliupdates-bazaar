@@ -23,6 +23,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 class DailyHelpControllerTest {
@@ -148,6 +149,40 @@ class DailyHelpControllerTest {
 
         verify(dailyHelpService, never()).updateStatus(anyString(), anyString(), anyString());
         verify(dailyHelpService, never()).startBooking(anyString(), any());
+    }
+
+    @Test
+    void bookingUsesVerifiedAccountNameAndPhoneInsteadOfClientSuppliedIdentity() {
+        UserEntity user = user("9876500000", "BUYER");
+        user.setName("Verified Buyer");
+        Authentication authentication = authentication(user);
+        DailyHelpBookingRequest request = new DailyHelpBookingRequest(
+                "DH-CLEAN", "Impersonated Person", "9876500000", "House 1", "Kurali",
+                LocalDateTime.now().plusDays(1), BigDecimal.ONE, "SLOT-1");
+
+        controller.createBooking(request, null, null, authentication);
+
+        verify(dailyHelpService).createBooking(argThat(actual ->
+                "Verified Buyer".equals(actual.buyerName())
+                        && "9876500000".equals(actual.buyerPhone())
+                        && "House 1".equals(actual.address())
+                        && "Kurali".equals(actual.locality())), isNull());
+    }
+
+    @Test
+    void buyerWithIncompleteAccountNameCannotCreateBooking() {
+        UserEntity user = user("9876500000", "BUYER");
+        user.setName(" ");
+        Authentication authentication = authentication(user);
+        DailyHelpBookingRequest request = new DailyHelpBookingRequest(
+                "DH-CLEAN", "Forged Name", "9876500000", "House 1", "Kurali",
+                LocalDateTime.now().plusDays(1), BigDecimal.ONE, "SLOT-1");
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> controller.createBooking(request, null, null, authentication));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        verifyNoInteractions(dailyHelpService, e2eRunTagging);
     }
 
     @Test
