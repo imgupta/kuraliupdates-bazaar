@@ -2,8 +2,9 @@
 
 ## Scope and method
 
-This is a source-level review of the current `main` snapshot (base commit
-`02942c16b854cdad1d13fc910506acf35afcf219`). It is not a SonarQube report:
+This is a source-level review and implementation follow-up based on `main`
+commit `e031437eab3e203030b39e921f066f600efeaa5c` and the consolidated
+architecture-cleanup branch. It is not a SonarQube report:
 cyclomatic complexity, cognitive complexity, duplication percentage, coverage,
 and production bundle sizes have not been measured by a local analyzer in this
 review. File counts and line counts below are structural indicators only.
@@ -31,9 +32,12 @@ files, and 60 Markdown files.
   component still contains buyer registration code. The two flows are not
   assumed equivalent; field capture and API payload parity must be checked
   before consolidating them.
-- Action: preserve the dedicated seller wizard and record the verified
-  unreachable seller branch for a targeted follow-up with role-specific tests.
-  No authentication contract or OTP logic was changed here.
+- Follow-up status: seller registration remains routed to the dedicated
+  `SellerRegistrationWizard`; buyer and professional/delivery OTP flows were
+  not rewritten. The legacy component still contains seller-only branches.
+  They are retained until a complete caller/route inventory and role-specific
+  OTP/document-upload regression suite can prove removal safe. This PR does
+  not claim that suspected unreachable auth code has been deleted.
 
 ### 2. Admin UI decomposition
 
@@ -45,11 +49,15 @@ files, and 60 Markdown files.
   The remaining state and callbacks are shared across tabs, so extracting JSX
   alone would create a large prop surface and could move permission checks or
   refresh semantics accidentally.
-- Action: map the extraction boundary and retain the existing child components.
-  A safe next boundary is a tab-owned controller plus view for buyer/order
-  management, seller-document review and operational configuration, with
-  tests for root-admin gating and refresh/save/error behaviour. No risky
-  component rewrite was forced without those tests.
+- Implemented: extracted the read-only user/role ID directory into
+  `AdminDirectoryTab.tsx`; its persisted-ID grouping and search rules now live
+  in the pure `adminDirectory.ts` module with focused tests. `AdminPortal.tsx`
+  is reduced by roughly 100 lines without changing its root-admin gate or
+  directory data sources.
+- Retained: buyer/order editing, account controls, document review and
+  configuration workflows remain in the parent because their callbacks and
+  refresh/error state are shared. Moving those workflows still needs targeted
+  interaction tests; this PR does not claim the entire admin portal is split.
 
 ### 3. Backend service responsibility review
 
@@ -59,11 +67,16 @@ files, and 60 Markdown files.
   `AdminController`, including order, seller-onboarding and diagnostics
   controllers. This is evidence of incremental decomposition already in place,
   not proof that every service boundary is clean.
-- Action: no service methods were moved. Authentication, order and Daily Help
-  services contain transaction-sensitive workflows; splitting them safely
-  requires method-level call graphs and focused rollback/concurrency tests.
-  Existing public API, transaction annotations and repository interactions
-  are intentionally unchanged.
+- Implemented: extracted pure authentication request normalization/masking
+  into `AuthRequestNormalizer`, delivery-configuration reads into
+  `DeliveryConfigurationService`, and phone identity comparison into
+  `PhoneIdentityMatcher`, each with focused unit tests. `OrderService` no
+  longer owns delivery configuration SQL, and `DailyHelpService` no longer
+  owns phone normalization details.
+- Retained: order placement/cancellation and Daily Help booking/OTP lifecycle
+  orchestration remain in their existing transactional services. Moving those
+  methods without dedicated transaction-boundary and rollback/concurrency
+  tests would be unsafe. Public API and transaction annotations are unchanged.
 
 ### 4. Portal bundle and dependency loading
 
@@ -94,9 +107,13 @@ files, and 60 Markdown files.
   distribution purpose were not independently verified in this source-only
   review. It is retained rather than deleting a potentially intentional
   downloadable artefact without inspecting its contents and checking consumers.
-- Dependency removal was not attempted: package manifest presence alone does
-  not establish that a package is unused, and a complete import/reference scan
-  plus lockfile-aware build is required. No dependency or lockfile was changed.
+- Dependency removal was not attempted: the available repository code-search
+  result did not provide a complete import inventory, and package manifest
+  presence alone does not establish that a package is unused. No dependency
+  or lockfile was changed.
+- The public ZIP remains because its contents and distribution contract have
+  not been independently inspected. Removing it without that evidence could
+  break a customer-facing download.
 
 ### 6. Documentation consolidation
 
@@ -136,8 +153,10 @@ requires running the configured analyzer against the checked-out commit.
 
 ## Outcome
 
-This PR implements the low-risk bundle-loading improvement and consolidates
-all six audit workstreams into a source-backed record. It deliberately does not
-claim that all high-risk refactors or every suspected dead-code deletion have
-been completed. The remaining candidates above need targeted tests and
-method-level evidence before deletion or extraction is safe.
+This PR implements the admin directory extraction and three backend
+responsibility extractions with regression tests, alongside the lazy-loading
+change already merged in PR #371. It deliberately retains the legacy seller
+registration branches, transaction-heavy order/booking orchestration, package
+manifest entries and public ZIP where complete safety evidence is not yet
+available. Those are explicitly recorded as unverified candidates, not
+completed cleanups.

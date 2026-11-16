@@ -35,6 +35,8 @@ import { ROOT_ADMIN_EMAIL, isRootAdminEmail } from '../../data/initialData';
 import { SellerOnboardingCRM } from '../../components/Admin/SellerOnboardingCRM';
 import { SellerRegistrationOtpConfig } from '../../components/Admin/SellerRegistrationOtpConfig';
 import { IndiaComplianceSettings } from '../../components/Admin/IndiaComplianceSettings';
+import { AdminDirectoryTab } from './AdminDirectoryTab';
+import { buildAdminDirectoryGroups } from './adminDirectory';
 
 export const AdminDashboard: React.FC = () => {
   const {
@@ -99,7 +101,6 @@ export const AdminDashboard: React.FC = () => {
   const [sellerDocumentAction, setSellerDocumentAction] = useState<string | null>(null);
   const [sellerDocumentError, setSellerDocumentError] = useState<string | null>(null);
   const [documentRejectionReasons, setDocumentRejectionReasons] = useState<Record<string, string>>({});
-  const [directorySearch, setDirectorySearch] = useState('');
   const [editingDailyHelpId, setEditingDailyHelpId] = useState<string | null>(null);
   const [updatingHelperId, setUpdatingHelperId] = useState<string | null>(null);
   const [dailyHelpForm, setDailyHelpForm] = useState({ category: '', name: '', description: '', pricingUnit: 'HOUR', pricePerHour: '199', minHours: '1', imageUrl: '', active: 1 });
@@ -489,53 +490,24 @@ export const AdminDashboard: React.FC = () => {
   const pendingDeliveryAgents = adminDeliveryAgents.filter(a => String(a.status).toLowerCase() === 'pending');
   const approvedSellers = adminSellers.filter(s => String(s.status).toLowerCase() === 'approved');
   const rejectedSellers = adminSellers.filter(s => String(s.status).toLowerCase() === 'rejected');
-  const totalGMV = Number(adminAnalytics?.totalGmv || 0);
-
-  // Admin-only inventory of account IDs and role-specific profile IDs.
-  // Values are read from existing admin API responses; this screen does not invent fixture IDs.
-  const directoryRows = [
-    { role: 'ROOT_ADMIN', name: ROOT_ADMIN_EMAIL, userId: '—', profileId: ROOT_ADMIN_EMAIL, contact: ROOT_ADMIN_EMAIL, status: 'ADMIN' },
-    ...buyers.map((item: any) => ({ role: 'BUYER', name: item.name || item.email || item.phone || 'Buyer', userId: item.userId || '—', profileId: item.userId || '—', contact: item.email || item.phone || '—', status: Number(item.isVerified) === 1 ? 'VERIFIED' : 'UNVERIFIED' })),
-    ...adminSellers.map((item: any) => ({ role: 'SELLER', name: item.businessName || item.storeName || item.name || item.email || 'Seller', userId: item.userId || item.ownerUserId || '—', profileId: item.sellerId || item.id || '—', contact: item.email || item.phone || '—', status: item.status || 'UNKNOWN' })),
-    ...adminDeliveryAgents.map((item: any) => ({ role: 'DELIVERY_AGENT', name: item.fullName || item.name || 'Delivery agent', userId: item.userId || '—', profileId: item.agentId || item.id || '—', contact: item.email || item.phone || '—', status: item.status || 'UNKNOWN' })),
-    ...dailyHelpHelpers.map((item: any) => ({ role: 'DAILY_HELP_PROVIDER', name: item.fullName || item.name || 'Daily Help provider', userId: item.userId || '—', profileId: item.professionalId || item.id || '—', contact: item.phone || item.email || '—', status: item.status || (item.verified ? 'VERIFIED' : 'UNVERIFIED') })),
-    ...products.map((item: any) => { const sellerId = item.sellerId || item.seller?.sellerId; const seller = adminSellers.find((candidate: any) => String(candidate.sellerId || candidate.id) === String(sellerId)); return { role: 'PRODUCT_FIXTURE', name: item.name || item.title || 'Product', userId: seller?.userId || seller?.ownerUserId || '—', profileId: item.productId || item.id || '—', contact: 'Seller ID: ' + (sellerId || '—'), status: item.status || (Number(item.stock ?? item.stockQty ?? 0) > 0 ? 'IN_STOCK' : 'CHECK_STOCK') }; }),
-    ...dailyHelpServices.map((item: any) => ({ role: 'DAILY_HELP_SERVICE', name: item.name || item.category || 'Daily Help service', userId: '—', profileId: item.serviceId || item.id || '—', contact: item.category || '—', status: item.active === true || Number(item.active) === 1 ? 'ACTIVE' : 'INACTIVE' })),
-  ];
-  const directoryGroups = directoryRows.reduce((groups: any[], item: any) => {
-    // Group all user-owned roles and records under the same account ID. Records without
-    // a known owner remain separate rather than being incorrectly assigned to a user.
-    const key = item.userId && item.userId !== '—'
-      ? 'USER:' + String(item.userId)
-      : 'RECORD:' + String(item.role) + ':' + String(item.profileId);
-    let group = groups.find((candidate: any) => candidate.key === key);
-    if (!group) {
-      group = { key, userId: item.userId || '—', name: item.name, contact: item.contact, entries: [], statuses: [] };
-      groups.push(group);
-    }
-    group.entries.push(item);
-    if (item.status && !group.statuses.includes(String(item.status).toUpperCase())) group.statuses.push(String(item.status).toUpperCase());
-    // Provider profiles should have a persisted USERS link. Surface missing links
-    // instead of implying that matching names or emails prove account ownership.
-    if (['SELLER', 'DELIVERY_AGENT', 'DAILY_HELP_PROVIDER'].includes(item.role)
-      && (!item.userId || item.userId === '—')
-      && !group.statuses.includes('ACCOUNT_LINK_MISSING')) {
-      group.statuses.push('ACCOUNT_LINK_MISSING');
-    }
-    if ((!group.name || group.name === '—') && item.name) group.name = item.name;
-    if ((!group.contact || group.contact === '—') && item.contact) group.contact = item.contact;
-    return groups;
-  }, []);
-  const filteredDirectoryGroups = directoryGroups.filter((group: any) =>
-    [group.name, group.contact, group.userId, ...group.entries.flatMap((item: any) => [item.role, item.profileId, item.status, item.contact])]
-      .some(value => String(value ?? '').toLowerCase().includes(directorySearch.trim().toLowerCase()))
-  );
+    const directoryGroups = buildAdminDirectoryGroups({
+    rootAdminEmail: ROOT_ADMIN_EMAIL,
+    buyers,
+    sellers: adminSellers,
+    deliveryAgents: adminDeliveryAgents,
+    dailyHelpHelpers,
+    products,
+    dailyHelpServices,
+  });
   const copyDirectoryValue = async (value: string) => {
     try {
       await navigator.clipboard.writeText(value);
       showToast('ID copied to clipboard.', 'success');
     } catch {
       showToast('Could not copy automatically. Select and copy the ID manually.', 'error');
+    }
+  };
+. Select and copy the ID manually.', 'error');
     }
   };
 
@@ -643,77 +615,7 @@ export const AdminDashboard: React.FC = () => {
         </details>
       </nav>
 
-      {activeAdminTab === 'directory' && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-            <div>
-              <h2 className="text-base font-extrabold text-slate-900">User-wise Role & ID Directory</h2>
-              <p className="text-xs text-slate-500 mt-1">Search using the registered email address to find that account and view/copy all known user, role, profile, product, and service IDs grouped under it. Unowned/system records remain separate. Read-only and admin-only.</p>
-            </div>
-            <div className="relative w-full sm:w-80">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input aria-label="Search by email, user, role or ID" type="search" value={directorySearch} onChange={event => setDirectorySearch(event.target.value)} placeholder="Search by email address or user / profile ID…" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-xs outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100" />
-            </div>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left text-xs">
-                <thead className="bg-slate-50 text-slate-500 uppercase tracking-wide">
-                  <tr>
-                    <th className="px-4 py-3 font-bold">User / Contact</th>
-                    <th className="px-4 py-3 font-bold">User ID</th>
-                    <th className="px-4 py-3 font-bold">Roles & Related IDs</th>
-                    <th className="px-4 py-3 font-bold">Statuses</th>
-                    <th className="px-4 py-3 font-bold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredDirectoryGroups.map((group: any) => (
-                    <tr key={group.key} className="align-top hover:bg-slate-50">
-                      <td className="px-4 py-3">
-                        <div className="font-bold text-slate-800">{group.name || '—'}</div>
-                        <div className="mt-1 text-slate-500">{group.contact || '—'}</div>
-                        <div className="mt-1 text-[10px] text-slate-400">{group.entries.length} role/record{group.entries.length === 1 ? '' : 's'}</div>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-slate-700">
-                        {group.userId !== '—' ? (
-                          <button type="button" onClick={() => void copyDirectoryValue(String(group.userId))} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 hover:bg-slate-100">{group.userId}<Copy className="w-3 h-3" /></button>
-                        ) : '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="space-y-2">
-                          {group.entries.map((item: any, index: number) => (
-                            <div key={item.role + '-' + item.profileId + '-' + index} className="rounded-lg border border-slate-100 bg-white p-2">
-                              <div><span className="inline-flex rounded-md bg-purple-50 px-2 py-1 font-bold text-purple-800">{item.role}</span></div>
-                              <div className="mt-1 text-slate-600">{item.name}</div>
-                              <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-slate-900">
-                                <span>{item.role === 'ROOT_ADMIN' ? 'Admin ID' : item.role === 'PRODUCT_FIXTURE' ? 'Product ID' : item.role === 'DAILY_HELP_SERVICE' ? 'Service ID' : 'Profile ID'}: {item.profileId}</span>
-                                {item.profileId && item.profileId !== '—' && <button type="button" aria-label={'Copy ' + item.role + ' ID'} onClick={() => void copyDirectoryValue(String(item.profileId))} className="inline-flex items-center gap-1 rounded border border-slate-200 px-1.5 py-1 font-sans text-[10px] font-bold text-slate-600 hover:bg-slate-100"><Copy className="w-3 h-3" /> Copy</button>}
-                              </div>
-                              {item.contact && item.contact !== group.contact && <div className="mt-1 text-[10px] text-slate-500">{item.contact}</div>}
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">{group.statuses.join(', ') || 'UNKNOWN'}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col items-start gap-2">
-                          {group.userId !== '—' && <button type="button" onClick={() => void copyDirectoryValue(String(group.userId))} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 font-bold text-slate-700 hover:bg-slate-100"><Copy className="w-3.5 h-3.5" /> Copy User ID</button>}
-                          <button type="button" onClick={() => void copyDirectoryValue(['Email / Contact: ' + (group.contact || '—'), 'User ID: ' + (group.userId || '—'), ...(group.statuses.includes('ACCOUNT_LINK_MISSING') ? ['WARNING: One or more provider profiles have no linked user account; review before merging.'] : []), ...group.entries.map((item: any) => item.role + ' ID: ' + item.profileId + (item.contact && item.contact !== group.contact ? ' | ' + item.contact : ''))].join('\n'))} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 font-bold text-slate-700 hover:bg-slate-100"><Copy className="w-3.5 h-3.5" /> Copy all IDs</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredDirectoryGroups.length === 0 && <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-500">No users or IDs match this search.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-            <div className="border-t border-slate-100 bg-slate-50 px-4 py-3 text-[11px] text-slate-500">
-              Showing {filteredDirectoryGroups.length} of {directoryGroups.length} user groups / unowned records. Product IDs are attached to a seller's user group when the seller-user relationship is present in the API data. Missing IDs are shown as — and are never guessed. ACCOUNT_LINK_MISSING flags provider profiles that need ownership review.
-            </div>
-          </div>
-        </div>
-      )}
+      {activeAdminTab === 'directory' && <AdminDirectoryTab groups={directoryGroups} onCopy={copyDirectoryValue} />}
 
       {activeAdminTab === 'seller-documents' && (
         <div className="space-y-5">

@@ -34,6 +34,7 @@ public class OrderService {
     private final SellerRepository sellerRepository;
     private final ProductRepository productRepository;
     private final JdbcTemplate jdbc;
+    private final DeliveryConfigurationService deliveryConfigurationService;
     private final GoogleRoutesService googleRoutesService;
     private final SecureRandom random = new SecureRandom();
 
@@ -53,8 +54,7 @@ public class OrderService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Fulfilment mode must be DELIVERY or STORE_PICKUP");
         }
         if ("STORE_PICKUP".equals(fulfilmentMode)) {
-            Integer pickupEnabled = jdbc.queryForObject("SELECT STORE_PICKUP_ENABLED FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
-            if (!Integer.valueOf(1).equals(pickupEnabled)) {
+            if (!deliveryConfigurationService.isStorePickupEnabled()) {
                 throw new ApiException(HttpStatus.CONFLICT, "Store pickup is currently disabled");
             }
         }
@@ -75,8 +75,7 @@ public class OrderService {
             }
             bySeller.computeIfAbsent(product.getSeller().getSellerId(), ignored -> new ArrayList<>()).add(item);
         }
-        Integer configuredMax = jdbc.queryForObject("SELECT MAX_SELLERS_PER_BATCH FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
-        int maxSellers = configuredMax == null ? 3 : Math.min(configuredMax, 10);
+        int maxSellers = deliveryConfigurationService.maxSellersPerBatch();
         if (bySeller.size() > maxSellers) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "A checkout can contain products from at most " + maxSellers + " stores");
         }
@@ -114,8 +113,8 @@ public class OrderService {
             placed.add(result);
         }
         if ("DELIVERY".equals(fulfilmentMode)) {
-            BigDecimal baseFee = configuredDecimal("CUSTOMER_BASE_FEE", BigDecimal.valueOf(35));
-            BigDecimal perKmFee = configuredDecimal("CUSTOMER_PER_KM_FEE", BigDecimal.ZERO);
+            BigDecimal baseFee = deliveryConfigurationService.customerBaseFee();
+            BigDecimal perKmFee = deliveryConfigurationService.customerPerKmFee();
             BigDecimal roadKm = googleRoutesService.calculateCombinedRouteKm(savedOrders);
             BigDecimal checkoutDeliveryFee = baseFee;
             if (roadKm != null) checkoutDeliveryFee = checkoutDeliveryFee.add(roadKm.multiply(perKmFee));
@@ -477,11 +476,6 @@ public class OrderService {
         // The controller has already authorized ROLE_BUYER from the active session.
         // USERS.ROLE is only the account's primary profile and must not override
         // a valid role-scoped session for a multi-profile account.
-    }
-
-    private BigDecimal configuredDecimal(String column, BigDecimal fallback) {
-        BigDecimal value = jdbc.queryForObject("SELECT " + column + " FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", BigDecimal.class);
-        return value == null ? fallback : value;
     }
 
     private String trim(String value) {
