@@ -490,7 +490,9 @@ export const AdminDashboard: React.FC = () => {
   const pendingDeliveryAgents = adminDeliveryAgents.filter(a => String(a.status).toLowerCase() === 'pending');
   const approvedSellers = adminSellers.filter(s => String(s.status).toLowerCase() === 'approved');
   const rejectedSellers = adminSellers.filter(s => String(s.status).toLowerCase() === 'rejected');
-    const directoryGroups = buildAdminDirectoryGroups({
+  const totalGMV = Number(adminAnalytics?.totalGmv || 0);
+
+  const directoryGroups = buildAdminDirectoryGroups({
     rootAdminEmail: ROOT_ADMIN_EMAIL,
     buyers,
     sellers: adminSellers,
@@ -505,9 +507,6 @@ export const AdminDashboard: React.FC = () => {
       showToast('ID copied to clipboard.', 'success');
     } catch {
       showToast('Could not copy automatically. Select and copy the ID manually.', 'error');
-    }
-  };
-. Select and copy the ID manually.', 'error');
     }
   };
 
