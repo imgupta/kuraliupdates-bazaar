@@ -100,3 +100,16 @@ The route registry above is frontend-only. The inspected backend controllers exp
 ## Mandatory implementation standard
 
 All future frontend route, shell, authentication, UI and portal work must follow [ENGINEERING-OPERATING-STANDARD.md](ENGINEERING-OPERATING-STANDARD.md). Do not change cross-origin portal handoff or route fallback behavior without route/session regression tests.
+
+## 16 November 2026 — unified public registration entry
+
+Source-confirmed implementation on branch `finalize/unified-registration-entry`:
+
+- `/` remains the sign-in entry; the primary login screen no longer displays partner-role registration cards.
+- `/register/buyer` remains the canonical buyer registration route and is the default destination from the login screen's “Create a buyer account” action.
+- Seller, Rider/Delivery and Daily Help application links are presented at the bottom of the buyer registration page, after the buyer registration form.
+- These secondary links continue to use the existing routes: `/register/seller`, `/register/delivery` and `/register/daily-help`. Their current server-side onboarding and approval requirements are unchanged.
+- Buyer address and exact map location are still collected in the current registration form; deferring those fields to checkout is a separate API/data-contract change and is not included in this UI-only adjustment.
+- Accessibility/responsive acceptance: links remain semantic anchors, keyboard reachable, labelled by role, and stack vertically on narrow screens.
+
+Validation required on the exact PR head: frontend typecheck, route regression suite, production build, role portal builds and existing browser E2E. CI and live deployment status must be recorded separately; no runtime behavior is claimed from source inspection alone.
