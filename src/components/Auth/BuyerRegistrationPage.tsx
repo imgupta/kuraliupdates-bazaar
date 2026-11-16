@@ -189,6 +189,16 @@ export const BuyerRegistrationPage: React.FC = () => {
             <button type="button" onClick={() => void verify()} disabled={loading} className="mt-4 w-full rounded-2xl bg-slate-950 py-3.5 text-sm font-black text-white disabled:opacity-50">{loading ? 'Creating account…' : 'Verify & create buyer account'}</button>
             <button type="button" onClick={sendOtp} disabled={countdown > 0 || loading} className="mt-3 text-xs font-bold text-amber-700 disabled:text-slate-400">{countdown ? `Resend in ${countdown}s` : 'Resend OTP'}</button>
           </div>}
+          <div className="border-t border-slate-200 pt-5">
+            <p className="text-center text-xs font-black text-slate-800">Looking to join as a local partner?</p>
+            <p className="mt-1 text-center text-[11px] text-slate-500">Buyer accounts are the standard starting point. Partner applications are reviewed before activation.</p>
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <a href="/register/seller" className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-center text-xs font-bold text-blue-800 hover:bg-blue-100">Register as Seller</a>
+              <a href="/register/delivery" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-center text-xs font-bold text-emerald-800 hover:bg-emerald-100">Apply as Rider</a>
+              <a href="/register/daily-help" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-center text-xs font-bold text-amber-800 hover:bg-amber-100">Apply for Daily Help</a>
+            </div>
+            <p className="mt-3 text-center text-[11px] text-slate-500">Already have an account? <a href="/" className="font-bold text-amber-700 hover:underline">Sign in</a></p>
+          </div>
         </div>
       </div>
     </div>
