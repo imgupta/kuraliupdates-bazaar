@@ -65,10 +65,6 @@ export const BuyerRegistrationPage: React.FC = () => {
         setError(settings.message || 'Unable to load registration verification settings.');
         return;
       }
-      if (!settings.emailOtpRequired || !settings.mobileOtpRequired) {
-        setError('Buyer registration requires both email and mobile OTP verification. Please contact KuraliUpdates support to enable both channels.');
-        return;
-      }
       if (settings.emailOtpRequired) {
         const emailResponse = await bazaarApi.sendOtp(normalizedEmail, 'EMAIL', 'REGISTER');
         if (!emailResponse.success) { setError(emailResponse.message); return; }
