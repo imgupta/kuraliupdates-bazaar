@@ -344,7 +344,12 @@ public class AuthService {
         if (req.name() == null || req.name().isBlank() || email.isBlank() || phone.isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Full name, email and mobile number are required for registration");
         }
-        if ("SELLER".equals(normalizeRole(req.role()))) {
+        String requestedRole = normalizeRole(req.role());
+        if (("DELIVERY".equals(requestedRole) || "PROFESSIONAL".equals(requestedRole))
+                && (req.wardNumber() == null || req.wardNumber().isBlank())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Ward number is required for partner registration");
+        }
+        if ("SELLER".equals(requestedRole)) {
             requireSellerValue(req.businessType(), "Business type is required");
             if (!Set.of("INDIVIDUAL", "PROPRIETORSHIP", "PARTNERSHIP", "COMPANY").contains(req.businessType().trim().toUpperCase())) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "Select a valid business type");
@@ -501,14 +506,16 @@ public class AuthService {
                     .licenseNumber(defaultString(req.licenseNumber()).isBlank() ? "PENDING" : req.licenseNumber().trim())
                     .status("PENDING").rating(BigDecimal.ZERO).totalTrips(0)
                     .todayEarnings(BigDecimal.ZERO).totalEarnings(BigDecimal.ZERO)
-                    .currentLocality(locality).registeredAt(now).build());
+                    .currentLocality(locality).wardNumber(defaultString(req.wardNumber()).trim())
+                    .registeredAt(now).build());
         } else if ("PROFESSIONAL".equals(requestedRole)) {
             dailyHelpProfessionalRepository.save(DailyHelpProfessionalEntity.builder()
                     .professionalId("DHP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                     .userId(user.getUserId())
                     .fullName(user.getName()).phone(user.getPhone())
                     .rating(BigDecimal.ZERO).reviewCount(0)
-                    .currentLocality(locality).status("OFFLINE").verified(1)
+                    .currentLocality(locality).wardNumber(defaultString(req.wardNumber()).trim())
+                    .status("OFFLINE").verified(1)
                     .registeredAt(now).updatedAt(now).build());
         }
     }
