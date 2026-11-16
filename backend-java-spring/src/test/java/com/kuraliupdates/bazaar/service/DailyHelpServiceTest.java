@@ -211,7 +211,8 @@ class DailyHelpServiceTest {
         assertFalse(response.verified(), "self-registration must not bypass admin verification");
         assertEquals("OFFLINE", response.status());
         verify(professionalRepository).save(argThat(p -> Integer.valueOf(0).equals(p.getVerified())
-                && "OFFLINE".equals(p.getStatus())));
+                && "OFFLINE".equals(p.getStatus())
+                && "4".equals(p.getWardNumber())));
     }
 
     @Test
