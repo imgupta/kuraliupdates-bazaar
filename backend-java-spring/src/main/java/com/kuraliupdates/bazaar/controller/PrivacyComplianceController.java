@@ -110,7 +110,7 @@ public class PrivacyComplianceController {
         return Map.of("success",true,"settings",readConfig());
     }
 
-    private Map<String,String> readConfig(){Map<String,String> m=new LinkedHashMap<>();jdbc.query("SELECT CONFIG_KEY,CONFIG_VALUE FROM KU_COMPLIANCE_CONFIG",rs->m.put(rs.getString(1),rs.getString(2)));return m;}
+    private Map<String,String> readConfig(){Map<String,String> m=new LinkedHashMap<>();jdbc.query("SELECT CONFIG_KEY,CONFIG_VALUE FROM KU_COMPLIANCE_CONFIG",(org.springframework.jdbc.core.RowCallbackHandler) rs->m.put(rs.getString(1),rs.getString(2)));return m;}
     private void audit(String actor,String type,String subjectType,String subjectId,String metadata){
         jdbc.update("INSERT INTO KU_SECURITY_AUDIT_EVENTS (EVENT_ID,ACTOR_USER_ID,EVENT_TYPE,SUBJECT_TYPE,SUBJECT_ID,CREATED_AT,METADATA) VALUES (?,?,?,?,?,?,?)",
             UUID.randomUUID().toString(),actor,type,subjectType,subjectId,Timestamp.valueOf(LocalDateTime.now()),metadata);
