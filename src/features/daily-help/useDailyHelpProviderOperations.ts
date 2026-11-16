@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { dailyHelpProviderApi } from '../../services/domains/dailyHelpProviderApi';
 import type { DailyHelpBooking, DailyHelpProfessional, DailyHelpProfessionalEarnings, DailyHelpSlot } from '../../types';
-import { KURALI_LOCALITIES } from '../../data/initialData';
 
 const ACTIVE_STATUSES = ['PROFESSIONAL_ASSIGNED', 'ARRIVING', 'READY_TO_START', 'IN_PROGRESS'];
 
@@ -21,7 +20,7 @@ export const useDailyHelpProviderOperations = () => {
   const [slotEnd, setSlotEnd] = useState('11:00');
   const [mySlots, setMySlots] = useState<DailyHelpSlot[]>([]);
   const [registrationName, setRegistrationName] = useState(user.name || '');
-  const [registrationLocality, setRegistrationLocality] = useState(user.locality || KURALI_LOCALITIES.find(l => !l.startsWith('All')) || 'Kurali');
+  const [registrationWardNumber, setRegistrationWardNumber] = useState('');
   const [registering, setRegistering] = useState(false);
 
   const load = async (silent = false) => {
@@ -73,15 +72,16 @@ export const useDailyHelpProviderOperations = () => {
 
   const register = async () => {
     const name = registrationName.trim();
-    const locality = registrationLocality.trim();
+    const locality = user.locality?.trim() || 'Kurali';
+    const wardNumber = registrationWardNumber.trim();
     const phone = user.phone?.trim() || '';
-    if (!name || !phone || !locality) {
-      showToast('Enter your full name and locality. Your signed-in mobile number is required.', 'error');
+    if (!name || !phone || !wardNumber) {
+      showToast('Enter your full name and ward number. Your signed-in mobile number is required.', 'error');
       return;
     }
     setRegistering(true);
     try {
-      const created = await dailyHelpProviderApi.registerDailyHelpProfessional({ name, phone, locality });
+      const created = await dailyHelpProviderApi.registerDailyHelpProfessional({ name, phone, locality, wardNumber });
       if (!created) {
         showToast('Profile was not created. Check your signed-in mobile number and try again.', 'error');
         return;
@@ -216,7 +216,7 @@ export const useDailyHelpProviderOperations = () => {
     professional, earnings, availableJobs, jobs, loading, refreshing, setRefreshing, otpInputs, setOtpInputs, now,
     slotDate, setSlotDate, slotStart, setSlotStart, slotEnd, setSlotEnd, mySlots,
     registrationName, setRegistrationName,
-    registrationLocality, setRegistrationLocality, registering, activeJobs,
+    registrationWardNumber, setRegistrationWardNumber, registering, activeJobs,
     register, toggleAvailability, accept, setStatus, start, complete, openNavigation, createSlot, cancelSlot, load,
   };
 };
