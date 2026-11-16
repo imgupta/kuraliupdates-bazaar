@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
 
-test('root composition imports role portals only through their public entry points', () => {
+test('root composition lazy-loads role portals only through their public entry points', () => {
   const app = read('../src/App.tsx');
   const roleEntryPoints = [
     './features/buyer',
@@ -15,9 +15,11 @@ test('root composition imports role portals only through their public entry poin
   ];
 
   for (const entryPoint of roleEntryPoints) {
-    assert.ok(app.includes(`from '${entryPoint}'`), `App must import ${entryPoint}`);
+    assert.ok(app.includes(`import('${entryPoint}')`), `App must lazy-load ${entryPoint}`);
   }
 
+  assert.match(app, /lazy\(\(\) => import\(/, 'role dashboards must be loaded through React.lazy');
+  assert.match(app, /<Suspense fallback=/, 'lazy dashboards must have a loading fallback');
   assert.doesNotMatch(app, /from ['"]\.\/features\/(buyer|seller|delivery|daily-help|admin)\/[^'"]+['"]/);
 });
 
