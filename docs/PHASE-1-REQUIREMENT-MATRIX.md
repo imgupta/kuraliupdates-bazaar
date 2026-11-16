@@ -47,3 +47,12 @@ Statuses: **Local verified** means the current checkout has relevant passing aut
 - CI run `43588014410` passed frontend and backend verification plus configured read-only smoke/browser checks; Docker security gate `43588014452` passed. SonarCloud skipped.
 - Evidence classification: **merged + exact-head CI verified** for code/build/test scope. **Not runtime verified** for V39 on Oracle, staging CRM/order journeys, outbox delivery, actual refund transfer, Oracle locking/rollback/concurrency, or backup/restore.
 - The matrix remains open: this implementation does not close the full five-role route/owner matrix, authenticated transactional lifecycle evidence, seller-document policy/E2E, public abuse/privacy, or Phase 0 production gates.
+
+
+## 17 November 2026 — consolidated P1 batch (PR in progress)
+
+Current source baseline for this batch: main `2e8bea0ccfcac00d5a37574310db4d9e95ee4936`. The PR adds a server-authoritative identity boundary to Daily Help booking creation: the authenticated buyer's account name and verified phone are written to the booking; the request may still supply the service address, locality, selected service, slot and requested duration. A mismatched phone remains rejected, and an account without a usable name receives a conflict response rather than persisting client-supplied identity.
+
+Regression tests cover a forged request name being ignored and an incomplete account name being rejected before service access. This closes only this narrow identity-spoofing case; it does not close the full P1-IDOR-04 matrix, authenticated provider/buyer browser journey, or Oracle slot contention proof.
+
+The broader P1 acceptance gates remain open: complete endpoint × role × owner tests; authenticated five-role browser journeys; isolated Oracle multi-session concurrency/rollback and migration tests; seller-document access/retention lifecycle; cross-instance public abuse controls; outbox delivery; and operational/legal release evidence. See the execution plan and completion report for prerequisites and explicit blocked items.
