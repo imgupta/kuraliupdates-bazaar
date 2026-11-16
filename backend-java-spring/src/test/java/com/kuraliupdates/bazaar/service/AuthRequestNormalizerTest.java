@@ -26,7 +26,7 @@ class AuthRequestNormalizerTest {
         assertEquals("person@example.com", AuthRequestNormalizer.normalizeIdentifier(" Person@Example.COM ", "EMAIL"));
         assertEquals("919876543210", AuthRequestNormalizer.normalizeIdentifier("+91 98765-43210", "PHONE"));
         assertEquals("", AuthRequestNormalizer.normalizeIdentifier(null, "EMAIL"));
-        assertEquals("p***@example.com", AuthRequestNormalizer.mask("person@example.com"));
+        assertEquals("p***n@example.com", AuthRequestNormalizer.mask("person@example.com"));
         assertEquals("******3210", AuthRequestNormalizer.mask("919876543210"));
         assertEquals("****", AuthRequestNormalizer.mask("1234"));
     }
