@@ -12,6 +12,7 @@ KuraliUpdates is a Kurali, Punjab hyperlocal marketplace with two customer journ
 - **Refunds:** grocery refunds are initiated and funded directly by the seller because the customer paid the seller directly. The platform records and tracks the refund workflow; it does not promise an advance platform-funded refund or seller reserve.
 - **Delivery:** agents use their own two-wheelers. Multi-seller checkout, grouped seller suborders, delivery and optional store pickup are backend workflows; verify feature flags and runtime configuration before describing a mode as enabled.
 - **Seller onboarding:** OTP registration, business/shop details, map pin, shop-front photo, applicable compliance documents and agreement acceptance; manual admin review gates activation.
+- **Buyer registration:** Buyer is the primary self-registration journey; contact OTP requirements follow admin-configured channels. Address collection is optional during registration and remains required at delivery checkout.
 
 ## Technology
 
@@ -20,6 +21,7 @@ KuraliUpdates is a Kurali, Punjab hyperlocal marketplace with two customer journ
 - Database: Oracle; Flyway migrations
 - Hosting: Vercel frontend projects; Render backend
 - Maps: OpenStreetMap fallback is available. Google Routes-dependent routing requires valid backend credentials/configuration.
+- Oracle connectivity: walletless JDBC Thin TCPS; configure the OCI TLS-authentication connection string in Render secrets. Do not restore wallet/TNS alias assumptions unless the deployment architecture is deliberately changed.
 
 ## Repository map
 
@@ -28,8 +30,9 @@ KuraliUpdates is a Kurali, Punjab hyperlocal marketplace with two customer journ
 - `docs/` — API, database, workflows, testing and operational runbooks
 - `ARCHITECTURE.md` — concise architecture and invariants
 - `DEPLOYMENT.md` — shared-environment release and rollback gates
-- `docs/CURRENT-STATE.md` — latest verified implementation status and remaining work
-- `docs/SELLER-ONBOARDING.md` — seller registration, documents and review lifecycle
+- `docs/CURRENT-STATE.md` — historical implementation evidence and remaining work
+- `docs/IMPLEMENTATION-BASELINE-2026-11.md` — consolidated November 2026 product, security, privacy, deployment and verification baseline
+- `docs/SELLER-ONBOARDING.md` — seller registration, CRM, documents and review lifecycle
 
 ## Local quality gates
 
@@ -45,11 +48,12 @@ mvn clean verify
 ## Non-negotiable engineering rules
 
 - React is the only frontend framework; do not introduce Angular.
-- Flyway owns schema evolution. Never edit an applied migration.
+- Flyway owns schema evolution. Never edit an applied migration or reuse a migration version.
 - Controllers handle HTTP/auth/validation; services own use cases and transactions; repositories own persistence.
 - Use DTOs at API boundaries; do not expose JPA entities.
 - Never log OTPs, bearer tokens, secrets, wallet contents or unnecessary personal data.
-- Keep shared staging smoke tests read-only. Mutating E2E requires isolated synthetic fixtures and explicit preflight.
+- Keep shared staging smoke tests read-only. Mutating E2E requires isolated synthetic fixtures, explicit authorization and run-scoped cleanup.
+- Distinguish source implementation, CI tests, staging runtime evidence and legal/provider sign-off. Passing one does not imply the others.
 
 ## Links
 
