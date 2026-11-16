@@ -1,6 +1,6 @@
 # Architecture and system invariants
 
-See [docs/IMPLEMENTATION-BASELINE-2026-11.md](docs/IMPLEMENTATION-BASELINE-2026-11.md) for the consolidated November 2026 implementation and verification checkpoint, [docs/CURRENT-STATE.md](docs/CURRENT-STATE.md) for historical Phase 0/1 evidence, and [docs/SELLER-ONBOARDING.md](docs/SELLER-ONBOARDING.md) for the current seller CRM/document lifecycle.
+See [docs/CODE-QUALITY-AUDIT-2026-11.md](docs/CODE-QUALITY-AUDIT-2026-11.md) for the six-workstream code-quality and complexity audit. See [docs/IMPLEMENTATION-BASELINE-2026-11.md](docs/IMPLEMENTATION-BASELINE-2026-11.md) for the consolidated November 2026 implementation and verification checkpoint, [docs/CURRENT-STATE.md](docs/CURRENT-STATE.md) for historical Phase 0/1 evidence, and [docs/SELLER-ONBOARDING.md](docs/SELLER-ONBOARDING.md) for the current seller CRM/document lifecycle.
 
 ## Runtime and environment
 
