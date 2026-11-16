@@ -347,3 +347,11 @@ The audit does not close Phase 1. The local E2E suite is a narrow mock-only UI c
 - **Deployment:** merge confirmed; no Render/Vercel deployment or Oracle migration is claimed. Verify the deployment and database state independently before customer-facing use.
 
 See [Phase 1 completion report](PHASE-1-COMPLETION-REPORT.md), [Phase 1 matrix](PHASE-1-REQUIREMENT-MATRIX.md), and [Phase 0 formal register](PHASE-0-FORMAL-EVIDENCE-REGISTER.md).
+
+
+## 17 November 2026 — consolidated P1 security batch in progress
+
+- Current main baseline before this batch: `2e8bea0ccfcac00d5a37574310db4d9e95ee4936` (PR #368 merged).
+- The single consolidated P1 branch `phase1/consolidated-p1-security-regression-batch` makes Daily Help booking identity server-authoritative: authenticated account name and phone are persisted, while the customer-selected service address/locality remains request data. It adds negative regressions for client-supplied name spoofing and blank account name.
+- Exact-head CI is required before merge. No Oracle, shared staging business data, secret, schema or deployment mutation is part of this code change.
+- Phase 1 remains IN PROGRESS. Full endpoint × role × owner coverage, trusted five-role browser journeys, isolated Oracle contention/rollback/migration proof, seller-document access/retention acceptance, notice outbox delivery, and India production-residency/legal/operational sign-offs are not closed by this batch.
