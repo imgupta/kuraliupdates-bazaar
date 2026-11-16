@@ -608,7 +608,7 @@ export const AdminDashboard: React.FC = () => {
           </summary>
           <div className="space-y-1 border-t border-slate-100 p-2">
             <button onClick={() => setActiveAdminTab('accounts')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'accounts' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Accounts & permissions <span className="ml-1 text-slate-400">({adminAccounts.length})</span></button>
-            <button onClick={() => setActiveAdminTab('directory')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'directory' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>User & role IDs <span className="ml-1 text-slate-400">({directoryRows.length})</span></button>
+            <button onClick={() => setActiveAdminTab('directory')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'directory' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>User & role IDs <span className="ml-1 text-slate-400">({directoryGroups.length})</span></button>
             <button onClick={() => setActiveAdminTab('diagnostics')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'diagnostics' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Diagnostics</button>
           </div>
         </details>
