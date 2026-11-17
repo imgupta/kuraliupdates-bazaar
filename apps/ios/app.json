@@ -12,11 +12,18 @@
       "bundleIdentifier": "com.kuraliupdates.app",
       "buildNumber": "1",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "KuraliUpdates uses your location only while you are online as a delivery agent to share your live delivery position."
       }
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "KuraliUpdates uses your location only while you are online as a delivery agent to share your live delivery position."
+        }
+      ]
     ],
     "platforms": [
       "ios"
