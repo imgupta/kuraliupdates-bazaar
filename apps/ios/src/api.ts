@@ -111,3 +111,28 @@ export async function getRoleOnboardingStatus(token: string, role: MobileRole) {
     { headers: { Authorization: `Bearer ${token}` } },
   );
 }
+
+export type MobileRecord = Record<string, any>;
+async function authed<T>(path: string, token: string, init?: RequestInit): Promise<T> {
+  return request<T>(path, { ...init, headers: { Authorization: `Bearer ${token}`, ...(init?.headers || {}) } });
+}
+export const mobileApi = {
+  sellerMe: (t: string) => authed<MobileRecord>('/sellers/me', t),
+  sellerProducts: (t: string) => authed<MobileRecord[]>('/sellers/me/products', t),
+  sellerOrders: (t: string) => authed<MobileRecord[]>('/sellers/me/orders', t),
+  sellerAvailability: (t: string, open: boolean) => authed<MobileRecord>('/sellers/me/availability', t, { method: 'PUT', body: JSON.stringify({ open }) }),
+  sellerOrderStatus: (t: string, id: string, status: string) => authed<MobileRecord>(`/sellers/me/orders/${encodeURIComponent(id)}/status?status=${encodeURIComponent(status)}`, t, { method: 'POST' }),
+  deliveryMe: (t: string) => authed<MobileRecord>('/delivery/me', t),
+  deliveryAvailable: (t: string) => authed<MobileRecord[]>('/delivery/jobs/available', t),
+  deliveryMine: (t: string) => authed<MobileRecord[]>('/delivery/jobs/mine', t),
+  deliveryAvailability: (t: string, available: boolean) => authed<MobileRecord>('/delivery/me/availability', t, { method: 'PUT', body: JSON.stringify({ available }) }),
+  deliveryPickup: (t: string, id: string) => authed<MobileRecord>(`/delivery/jobs/${encodeURIComponent(id)}/confirm-pickup`, t, { method: 'POST' }),
+  deliveryResendOtp: (t: string, id: string) => authed<MobileRecord>(`/delivery/jobs/${encodeURIComponent(id)}/resend-otp`, t, { method: 'POST' }),
+  deliveryVerifyOtp: (t: string, id: string, otp: string) => authed<MobileRecord>(`/delivery/jobs/${encodeURIComponent(id)}/verify-otp`, t, { method: 'POST', body: JSON.stringify({ otp }) }),
+  dailyProfessional: (t: string, phone: string) => authed<MobileRecord>(`/daily-help/professionals/by-phone/${encodeURIComponent(phone)}`, t),
+  dailyAvailable: (t: string, id: string) => authed<MobileRecord[]>(`/daily-help/professionals/${encodeURIComponent(id)}/jobs/available`, t),
+  dailyMine: (t: string, id: string) => authed<MobileRecord[]>(`/daily-help/professionals/${encodeURIComponent(id)}/jobs`, t),
+  dailyAccept: (t: string, id: string, bookingId: string) => authed<MobileRecord>(`/daily-help/professionals/${encodeURIComponent(id)}/jobs/${encodeURIComponent(bookingId)}/accept`, t, { method: 'POST' }),
+  dailyStart: (t: string, bookingId: string, professionalId: string, otp: string) => authed<MobileRecord>(`/daily-help/bookings/${encodeURIComponent(bookingId)}/start`, t, { method: 'POST', body: JSON.stringify({ professionalId, otp }) }),
+  dailyComplete: (t: string, bookingId: string, professionalId: string) => authed<MobileRecord>(`/daily-help/bookings/${encodeURIComponent(bookingId)}/complete?professionalId=${encodeURIComponent(professionalId)}`, t, { method: 'POST' }),
+};
