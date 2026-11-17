@@ -230,18 +230,28 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
 
     const openChatResponse = await request.post(apiBase + "/negotiations", {
       headers: taggedAuth(buyerToken, runId),
-      data: { productId, startingOfferPrice: buyerOfferPrice, openingMessage: "E2E synthetic bargaining conversation" },
+      data: { productId },
       timeout: 20_000,
     });
-    expect(openChatResponse.status(), "buyer opens a conversation for the synthetic product").toBe(200);
+    expect(openChatResponse.status(), "buyer opens a draft conversation for the synthetic product").toBe(200);
     const openedChat = await openChatResponse.json();
     const chatId = String(openedChat.id ?? "");
     expect(chatId).toMatch(/^chat-/);
     expect(openedChat.sellerId).toBe(sellerId);
-    const openingOffer = (openedChat.messages ?? []).find((message: any) =>
+    expect(openedChat.messages ?? [], "opening a bargain draft must not submit an offer").toHaveLength(0);
+
+    // The buyer explicitly submits the offer; opening the chat alone is draft-only.
+    const submitOfferResponse = await request.post(apiBase + "/negotiations/" + encodeURIComponent(chatId) + "/messages", {
+      headers: { ...taggedAuth(buyerToken, runId), "X-Active-Role": "BUYER" },
+      data: { text: "E2E synthetic bargaining conversation", offerPrice: buyerOfferPrice },
+      timeout: 20_000,
+    });
+    expect(submitOfferResponse.status(), "explicit Send Offer creates the pending offer").toBe(200);
+    const submittedChat = await submitOfferResponse.json();
+    const openingOffer = (submittedChat.messages ?? []).find((message: any) =>
       message.senderRole === "buyer" && message.offer?.status === "pending"
     );
-    expect(openingOffer, "opening buyer offer should be persisted").toBeTruthy();
+    expect(openingOffer, "explicitly submitted buyer offer should be persisted").toBeTruthy();
 
     const sellerInbox = await getJson(request, "/negotiations?role=SELLER", sellerToken);
     expect(sellerInbox.filter((chat: any) => chat.id === chatId), "the correct seller receives the conversation exactly once").toHaveLength(1);
@@ -780,15 +790,23 @@ test.describe("Admin login, approval queues, and role restrictions", () => {
 
     const opened = await request.post(apiBase + "/negotiations", {
       headers: taggedAuth(buyerToken, runId),
-      data: { productId: fixture.productId, startingOfferPrice: Math.round(price * 0.9 * 100) / 100,
-        openingMessage: "E2E rejection-path conversation" },
+      data: { productId: fixture.productId },
       timeout: 20_000,
     });
     expect(opened.status()).toBe(200);
     const chat = await opened.json();
     const chatId = String(chat.id);
-    const offer = (chat.messages ?? []).find((message: any) => message.senderRole === "buyer" && message.offer?.status === "pending");
-    expect(offer).toBeTruthy();
+    expect(chat.messages ?? [], "opening a draft conversation must not create a pending offer").toHaveLength(0);
+
+    const submitted = await request.post(apiBase + "/negotiations/" + encodeURIComponent(chatId) + "/messages", {
+      headers: { ...taggedAuth(buyerToken, runId), "X-Active-Role": "BUYER" },
+      data: { text: "E2E rejection-path conversation", offerPrice: Math.round(price * 0.9 * 100) / 100 },
+      timeout: 20_000,
+    });
+    expect(submitted.status(), "explicit buyer offer submission should succeed").toBe(200);
+    const submittedChat = await submitted.json();
+    const offer = (submittedChat.messages ?? []).find((message: any) => message.senderRole === "buyer" && message.offer?.status === "pending");
+    expect(offer, "submitted buyer offer should be pending for seller response").toBeTruthy();
 
     const rejected = await request.post(apiBase + "/negotiations/" + encodeURIComponent(chatId)
       + "/offers/" + encodeURIComponent(offer.offer.id) + "/respond", {
