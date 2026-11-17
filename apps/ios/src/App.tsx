@@ -43,7 +43,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
+      <StatusBar barStyle="dark-content" />
       <WebView
         key={reloadKey}
         source={{ uri: PORTAL_URL }}
@@ -101,14 +101,14 @@ const styles = StyleSheet.create({
   webView: { flex: 1, backgroundColor: '#f8fafc' },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#f8fafc',
   },
   loadingText: { marginTop: 12, color: '#52645a', fontSize: 13, fontWeight: '600' },
   errorOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 28,
