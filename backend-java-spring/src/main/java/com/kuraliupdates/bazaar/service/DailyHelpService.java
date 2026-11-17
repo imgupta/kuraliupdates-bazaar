@@ -146,7 +146,7 @@ public class DailyHelpService {
                 .hourlyRate(service.getPricePerHour())
                 .estimatedTotal(service.getPricePerHour().multiply(request.requestedHours()))
                 .status("PROFESSIONAL_ASSIGNED")
-                .startOtp(generateOtp())
+                .startOtp(otpGenerator.generate())
                 .otpExpiresAt(now.plusMinutes(15))
                 .otpAttempts(0)
                 .e2eRunId(e2eRunId)

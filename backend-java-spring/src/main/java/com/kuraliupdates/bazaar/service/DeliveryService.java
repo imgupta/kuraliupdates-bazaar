@@ -235,7 +235,7 @@ public class DeliveryService {
         String resendKey = combined
                 ? "batch:" + order.getCombinedDeliveryBatchId()
                 : "order:" + orderId;
-        requireDeliveryOtpResendAllowed(resendKey);
+        deliveryOtpResendGuard.requireAllowed(resendKey);
 
         String newOtp = String.format("%04d", secureRandom.nextInt(10_000));
         LocalDateTime now = LocalDateTime.now();

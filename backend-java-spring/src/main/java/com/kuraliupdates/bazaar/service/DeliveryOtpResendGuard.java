@@ -16,33 +16,29 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Database-backed, cross-instance resend guard for delivery OTPs.
- * The caller's transaction remains the transaction boundary; this service
- * deliberately does not create or commit an independent transaction.
+ * It participates in the caller's transaction and does not create a new one.
  */
 @Service
 @RequiredArgsConstructor
 public class DeliveryOtpResendGuard {
+    private static final String DELIVERY_OTP_RESEND_GUARD_MERGE = """
+            MERGE INTO API_RATE_LIMIT_BUCKETS target
+            USING (
+                SELECT ? AS BUCKET_KEY, TIMESTAMP '1970-01-01 00:00:00' AS WINDOW_START FROM DUAL
+            ) source
+            ON (target.BUCKET_KEY = source.BUCKET_KEY AND target.WINDOW_START = source.WINDOW_START)
+            WHEN MATCHED THEN UPDATE SET
+                target.REQUEST_COUNT = 1,
+                target.EXPIRES_AT = SYSTIMESTAMP + INTERVAL '60' SECOND
+                WHERE target.EXPIRES_AT <= SYSTIMESTAMP
+            WHEN NOT MATCHED THEN INSERT (BUCKET_KEY, WINDOW_START, REQUEST_COUNT, EXPIRES_AT)
+                VALUES (source.BUCKET_KEY, source.WINDOW_START, 1, SYSTIMESTAMP + INTERVAL '60' SECOND)
+            """;
+    private static final String DELIVERY_OTP_RESEND_GUARD_CLEANUP =
+            "DELETE FROM API_RATE_LIMIT_BUCKETS WHERE WINDOW_START = TIMESTAMP '1970-01-01 00:00:00' AND EXPIRES_AT < SYSTIMESTAMP";
+
     private final JdbcTemplate jdbc;
     private final AtomicInteger cleanupCounter = new AtomicInteger();
-
-    private static final String DELIVERY_OTP_RESEND_GUARD_MERGE = """
-    MERGE INTO API_RATE_LIMIT_BUCKETS target
-    USING (
-    SELECT ? AS BUCKET_KEY, TIMESTAMP '1970-01-01 00:00:00' AS WINDOW_START FROM DUAL
-    ) source
-    ON (target.BUCKET_KEY = source.BUCKET_KEY AND target.WINDOW_START = source.WINDOW_START)
-    WHEN MATCHED THEN UPDATE SET
-    target.REQUEST_COUNT = 1,
-    target.EXPIRES_AT = SYSTIMESTAMP + INTERVAL '60' SECOND
-    WHERE target.EXPIRES_AT <= SYSTIMESTAMP
-    WHEN NOT MATCHED THEN INSERT (BUCKET_KEY, WINDOW_START, REQUEST_COUNT, EXPIRES_AT)
-    VALUES (source.BUCKET_KEY, source.WINDOW_START, 1, SYSTIMESTAMP + INTERVAL '60' SECOND)
-    """;
-    private static final String DELIVERY_OTP_RESEND_GUARD_CLEANUP =
-    "DELETE FROM API_RATE_LIMIT_BUCKETS WHERE WINDOW_START = TIMESTAMP '1970-01-01 00:00:00' AND EXPIRES_AT < SYSTIMESTAMP";
-    
-    private final AtomicInteger resendGuardCleanupCounter = new AtomicInteger();
-    private final SecureRandom secureRandom = new SecureRandom();
 
     public void requireAllowed(String rawKey) {
         String resendKey = hashResendKey(rawKey);
