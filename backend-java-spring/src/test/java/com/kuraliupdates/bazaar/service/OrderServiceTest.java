@@ -36,6 +36,7 @@ class OrderServiceTest {
     @Mock private SellerRepository sellerRepository;
     @Mock private ProductRepository productRepository;
     @Mock private JdbcTemplate jdbc;
+    @Mock private DeliveryConfigurationService deliveryConfigurationService;
     @Mock private GoogleRoutesService googleRoutesService;
     @InjectMocks private OrderService orderService;
 
@@ -507,14 +508,14 @@ class OrderServiceTest {
     void multiSellerCheckoutRejectsDisabledStorePickupBeforeCatalogAccess() {
         MultiSellerCheckoutRequest request = multiSellerRequest("COD", "STORE_PICKUP",
                 List.of(new OrderItemRequest("P-1", 1, null)));
-        when(jdbc.queryForObject(contains("STORE_PICKUP_ENABLED"), eq(Integer.class))).thenReturn(0);
+        when(deliveryConfigurationService.isStorePickupEnabled()).thenReturn(false);
 
         ApiException error = assertThrows(ApiException.class,
                 () -> orderService.placeMultiSellerOrder(request, buyer(), null));
 
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
         verifyNoInteractions(orderRepository, sellerRepository, productRepository, googleRoutesService);
-        verify(jdbc, never()).queryForObject(contains("MAX_SELLERS_PER_BATCH"), eq(Integer.class));
+        verify(deliveryConfigurationService, never()).maxSellersPerBatch();
     }
 
     @Test
@@ -528,7 +529,7 @@ class OrderServiceTest {
                     .sellerPrice(BigDecimal.TEN).additionalDiscountPercent(BigDecimal.ZERO).build();
             when(productRepository.findById("P-" + i)).thenReturn(Optional.of(product));
         }
-        when(jdbc.queryForObject(contains("MAX_SELLERS_PER_BATCH"), eq(Integer.class))).thenReturn(3);
+        when(deliveryConfigurationService.maxSellersPerBatch()).thenReturn(3);
         List<OrderItemRequest> items = List.of(
                 new OrderItemRequest("P-0", 1, null),
                 new OrderItemRequest("P-1", 1, null),

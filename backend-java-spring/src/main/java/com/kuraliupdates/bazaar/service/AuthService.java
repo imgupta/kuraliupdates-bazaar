@@ -1,5 +1,7 @@
 package com.kuraliupdates.bazaar.service;
 
+import static com.kuraliupdates.bazaar.service.AuthRequestNormalizer.*;
+
 import com.kuraliupdates.bazaar.dto.address.AddressResponse;
 import com.kuraliupdates.bazaar.dto.auth.ProfileUpdateRequest;
 import com.kuraliupdates.bazaar.dto.auth.UserResponse;
@@ -615,41 +617,12 @@ public class AuthService {
         return "EMAIL".equals(type) ? userRepository.findByEmail(identifier) : userRepository.findByPhone(identifier);
     }
 
-    private String normalizeType(String identifier, String requested) {
-        String inferred = identifier.contains("@") ? "EMAIL" : "PHONE";
-        if (requested == null || requested.isBlank()) return inferred;
-        String normalized = requested.trim().toUpperCase();
-        return Set.of("EMAIL", "PHONE").contains(normalized) ? normalized : inferred;
-    }
-
-    private String normalizeMode(String mode) {
-        return "REGISTER".equalsIgnoreCase(mode) ? "REGISTER" : "LOGIN";
-    }
-
-    private String normalizeRole(String role) {
-        String normalized = role == null ? "BUYER" : role.trim().toUpperCase();
-        return Set.of("BUYER", "SELLER", "DELIVERY", "PROFESSIONAL").contains(normalized) ? normalized : "BUYER";
-    }
-
-    private String normalizeIdentifier(String value, String type) {
-        if (value == null) return "";
-        return "EMAIL".equals(type) ? value.trim().toLowerCase() : value.trim().replaceAll("\\D", "");
-    }
-
     private boolean isRootAdminEmail(String email) {
         return email != null && ROOT_ADMIN_EMAILS.contains(email.toLowerCase());
     }
 
     private BigDecimal toDecimal(Double value) {
         return value == null ? null : BigDecimal.valueOf(value);
-    }
-
-    private String mask(String value) {
-        if (value.contains("@")) {
-            int at = value.indexOf("@");
-            return value.charAt(0) + "***" + value.substring(Math.max(at - 1, 1));
-        }
-        return value.length() <= 4 ? "****" : "******" + value.substring(value.length() - 4);
     }
 
     private String defaultString(String value) {

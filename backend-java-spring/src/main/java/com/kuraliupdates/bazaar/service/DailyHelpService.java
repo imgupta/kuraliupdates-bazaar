@@ -260,13 +260,13 @@ public class DailyHelpService {
         // Buyer ownership is established by the authenticated identity, not the
         // account's primary role. A buyer session may belong to an ADMIN/SELLER
         // primary account with multiple marketplace profiles.
-        boolean buyerOwns = samePhone(user.getPhone(), booking.getBuyerPhone());
+        boolean buyerOwns = PhoneIdentityMatcher.matches(user.getPhone(), booking.getBuyerPhone());
         // Daily Help is a secondary profile on an existing marketplace account;
         // UserEntity roles do not include PROFESSIONAL. Resolve provider ownership
         // through the phone verified at professional registration, independent of
         // the account's primary marketplace role.
         boolean professionalOwns = booking.getProfessional() != null
-                && samePhone(user.getPhone(), booking.getProfessional().getPhone());
+                && PhoneIdentityMatcher.matches(user.getPhone(), booking.getProfessional().getPhone());
         if (!buyerOwns && !professionalOwns) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You do not have access to this Daily Help booking");
         }
@@ -512,11 +512,6 @@ public class DailyHelpService {
                 .map(DailyHelpBookingEntity::getEstimatedTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return new DailyHelpProfessionalEarningsResponse(today, lifetime, completed.size());
-    }
-
-    private boolean samePhone(String left, String right) {
-        if (left == null || right == null) return false;
-        return left.replaceAll("\\D", "").equals(right.replaceAll("\\D", ""));
     }
 
     private DailyHelpProfessionalEntity getProfessionalEntity(String professionalId) {
