@@ -49,6 +49,12 @@ export default function App() {
   const [helpAddress, setHelpAddress] = useState('');
   const [helpLocality, setHelpLocality] = useState('Kurali');
   const [helpLoading, setHelpLoading] = useState(false);
+  const [activeBargain, setActiveBargain] = useState<MobileRecord | null>(null);
+  const [bargainPrice, setBargainPrice] = useState('');
+  const [bargainMessage, setBargainMessage] = useState('');
+  const [bargainBusy, setBargainBusy] = useState(false);
+  const [negotiatedItems, setNegotiatedItems] = useState<Record<string, { price: number; offerId: string }>>({});
+
 
 
 
@@ -154,7 +160,7 @@ export default function App() {
 
 
   const cartItems = products.filter(p => (cart[p.productId] || 0) > 0);
-  const cartTotal = cartItems.reduce((sum, p) => sum + Number(p.sellerPrice ?? p.price ?? 0) * (cart[p.productId] || 0), 0);
+  const cartTotal = cartItems.reduce((sum, p) => sum + Number(negotiatedItems[p.productId]?.price ?? p.sellerPrice ?? p.price ?? 0) * (cart[p.productId] || 0), 0);
   const setProductQuantity = (productId: string, delta: number) => setCart(previous => {
     const next = Math.max(0, Math.min(99, (previous[productId] || 0) + delta));
     const copy = { ...previous };
@@ -171,7 +177,7 @@ export default function App() {
     if (sellerIds.length > 3) { setError('Your cart exceeds the current three-seller checkout limit. Remove items from one or more sellers.'); return; }
     setCheckoutBusy(true); setError('');
     try {
-      const items = cartItems.map(p => ({ productId: p.productId, quantity: cart[p.productId] }));
+      const items = cartItems.map(p => ({ productId: p.productId, quantity: cart[p.productId], ...(negotiatedItems[p.productId] ? { negotiatedPrice: negotiatedItems[p.productId].price, acceptedOfferId: negotiatedItems[p.productId].offerId } : {}) }));
       if (sellerIds.length > 1) {
         await mobileApi.buyerCheckout(session.token, { deliveryAddress: deliveryAddress.trim(), deliveryLocality: deliveryLocality.trim(), paymentMethod: 'COD', fulfilmentMode: 'DELIVERY', items });
       } else {
@@ -182,7 +188,7 @@ export default function App() {
           paymentMethod: 'COD', items,
         });
       }
-      setCart({});
+      setCart({}); setNegotiatedItems({});
       await loadShop();
       setTab('orders');
     } catch (e) { setError(e instanceof Error ? e.message : 'Checkout could not be completed.'); }
@@ -241,6 +247,36 @@ export default function App() {
       await loadDailyHelp();
     } catch (e) { setError(e instanceof Error ? e.message : 'Daily Help booking failed.'); }
     finally { setHelpLoading(false); }
+  };
+
+
+  const openBargain = async (product: Product) => {
+    if (!session?.user.email) { setError('A verified email is required for bargaining.'); return; }
+    setBargainBusy(true); setError('');
+    try {
+      const chat = await mobileApi.bargainOpen(session.token, product.productId, 0, '');
+      setActiveBargain(chat); setBargainPrice(''); setBargainMessage('');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Unable to open bargaining chat.'); }
+    finally { setBargainBusy(false); }
+  };
+  const sendBargain = async () => {
+    if (!session || !activeBargain) return;
+    const price = Number(bargainPrice);
+    if (!Number.isFinite(price) || price <= 0) { setError('Enter a valid offer price.'); return; }
+    setBargainBusy(true); setError('');
+    try {
+      const chat = await mobileApi.bargainSend(session.token, String(activeBargain.id), bargainMessage.trim(), price);
+      setActiveBargain(chat); setBargainPrice(''); setBargainMessage('');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Offer was not sent.'); }
+    finally { setBargainBusy(false); }
+  };
+  const confirmAcceptedBargain = () => {
+    if (!activeBargain) return;
+    const productId = String(activeBargain.productId || ''), offerId = String(activeBargain.currentAgreedOfferId || ''), price = Number(activeBargain.currentAgreedPrice);
+    if (!productId || !offerId || !Number.isFinite(price) || price <= 0) { setError('No accepted offer is available to add.'); return; }
+    setNegotiatedItems(previous => ({ ...previous, [productId]: { price, offerId } }));
+    setCart(previous => ({ ...previous, [productId]: Math.max(1, previous[productId] || 0) }));
+    setActiveBargain(null);
   };
 
   const sendCode = async () => {
@@ -366,9 +402,16 @@ export default function App() {
           refreshControl={<RefreshControl refreshing={loadingData} onRefresh={loadShop} tintColor="#087f5b" />}
           ListHeaderComponent={<View style={styles.hero}><Text style={styles.heroEyebrow}>SHOP LOCAL</Text><Text style={styles.heroTitle}>Your everyday needs,{"\n"}right around the corner.</Text><Text style={styles.heroCopy}>Discover products from shops in Kurali.</Text></View>}
           ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>{loadingData ? 'Finding local products…' : 'No products found'}</Text><Text style={styles.muted}>Pull down to refresh or try another search.</Text></View>}
-          renderItem={({ item }) => <View style={styles.productCard}><View style={styles.productImage}><Text style={styles.productEmoji}>🛍️</Text></View><Text numberOfLines={2} style={styles.productTitle}>{item.name || item.title}</Text><Text numberOfLines={1} style={styles.productSeller}>{item.seller?.name || 'Local seller'}</Text><Text style={styles.price}>{money(item.sellerPrice ?? item.price)} <Text style={styles.unit}>{item.unit || ''}</Text></Text><View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}><Pressable accessibilityLabel={`Decrease ${item.name || item.title} quantity`} onPress={() => setProductQuantity(item.productId, -1)} style={styles.quantityButton}><Text style={styles.quantityText}>−</Text></Pressable><Text style={styles.quantityValue}>{cart[item.productId] || 0}</Text><Pressable accessibilityLabel={`Increase ${item.name || item.title} quantity`} disabled={Number(item.stock ?? item.stockQty ?? 999) <= (cart[item.productId] || 0)} onPress={() => setProductQuantity(item.productId, 1)} style={styles.quantityButton}><Text style={styles.quantityText}>+</Text></Pressable></View></View>}
+          renderItem={({ item }) => <View style={styles.productCard}><View style={styles.productImage}><Text style={styles.productEmoji}>🛍️</Text></View><Text numberOfLines={2} style={styles.productTitle}>{item.name || item.title}</Text><Text numberOfLines={1} style={styles.productSeller}>{item.seller?.name || 'Local seller'}</Text><Text style={styles.price}>{money(item.sellerPrice ?? item.price)} <Text style={styles.unit}>{item.unit || ''}</Text></Text><View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}><Pressable accessibilityLabel={`Decrease ${item.name || item.title} quantity`} onPress={() => setProductQuantity(item.productId, -1)} style={styles.quantityButton}><Text style={styles.quantityText}>−</Text></Pressable><Text style={styles.quantityValue}>{cart[item.productId] || 0}</Text><Pressable accessibilityLabel={`Increase ${item.name || item.title} quantity`} disabled={Number(item.stock ?? item.stockQty ?? 999) <= (cart[item.productId] || 0)} onPress={() => setProductQuantity(item.productId, 1)} style={styles.quantityButton}><Text style={styles.quantityText}>+</Text></Pressable></View><Pressable style={styles.linkButton} onPress={() => void openBargain(item)}><Text style={styles.link}>Bargain</Text></Pressable></View>}
           ListFooterComponent={cartItems.length ? <View style={styles.orderCard}><Text style={styles.sectionTitle}>Your cart ({cartItems.length} products)</Text>{cartItems.map(p => <View key={p.productId} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 }}><Text style={styles.muted}>{p.name || p.title} × {cart[p.productId]}</Text><Text style={styles.orderTitle}>{money(Number(p.sellerPrice ?? p.price) * cart[p.productId])}</Text></View>)}<Text style={styles.price}>Total {money(cartTotal)}</Text><Text style={styles.muted}>Cash on delivery · server validates stock, seller eligibility and delivery rules</Text><TextInput value={deliveryAddress} onChangeText={setDeliveryAddress} placeholder="Full delivery address" multiline style={styles.input}/><TextInput value={deliveryLocality} onChangeText={setDeliveryLocality} placeholder="Locality / village" style={styles.input}/><Pressable disabled={checkoutBusy} onPress={() => void checkout()} style={styles.primary}>{checkoutBusy ? <ActivityIndicator color="#fff"/> : <Text style={styles.primaryText}>Place order · {money(cartTotal)}</Text>}</Pressable></View> : null}
         />
+        {activeBargain && <View style={styles.orderCard}>
+          <Text style={styles.sectionTitle}>Bargain · {String(activeBargain.productTitle || 'Product')}</Text>
+          <Text style={styles.muted}>Opening the chat does not send an offer. You choose when to send it.</Text>
+          {(activeBargain.messages || []).map((m: MobileRecord) => <View key={String(m.id)} style={{paddingVertical:5}}><Text style={styles.orderTitle}>{String(m.senderName || m.senderRole || 'Participant')}</Text><Text style={styles.muted}>{String(m.text || '')}</Text>{m.offer && <Text style={styles.muted}>{money(m.offer.offeredPrice)} · {String(m.offer.status || '')}</Text>}</View>)}
+          {Number(activeBargain.currentAgreedPrice) > 0 ? <><Text style={styles.price}>Accepted price: {money(activeBargain.currentAgreedPrice)}</Text><Pressable style={styles.primary} onPress={confirmAcceptedBargain}><Text style={styles.primaryText}>Confirm and add agreed item to cart</Text></Pressable></> : <><TextInput value={bargainPrice} onChangeText={setBargainPrice} placeholder="Your offer price ₹" keyboardType="decimal-pad" style={styles.input}/><TextInput value={bargainMessage} onChangeText={setBargainMessage} placeholder="Message (optional)" style={styles.input}/><Pressable disabled={bargainBusy} style={styles.primary} onPress={() => void sendBargain()}><Text style={styles.primaryText}>{bargainBusy ? 'Sending…' : 'Send offer'}</Text></Pressable></>}
+          <Pressable style={styles.secondary} onPress={() => setActiveBargain(null)}><Text style={styles.secondaryText}>Close chat</Text></Pressable>
+        </View>}
       </>}
       {activeRole === 'BUYER' && tab === 'orders' && <ScrollView contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={loadingData} onRefresh={loadShop} />}><Text style={styles.sectionTitle}>Your orders</Text>{orders.length ? orders.map((order, index) => <View key={String(order.orderId || order.id || index)} style={styles.orderCard}><Text style={styles.orderTitle}>Order #{String(order.orderId || order.id || '—')}</Text><Text style={styles.muted}>{String(order.status || 'Status unavailable').replaceAll('_', ' ')}</Text><Text style={styles.price}>{money(order.finalPayable ?? order.totalAmount)}</Text></View>) : <View style={styles.empty}><Text style={styles.emptyTitle}>No orders yet</Text><Text style={styles.muted}>Your order history will appear here.</Text></View>}</ScrollView>}
       {activeRole === 'BUYER' && tab === 'help' && <ScrollView contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={helpLoading} onRefresh={loadDailyHelp}/>}><Text style={styles.sectionTitle}>Book Daily Help</Text><Text style={styles.muted}>Choose a service and an available professional time. Booking is confirmed by the server.</Text>{helpServices.map(service => <Pressable key={String(service.id)} onPress={() => setHelpServiceId(String(service.id))} style={[styles.orderCard, helpServiceId === String(service.id) && {borderColor:'#087f5b',borderWidth:2}]}><Text style={styles.orderTitle}>{String(service.name || service.category || 'Service')}</Text><Text style={styles.muted}>{String(service.description || '')} · {money(service.pricePerHour)}/hour</Text></Pressable>)}<TextInput value={helpDate} onChangeText={setHelpDate} placeholder="Date YYYY-MM-DD" style={styles.input}/><TextInput value={helpHours} onChangeText={setHelpHours} placeholder="Hours (1–12)" keyboardType="decimal-pad" style={styles.input}/><TextInput value={helpLocality} onChangeText={setHelpLocality} placeholder="Locality" style={styles.input}/><TextInput value={helpAddress} onChangeText={setHelpAddress} placeholder="Full service address" multiline style={styles.input}/><Pressable style={styles.primary} disabled={helpLoading} onPress={() => void loadDailyHelp()}><Text style={styles.primaryText}>Find available slots</Text></Pressable><Text style={styles.sectionTitle}>Available slots</Text>{helpSlots.map(slot => <View key={String(slot.slotId)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(slot.professionalName || 'Professional')} · {String(slot.startTime || '')}–{String(slot.endTime || '')}</Text><Text style={styles.muted}>{String(slot.locality || helpLocality)} · Rating {String(slot.rating || '—')}</Text><Pressable style={styles.primary} onPress={() => void bookDailyHelpSlot(slot)}><Text style={styles.primaryText}>Book this slot</Text></Pressable></View>)}<Text style={styles.sectionTitle}>My Daily Help bookings</Text>{helpBookings.map((booking,i) => <View key={String(booking.id || booking.bookingId || i)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(booking.serviceName || 'Daily Help')}</Text><Text style={styles.muted}>{String(booking.status || '—')} · {String(booking.scheduledStart || '')}</Text></View>)}</ScrollView>}
