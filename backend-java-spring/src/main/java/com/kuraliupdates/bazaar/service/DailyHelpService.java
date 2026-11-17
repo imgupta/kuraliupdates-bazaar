@@ -27,7 +27,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -45,7 +44,7 @@ public class DailyHelpService {
     private final DailyHelpProfessionalRepository professionalRepository;
     private final DailyHelpBookingRepository bookingRepository;
     private final DailyHelpProfessionalSlotRepository slotRepository;
-    private final SecureRandom random = new SecureRandom();
+    private final DailyHelpOtpGenerator otpGenerator = new DailyHelpOtpGenerator();
 
     @Transactional(readOnly = true)
     public List<DailyHelpServiceResponse> getActiveServices() {
@@ -147,7 +146,7 @@ public class DailyHelpService {
                 .hourlyRate(service.getPricePerHour())
                 .estimatedTotal(service.getPricePerHour().multiply(request.requestedHours()))
                 .status("PROFESSIONAL_ASSIGNED")
-                .startOtp(generateOtp())
+                .startOtp(otpGenerator.generate())
                 .otpExpiresAt(now.plusMinutes(15))
                 .otpAttempts(0)
                 .e2eRunId(e2eRunId)
@@ -523,7 +522,5 @@ public class DailyHelpService {
         return "ARRIVING".equals(booking.getStatus()) || "READY_TO_START".equals(booking.getStatus());
     }
 
-    private String generateOtp() {
-        return String.format("%04d", random.nextInt(10000));
-    }
+
 }

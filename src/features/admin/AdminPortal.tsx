@@ -37,6 +37,9 @@ import { SellerRegistrationOtpConfig } from '../../components/Admin/SellerRegist
 import { IndiaComplianceSettings } from '../../components/Admin/IndiaComplianceSettings';
 import { AdminDirectoryTab } from './AdminDirectoryTab';
 import { buildAdminDirectoryGroups } from './adminDirectory';
+import { useAdminDashboardRefresh } from './useAdminDashboardRefresh';
+import { useSellerDocumentReview } from './useSellerDocumentReview';
+import { useAdminConfiguration } from './useAdminConfiguration';
 
 export const AdminDashboard: React.FC = () => {
   const {
@@ -87,248 +90,58 @@ export const AdminDashboard: React.FC = () => {
   const [diagnostics, setDiagnostics] = useState<any | null>(null);
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
-  const [deliveryConfig, setDeliveryConfig] = useState<any | null>(null);
-  const [deliveryConfigLoading, setDeliveryConfigLoading] = useState(false);
-  const [deliveryConfigSaving, setDeliveryConfigSaving] = useState(false);
-  const [deliveryConfigError, setDeliveryConfigError] = useState<string | null>(null);
-  const [sellerAreaConfig, setSellerAreaConfig] = useState<any | null>(null);
-  const [sellerAreaLoading, setSellerAreaLoading] = useState(false);
-  const [sellerAreaSaving, setSellerAreaSaving] = useState(false);
-  const [sellerAreaError, setSellerAreaError] = useState<string | null>(null);
-  const [documentSellerId, setDocumentSellerId] = useState('');
-  const [sellerDocuments, setSellerDocuments] = useState<any[]>([]);
-  const [sellerDocumentsLoading, setSellerDocumentsLoading] = useState(false);
-  const [sellerDocumentAction, setSellerDocumentAction] = useState<string | null>(null);
-  const [sellerDocumentError, setSellerDocumentError] = useState<string | null>(null);
-  const [documentRejectionReasons, setDocumentRejectionReasons] = useState<Record<string, string>>({});
   const [editingDailyHelpId, setEditingDailyHelpId] = useState<string | null>(null);
   const [updatingHelperId, setUpdatingHelperId] = useState<string | null>(null);
   const [dailyHelpForm, setDailyHelpForm] = useState({ category: '', name: '', description: '', pricingUnit: 'HOUR', pricePerHour: '199', minHours: '1', imageUrl: '', active: 1 });
   const isRootAdmin = isRootAdminEmail(user.email);
 
-  const refreshAdminData = async () => {
-    if (!isRootAdmin) return;
-    setAdminDataLoading(true);
-    try {
-      const [remoteSellers, remotePendingSellers, remoteAgents, analytics, remoteBuyers, searchTrends, remoteDailyHelpServices, remoteDailyHelpHelpers, remoteAccounts] = await Promise.all([
-        adminApi.getAdminSellers(),
-        adminApi.getPendingSellers(),
-        adminApi.getAdminDeliveryAgents(),
-        adminApi.getAdminAnalytics(),
-        adminApi.getAdminBuyers(),
-        adminApi.getAdminSearchTrends(),
-        adminApi.getAdminDailyHelpServices(),
-        adminApi.getAdminDailyHelpHelpers(),
-        adminApi.getAdminAccounts(),
-      ]);
-      setAdminSellers(remoteSellers);
-      setPendingSellerApplications(remotePendingSellers);
-      setAdminDeliveryAgents(remoteAgents);
-      setAdminAnalytics(analytics);
-      setBuyers(remoteBuyers);
-      setAdminOrders(await adminApi.getAdminOrders());
-      setAdminSearchTrends(searchTrends);
-      setDailyHelpServices(remoteDailyHelpServices);
-      setDailyHelpHelpers(remoteDailyHelpHelpers);
-      setAdminAccounts(remoteAccounts);
-    } finally {
-      setAdminDataLoading(false);
-      setBuyersLoading(false);
-    }
-  };
+  const {
+    deliveryConfig,
+    setDeliveryConfig,
+    deliveryConfigLoading,
+    deliveryConfigSaving,
+    deliveryConfigError,
+    saveDeliveryConfiguration,
+    refreshDeliveryConfiguration,
+    sellerAreaConfig,
+    setSellerAreaConfig,
+    sellerAreaLoading,
+    sellerAreaSaving,
+    sellerAreaError,
+    saveSellerAreaConfiguration,
+    refreshSellerAreaConfiguration,
+  } = useAdminConfiguration(activeAdminTab, isRootAdmin, showToast);
 
-  useEffect(() => {
-    if (!isRootAdmin) return;
-    refreshAdminData();
-    const interval = setInterval(refreshAdminData, 45000);
-    return () => clearInterval(interval);
-  }, [isRootAdmin]);
+  const refreshAdminData = useAdminDashboardRefresh({
+    isRootAdmin,
+    setAdminDataLoading,
+    setAdminSellers,
+    setPendingSellerApplications,
+    setAdminDeliveryAgents,
+    setAdminAnalytics,
+    setBuyers,
+    setAdminOrders,
+    setAdminSearchTrends,
+    setDailyHelpServices,
+    setDailyHelpHelpers,
+    setAdminAccounts,
+    setBuyersLoading,
+  });
 
 
-  const loadSellerDocuments = async (sellerId: string) => {
-    setDocumentSellerId(sellerId);
-    setSellerDocumentsLoading(true);
-    setSellerDocumentError(null);
-    try {
-      setSellerDocuments(await adminApi.getSellerDocuments(sellerId));
-    } catch (error: any) {
-      setSellerDocumentError(error?.message || 'Unable to load seller documents.');
-    } finally {
-      setSellerDocumentsLoading(false);
-    }
-  };
-
-  const openSellerDocument = async (documentId: string) => {
-    if (!documentSellerId) return;
-    setSellerDocumentAction(documentId);
-    setSellerDocumentError(null);
-    try {
-      const blob = await adminApi.getSellerDocument(documentSellerId, documentId);
-      const url = URL.createObjectURL(blob);
-      const opened = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!opened) {
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'seller-document';
-        link.click();
-      }
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (error: any) {
-      setSellerDocumentError(error?.message || 'Unable to open document.');
-    } finally {
-      setSellerDocumentAction(null);
-    }
-  };
-
-  const scanSellerDocument = async (documentId: string) => {
-    if (!documentSellerId) return;
-    setSellerDocumentAction(documentId);
-    setSellerDocumentError(null);
-    try {
-      const result = await adminApi.scanSellerDocument(documentSellerId, documentId);
-      await loadSellerDocuments(documentSellerId);
-      showToast(result.scanStatus === 'CLEAN' ? 'Document passed malware scanning.' : 'Document remains quarantined.', result.scanStatus === 'CLEAN' ? 'success' : 'error');
-    } catch (error: any) {
-      setSellerDocumentError(error?.message || 'Unable to scan document.');
-    } finally {
-      setSellerDocumentAction(null);
-    }
-  };
-  const reviewSellerDocument = async (documentId: string, status: 'VERIFIED' | 'REJECTED') => {
-    if (!documentSellerId) return;
-    const reason = (documentRejectionReasons[documentId] || '').trim();
-    if (status === 'REJECTED' && !reason) {
-      setSellerDocumentError('Enter a correction reason before rejecting a document.');
-      return;
-    }
-    setSellerDocumentAction(documentId);
-    setSellerDocumentError(null);
-    try {
-      await adminApi.verifySellerDocument(documentSellerId, documentId, status, reason || undefined);
-      await loadSellerDocuments(documentSellerId);
-      showToast(status === 'VERIFIED' ? 'Document marked verified.' : 'Document rejected with correction reason.', 'success');
-    } catch (error: any) {
-      setSellerDocumentError(error?.message || 'Unable to update document review.');
-    } finally {
-      setSellerDocumentAction(null);
-    }
-  };
-
-  const refreshSellerAreaConfiguration = async () => {
-    setSellerAreaLoading(true);
-    setSellerAreaError(null);
-    try {
-      const config = await adminApi.getSellerServiceArea();
-      setSellerAreaConfig({
-        centerLatitude: String(config.centerLatitude),
-        centerLongitude: String(config.centerLongitude),
-        radiusKm: String(config.radiusKm),
-        enabled: Boolean(config.enabled),
-        version: config.version,
-        updatedAt: config.updatedAt,
-      });
-    } catch (error: any) {
-      setSellerAreaError(error?.message || 'Unable to load seller registration area.');
-    } finally {
-      setSellerAreaLoading(false);
-    }
-  };
-
-  const saveSellerAreaConfiguration = async () => {
-    if (!sellerAreaConfig || sellerAreaSaving) return;
-    const centerLatitude = Number(sellerAreaConfig.centerLatitude);
-    const centerLongitude = Number(sellerAreaConfig.centerLongitude);
-    const radiusKm = Number(sellerAreaConfig.radiusKm);
-    if (!Number.isFinite(centerLatitude) || !Number.isFinite(centerLongitude)
-        || !Number.isFinite(radiusKm) || radiusKm <= 0 || radiusKm > 100) {
-      setSellerAreaError('Enter valid coordinates and a radius greater than 0 and no more than 100 km.');
-      return;
-    }
-    setSellerAreaSaving(true);
-    setSellerAreaError(null);
-    try {
-      const saved = await adminApi.updateSellerServiceArea({
-        centerLatitude, centerLongitude, radiusKm, enabled: Boolean(sellerAreaConfig.enabled),
-      });
-      setSellerAreaConfig((current: any) => ({ ...current, ...saved,
-        centerLatitude: String(saved.centerLatitude), centerLongitude: String(saved.centerLongitude),
-        radiusKm: String(saved.radiusKm), enabled: Boolean(saved.enabled),
-      }));
-      showToast('Seller registration area settings saved.', 'success');
-      await refreshSellerAreaConfiguration();
-    } catch (error: any) {
-      setSellerAreaError(error?.message || 'Unable to save seller registration area.');
-      showToast(error?.message || 'Unable to save seller registration area.', 'error');
-    } finally {
-      setSellerAreaSaving(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isRootAdmin && activeAdminTab === 'seller-area-config') void refreshSellerAreaConfiguration();
-  }, [activeAdminTab, isRootAdmin]);
-
-  const refreshDeliveryConfiguration = async () => {
-    setDeliveryConfigLoading(true);
-    setDeliveryConfigError(null);
-    try {
-      const config = await adminApi.getDeliveryConfiguration();
-      setDeliveryConfig({
-        nearbyRadiusKm: Number(config.nearbyRadiusKm ?? 3),
-        maxSellersPerBatch: Number(config.maxSellersPerBatch ?? 3),
-        maxRouteKm: Number(config.maxRouteKm ?? 10),
-        customerBaseFee: Number(config.customerBaseFee ?? 25),
-        customerPerKmFee: Number(config.customerPerKmFee ?? 5),
-        riderBasePayout: Number(config.riderBasePayout ?? 45),
-        riderPerKmPayout: Number(config.riderPerKmPayout ?? 22),
-        maxWaitMinutes: Number(config.maxWaitMinutes ?? 15),
-        otpResendTimeoutSeconds: Number(config.otpResendTimeoutSeconds ?? 20),
-        batchEnabled: config.batchEnabled === true || Number(config.batchEnabled) === 1,
-        flexibleFallback: config.flexibleFallback === true || Number(config.flexibleFallback) === 1,
-        storePickupEnabled: config.storePickupEnabled === true || Number(config.storePickupEnabled) === 1,
-        updatedAt: config.updatedAt,
-      });
-    } catch (error: any) {
-      setDeliveryConfigError(error?.message || 'Unable to load delivery configuration.');
-    } finally {
-      setDeliveryConfigLoading(false);
-    }
-  };
-
-  const saveDeliveryConfiguration = async () => {
-    if (!deliveryConfig || deliveryConfigSaving) return;
-    setDeliveryConfigSaving(true);
-    setDeliveryConfigError(null);
-    try {
-      const payload = {
-        nearbyRadiusKm: Number(deliveryConfig.nearbyRadiusKm),
-        maxSellersPerBatch: Number(deliveryConfig.maxSellersPerBatch),
-        maxRouteKm: Number(deliveryConfig.maxRouteKm),
-        customerBaseFee: Number(deliveryConfig.customerBaseFee),
-        customerPerKmFee: Number(deliveryConfig.customerPerKmFee),
-        riderBasePayout: Number(deliveryConfig.riderBasePayout),
-        riderPerKmPayout: Number(deliveryConfig.riderPerKmPayout),
-        maxWaitMinutes: Number(deliveryConfig.maxWaitMinutes),
-        otpResendTimeoutSeconds: Number(deliveryConfig.otpResendTimeoutSeconds),
-        batchEnabled: Boolean(deliveryConfig.batchEnabled),
-        flexibleFallback: Boolean(deliveryConfig.flexibleFallback),
-        storePickupEnabled: Boolean(deliveryConfig.storePickupEnabled),
-      };
-      const saved = await adminApi.updateDeliveryConfiguration(payload);
-      setDeliveryConfig((current: any) => ({ ...current, ...saved }));
-      showToast('Delivery charges and payout settings saved.', 'success');
-      await refreshDeliveryConfiguration();
-    } catch (error: any) {
-      setDeliveryConfigError(error?.message || 'Unable to save delivery configuration.');
-      showToast(error?.message || 'Unable to save delivery configuration.', 'error');
-    } finally {
-      setDeliveryConfigSaving(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isRootAdmin && activeAdminTab === 'delivery-config') void refreshDeliveryConfiguration();
-  }, [activeAdminTab, isRootAdmin]);
+  const {
+    documentSellerId,
+    sellerDocuments,
+    sellerDocumentsLoading,
+    sellerDocumentAction,
+    sellerDocumentError,
+    documentRejectionReasons,
+    setDocumentRejectionReasons,
+    loadSellerDocuments,
+    openSellerDocument,
+    scanSellerDocument,
+    reviewSellerDocument,
+  } = useSellerDocumentReview(showToast);
 
   const refreshDiagnostics = async () => {
     if (!isRootAdmin) return;
