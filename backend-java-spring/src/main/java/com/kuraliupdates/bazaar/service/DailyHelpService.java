@@ -101,12 +101,16 @@ public class DailyHelpService {
         }
 
         DailyHelpProfessionalSlotEntity slot = slotRepository.findLockedBySlotId(request.slotId().trim())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Selected Daily Help slot was not found"));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Selected Daily Help availability window was not found"));
 
         if (!"AVAILABLE".equals(slot.getStatus())) {
-            throw new ApiException(HttpStatus.CONFLICT, "This slot is already booked. Please select a different slot.");
+            throw new ApiException(HttpStatus.CONFLICT, "This availability window is no longer active. Please choose another.");
         }
-        DailyHelpProfessionalEntity professional = slot.getProfessional();
+        // Lock the professional row, not the availability window: multiple buyers may
+        // book different non-overlapping intervals inside the same window.
+        DailyHelpProfessionalEntity professional = professionalRepository.findLockedByProfessionalId(
+                        slot.getProfessional().getProfessionalId())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help professional not found"));
         if (!Integer.valueOf(1).equals(professional.getVerified())
                 || !"AVAILABLE".equalsIgnoreCase(professional.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "Selected Daily Help professional is not currently available");
@@ -117,19 +121,40 @@ public class DailyHelpService {
             throw new ApiException(HttpStatus.CONFLICT, "Selected professional is not available in your locality");
         }
 
-        LocalDateTime slotStart = slot.getSlotDate().atTime(slot.getStartTime());
-        LocalDateTime slotEnd = slot.getSlotDate().atTime(slot.getEndTime());
-        long slotMinutes = Duration.between(slotStart, slotEnd).toMinutes();
+        LocalDateTime windowStart = slot.getSlotDate().atTime(slot.getStartTime());
+        LocalDateTime windowEnd = slot.getSlotDate().atTime(slot.getEndTime());
+        LocalDateTime bookingStart = request.scheduledStart();
         long requestedMinutes = request.requestedHours().multiply(BigDecimal.valueOf(60)).longValueExact();
+        LocalDateTime bookingEnd = bookingStart.plusMinutes(requestedMinutes);
+        if (!bookingStart.toLocalDate().equals(slot.getSlotDate())
+                || bookingStart.isBefore(windowStart) || bookingEnd.isAfter(windowEnd)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Selected time and duration must fit within the helper's availability window");
+        }
+        if (bookingStart.isBefore(LocalDateTime.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Selected time has already started. Please choose a future time.");
+        }
+        if (bookingStart.getMinute() % 15 != 0 || bookingStart.getSecond() != 0 || bookingStart.getNano() != 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Booking start time must be in 15-minute increments");
+        }
 
-        if (!slotStart.equals(request.scheduledStart())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Please select the exact start time of the chosen slot");
-        }
-        if (slotMinutes != requestedMinutes) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Selected slot duration does not match the requested booking duration");
-        }
-        if (slotStart.isBefore(LocalDateTime.now())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Selected slot has already started. Please choose a future slot.");
+        // A 15-minute turnaround buffer is applied on both sides of existing
+        // bookings. The professional-row lock serializes this check for the helper.
+        LocalDateTime dayStart = slot.getSlotDate().atStartOfDay();
+        LocalDateTime nextDayStart = dayStart.plusDays(1);
+        boolean conflict = bookingRepository
+                .findByProfessionalProfessionalIdAndScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAsc(
+                        professional.getProfessionalId(), dayStart, nextDayStart)
+                .stream()
+                .filter(existing -> List.of("PROFESSIONAL_ASSIGNED", "ARRIVING", "READY_TO_START", "IN_PROGRESS")
+                        .contains(existing.getStatus()))
+                .anyMatch(existing -> {
+                    LocalDateTime existingEnd = existing.getScheduledStart().plusMinutes(
+                            existing.getRequestedHours().multiply(BigDecimal.valueOf(60)).longValue());
+                    return bookingStart.isBefore(existingEnd.plusMinutes(15))
+                            && bookingEnd.plusMinutes(15).isAfter(existing.getScheduledStart());
+                });
+        if (conflict) {
+            throw new ApiException(HttpStatus.CONFLICT, "That time is no longer available. Please select another start time.");
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -141,7 +166,7 @@ public class DailyHelpService {
                 .buyerPhone(request.buyerPhone().trim())
                 .address(request.address().trim())
                 .locality(request.locality() == null ? professional.getCurrentLocality() : request.locality().trim())
-                .scheduledStart(slotStart)
+                .scheduledStart(bookingStart)
                 .requestedHours(request.requestedHours())
                 .hourlyRate(service.getPricePerHour())
                 .estimatedTotal(service.getPricePerHour().multiply(request.requestedHours()))
@@ -153,11 +178,6 @@ public class DailyHelpService {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
-
-        slot.setStatus("BOOKED");
-        slot.setBookingId(booking.getBookingId());
-        slot.setUpdatedAt(now);
-        slotRepository.save(slot);
 
         DailyHelpBookingEntity saved = bookingRepository.save(booking);
         return DailyHelpBookingResponse.from(saved, shouldExposeOtp(saved));
