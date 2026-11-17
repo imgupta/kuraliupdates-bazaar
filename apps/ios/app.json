@@ -15,13 +15,11 @@
         "ITSAppUsesNonExemptEncryption": false
       }
     },
-    "plugins": ["expo-secure-store"],
-    "platforms": ["ios"],
-    "extra": {
-      "apiBaseUrl": "https://kuraliupdates-bazaar.onrender.com/api/v1",
-      "eas": {
-        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
-      }
-    }
+    "plugins": [
+      "expo-secure-store"
+    ],
+    "platforms": [
+      "ios"
+    ]
   }
 }
