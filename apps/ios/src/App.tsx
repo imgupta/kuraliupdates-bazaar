@@ -40,6 +40,15 @@ export default function App() {
   const [sellerProductMrp, setSellerProductMrp] = useState('');
   const [sellerProductPrice, setSellerProductPrice] = useState('');
   const [sellerProductStock, setSellerProductStock] = useState('1');
+  const [discountDescription, setDiscountDescription] = useState('');
+  const [discountMinimum, setDiscountMinimum] = useState('0');
+  const [discountPercent, setDiscountPercent] = useState('');
+  const [professionalEarnings, setProfessionalEarnings] = useState<MobileRecord | null>(null);
+  const [professionalSlots, setProfessionalSlots] = useState<MobileRecord[]>([]);
+  const [slotDate, setSlotDate] = useState(() => new Date().toISOString().slice(0,10));
+  const [slotStart, setSlotStart] = useState('09:00');
+  const [slotEnd, setSlotEnd] = useState('12:00');
+
   const [helpServices, setHelpServices] = useState<MobileRecord[]>([]);
   const [helpSlots, setHelpSlots] = useState<MobileRecord[]>([]);
   const [helpBookings, setHelpBookings] = useState<MobileRecord[]>([]);
@@ -91,17 +100,17 @@ export default function App() {
     setLoadingData(true);
     try {
       if (activeRole === 'SELLER') {
-        const [profile, products, orders] = await Promise.all([mobileApi.sellerMe(session.token), mobileApi.sellerProducts(session.token), mobileApi.sellerOrders(session.token)]);
-        setRoleData({ profile, products, orders });
+        const [profile, products, orders, discounts, bargaining] = await Promise.all([mobileApi.sellerMe(session.token), mobileApi.sellerProducts(session.token), mobileApi.sellerOrders(session.token), mobileApi.sellerDiscounts(session.token), mobileApi.bargainList(session.token, 'SELLER')]);
+        setRoleData({ profile, products, orders, discounts, bargaining });
       } else if (activeRole === 'DELIVERY') {
         const [profile, available, mine] = await Promise.all([mobileApi.deliveryMe(session.token), mobileApi.deliveryAvailable(session.token), mobileApi.deliveryMine(session.token)]);
-        setRoleData({ profile, available, mine });
+        setProfessionalEarnings(earnings); setProfessionalSlots(slots); setRoleData({ profile, available, mine });
       } else if (activeRole === 'PROFESSIONAL') {
         if (!session.user.phone) throw new Error('Your account needs a verified phone number for Daily Help.');
         const profile = await mobileApi.dailyProfessional(session.token, session.user.phone);
         const id = String(profile.professionalId || profile.id || '');
         if (!id) throw new Error('Daily Help professional profile is not available yet. Complete registration and wait for admin review.');
-        const [available, mine] = await Promise.all([mobileApi.dailyAvailable(session.token, id), mobileApi.dailyMine(session.token, id)]);
+        const [available, mine, earnings, slots] = await Promise.all([mobileApi.dailyAvailable(session.token, id), mobileApi.dailyMine(session.token, id), mobileApi.dailyEarnings(session.token, id), mobileApi.dailyProfessionalSlots(session.token, id, slotDate)]);
         setRoleData({ profile, available, mine });
       } else {
         setRoleData({});
@@ -110,7 +119,7 @@ export default function App() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to load this role dashboard.');
     } finally { setLoadingData(false); }
-  }, [session, activeRole]);
+  }, [session, activeRole, slotDate]);
 
   const runRoleAction = async (key: string, action: () => Promise<unknown>) => {
     setRoleActionBusy(key); setError('');
@@ -196,6 +205,20 @@ export default function App() {
   };
 
 
+
+  const createSellerDiscount = async () => {
+    if (!session) return;
+    const minimum = Number(discountMinimum), percentage = Number(discountPercent);
+    if (!discountDescription.trim() || !Number.isFinite(minimum) || minimum < 0 || !Number.isFinite(percentage) || percentage <= 0 || percentage > 100) { setError('Enter a description, minimum bill (zero or more), and percentage from 0 to 100.'); return; }
+    await runRoleAction('seller-discount', () => mobileApi.sellerCreateDiscount(session.token, { minBillAmount: minimum, discountPercentage: percentage, flatDiscount: 0, description: discountDescription.trim() }));
+    setDiscountDescription(''); setDiscountPercent('');
+  };
+  const createProfessionalSlot = async () => {
+    if (!session) return;
+    const id = String(roleData.profile?.professionalId || roleData.profile?.id || '');
+    if (!id || !/^\\d{4}-\\d{2}-\\d{2}$/.test(slotDate) || !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(slotStart) || !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(slotEnd) || slotStart >= slotEnd) { setError('Enter a valid date and time window; end time must be after start time.'); return; }
+    await runRoleAction('professional-slot', () => mobileApi.dailyCreateSlot(session.token, id, { slotDate, startTime: slotStart, endTime: slotEnd }));
+  };
   const createSellerProduct = async () => {
     if (!session) return;
     const mrp = Number(sellerProductMrp), sellerPrice = Number(sellerProductPrice), stock = Number(sellerProductStock);
@@ -369,12 +392,18 @@ export default function App() {
             <Pressable style={styles.primary} disabled={!!roleActionBusy} onPress={() => void createSellerProduct()}><Text style={styles.primaryText}>Create product</Text></Pressable>
           </View>
           {(roleData.products || []).map((p: MobileRecord, i: number) => <View key={String(p.productId || p.id || i)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(p.title || p.name || 'Product')}</Text><Text style={styles.muted}>Stock: {String(p.stock ?? '—')} · Price: {money(p.sellerPrice ?? p.price)}</Text><Pressable style={styles.secondary} onPress={() => deleteSellerProduct(p)}><Text style={styles.secondaryText}>Delete product</Text></Pressable></View>)}
+          <Text style={styles.sectionTitle}>Bill discounts</Text>
+          <View style={styles.orderCard}><TextInput value={discountDescription} onChangeText={setDiscountDescription} placeholder="Discount description" style={styles.input}/><TextInput value={discountMinimum} onChangeText={setDiscountMinimum} placeholder="Minimum bill ₹" keyboardType="decimal-pad" style={styles.input}/><TextInput value={discountPercent} onChangeText={setDiscountPercent} placeholder="Discount percent" keyboardType="decimal-pad" style={styles.input}/><Pressable style={styles.primary} onPress={() => void createSellerDiscount()}><Text style={styles.primaryText}>Create bill discount</Text></Pressable></View>
+          {(roleData.discounts || []).map((d:MobileRecord,i:number) => <View key={String(d.ruleId || i)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(d.description || 'Bill discount')}</Text><Text style={styles.muted}>{String(d.discountPercentage ?? 0)}% off above {money(d.minBillAmount)}</Text><Pressable style={styles.secondary} onPress={() => void runRoleAction('discount-delete', () => mobileApi.sellerDeleteDiscount(session.token,String(d.ruleId)))}><Text style={styles.secondaryText}>Delete discount</Text></Pressable></View>)}
           <Text style={styles.sectionTitle}>Orders ({roleData.orders?.length || 0})</Text>
-          {(roleData.orders || []).map((o: MobileRecord, i: number) => <View key={String(o.orderId || o.id || i)} style={styles.orderCard}><Text style={styles.orderTitle}>Order #{String(o.orderId || o.id || '—')}</Text><Text style={styles.muted}>{String(o.status || '—').replaceAll('_',' ')}</Text><Text style={styles.muted}>Status updates remain server-controlled; use the seller portal for the full fulfilment workflow.</Text></View>)}
+          {(roleData.orders || []).map((o: MobileRecord, i: number) => <View key={String(o.orderId || o.id || i)} style={styles.orderCard}><Text style={styles.orderTitle}>Order #{String(o.orderId || o.id || '—')}</Text><Text style={styles.muted}>{String(o.status || '—').replaceAll('_',' ')}</Text>{String(o.status || '').toUpperCase() === 'PLACED' && <Pressable style={styles.primary} onPress={() => void runRoleAction('order-accept', () => mobileApi.sellerOrderStatus(session.token,String(o.orderId || o.id),'ACCEPTED_BY_SELLER'))}><Text style={styles.primaryText}>Accept order</Text></Pressable>}{String(o.status || '').toUpperCase() === 'ACCEPTED_BY_SELLER' && <Pressable style={styles.primary} onPress={() => void runRoleAction('order-ready', () => mobileApi.sellerOrderStatus(session.token,String(o.orderId || o.id),'READY_FOR_PICKUP'))}><Text style={styles.primaryText}>Mark ready for pickup</Text></Pressable>}</View>)}
         </>}
         {activeRole === 'DELIVERY' && <>
           <Text style={styles.muted}>Agent: {String(roleData.profile?.agentId || roleData.profile?.id || '—')} · Status: {String(roleData.profile?.status || '—')}</Text>
           <Pressable style={styles.primary} onPress={() => void runRoleAction('availability', () => mobileApi.deliveryAvailability(session.token, !(roleData.profile?.available ?? false)))}><Text style={styles.primaryText}>{roleData.profile?.available ? 'Go offline' : 'Go online'}</Text></Pressable>
+          <Text style={styles.sectionTitle}>Earnings</Text><View style={styles.orderCard}><Text style={styles.price}>{money(professionalEarnings?.totalEarnings ?? professionalEarnings?.earnings ?? 0)}</Text><Text style={styles.muted}>Completed jobs: {String(professionalEarnings?.completedJobs ?? '—')}</Text></View>
+          <Text style={styles.sectionTitle}>Availability slots</Text><View style={styles.orderCard}><TextInput value={slotDate} onChangeText={setSlotDate} placeholder="Date YYYY-MM-DD" style={styles.input}/><TextInput value={slotStart} onChangeText={setSlotStart} placeholder="Start HH:MM" style={styles.input}/><TextInput value={slotEnd} onChangeText={setSlotEnd} placeholder="End HH:MM" style={styles.input}/><Pressable style={styles.primary} onPress={() => void createProfessionalSlot()}><Text style={styles.primaryText}>Add availability slot</Text></Pressable></View>
+          {professionalSlots.map((slot,i) => <View key={String(slot.slotId || i)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(slot.startTime || '')}–{String(slot.endTime || '')}</Text><Text style={styles.muted}>{String(slot.status || '')}</Text>{String(slot.status || '').toUpperCase() === 'AVAILABLE' && <Pressable style={styles.secondary} onPress={() => void runRoleAction('cancel-slot', () => mobileApi.dailyCancelSlot(session.token,String(roleData.profile?.professionalId || roleData.profile?.id),String(slot.slotId)))}><Text style={styles.secondaryText}>Cancel slot</Text></Pressable>}</View>)}
           <Text style={styles.sectionTitle}>Available jobs ({roleData.available?.length || 0})</Text>
           {(roleData.available || []).map((job: MobileRecord, i: number) => { const id=String(job.orderId || job.id || ''); const agentId=String(roleData.profile?.agentId || roleData.profile?.id || ''); return <View key={id || i} style={styles.orderCard}><Text style={styles.orderTitle}>Order #{id || '—'}</Text><Text style={styles.muted}>{String(job.deliveryAddress || job.address || 'Delivery details shown after assignment')}</Text><Pressable disabled={!id || !agentId || !!roleActionBusy} style={styles.primary} onPress={() => void runRoleAction('claim:'+id, () => mobileApi.deliveryClaim(session.token,id,agentId))}><Text style={styles.primaryText}>Claim delivery</Text></Pressable></View>; })}
           <Text style={styles.sectionTitle}>My deliveries ({roleData.mine?.length || 0})</Text>
