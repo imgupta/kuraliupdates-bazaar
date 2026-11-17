@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useEffect } from 'react';
+import { useEffect, type Dispatch, type SetStateAction } from 'react';
 import { adminApi } from '../../services/domains/adminApi';
 
 interface UseAdminDashboardRefreshOptions {

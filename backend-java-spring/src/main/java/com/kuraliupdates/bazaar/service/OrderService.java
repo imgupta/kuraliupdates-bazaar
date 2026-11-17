@@ -33,7 +33,6 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final SellerRepository sellerRepository;
     private final ProductRepository productRepository;
-    private final OrderBuyerAccessPolicy orderBuyerAccessPolicy;
     private final JdbcTemplate jdbc;
     private final DeliveryConfigurationService deliveryConfigurationService;
     private final GoogleRoutesService googleRoutesService;
@@ -213,7 +212,7 @@ public class OrderService {
                         "SELECT m.OFFER_PRICE FROM CHAT_MESSAGES m JOIN NEGOTIATION_CHATS c ON c.CHAT_ID=m.CHAT_ID WHERE m.MESSAGE_ID=? AND m.OFFER_STATUS='ACCEPTED' AND c.PRODUCT_ID=? AND c.SELLER_ID=? AND LOWER(c.BUYER_EMAIL)=? AND c.CURRENT_AGREED_PRICE=m.OFFER_PRICE AND c.BARGAIN_STATUS='ACCEPTED' AND c.EXPIRES_AT IS NULL",
                         rs -> rs.next() ? rs.getBigDecimal(1) : null,
                         acceptedOfferId, product.getProductId(), productSeller.getSellerId(),
-                        buyer.getEmail() == null ? "" : orderBuyerAccessPolicy.normalizedEmail(buyer.getEmail()));
+                        buyer.getEmail() == null ? "" : OrderBuyerAccessPolicy.normalizedEmail(buyer.getEmail()));
                 if (negotiatedPrice == null || (clientNegotiatedPrices.containsKey(entry.getKey())
                         && clientNegotiatedPrices.get(entry.getKey()).compareTo(negotiatedPrice) != 0)) {
                     throw new ApiException(HttpStatus.CONFLICT, "The negotiated price is no longer valid. Reopen the chat and add the accepted offer to your cart again.");
@@ -224,7 +223,7 @@ public class OrderService {
                 List<String> pendingChats = jdbc.query(
                         "SELECT CHAT_ID FROM NEGOTIATION_CHATS WHERE PRODUCT_ID=? AND LOWER(BUYER_EMAIL)=? AND BARGAIN_STATUS IN ('PENDING_SELLER','PENDING_BUYER') FOR UPDATE",
                         (rs, row) -> rs.getString(1), entry.getKey(),
-                        buyer.getEmail() == null ? "" : orderBuyerAccessPolicy.normalizedEmail(buyer.getEmail()));
+                        buyer.getEmail() == null ? "" : OrderBuyerAccessPolicy.normalizedEmail(buyer.getEmail()));
                 if (pendingChats != null) for (String pendingChatId : pendingChats) {
                     jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS='CLOSED_PURCHASED', EXPIRES_AT=NULL, CLOSED_AT=?, LAST_UPDATED=? WHERE CHAT_ID=? AND BARGAIN_STATUS IN ('PENDING_SELLER','PENDING_BUYER')",
                             Timestamp.valueOf(LocalDateTime.now()), Timestamp.valueOf(LocalDateTime.now()), pendingChatId);
@@ -337,11 +336,11 @@ public class OrderService {
             }
         }
         String buyerEmail = buyer.getEmail().trim().toLowerCase(Locale.ROOT);
-        if (!orderBuyerAccessPolicy.owns(requested, buyerEmail)) {
+        if (!OrderBuyerAccessPolicy.owns(requested, buyerEmail)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
         }
         if (group == null || group.isEmpty()
-                || group.stream().anyMatch(order -> !orderBuyerAccessPolicy.owns(order, buyerEmail))) {
+                || group.stream().anyMatch(order -> !OrderBuyerAccessPolicy.owns(order, buyerEmail))) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
         }
         if (group.stream().allMatch(order -> "CANCELLED".equalsIgnoreCase(order.getStatus()))) {
@@ -428,7 +427,7 @@ public class OrderService {
         }
         OrderEntity order = orderRepository.findLockedByOrderId(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
-        if (!orderBuyerAccessPolicy.owns(order, buyer.getEmail())) {
+        if (!OrderBuyerAccessPolicy.owns(order, buyer.getEmail())) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
         }
         if (!"STORE_PICKUP".equalsIgnoreCase(order.getFulfilmentMode())) {
@@ -463,7 +462,7 @@ public class OrderService {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only the owning buyer can track this order");
         }
         OrderEntity order = orderRepository.findById(orderId)
-                .filter(candidate -> orderBuyerAccessPolicy.owns(candidate, buyer.getEmail()))
+                .filter(candidate -> OrderBuyerAccessPolicy.owns(candidate, buyer.getEmail()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
         return OrderResponse.from(order);
     }

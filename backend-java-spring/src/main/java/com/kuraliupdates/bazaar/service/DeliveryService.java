@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.security.SecureRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @RequiredArgsConstructor
@@ -27,7 +28,7 @@ public class DeliveryService {
     private final DeliveryAgentRepository agentRepository;
     private final OrderRepository orderRepository;
     private final JdbcTemplate jdbc;
-    private final DeliveryOtpResendGuard deliveryOtpResendGuard;
+    private final AtomicInteger resendGuardCleanupCounter = new AtomicInteger();
     private final GoogleRoutesService googleRoutesService;
     @Transactional
     public DeliveryAgentEntity updateAvailability(com.kuraliupdates.bazaar.entity.UserEntity user, boolean available) {
@@ -235,7 +236,7 @@ public class DeliveryService {
         String resendKey = combined
                 ? "batch:" + order.getCombinedDeliveryBatchId()
                 : "order:" + orderId;
-        deliveryOtpResendGuard.requireAllowed(resendKey);
+        DeliveryOtpResendGuard.requireAllowed(jdbc, resendGuardCleanupCounter, resendKey);
 
         String newOtp = String.format("%04d", secureRandom.nextInt(10_000));
         LocalDateTime now = LocalDateTime.now();

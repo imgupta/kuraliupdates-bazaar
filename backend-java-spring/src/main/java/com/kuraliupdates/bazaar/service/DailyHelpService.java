@@ -44,7 +44,7 @@ public class DailyHelpService {
     private final DailyHelpProfessionalRepository professionalRepository;
     private final DailyHelpBookingRepository bookingRepository;
     private final DailyHelpProfessionalSlotRepository slotRepository;
-    private final DailyHelpOtpGenerator otpGenerator;
+    private final DailyHelpOtpGenerator otpGenerator = new DailyHelpOtpGenerator();
 
     @Transactional(readOnly = true)
     public List<DailyHelpServiceResponse> getActiveServices() {

@@ -44,7 +44,6 @@ public class AuthService {
     private final SellerRepository sellerRepository;
     private final DeliveryAgentRepository deliveryAgentRepository;
     private final DailyHelpProfessionalRepository dailyHelpProfessionalRepository;
-    private final AuthProfileResolver authProfileResolver;
     private final OtpService otpService;
     private final BuyerAddressService addressService;
     private final SellerServiceAreaService sellerServiceAreaService;
@@ -154,9 +153,9 @@ public class AuthService {
     private List<String> registeredRoles(UserEntity user) {
         java.util.LinkedHashSet<String> roles = new java.util.LinkedHashSet<>();
         roles.add("BUYER");
-        if (authProfileResolver.sellerProfileExists(user)) roles.add("SELLER");
-        if (authProfileResolver.deliveryProfileExists(user)) roles.add("DELIVERY");
-        if (authProfileResolver.professionalProfileExists(user)) roles.add("PROFESSIONAL");
+        if (AuthProfileResolver.sellerProfileExists(user, sellerRepository)) roles.add("SELLER");
+        if (AuthProfileResolver.deliveryProfileExists(user, deliveryAgentRepository)) roles.add("DELIVERY");
+        if (AuthProfileResolver.professionalProfileExists(user, dailyHelpProfessionalRepository)) roles.add("PROFESSIONAL");
         if (isRootAdminEmail(user.getEmail())) roles.add("ADMIN");
         return List.copyOf(roles);
     }
@@ -190,13 +189,13 @@ public class AuthService {
         // A single account can own multiple profiles. Resolve approval from the
         // profile requested by the UI instead of the account's primary role.
         if ("SELLER".equals(role)) {
-            status = authProfileResolver.findSellerProfile(user)
+            status = AuthProfileResolver.findSellerProfile(user, sellerRepository)
                     .map(SellerEntity::getStatus).orElse("PENDING");
         } else if ("DELIVERY".equals(role)) {
-            status = authProfileResolver.findDeliveryProfile(user)
+            status = AuthProfileResolver.findDeliveryProfile(user, deliveryAgentRepository)
                     .map(DeliveryAgentEntity::getStatus).orElse("PENDING");
         } else if ("PROFESSIONAL".equals(role)) {
-            status = authProfileResolver.findProfessionalProfile(user)
+            status = AuthProfileResolver.findProfessionalProfile(user, dailyHelpProfessionalRepository)
                     .map(p -> Integer.valueOf(1).equals(p.getVerified()) ? "APPROVED" : "PENDING").orElse("PENDING");
         }
 
@@ -413,9 +412,9 @@ public class AuthService {
     private boolean hasRole(UserEntity user, String role) {
         if ("ADMIN".equalsIgnoreCase(user.getRole()) && "ADMIN".equals(role)) return true;
         if ("BUYER".equals(role) && "BUYER".equalsIgnoreCase(user.getRole())) return true;
-        if ("SELLER".equals(role)) return authProfileResolver.sellerProfileExists(user);
-        if ("DELIVERY".equals(role)) return authProfileResolver.deliveryProfileExists(user);
-        if ("PROFESSIONAL".equals(role)) return authProfileResolver.professionalProfileExists(user);
+        if ("SELLER".equals(role)) return AuthProfileResolver.sellerProfileExists(user, sellerRepository);
+        if ("DELIVERY".equals(role)) return AuthProfileResolver.deliveryProfileExists(user, deliveryAgentRepository);
+        if ("PROFESSIONAL".equals(role)) return AuthProfileResolver.professionalProfileExists(user, dailyHelpProfessionalRepository);
         return false;
     }
 
@@ -428,9 +427,9 @@ public class AuthService {
     private boolean hasStagingE2eRole(UserEntity user, String role) {
         return switch (role) {
             case "BUYER" -> true;
-            case "SELLER" -> authProfileResolver.sellerProfileExists(user);
-            case "DELIVERY" -> authProfileResolver.deliveryProfileExists(user);
-            case "PROFESSIONAL" -> authProfileResolver.professionalProfileExists(user);
+            case "SELLER" -> AuthProfileResolver.sellerProfileExists(user, sellerRepository);
+            case "DELIVERY" -> AuthProfileResolver.deliveryProfileExists(user, deliveryAgentRepository);
+            case "PROFESSIONAL" -> AuthProfileResolver.professionalProfileExists(user, dailyHelpProfessionalRepository);
             case "ADMIN" -> isRootAdminEmail(user.getEmail());
             default -> false;
         };

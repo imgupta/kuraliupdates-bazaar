@@ -1,12 +1,10 @@
 package com.kuraliupdates.bazaar.service;
 
 import com.kuraliupdates.bazaar.exception.ApiException;
-import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -18,9 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Database-backed, cross-instance resend guard for delivery OTPs.
  * It participates in the caller's transaction and does not create a new one.
  */
-@Service
-@RequiredArgsConstructor
-public class DeliveryOtpResendGuard {
+public final class DeliveryOtpResendGuard {
     private static final String DELIVERY_OTP_RESEND_GUARD_MERGE = """
             MERGE INTO API_RATE_LIMIT_BUCKETS target
             USING (
@@ -37,10 +33,9 @@ public class DeliveryOtpResendGuard {
     private static final String DELIVERY_OTP_RESEND_GUARD_CLEANUP =
             "DELETE FROM API_RATE_LIMIT_BUCKETS WHERE WINDOW_START = TIMESTAMP '1970-01-01 00:00:00' AND EXPIRES_AT < SYSTIMESTAMP";
 
-    private final JdbcTemplate jdbc;
-    private final AtomicInteger cleanupCounter = new AtomicInteger();
+    private DeliveryOtpResendGuard() {}
 
-    public void requireAllowed(String rawKey) {
+    public static void requireAllowed(JdbcTemplate jdbc, AtomicInteger cleanupCounter, String rawKey) {
         String resendKey = hashResendKey(rawKey);
         int updated;
         try {
@@ -71,12 +66,12 @@ public class DeliveryOtpResendGuard {
         }
     }
 
-    private ApiException unavailable() {
+    private static ApiException unavailable() {
         return new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
                 "Delivery OTP resend protection is temporarily unavailable");
     }
 
-    private String hashResendKey(String value) {
+    private static String hashResendKey(String value) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")
                     .digest(("delivery-otp-resend\n" + value).getBytes(StandardCharsets.UTF_8));

@@ -7,8 +7,6 @@ import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.repository.DailyHelpProfessionalRepository;
 import com.kuraliupdates.bazaar.repository.DeliveryAgentRepository;
 import com.kuraliupdates.bazaar.repository.SellerRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
@@ -17,14 +15,9 @@ import java.util.Optional;
  * USER_ID is authoritative; email/phone fallbacks are retained only for the
  * legacy profile shapes that historically supported them.
  */
-@Service
-@RequiredArgsConstructor
-public class AuthProfileResolver {
-    private final SellerRepository sellerRepository;
-    private final DeliveryAgentRepository deliveryAgentRepository;
-    private final DailyHelpProfessionalRepository dailyHelpProfessionalRepository;
+public final class AuthProfileResolver {
 
-    public Optional<SellerEntity> findSellerProfile(UserEntity user) {
+    public static Optional<SellerEntity> findSellerProfile(UserEntity user, SellerRepository sellerRepository) {
         if (user.getUserId() != null) {
             Optional<SellerEntity> linked = sellerRepository.findByUserId(user.getUserId());
             if (linked.isPresent()) return linked;
@@ -36,11 +29,11 @@ public class AuthProfileResolver {
         return user.getPhone() == null ? Optional.empty() : sellerRepository.findByPhone(user.getPhone());
     }
 
-    public boolean sellerProfileExists(UserEntity user) {
-        return findSellerProfile(user).isPresent();
+    public static boolean sellerProfileExists(UserEntity user, SellerRepository sellerRepository) {
+        return findSellerProfile(user, sellerRepository).isPresent();
     }
 
-    public Optional<DeliveryAgentEntity> findDeliveryProfile(UserEntity user) {
+    public static Optional<DeliveryAgentEntity> findDeliveryProfile(UserEntity user, DeliveryAgentRepository deliveryAgentRepository) {
         if (user.getUserId() == null || user.getUserId().isBlank()) return Optional.empty();
         Optional<DeliveryAgentEntity> linked = deliveryAgentRepository.findByUserId(user.getUserId());
         if (linked.isPresent()) return linked;
@@ -52,11 +45,11 @@ public class AuthProfileResolver {
                 .filter(profile -> profile.getUserId() == null || profile.getUserId().isBlank());
     }
 
-    public boolean deliveryProfileExists(UserEntity user) {
-        return findDeliveryProfile(user).isPresent();
+    public static boolean deliveryProfileExists(UserEntity user, DeliveryAgentRepository deliveryAgentRepository) {
+        return findDeliveryProfile(user, deliveryAgentRepository).isPresent();
     }
 
-    public Optional<DailyHelpProfessionalEntity> findProfessionalProfile(UserEntity user) {
+    public static Optional<DailyHelpProfessionalEntity> findProfessionalProfile(UserEntity user, DailyHelpProfessionalRepository dailyHelpProfessionalRepository) {
         if (user.getUserId() != null) {
             Optional<DailyHelpProfessionalEntity> linked =
                     dailyHelpProfessionalRepository.findByUserId(user.getUserId());
@@ -66,7 +59,7 @@ public class AuthProfileResolver {
                 : dailyHelpProfessionalRepository.findByPhone(user.getPhone());
     }
 
-    public boolean professionalProfileExists(UserEntity user) {
-        return findProfessionalProfile(user).isPresent();
+    public static boolean professionalProfileExists(UserEntity user, DailyHelpProfessionalRepository dailyHelpProfessionalRepository) {
+        return findProfessionalProfile(user, dailyHelpProfessionalRepository).isPresent();
     }
 }
