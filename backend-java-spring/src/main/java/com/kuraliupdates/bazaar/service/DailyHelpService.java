@@ -258,7 +258,28 @@ public class DailyHelpService {
             throw new ApiException(HttpStatus.FORBIDDEN, "You can only manage your own Daily Help slots");
         }
         if ("BOOKED".equals(slot.getStatus())) {
-            throw new ApiException(HttpStatus.CONFLICT, "A booked slot cannot be removed");
+            throw new ApiException(HttpStatus.CONFLICT, "A booked legacy slot cannot be removed");
+        }
+        DailyHelpProfessionalEntity lockedProfessional = professionalRepository
+                .findLockedByProfessionalId(professionalId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help professional not found"));
+        LocalDateTime windowStart = slot.getSlotDate().atTime(slot.getStartTime());
+        LocalDateTime windowEnd = slot.getSlotDate().atTime(slot.getEndTime());
+        boolean hasActiveBooking = bookingRepository
+                .findByProfessionalProfessionalIdAndScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAsc(
+                        lockedProfessional.getProfessionalId(), slot.getSlotDate().atStartOfDay(),
+                        slot.getSlotDate().plusDays(1).atStartOfDay())
+                .stream()
+                .filter(existing -> List.of("PROFESSIONAL_ASSIGNED", "ARRIVING", "READY_TO_START", "IN_PROGRESS")
+                        .contains(existing.getStatus()))
+                .anyMatch(existing -> {
+                    LocalDateTime existingEnd = existing.getScheduledStart().plusMinutes(
+                            existing.getRequestedHours().multiply(BigDecimal.valueOf(60)).longValue());
+                    return existing.getScheduledStart().isBefore(windowEnd)
+                            && existingEnd.isAfter(windowStart);
+                });
+        if (hasActiveBooking) {
+            throw new ApiException(HttpStatus.CONFLICT, "This availability window contains an active booking and cannot be removed");
         }
         slot.setStatus("CANCELLED");
         slot.setUpdatedAt(LocalDateTime.now());
