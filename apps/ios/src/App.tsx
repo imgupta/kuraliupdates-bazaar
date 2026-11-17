@@ -115,7 +115,7 @@ export default function App() {
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roleTabs}>
         {registeredRoles.map(role => <Pressable key={role} disabled={roleBusy} onPress={() => void switchRole(role)} style={[styles.roleChip, (session.user.role || 'BUYER').toUpperCase() === role && styles.roleChipActive]}>
-          <Text style={[styles.roleChipText, (session.user.role || 'BUYER').toUpperCase() === role && styles.roleChipTextActive]}>{role === 'DAILY_HELP_PROFESSIONAL' ? 'Daily Help' : role === 'DELIVERY' ? 'Delivery' : role[0] + role.slice(1).toLowerCase()}</Text>
+          <Text style={[styles.roleChipText, (session.user.role || 'BUYER').toUpperCase() === role && styles.roleChipTextActive]}>{role === 'PROFESSIONAL' ? 'Daily Help' : role === 'DELIVERY' ? 'Delivery' : role[0] + role.slice(1).toLowerCase()}</Text>
         </Pressable>)}
         {roleBusy && <ActivityIndicator color="#087f5b" />}
       </ScrollView>
