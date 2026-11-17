@@ -4,7 +4,7 @@ import {
   SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { getMyOrders, Product, searchProducts, sendLoginOtp, LoginChannel, verifyLoginOtp, getRegisteredRoles, createRoleHandoff, redeemRoleHandoff, getRoleOnboardingStatus, MobileRole } from './api';
+import { getMyOrders, Product, searchProducts, sendLoginOtp, LoginChannel, verifyLoginOtp, getRegisteredRoles, createRoleHandoff, redeemRoleHandoff, getRoleOnboardingStatus, MobileRole, mobileApi, MobileRecord } from './api';
 import { clearSession, MobileUser, readSession, saveSession } from './session';
 
 type Tab = 'shop' | 'orders' | 'account';
@@ -28,6 +28,9 @@ export default function App() {
   const [registeredRoles, setRegisteredRoles] = useState<MobileRole[]>(['BUYER']);
   const [roleBusy, setRoleBusy] = useState(false);
   const [roleStatus, setRoleStatus] = useState('');
+  const [roleData, setRoleData] = useState<MobileRecord>({});
+  const [roleOtp, setRoleOtp] = useState('');
+  const [roleActionBusy, setRoleActionBusy] = useState('');
 
   useEffect(() => {
     readSession().then(setSession).finally(() => setBooting(false));
@@ -53,6 +56,41 @@ export default function App() {
   useEffect(() => {
     if (session) void loadShop();
   }, [session, loadShop]);
+
+
+  const activeRole = ((session?.user.role || 'BUYER').toUpperCase() as MobileRole);
+  const refreshRoleDashboard = useCallback(async () => {
+    if (!session) return;
+    setLoadingData(true);
+    try {
+      if (activeRole === 'SELLER') {
+        const [profile, products, orders] = await Promise.all([mobileApi.sellerMe(session.token), mobileApi.sellerProducts(session.token), mobileApi.sellerOrders(session.token)]);
+        setRoleData({ profile, products, orders });
+      } else if (activeRole === 'DELIVERY') {
+        const [profile, available, mine] = await Promise.all([mobileApi.deliveryMe(session.token), mobileApi.deliveryAvailable(session.token), mobileApi.deliveryMine(session.token)]);
+        setRoleData({ profile, available, mine });
+      } else if (activeRole === 'PROFESSIONAL') {
+        if (!session.user.phone) throw new Error('Your account needs a verified phone number for Daily Help.');
+        const profile = await mobileApi.dailyProfessional(session.token, session.user.phone);
+        const id = String(profile.professionalId || profile.id || '');
+        if (!id) throw new Error('Daily Help professional profile is not available yet. Complete registration and wait for admin review.');
+        const [available, mine] = await Promise.all([mobileApi.dailyAvailable(session.token, id), mobileApi.dailyMine(session.token, id)]);
+        setRoleData({ profile, available, mine });
+      } else {
+        setRoleData({});
+      }
+      setError('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to load this role dashboard.');
+    } finally { setLoadingData(false); }
+  }, [session, activeRole]);
+
+  const runRoleAction = async (key: string, action: () => Promise<unknown>) => {
+    setRoleActionBusy(key); setError('');
+    try { await action(); await refreshRoleDashboard(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Action failed.'); }
+    finally { setRoleActionBusy(''); }
+  };
 
   const switchRole = useCallback(async (role: MobileRole) => {
     if (!session || roleBusy || (session.user.role || 'BUYER').toUpperCase() === role) return;
@@ -90,6 +128,8 @@ export default function App() {
       .catch(() => { if (active) setRegisteredRoles(['BUYER']); });
     return () => { active = false; };
   }, [session]);
+
+  useEffect(() => { if (session && activeRole !== 'BUYER') void refreshRoleDashboard(); }, [session, activeRole, refreshRoleDashboard]);
 
   const sendCode = async () => {
     if (!identifier.trim()) { setError(channel === 'PHONE' ? 'Enter your mobile number.' : 'Enter your email address.'); return; }
@@ -163,6 +203,40 @@ export default function App() {
       <View style={styles.tabs}>
         {(['shop', 'orders', 'account'] as Tab[]).map(item => <Pressable key={item} onPress={() => setTab(item)} style={[styles.tab, tab === item && styles.tabSelected]}><Text style={[styles.tabText, tab === item && styles.tabTextSelected]}>{item === 'shop' ? 'Shop' : item === 'orders' ? 'My orders' : 'Account'}</Text></Pressable>)}
       </View>
+      {activeRole === 'BUYER' && <View style={styles.tabs}>
+        {(['shop', 'orders', 'account'] as Tab[]).map(item => <Pressable key={item} onPress={() => setTab(item)} style={[styles.tab, tab === item && styles.tabSelected]}><Text style={[styles.tabText, tab === item && styles.tabTextSelected]}>{item === 'shop' ? 'Shop' : item === 'orders' ? 'My orders' : 'Account'}</Text></Pressable>)}
+      </View>}
+      {activeRole !== 'BUYER' && <ScrollView contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={loadingData} onRefresh={refreshRoleDashboard} />}>
+        <Text style={styles.sectionTitle}>{activeRole === 'SELLER' ? 'Seller workspace' : activeRole === 'DELIVERY' ? 'Delivery workspace' : 'Daily Help workspace'}</Text>
+        {!!roleStatus && <Text style={styles.muted}>{roleStatus}</Text>}
+        {activeRole === 'SELLER' && <>
+          <Text style={styles.sectionTitle}>Store</Text>
+          <Text style={styles.muted}>{String(roleData.profile?.storeName || roleData.profile?.name || 'Your store')}</Text>
+          <Text style={styles.muted}>Approval: {String(roleData.profile?.approvalStatus || roleData.profile?.status || 'Check with admin')}</Text>
+          <Pressable style={styles.primary} onPress={() => void runRoleAction('store', () => mobileApi.sellerAvailability(session.token, !(roleData.profile?.open ?? roleData.profile?.isOpen ?? false)))}><Text style={styles.primaryText}>{(roleData.profile?.open ?? roleData.profile?.isOpen) ? 'Close store' : 'Open store'}</Text></Pressable>
+          <Text style={styles.sectionTitle}>Products ({roleData.products?.length || 0})</Text>
+          {(roleData.products || []).map((p: MobileRecord, i: number) => <View key={String(p.productId || p.id || i)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(p.title || p.name || 'Product')}</Text><Text style={styles.muted}>Stock: {String(p.stock ?? '—')} · Price: {money(p.sellerPrice ?? p.price)}</Text></View>)}
+          <Text style={styles.sectionTitle}>Orders ({roleData.orders?.length || 0})</Text>
+          {(roleData.orders || []).map((o: MobileRecord, i: number) => <View key={String(o.orderId || o.id || i)} style={styles.orderCard}><Text style={styles.orderTitle}>Order #{String(o.orderId || o.id || '—')}</Text><Text style={styles.muted}>{String(o.status || '—').replaceAll('_',' ')}</Text><Text style={styles.muted}>Status updates remain server-controlled; use the seller portal for the full fulfilment workflow.</Text></View>)}
+        </>}
+        {activeRole === 'DELIVERY' && <>
+          <Text style={styles.muted}>Agent: {String(roleData.profile?.agentId || roleData.profile?.id || '—')} · Status: {String(roleData.profile?.status || '—')}</Text>
+          <Pressable style={styles.primary} onPress={() => void runRoleAction('availability', () => mobileApi.deliveryAvailability(session.token, !(roleData.profile?.available ?? false)))}><Text style={styles.primaryText}>{roleData.profile?.available ? 'Go offline' : 'Go online'}</Text></Pressable>
+          <Text style={styles.sectionTitle}>Available jobs ({roleData.available?.length || 0})</Text>
+          {(roleData.available || []).map((job: MobileRecord, i: number) => <View key={String(job.orderId || job.id || i)} style={styles.orderCard}><Text style={styles.orderTitle}>Order #{String(job.orderId || job.id || '—')}</Text><Text style={styles.muted}>{String(job.deliveryAddress || job.address || 'Pickup and delivery details available after assignment')}</Text><Text style={styles.muted}>Claim action requires the authenticated agent ID; contact support if claim is unavailable.</Text></View>)}
+          <Text style={styles.sectionTitle}>My deliveries ({roleData.mine?.length || 0})</Text>
+          {(roleData.mine || []).map((job: MobileRecord, i: number) => { const id=String(job.orderId || job.id || ''); return <View key={id || i} style={styles.orderCard}><Text style={styles.orderTitle}>Order #{id || '—'}</Text><Text style={styles.muted}>{String(job.status || '—').replaceAll('_',' ')}</Text><Pressable style={styles.secondary} onPress={() => void runRoleAction('pickup:'+id, () => mobileApi.deliveryPickup(session.token,id))}><Text style={styles.secondaryText}>Confirm seller pickup</Text></Pressable><TextInput value={roleOtp} onChangeText={setRoleOtp} placeholder="4-digit customer OTP" keyboardType="number-pad" maxLength={4} style={styles.input}/><Pressable style={styles.secondary} onPress={() => void runRoleAction('otp:'+id, () => mobileApi.deliveryVerifyOtp(session.token,id,roleOtp))}><Text style={styles.secondaryText}>Verify delivery OTP</Text></Pressable><Pressable style={styles.linkButton} onPress={() => void runRoleAction('resend:'+id, () => mobileApi.deliveryResendOtp(session.token,id))}><Text style={styles.link}>Resend OTP</Text></Pressable></View>; })}
+        </>}
+        {activeRole === 'PROFESSIONAL' && <>
+          <Text style={styles.muted}>Professional: {String(roleData.profile?.name || session.user.name || '—')} · Approval: {String(roleData.profile?.status || 'Check with admin')}</Text>
+          <Text style={styles.sectionTitle}>Available jobs ({roleData.available?.length || 0})</Text>
+          {(roleData.available || []).map((job: MobileRecord, i: number) => { const id=String(job.bookingId || job.id || ''); const pid=String(roleData.profile?.professionalId || roleData.profile?.id || ''); return <View key={id || i} style={styles.orderCard}><Text style={styles.orderTitle}>Booking #{id || '—'}</Text><Text style={styles.muted}>{String(job.serviceName || job.service || 'Daily Help request')} · {String(job.scheduledStart || '')}</Text><Pressable style={styles.primary} onPress={() => void runRoleAction('accept:'+id, () => mobileApi.dailyAccept(session.token,pid,id))}><Text style={styles.primaryText}>Accept job</Text></Pressable></View>; })}
+          <Text style={styles.sectionTitle}>My jobs ({roleData.mine?.length || 0})</Text>
+          {(roleData.mine || []).map((job: MobileRecord, i: number) => <View key={String(job.bookingId || job.id || i)} style={styles.orderCard}><Text style={styles.orderTitle}>Booking #{String(job.bookingId || job.id || '—')}</Text><Text style={styles.muted}>{String(job.status || '—')}</Text><Text style={styles.muted}>Start/completion require the server's configured customer OTP and lifecycle state.</Text></View>)}
+        </>}
+        {!!roleActionBusy && <ActivityIndicator color="#087f5b" />}
+      </ScrollView>}
+
       {tab === 'shop' && <>
         <View style={styles.searchWrap}><TextInput value={query} onChangeText={setQuery} placeholder="Search groceries and local products" returnKeyType="search" style={styles.search} /></View>
         <FlatList
