@@ -175,3 +175,54 @@ stale lockfile-only server dependencies and four unused direct dependencies
 are removed; and the obsolete public source archive is removed after metadata
 inventory. Transaction-heavy order/booking orchestration remains intentionally
 unchanged.
+
+## Post-PR #373 baseline and automated inventory
+
+The current `main` snapshot after PR #373 (commit
+`965ec10af8da968fe2e32173a7ad92434d10e8e3`) was rechecked on 18 November
+2026. The reviewed source inventory contains 148 Java production files and
+99 frontend TypeScript/TSX files.
+
+Current large-file measurements include:
+
+| File | Lines |
+|---|---:|
+| `src/features/admin/AdminPortal.tsx` | 1,318 |
+| `backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/AuthService.java` | 637 |
+| `backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/AdminController.java` | 580 |
+| `src/features/delivery/DeliveryPortal.tsx` | 578 |
+| `backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/DailyHelpService.java` | 530 |
+| `src/components/Auth/AuthPageV2.tsx` | 521 |
+| `src/components/Auth/SellerRegistrationWizard.tsx` | 498 |
+| `backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/OrderService.java` | 485 |
+
+This PR adds a dependency-free maintainability inventory to CI. It reports
+source file/line counts, large-file hotspots and exact repeated eight-line
+blocks across files. Exact text matches are only candidates: they can be
+intentional boilerplate and do not prove semantic duplication. The inventory
+does not claim cyclomatic complexity, cognitive complexity, or a percentage of
+redundant code.
+
+## Refactoring safety decisions
+
+- The admin portal remains the highest-priority decomposition target. Its
+  workflows share permission gates, refresh/error state and mutation callbacks.
+  A JSX-only extraction would not reduce coupling. This PR records the measured
+  baseline and adds a repeatable inventory; full tab extraction is deferred
+  until interaction-level tests cover each tab's read/write behaviour.
+- `adminApi.ts` methods were not deleted based on name-based search alone.
+  A method is removable only after all portal imports, dynamic references,
+  tests and backend route ownership are verified.
+- `AdminController` already coexists with dedicated order, seller-onboarding
+  and diagnostics controllers. Similar endpoint names are not enough to safely
+  consolidate routes; route/security/role mappings must be compared first.
+- Authentication flows were not further merged. Buyer, delivery and
+  professional registration have distinct fields and OTP transitions.
+- `AuthService`, `OrderService` and `DailyHelpService` were not split in
+  this change because transaction boundaries, locks, rollback semantics and
+  identity/OTP checks need focused regression coverage before extraction.
+
+The new audit runs on pull requests and pushes affecting source code. It is
+informational: it does not fail a build based on arbitrary file-size thresholds
+or guessed duplicate matches. Existing frontend/backend/E2E tests remain the
+behavioural safety gates.

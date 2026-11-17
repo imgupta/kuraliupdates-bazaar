@@ -5,12 +5,20 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/quality-gates.yml'
+      - '.github/workflows/maintainability-audit.yml'
       - 'backend-java-spring/**'
+      - 'src/**'
+      - 'scripts/maintainability-audit.mjs'
+      - 'package.json'
   push:
     branches: [main]
     paths:
       - '.github/workflows/quality-gates.yml'
+      - '.github/workflows/maintainability-audit.yml'
       - 'backend-java-spring/**'
+      - 'src/**'
+      - 'scripts/maintainability-audit.mjs'
+      - 'package.json'
   workflow_dispatch:
 
 permissions:
@@ -33,3 +41,13 @@ jobs:
         uses: actions/checkout@v4
       - name: Verify final Docker image and build context
         run: python3 scripts/verify-wallet-image.py
+
+  maintainability-audit:
+    name: Report source size and exact duplicated blocks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run dependency-free source audit
+        run: node scripts/maintainability-audit.mjs
