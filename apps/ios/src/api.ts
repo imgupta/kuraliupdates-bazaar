@@ -78,13 +78,13 @@ export async function getMyOrders(token: string) {
 }
 
 
-export type MobileRole = 'BUYER' | 'SELLER' | 'DELIVERY' | 'DAILY_HELP_PROFESSIONAL';
+export type MobileRole = 'BUYER' | 'SELLER' | 'DELIVERY' | 'PROFESSIONAL';
 
 export async function getRegisteredRoles(token: string): Promise<MobileRole[]> {
   const result = await request<{ success?: boolean; roles?: string[] }>('/auth/me/roles', {
     headers: { Authorization: `Bearer ${token}` },
   });
-  const allowed: MobileRole[] = ['BUYER', 'SELLER', 'DELIVERY', 'DAILY_HELP_PROFESSIONAL'];
+  const allowed: MobileRole[] = ['BUYER', 'SELLER', 'DELIVERY', 'PROFESSIONAL'];
   return (Array.isArray(result.roles) ? result.roles : [])
     .map(role => role.toUpperCase() as MobileRole)
     .filter((role, index, all) => allowed.includes(role) && all.indexOf(role) === index);
