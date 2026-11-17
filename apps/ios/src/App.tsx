@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable,
+  ActivityIndicator, Alert, AppState, FlatList, KeyboardAvoidingView, Platform, Pressable,
   SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as Location from 'expo-location';
 import { getMyOrders, Product, searchProducts, sendLoginOtp, LoginChannel, verifyLoginOtp, getRegisteredRoles, createRoleHandoff, redeemRoleHandoff, getRoleOnboardingStatus, MobileRole, mobileApi, MobileRecord } from './api';
 import { clearSession, MobileUser, readSession, saveSession } from './session';
 
@@ -65,6 +66,9 @@ export default function App() {
   const [negotiatedItems, setNegotiatedItems] = useState<Record<string, { price: number; offerId: string }>>({});
   const [trackingByOrder, setTrackingByOrder] = useState<Record<string, MobileRecord>>({});
   const [trackingBusy, setTrackingBusy] = useState('');
+  const [shareLiveLocation, setShareLiveLocation] = useState(false);
+  const [locationStatus, setLocationStatus] = useState('Location sharing is off.');
+  const [appIsActive, setAppIsActive] = useState(AppState.currentState === 'active');
   const [savedAddresses, setSavedAddresses] = useState<MobileRecord[]>([]);
   const [addressLabel, setAddressLabel] = useState('Home');
   const [addressLine, setAddressLine] = useState('');
@@ -177,6 +181,37 @@ export default function App() {
 
   useEffect(() => { if (session && activeRole !== 'BUYER') void refreshRoleDashboard(); }, [session, activeRole, refreshRoleDashboard]);
 
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => setAppIsActive(state === 'active'));
+    return () => subscription.remove();
+  }, []);
+
+  const deliveryAgentId = String(roleData.profile?.agentId || roleData.profile?.id || '');
+  useEffect(() => {
+    if (activeRole !== 'DELIVERY' || !shareLiveLocation || !appIsActive || !session || !deliveryAgentId) return;
+    let cancelled = false;
+    let watcher: Location.LocationSubscription | null = null;
+    const start = async () => {
+      try {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (!permission.granted) { setLocationStatus('Location permission denied. Enable it in iPhone Settings to share your delivery position.'); setShareLiveLocation(false); return; }
+        if (cancelled) return;
+        setLocationStatus('Sharing location while this app is open…');
+        watcher = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Balanced, timeInterval: 15000, distanceInterval: 25 },
+          position => {
+            if (cancelled) return;
+            void mobileApi.deliveryUpdateLocation(session.token, deliveryAgentId, position.coords.latitude, position.coords.longitude)
+              .then(() => setLocationStatus('Live location updated.'))
+              .catch(e => setLocationStatus(e instanceof Error ? e.message : 'Location update failed.'));
+          },
+        );
+      } catch (e) { setLocationStatus(e instanceof Error ? e.message : 'Unable to start location sharing.'); setShareLiveLocation(false); }
+    };
+    void start();
+    return () => { cancelled = true; watcher?.remove(); };
+  }, [activeRole, shareLiveLocation, appIsActive, session, deliveryAgentId]);
 
   useEffect(() => {
     if (activeRole !== 'PROFESSIONAL' || !(roleData.mine || []).some((job: MobileRecord) => String(job.status || '').toUpperCase() === 'IN_PROGRESS' && job.serviceStartedAt)) return;
@@ -484,6 +519,7 @@ export default function App() {
         {activeRole === 'DELIVERY' && <>
           <Text style={styles.muted}>Agent: {String(roleData.profile?.agentId || roleData.profile?.id || '—')} · Status: {String(roleData.profile?.status || '—')}</Text>
           <Pressable style={styles.primary} onPress={() => void runRoleAction('availability', () => mobileApi.deliveryAvailability(session.token, !(roleData.profile?.available ?? false)))}><Text style={styles.primaryText}>{roleData.profile?.available ? 'Go offline' : 'Go online'}</Text></Pressable>
+          {!!(roleData.mine || []).length && <View style={styles.orderCard}><Text style={styles.orderTitle}>Live delivery location</Text><Text style={styles.muted}>Foreground only: sharing runs while KuraliUpdates is open and stops when you go offline, switch role or leave the app.</Text><Pressable style={shareLiveLocation ? styles.secondary : styles.primary} onPress={() => setShareLiveLocation(v => !v)}><Text style={shareLiveLocation ? styles.secondaryText : styles.primaryText}>{shareLiveLocation ? 'Stop location sharing' : 'Share live location'}</Text></Pressable><Text style={styles.muted}>{locationStatus}</Text></View>}
 
           <Text style={styles.sectionTitle}>Available jobs ({roleData.available?.length || 0})</Text>
           {(roleData.available || []).map((job: MobileRecord, i: number) => { const id=String(job.orderId || job.id || ''); const agentId=String(roleData.profile?.agentId || roleData.profile?.id || ''); return <View key={id || i} style={styles.orderCard}><Text style={styles.orderTitle}>Order #{id || '—'}</Text><Text style={styles.muted}>{String(job.deliveryAddress || job.address || 'Delivery details shown after assignment')}</Text><Pressable disabled={!id || !agentId || !!roleActionBusy} style={styles.primary} onPress={() => void runRoleAction('claim:'+id, () => mobileApi.deliveryClaim(session.token,id,agentId))}><Text style={styles.primaryText}>Claim delivery</Text></Pressable></View>; })}
