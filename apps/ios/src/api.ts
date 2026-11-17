@@ -157,6 +157,7 @@ export const mobileApi = {
   dailyCreateBooking: (t: string, payload: MobileRecord) => authed<MobileRecord>('/daily-help/bookings', t, { method: 'POST', body: JSON.stringify(payload) }),
   dailyBookings: (t: string, phone: string) => authed<MobileRecord[]>(`/daily-help/bookings?buyerPhone=${encodeURIComponent(phone)}`, t),
   dailyGetBooking: (t: string, id: string) => authed<MobileRecord>(`/daily-help/bookings/${encodeURIComponent(id)}`, t),
+  dailyCancelBooking: (t: string, id: string) => authed<MobileRecord>(`/daily-help/bookings/${encodeURIComponent(id)}/cancel`, t, { method: 'POST' }),
   dailyProfessionalSlots: (t: string, id: string, date: string) => authed<MobileRecord[]>(`/daily-help/professionals/${encodeURIComponent(id)}/slots?date=${encodeURIComponent(date)}`, t),
   dailyCreateSlot: (t: string, id: string, payload: MobileRecord) => authed<MobileRecord>(`/daily-help/professionals/${encodeURIComponent(id)}/slots`, t, { method: 'POST', body: JSON.stringify(payload) }),
   dailyCancelSlot: (t: string, id: string, slotId: string) => authed<MobileRecord>(`/daily-help/professionals/${encodeURIComponent(id)}/slots/${encodeURIComponent(slotId)}`, t, { method: 'DELETE' }),
