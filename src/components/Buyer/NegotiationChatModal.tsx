@@ -11,7 +11,6 @@ export const NegotiationChatModal: React.FC = () => {
     respondToOffer,
     products,
     cart,
-    upsertBargainCartItem,
     role,
     user,
     showToast,
@@ -39,9 +38,6 @@ export const NegotiationChatModal: React.FC = () => {
 
   const isOpening = currentChat.id.startsWith('pending-');
   const isAccepted = String(currentChat.bargainStatus || (currentChat.currentAgreedPrice != null ? 'ACCEPTED' : '')).toUpperCase() === 'ACCEPTED';
-  const acceptedLineInCart = cart.some(item => item.product.id === currentChat.productId
-    && item.bargainId === currentChat.id && item.bargainStatus === 'ACCEPTED');
-
   const handleSendTextMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (isOpening) {
@@ -139,20 +135,9 @@ export const NegotiationChatModal: React.FC = () => {
           </div>
 
           {role !== 'seller' && isAccepted && currentChat.bargainStatus !== 'CLOSED_PURCHASED' && (
-            <div className="flex shrink-0 items-center gap-2">
-              <span className="rounded-lg bg-emerald-100 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800">
-                Accepted · ₹{currentChat.currentAgreedPrice}
-              </span>
-              {targetProduct && !acceptedLineInCart && (
-                <button type="button" onClick={() => {
-                  upsertBargainCartItem(targetProduct, currentChat.id, 'ACCEPTED', undefined,
-                    currentChat.currentAgreedPrice, currentChat.currentAgreedOfferId);
-                  showToast('Accepted bargain added to your cart.', 'success');
-                }} className="rounded-lg bg-amber-600 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-amber-700">
-                  Add agreed price to cart
-                </button>
-              )}
-            </div>
+            <span className="shrink-0 rounded-lg bg-emerald-100 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800">
+              Accepted · ₹{currentChat.currentAgreedPrice} · Added to cart
+            </span>
           )}
         </div>
 
@@ -164,6 +149,13 @@ export const NegotiationChatModal: React.FC = () => {
             </span>
           </div>
 
+          {currentChat.messages.length === 0 && (
+            <div className="mx-auto max-w-sm rounded-2xl border border-dashed border-amber-300 bg-white p-5 text-center">
+              <Tag className="mx-auto mb-2 h-6 w-6 text-amber-600" />
+              <p className="text-sm font-bold text-slate-800">Make the seller an offer</p>
+              <p className="mt-1 text-xs text-slate-500">Choose a suggested price or enter your own. Nothing is sent until you press Send Offer.</p>
+            </div>
+          )}
           {currentChat.messages.map((msg) => {
             const isMe =
               (role === 'seller' && msg.senderRole === 'seller') ||
@@ -276,21 +268,21 @@ export const NegotiationChatModal: React.FC = () => {
             <span className="text-[11px] font-bold text-slate-500">Quick Offers:</span>
             <button
               disabled={isOpening}
-              onClick={() => handleSendOffer(Math.round(basePrice * 0.95))}
+              onClick={() => setCustomOfferPrice(String(Math.round(basePrice * 0.95)))}
               className="bg-white hover:bg-amber-50 hover:text-amber-700 border border-slate-200 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-40"
             >
               5% Off (₹{Math.round(basePrice * 0.95)})
             </button>
             <button
               disabled={isOpening}
-              onClick={() => handleSendOffer(Math.round(basePrice * 0.9))}
+              onClick={() => setCustomOfferPrice(String(Math.round(basePrice * 0.9)))}
               className="bg-white hover:bg-amber-50 hover:text-amber-700 border border-slate-200 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-40"
             >
               10% Off (₹{Math.round(basePrice * 0.9)})
             </button>
             <button
               disabled={isOpening}
-              onClick={() => handleSendOffer(Math.round(basePrice * 0.85))}
+              onClick={() => setCustomOfferPrice(String(Math.round(basePrice * 0.85)))}
               className="bg-white hover:bg-amber-50 hover:text-amber-700 border border-slate-200 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-40"
             >
               15% Off (₹{Math.round(basePrice * 0.85)})
@@ -319,12 +311,13 @@ export const NegotiationChatModal: React.FC = () => {
             <button
               onClick={() => {
                 const val = Number(customOfferPrice);
-                if (val > 0) handleSendOffer(val);
+                if (val > 0 && val < basePrice) handleSendOffer(val);
+                else showToast('Offer must be greater than zero and below the current price.', 'error');
               }}
-              disabled={!customOfferPrice || isOpening}
+              disabled={!customOfferPrice || isOpening || Number(customOfferPrice) >= basePrice || Number(customOfferPrice) <= 0}
               className="bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white px-2 py-1 rounded-md text-xs font-bold cursor-pointer"
             >
-              {counteringOfferId ? 'Send Counter' : 'Propose'}
+              {counteringOfferId ? 'Send Counter' : 'Send Offer'}
             </button>
           </div>
         </div>

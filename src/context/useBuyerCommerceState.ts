@@ -21,10 +21,10 @@ export const useBuyerCommerceState = (
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
         return prev.map(item => item.product.id === product.id
-          ? { ...item, quantity: item.quantity + quantity, negotiatedPrice: negotiatedPrice ?? item.negotiatedPrice, acceptedOfferId: acceptedOfferId ?? item.acceptedOfferId }
+          ? { ...item, quantity: Math.min(product.stock, item.quantity + quantity), negotiatedPrice: negotiatedPrice ?? item.negotiatedPrice, acceptedOfferId: acceptedOfferId ?? item.acceptedOfferId }
           : item);
       }
-      return [...prev, { product, quantity, negotiatedPrice, acceptedOfferId }];
+      return product.stock > 0 ? [...prev, { product, quantity: Math.min(product.stock, quantity), negotiatedPrice, acceptedOfferId }] : prev;
     });
     showToast(`Added "${product.title}" to cart`, 'success');
   };
@@ -100,7 +100,9 @@ export const useBuyerCommerceState = (
       removeFromCart(productId);
       return;
     }
-    setCart(prev => prev.map(item => item.product.id === productId ? { ...item, quantity } : item));
+    setCart(prev => prev.map(item => item.product.id === productId
+      ? { ...item, quantity: Math.min(item.product.stock, quantity) }
+      : item));
   };
 
   const clearCart = () => {

@@ -30,7 +30,9 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
 }) => {
   const {
     products,
+    cart,
     addToCart,
+    updateCartQuantity,
     openChatForProduct,
     selectedCityLocality,
     comparingProduct,
@@ -247,8 +249,13 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
           {filteredProducts.map(product => (
             <ProductCard key={product.id} product={product}
               relatedSellerCount={comparableSellerCountById.get(product.id) || 1}
+              quantity={cart.find(item => item.product.id === product.id)?.quantity || 0}
               onCompare={setComparingProduct} onBargain={openChatForProduct}
               onAddToCart={(item) => { addToCart(item, 1); }}
+              onRemoveFromCart={(item) => {
+                const quantity = cart.find(line => line.product.id === item.id)?.quantity || 0;
+                updateCartQuantity(item.id, quantity - 1);
+              }}
               onBuyNow={onBuyNow} onViewDetails={setSelectedProduct}
             />
           ))}

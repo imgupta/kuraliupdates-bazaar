@@ -1,13 +1,15 @@
 import React from 'react';
-import { MessageSquare, ShoppingBag, Star, TrendingDown, Store } from 'lucide-react';
+import { MessageSquare, ShoppingBag, Star, TrendingDown, Store, Plus, Minus } from 'lucide-react';
 import { Product } from '../../types';
 
 interface ProductCardProps {
   product: Product;
   relatedSellerCount?: number;
+  quantity: number;
   onCompare: (product: Product) => void;
   onBargain: (product: Product) => void;
   onAddToCart: (product: Product) => void;
+  onRemoveFromCart: (product: Product) => void;
   onBuyNow: (product: Product) => void;
   onViewDetails: (product: Product) => void;
 }
@@ -16,7 +18,7 @@ const getEffectivePrice = (product: Product) =>
   Math.round(product.sellerPrice * (1 - product.additionalDiscountPercent / 100));
 
 export const ProductCard: React.FC<ProductCardProps> = ({
-  product, relatedSellerCount = 1, onCompare, onBargain, onAddToCart, onBuyNow, onViewDetails,
+  product, relatedSellerCount = 1, quantity, onCompare, onBargain, onAddToCart, onRemoveFromCart, onBuyNow, onViewDetails,
 }) => {
   const effectivePrice = getEffectivePrice(product);
   const savings = Math.max(0, product.mrp - effectivePrice);
@@ -64,10 +66,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         <div className="grid grid-cols-2 gap-1.5">
-          <button onClick={() => onAddToCart(product)} disabled={product.stock <= 0}
-            className="flex items-center justify-center gap-1 rounded-xl bg-amber-500 py-2.5 text-[11px] font-extrabold text-white transition-colors hover:bg-amber-600 disabled:bg-slate-300">
-            <ShoppingBag className="h-3.5 w-3.5" />Add to Cart
-          </button>
+          <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-1.5 py-1">
+            <button type="button" onClick={() => onRemoveFromCart(product)} disabled={quantity <= 0}
+              aria-label={`Remove one ${product.title} from cart`}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-30">
+              <Minus className="h-4 w-4" />
+            </button>
+            <span aria-live="polite" className="min-w-5 text-center text-sm font-extrabold tabular-nums text-slate-900">{quantity}</span>
+            <button type="button" onClick={() => onAddToCart(product)} disabled={product.stock <= 0 || quantity >= product.stock}
+              aria-label={`Add one ${product.title} to cart`}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-slate-300">
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
           <button onClick={() => onBuyNow(product)} disabled={product.stock <= 0}
             className="rounded-xl bg-slate-900 py-2.5 text-[11px] font-extrabold text-white transition-colors hover:bg-slate-800 disabled:bg-slate-300">
             Buy Now

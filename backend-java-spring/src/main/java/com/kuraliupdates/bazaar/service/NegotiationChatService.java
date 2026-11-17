@@ -83,16 +83,11 @@ public class NegotiationChatService {
         }
 
         String chatId = "chat-" + UUID.randomUUID();
-        BigDecimal listPrice = (BigDecimal) product.get("effectivePrice");
-        if (listPrice == null) listPrice = (BigDecimal) product.get("sellerPrice");
-        BigDecimal offerPrice = request.startingOfferPrice() == null ? listPrice.multiply(new BigDecimal("0.90")).setScale(2, java.math.RoundingMode.HALF_UP) : request.startingOfferPrice();
-        validatePrice(offerPrice, listPrice);
-        jdbc.update("INSERT INTO NEGOTIATION_CHATS (CHAT_ID,PRODUCT_ID,SELLER_ID,BUYER_NAME,BUYER_EMAIL,BARGAIN_STATUS,EXPIRES_AT,LAST_UPDATED,E2E_RUN_ID) VALUES (?,?,?,?,?,'PENDING_SELLER',?,?,?)",
-                chatId, request.productId().trim(), sellerId, safeName(user.getName(), "Buyer"), email, Timestamp.valueOf(LocalDateTime.now().plusHours(24)), Timestamp.valueOf(LocalDateTime.now()), e2eRunId);
-        insertMessage(chatId, "BUYER", safeName(user.getName(), "Buyer"),
-                blank(request.openingMessage()) ? "Hi, I'm interested in " + product.get("productTitle") + ". Can you offer a better price?" : request.openingMessage().trim(),
-                offerPrice, "PENDING");
-        notifyParticipant(chatId, sellerEmail(sellerId), "SELLER", "NEW_OFFER", "A buyer sent you a price offer.");
+        // Opening the bargain panel only creates a private draft conversation.
+        // No offer, message, expiry window or seller notification is created until
+        // the buyer explicitly submits a price through the messages endpoint.
+        jdbc.update("INSERT INTO NEGOTIATION_CHATS (CHAT_ID,PRODUCT_ID,SELLER_ID,BUYER_NAME,BUYER_EMAIL,BARGAIN_STATUS,EXPIRES_AT,LAST_UPDATED,E2E_RUN_ID) VALUES (?,?,?,?,?,'PENDING_SELLER',NULL,?,?)",
+                chatId, request.productId().trim(), sellerId, safeName(user.getName(), "Buyer"), email, Timestamp.valueOf(LocalDateTime.now()), e2eRunId);
         return getChatForKnownParticipant(chatId);
     }
 
