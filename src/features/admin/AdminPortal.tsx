@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ShieldCheck,
   Store,
@@ -37,6 +37,7 @@ import { SellerRegistrationOtpConfig } from '../../components/Admin/SellerRegist
 import { IndiaComplianceSettings } from '../../components/Admin/IndiaComplianceSettings';
 import { AdminDirectoryTab } from './AdminDirectoryTab';
 import { buildAdminDirectoryGroups } from './adminDirectory';
+import { useAdminDashboardRefresh } from './useAdminDashboardRefresh';
 
 export const AdminDashboard: React.FC = () => {
   const {
@@ -106,43 +107,21 @@ export const AdminDashboard: React.FC = () => {
   const [dailyHelpForm, setDailyHelpForm] = useState({ category: '', name: '', description: '', pricingUnit: 'HOUR', pricePerHour: '199', minHours: '1', imageUrl: '', active: 1 });
   const isRootAdmin = isRootAdminEmail(user.email);
 
-  const refreshAdminData = async () => {
-    if (!isRootAdmin) return;
-    setAdminDataLoading(true);
-    try {
-      const [remoteSellers, remotePendingSellers, remoteAgents, analytics, remoteBuyers, searchTrends, remoteDailyHelpServices, remoteDailyHelpHelpers, remoteAccounts] = await Promise.all([
-        adminApi.getAdminSellers(),
-        adminApi.getPendingSellers(),
-        adminApi.getAdminDeliveryAgents(),
-        adminApi.getAdminAnalytics(),
-        adminApi.getAdminBuyers(),
-        adminApi.getAdminSearchTrends(),
-        adminApi.getAdminDailyHelpServices(),
-        adminApi.getAdminDailyHelpHelpers(),
-        adminApi.getAdminAccounts(),
-      ]);
-      setAdminSellers(remoteSellers);
-      setPendingSellerApplications(remotePendingSellers);
-      setAdminDeliveryAgents(remoteAgents);
-      setAdminAnalytics(analytics);
-      setBuyers(remoteBuyers);
-      setAdminOrders(await adminApi.getAdminOrders());
-      setAdminSearchTrends(searchTrends);
-      setDailyHelpServices(remoteDailyHelpServices);
-      setDailyHelpHelpers(remoteDailyHelpHelpers);
-      setAdminAccounts(remoteAccounts);
-    } finally {
-      setAdminDataLoading(false);
-      setBuyersLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!isRootAdmin) return;
-    refreshAdminData();
-    const interval = setInterval(refreshAdminData, 45000);
-    return () => clearInterval(interval);
-  }, [isRootAdmin]);
+  const refreshAdminData = useAdminDashboardRefresh({
+    isRootAdmin,
+    setAdminDataLoading,
+    setAdminSellers,
+    setPendingSellerApplications,
+    setAdminDeliveryAgents,
+    setAdminAnalytics,
+    setBuyers,
+    setAdminOrders,
+    setAdminSearchTrends,
+    setDailyHelpServices,
+    setDailyHelpHelpers,
+    setAdminAccounts,
+    setBuyersLoading,
+  });
 
 
   const loadSellerDocuments = async (sellerId: string) => {
