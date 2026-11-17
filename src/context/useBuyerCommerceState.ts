@@ -26,7 +26,6 @@ export const useBuyerCommerceState = (
       }
       return product.stock > 0 ? [...prev, { product, quantity: Math.min(product.stock, quantity), negotiatedPrice, acceptedOfferId }] : prev;
     });
-    showToast(`Added "${product.title}" to cart`, 'success');
   };
 
   const upsertBargainCartItem = useCallback((
@@ -129,7 +128,7 @@ export const useBuyerCommerceState = (
   };
 
   const cartCalculations = useMemo(() => {
-    const itemSubtotal = cart.reduce((sum, item) => sum + (item.negotiatedPrice || item.product.sellerPrice) * item.quantity, 0);
+    const itemSubtotal = cart.reduce((sum, item) => sum + effectivePrice(item) * item.quantity, 0);
     const sellerSpend: Record<string, { sellerName: string; amount: number; seller: Seller | undefined }> = {};
     cart.forEach(item => {
       const sellerId = item.product.sellerId;

@@ -11,7 +11,6 @@ import { Product } from '../../types';
 import { CompareSellersModal } from './CompareSellersModal';
 import { ProductCard } from './ProductCard';
 import { ProductDetailsModal } from './ProductDetailsModal';
-import { getComparableSellerCounts } from './comparableProducts';
 
 interface BuyerHomeProps {
   searchQuery: string;
@@ -119,12 +118,6 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
         return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
       });
   }, [products, selectedCategory, selectedCityLocality, searchQuery, onlyInStock, maxPrice, sortBy]);
-
-  // Count distinct sellers with an in-stock offer for the exact same product and pack.
-  const comparableSellerCountById = useMemo(
-    () => getComparableSellerCounts(products),
-    [products]
-  );
 
   return (
     <div className="space-y-4 sm:space-y-5 pb-12">
@@ -248,9 +241,8 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
           {filteredProducts.map(product => (
             <ProductCard key={product.id} product={product}
-              relatedSellerCount={comparableSellerCountById.get(product.id) || 1}
               quantity={cart.find(item => item.product.id === product.id)?.quantity || 0}
-              onCompare={setComparingProduct} onBargain={openChatForProduct}
+              onBargain={openChatForProduct}
               onAddToCart={(item) => { addToCart(item, 1); }}
               onRemoveFromCart={(item) => {
                 const quantity = cart.find(line => line.product.id === item.id)?.quantity || 0;

@@ -34,7 +34,7 @@ public class NegotiationChatService {
             String sellerIdForExpiry = requireSellerId(user.getEmail());
             jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS='EXPIRED', CLOSED_AT=CURRENT_TIMESTAMP, CURRENT_AGREED_PRICE=NULL WHERE SELLER_ID=? AND BARGAIN_STATUS IN ('PENDING_SELLER','PENDING_BUYER') AND EXPIRES_AT<=CURRENT_TIMESTAMP", sellerIdForExpiry);
             String sellerId = requireSellerId(user.getEmail());
-            return jdbc.query("SELECT c.CHAT_ID FROM NEGOTIATION_CHATS c WHERE c.SELLER_ID=? ORDER BY c.LAST_UPDATED DESC",
+            return jdbc.query("SELECT c.CHAT_ID FROM NEGOTIATION_CHATS c WHERE c.SELLER_ID=? AND EXISTS (SELECT 1 FROM CHAT_MESSAGES m WHERE m.CHAT_ID=c.CHAT_ID) ORDER BY c.LAST_UPDATED DESC",
                     (rs, row) -> rs.getString(1), sellerId).stream().map(this::getChatForKnownParticipant).toList();
         }
         if (!"BUYER".equals(role)) throw new ApiException(HttpStatus.FORBIDDEN, "Only buyers and sellers can access bargaining chat");
