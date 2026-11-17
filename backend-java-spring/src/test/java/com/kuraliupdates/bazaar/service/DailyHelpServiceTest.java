@@ -20,6 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -37,7 +38,13 @@ class DailyHelpServiceTest {
     @Mock private DailyHelpProfessionalRepository professionalRepository;
     @Mock private DailyHelpBookingRepository bookingRepository;
     @Mock private DailyHelpProfessionalSlotRepository slotRepository;
+    @Mock private JdbcTemplate jdbcTemplate;
     @InjectMocks private DailyHelpService dailyHelpService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void defaultTurnaroundBuffer() {
+        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class), any(Object.class))).thenReturn(15);
+    }
 
     @Test
     void nullBookingRequestReturnsBadRequestBeforeRepositoryAccess() {
