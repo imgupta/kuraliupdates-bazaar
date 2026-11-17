@@ -9,6 +9,8 @@ export const NegotiationChatModal: React.FC = () => {
     chats,
     sendMessage,
     respondToOffer,
+    addToCart,
+    cart,
     products,
     role,
     user,
@@ -37,6 +39,7 @@ export const NegotiationChatModal: React.FC = () => {
 
   const isOpening = currentChat.id.startsWith('pending-');
   const isAccepted = String(currentChat.bargainStatus || (currentChat.currentAgreedPrice != null ? 'ACCEPTED' : '')).toUpperCase() === 'ACCEPTED';
+  const acceptedOfferAlreadyInCart = cart.some(item => item.acceptedOfferId === currentChat.currentAgreedOfferId && !!currentChat.currentAgreedOfferId);
   const handleSendTextMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (isOpening) {
@@ -134,9 +137,16 @@ export const NegotiationChatModal: React.FC = () => {
           </div>
 
           {role !== 'seller' && isAccepted && currentChat.bargainStatus !== 'CLOSED_PURCHASED' && (
-            <span className="shrink-0 rounded-lg bg-emerald-100 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800">
-              Accepted · ₹{currentChat.currentAgreedPrice}
-            </span>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <span className="rounded-lg bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-800">
+                Accepted · ₹{currentChat.currentAgreedPrice}
+              </span>
+              <button type="button" disabled={!targetProduct || Number(targetProduct.stock ?? 0) <= 0 || acceptedOfferAlreadyInCart}
+                onClick={() => { if (targetProduct && currentChat.currentAgreedPrice != null) { addToCart(targetProduct, 1, currentChat.currentAgreedPrice, currentChat.currentAgreedOfferId); showToast('Added to cart at your agreed price.', 'success'); } }}
+                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-extrabold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300">
+                {acceptedOfferAlreadyInCart ? 'Added to cart' : 'Add to cart'}
+              </button>
+            </div>
           )}
         </div>
 
