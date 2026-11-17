@@ -4,15 +4,17 @@
 **Base:** current `main`; native Expo app under `apps/ios`.
 **Backend:** existing Spring Boot API and Oracle system of record. No second backend, database, or role-specific credential store.
 
-## Current verified baseline
+## Current implementation status (PR #381)
 
-- `apps/ios` is an Expo SDK 58 / React Native 0.88 app.
-- Its current `App.tsx` implements buyer OTP login, catalogue search, buyer order history and account sign-out only.
-- Its OTP verification payload hardcodes `role: 'buyer'`; it does not resolve registered roles or perform role-scoped session handoff.
-- Its product cards are simplified placeholders (emoji image, two-column grid); cart, checkout, bargaining, addresses, Daily Help, tracking and notifications are absent.
-- The web app already has Buyer, Seller, Delivery, Daily Help Professional and Admin experiences. Existing domain API modules and backend contracts must be reused as the reference; React DOM components and browser-only storage APIs cannot be imported into React Native.
-- Web role portals share a broad AppContext and have sensitive side effects. Client role selection is not authorization; every operation must remain server-authorized and ownership-scoped.
-- Admin approvals, service/catalogue administration and diagnostics remain in the web Admin portal.
+- Expo SDK 58 / React Native 0.88 native app under `apps/ios`.
+- OTP login, SecureStore token persistence, backend role discovery and one-time role handoff/redeem are implemented.
+- Buyer: catalogue, quantity +/- cart, COD checkout, Daily Help discovery/availability/booking/history, bargaining draft + explicit Send offer, accepted-offer confirmation before cart addition.
+- Seller: profile/store availability, inventory list/create/delete, bill discount create/delete, order accept/ready-for-pickup transitions, bargaining inbox accept/reject.
+- Delivery: profile/availability, available and assigned jobs, claim, pickup confirmation, OTP resend and verification.
+- Daily Help Professional: profile/availability, available/assigned jobs, accept, OTP start, server-side completion, earnings and availability slot create/cancel.
+- Admin remains web-only. Browser-only storage and React DOM components are not imported into the native app.
+- Exact PR head `524217ce088dcf45d5d6fa4bc54c1e41a003d2cd` passed iOS TypeScript check, Expo configuration validation and iOS bundle export. Frontend and backend CI jobs passed. Browser E2E was still pending at last inspection.
+- This is not yet full feature parity. Remaining items are listed in the PR description and below; do not infer support for a feature from an API wrapper alone.
 
 ## Role and session model
 
