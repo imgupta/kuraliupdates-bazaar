@@ -16,6 +16,7 @@ export const useAdminConfiguration = (
   const [deliveryConfigLoading, setDeliveryConfigLoading] = useState(false);
   const [deliveryConfigSaving, setDeliveryConfigSaving] = useState(false);
   const [deliveryConfigError, setDeliveryConfigError] = useState<string | null>(null);
+  const [dailyHelpTurnaroundMinutes, setDailyHelpTurnaroundMinutes] = useState(15);
   const [sellerAreaConfig, setSellerAreaConfig] = useState<any | null>(null);
   const [sellerAreaLoading, setSellerAreaLoading] = useState(false);
   const [sellerAreaSaving, setSellerAreaSaving] = useState(false);
@@ -76,6 +77,8 @@ export const useAdminConfiguration = (
     setDeliveryConfigError(null);
     try {
       const config = await adminApi.getDeliveryConfiguration();
+      const dailyHelpConfig = await adminApi.getDailyHelpConfiguration();
+      setDailyHelpTurnaroundMinutes(Number(dailyHelpConfig.turnaroundBufferMinutes ?? 15));
       setDeliveryConfig({
         nearbyRadiusKm: Number(config.nearbyRadiusKm ?? 3),
         maxSellersPerBatch: Number(config.maxSellersPerBatch ?? 3),
@@ -118,6 +121,7 @@ export const useAdminConfiguration = (
         storePickupEnabled: Boolean(deliveryConfig.storePickupEnabled),
       };
       const saved = await adminApi.updateDeliveryConfiguration(payload);
+      await adminApi.updateDailyHelpConfiguration({ turnaroundBufferMinutes: Number(dailyHelpTurnaroundMinutes) });
       setDeliveryConfig((current: any) => ({ ...current, ...saved }));
       showToast('Delivery charges and payout settings saved.', 'success');
       await refreshDeliveryConfiguration();
@@ -143,6 +147,8 @@ export const useAdminConfiguration = (
     deliveryConfigLoading,
     deliveryConfigSaving,
     deliveryConfigError,
+    dailyHelpTurnaroundMinutes,
+    setDailyHelpTurnaroundMinutes,
     saveDeliveryConfiguration,
     refreshDeliveryConfiguration,
     sellerAreaConfig,
