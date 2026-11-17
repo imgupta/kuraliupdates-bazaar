@@ -11,6 +11,7 @@ import { trackingApi } from './trackingApi';
 export const buyerApi = {
   getDailyHelpServices: dailyHelpApi.getDailyHelpServices,
   getLatestDailyHelpBooking: dailyHelpApi.getLatestDailyHelpBooking,
+  getDailyHelpBookings: dailyHelpApi.getDailyHelpBookings,
   getDailyHelpBooking: dailyHelpApi.getDailyHelpBooking,
   getDailyHelpAvailableSlots: dailyHelpApi.getDailyHelpAvailableSlots,
   createDailyHelpBooking: dailyHelpApi.createDailyHelpBooking,

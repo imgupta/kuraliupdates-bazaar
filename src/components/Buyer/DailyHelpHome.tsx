@@ -40,8 +40,9 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
   const [bookingDate, setBookingDate] = useState(localDateString(new Date(Date.now() + 24 * 60 * 60 * 1000)));
   const [slots, setSlots] = useState<DailyHelpSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<DailyHelpSlot | null>(null);
+  const [selectedStartTime, setSelectedStartTime] = useState('09:00');
   const [slotsLoading, setSlotsLoading] = useState(false);
-  const [booking, setBooking] = useState<DailyHelpBooking | null>(null);
+  const [bookings, setBookings] = useState<DailyHelpBooking[]>([]);
   const [bookingBusy, setBookingBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
 
@@ -54,26 +55,25 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
 
   useEffect(() => {
     if (!user.phone) return;
-    buyerApi.getLatestDailyHelpBooking(user.phone).then(latest => {
-      if (latest && !['COMPLETED', 'CANCELLED'].includes(latest.status)) setBooking(latest);
-    });
+    buyerApi.getDailyHelpBookings(user.phone).then(setBookings);
   }, [user.phone]);
 
   useEffect(() => {
-    if (!booking?.id || !['SEARCHING','CONFIRMED','PROFESSIONAL_ASSIGNED','ARRIVING','READY_TO_START','IN_PROGRESS'].includes(booking.status)) return;
+    const active = bookings.filter(item => ['SEARCHING','CONFIRMED','PROFESSIONAL_ASSIGNED','ARRIVING','READY_TO_START','IN_PROGRESS'].includes(item.status));
+    if (!active.length) return;
     const refresh = async () => {
-      const latest = await buyerApi.getDailyHelpBooking(booking.id);
-      if (latest) setBooking(latest);
+      const updated = await Promise.all(active.map(item => buyerApi.getDailyHelpBooking(item.id)));
+      setBookings(current => current.map(item => updated.find(next => next?.id === item.id) || item));
     };
-    const interval = window.setInterval(refresh, booking.status === 'IN_PROGRESS' ? 5000 : 15000);
+    const interval = window.setInterval(refresh, active.some(item => item.status === 'IN_PROGRESS') ? 5000 : 15000);
     return () => window.clearInterval(interval);
-  }, [booking?.id, booking?.status]);
+  }, [bookings]);
 
   useEffect(() => {
-    if (booking?.status !== 'IN_PROGRESS' || !booking.serviceStartedAt) return;
+    if (!bookings.some(item => item.status === 'IN_PROGRESS' && item.serviceStartedAt)) return;
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
-  }, [booking?.status, booking?.serviceStartedAt]);
+  }, [bookings]);
 
   useEffect(() => {
     if (!selected) return;
@@ -86,10 +86,18 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
     return () => { cancelled = true; };
   }, [selected, bookingDate, hours, user.locality]);
 
-  const elapsedSeconds = useMemo(() => {
-    if (!booking?.serviceStartedAt) return 0;
-    return Math.floor((now - new Date(booking.serviceStartedAt).getTime()) / 1000);
-  }, [booking?.serviceStartedAt, now]);
+  const elapsedSeconds = (startedAt?: string) => startedAt ? Math.floor((now - new Date(startedAt).getTime()) / 1000) : 0;
+
+  const selectedTimeValid = useMemo(() => {
+    if (!selectedSlot || !/^\d{2}:\d{2}$/.test(selectedStartTime)) return false;
+    const [startHour, startMinute] = selectedStartTime.split(':').map(Number);
+    const [windowStartHour, windowStartMinute] = selectedSlot.startTime.slice(0, 5).split(':').map(Number);
+    const [windowEndHour, windowEndMinute] = selectedSlot.endTime.slice(0, 5).split(':').map(Number);
+    const start = startHour * 60 + startMinute;
+    const windowStart = windowStartHour * 60 + windowStartMinute;
+    const windowEnd = windowEndHour * 60 + windowEndMinute;
+    return start % 15 === 0 && start >= windowStart && start + hours * 60 <= windowEnd;
+  }, [selectedSlot, selectedStartTime, hours]);
 
   const minDate = localDateString(new Date());
   const filteredServices = useMemo(() => {
@@ -117,7 +125,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
 
     setBookingBusy(true);
     try {
-      const scheduledStart = `${selectedSlot.slotDate}T${selectedSlot.startTime}`;
+      const scheduledStart = `${selectedSlot.slotDate}T${selectedStartTime}:00`;
       const result = await buyerApi.createDailyHelpBooking({
         serviceId: selected.id,
         buyerName: user.name,
@@ -131,7 +139,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
       if (!result) throw new Error('Unable to create Daily Help booking');
       setSelected(null);
       setSelectedSlot(null);
-      setBooking(result);
+      setBookings(current => [result, ...current.filter(item => item.id !== result.id)]);
       showToast('Daily Help booking confirmed.', 'success');
     } catch (err: any) {
       showToast(err?.message || 'Unable to create the Daily Help booking.', 'error');
@@ -148,8 +156,11 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
 
   return (
     <div className="space-y-5">
-      {booking && (
-        <section className="bg-white border border-emerald-200 rounded-2xl p-4 sm:p-5 shadow-sm">
+      {bookings.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between"><h2 className="text-lg font-black text-slate-900">Your Daily Help orders</h2><span className="text-xs font-bold text-slate-500">{bookings.length} order{bookings.length === 1 ? '' : 's'}</span></div>
+          {bookings.map(booking => (
+        <article key={booking.id} className="bg-white border border-emerald-200 rounded-2xl p-4 sm:p-5 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-[10px] uppercase tracking-wider font-black text-emerald-700">Active Daily Help</p>
@@ -177,20 +188,22 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
           {booking.status === 'IN_PROGRESS' && booking.serviceStartedAt && (
             <div className="mt-4 rounded-xl bg-slate-900 text-white p-5 text-center">
               <div className="flex items-center justify-center gap-2 text-emerald-300 text-xs font-bold"><Timer className="w-4 h-4" /> SERVICE TIMER</div>
-              <div className="text-4xl font-black font-mono mt-2">{formatDuration(elapsedSeconds)}</div>
+              <div className="text-4xl font-black font-mono mt-2">{formatDuration(elapsedSeconds(booking.serviceStartedAt))}</div>
               <p className="text-[11px] text-slate-400 mt-2">Started {new Date(booking.serviceStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
             </div>
           )}
           {booking.status === 'COMPLETED' && (
             <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 text-emerald-800 p-3 text-xs font-bold"><CheckCircle2 className="w-4 h-4" /> Service completed successfully.</div>
           )}
+        </article>
+          ))}
         </section>
       )}
 
       <section>
         {catalogError && <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[11px] font-semibold text-rose-800">Daily Help services could not be loaded from the database. Please try again shortly.</div>}
         <div className="flex items-center justify-between mb-3">
-          <div><h2 className="text-lg font-black text-slate-900">What do you need help with?</h2><p className="text-xs text-slate-500">Choose a service and then select an available maid slot.</p></div>
+          <div><h2 className="text-lg font-black text-slate-900">What do you need help with?</h2><p className="text-xs text-slate-500">Choose a service, duration and start time within an available helper window.</p></div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredServices.map(service => (
@@ -220,6 +233,9 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
               <label className="text-xs font-bold text-slate-700">Duration
                 <select value={hours} onChange={e => setHours(Number(e.target.value))} className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 bg-white">
                   <option value={1}>1 hour</option>
+                  <option value={1.5}>1.5 hours</option>
+                  <option value={2}>2 hours</option>
+                  <option value={3}>3 hours</option>
                 </select>
               </label>
               <label className="text-xs font-bold text-slate-700">Date
@@ -230,25 +246,25 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
             <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs">
               <div className="flex justify-between"><span>Rate</span><strong>₹{selected.pricePerHour}/hr</strong></div>
               <div className="flex justify-between mt-1"><span>Estimated total</span><strong>₹{selected.pricePerHour * hours}</strong></div>
-              <div className="mt-2 flex gap-2 text-slate-500"><CalendarDays className="w-4 h-4 shrink-0" /> Choose any available one-hour period within the professional’s availability window.</div>
+              <div className="mt-2 flex gap-2 text-slate-500"><CalendarDays className="w-4 h-4 shrink-0" /> Choose a start time inside the helper’s availability window. Start times use 15-minute increments.</div>
             </div>
 
             <div className="mt-5">
-              <div className="flex items-center justify-between mb-2"><h3 className="text-sm font-black text-slate-900">Available maids & slots</h3>{slots.length > 0 && <span className="text-[10px] font-bold text-emerald-700">{slots.length} available</span>}</div>
+              <div className="flex items-center justify-between mb-2"><h3 className="text-sm font-black text-slate-900">Available helpers & windows</h3>{slots.length > 0 && <span className="text-[10px] font-bold text-emerald-700">{slots.length} available</span>}</div>
               {slotsLoading ? (
                 <div className="rounded-xl border border-slate-200 p-6 text-center text-xs text-slate-500">Checking maid availability...</div>
               ) : slots.length === 0 ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-center">
                   <Clock3 className="w-6 h-6 mx-auto text-amber-600" />
-                  <p className="mt-2 text-sm font-black text-slate-800">All slots are booked</p>
-                  <p className="mt-1 text-xs text-slate-600">Please select a different slot or date.</p>
+                  <p className="mt-2 text-sm font-black text-slate-800">No matching availability</p>
+                  <p className="mt-1 text-xs text-slate-600">Please select another date or availability window.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {slots.map(slot => {
                     const active = selectedSlot?.slotId === slot.slotId;
                     return (
-                      <button key={slot.slotId} onClick={() => setSelectedSlot(slot)} className={`w-full text-left rounded-xl border p-3 transition-all cursor-pointer ${active ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-500' : 'border-slate-200 hover:border-amber-300 bg-white'}`}>
+                      <button key={slot.slotId} onClick={() => { setSelectedSlot(slot); setSelectedStartTime(slot.startTime.slice(0,5)); }} className={`w-full text-left rounded-xl border p-3 transition-all cursor-pointer ${active ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-500' : 'border-slate-200 hover:border-amber-300 bg-white'}`}>
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center shrink-0"><UserRound className="w-4 h-4" /></div>
@@ -266,11 +282,15 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
             {selectedSlot && (
               <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
                 <div className="flex items-center gap-2 font-black"><MapPin className="w-4 h-4" /> {selectedSlot.professionalName}</div>
-                <p className="mt-1">Selected slot: {selectedSlot.startTime.slice(0,5)} - {selectedSlot.endTime.slice(0,5)} on {selectedSlot.slotDate}</p>
+                <p className="mt-1">Availability window: {selectedSlot.startTime.slice(0,5)} - {selectedSlot.endTime.slice(0,5)} on {selectedSlot.slotDate}</p>
+                <label className="block mt-3 font-bold">Your start time
+                  <input type="time" step={900} min={selectedSlot.startTime.slice(0,5)} max={selectedSlot.endTime.slice(0,5)} value={selectedStartTime} onChange={e => setSelectedStartTime(e.target.value)} className="mt-1 w-full rounded-lg border border-emerald-300 bg-white px-3 py-2" />
+                </label>
+                <p className="mt-1">Estimated finish: {(() => { const [h,m] = selectedStartTime.split(':').map(Number); const end = h * 60 + m + hours * 60; return `${String(Math.floor(end / 60)).padStart(2,'0')}:${String(end % 60).padStart(2,'0')}`; })()}</p>
               </div>
             )}
 
-            <button disabled={bookingBusy || !selectedSlot || !user.name || !user.phone} onClick={createBooking} className="mt-5 w-full py-3 rounded-xl bg-amber-600 disabled:bg-slate-300 text-white text-sm font-black cursor-pointer">{bookingBusy ? 'Confirming slot...' : selectedSlot ? 'Confirm Daily Help Booking' : 'Select a Maid Slot'}</button>
+            <button disabled={bookingBusy || !selectedSlot || !selectedTimeValid || !user.name || !user.phone} onClick={createBooking} className="mt-5 w-full py-3 rounded-xl bg-amber-600 disabled:bg-slate-300 text-white text-sm font-black cursor-pointer">{bookingBusy ? 'Confirming slot...' : !selectedSlot ? 'Select a Maid Slot' : !selectedTimeValid ? 'Choose a valid start time' : 'Confirm Daily Help Booking'}</button>
           </div>
         </div>
       )}
@@ -280,7 +300,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
           <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><ShieldCheck className="h-5 w-5" /></div>
           <div className="min-w-0">
             <h2 className="text-sm font-black text-slate-900">Daily Help, whenever you need it</h2>
-            <p className="mt-1 text-xs leading-relaxed text-slate-600">Book a trusted local professional by the hour. Choose a service and date to see available one-hour slots. Your service timer starts only after OTP verification.</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">Book a trusted local professional by the hour. Choose a service, date, duration and start time within a helper’s availability window. Your service timer starts only after OTP verification.</p>
             <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold text-slate-600">
               <span className="rounded-full border border-amber-100 bg-white px-2.5 py-1">Verified professionals</span>
               <span className="rounded-full border border-amber-100 bg-white px-2.5 py-1">Live availability</span>

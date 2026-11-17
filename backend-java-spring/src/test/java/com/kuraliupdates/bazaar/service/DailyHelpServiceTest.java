@@ -20,6 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -37,7 +38,13 @@ class DailyHelpServiceTest {
     @Mock private DailyHelpProfessionalRepository professionalRepository;
     @Mock private DailyHelpBookingRepository bookingRepository;
     @Mock private DailyHelpProfessionalSlotRepository slotRepository;
+    @Mock private JdbcTemplate jdbcTemplate;
     @InjectMocks private DailyHelpService dailyHelpService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void defaultTurnaroundBuffer() {
+        lenient().when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class), any(Object[].class))).thenReturn(15);
+    }
 
     @Test
     void nullBookingRequestReturnsBadRequestBeforeRepositoryAccess() {
@@ -91,18 +98,17 @@ class DailyHelpServiceTest {
         LocalDateTime start = slot.getSlotDate().atTime(slot.getStartTime());
         when(serviceRepository.findById("DH-CLEAN")).thenReturn(Optional.of(service));
         when(slotRepository.findLockedBySlotId("SLOT-1")).thenReturn(Optional.of(slot));
-        when(slotRepository.save(any(DailyHelpProfessionalSlotEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(professionalRepository.findLockedByProfessionalId("DHP-1")).thenReturn(Optional.of(professional));
         when(bookingRepository.save(any(DailyHelpBookingEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = dailyHelpService.createBooking(request(start));
 
-        assertEquals("BOOKED", slot.getStatus());
-        assertNotNull(slot.getBookingId());
+        assertEquals("AVAILABLE", slot.getStatus());
+        assertNull(slot.getBookingId());
         assertEquals("PROFESSIONAL_ASSIGNED", response.status());
         assertEquals("DHP-1", response.professionalId());
-        verify(slotRepository).save(slot);
+        verify(slotRepository, never()).save(any());
         verify(bookingRepository).save(any(DailyHelpBookingEntity.class));
     }
 
@@ -114,10 +120,15 @@ class DailyHelpServiceTest {
         LocalDateTime start = slot.getSlotDate().atTime(slot.getStartTime());
         when(serviceRepository.findById("DH-CLEAN")).thenReturn(Optional.of(service));
         when(slotRepository.findLockedBySlotId("SLOT-1")).thenReturn(Optional.of(slot));
-        when(slotRepository.save(any(DailyHelpProfessionalSlotEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        when(bookingRepository.save(any(DailyHelpBookingEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(professionalRepository.findLockedByProfessionalId("DHP-1")).thenReturn(Optional.of(professional));
+        java.util.List<DailyHelpBookingEntity> persisted = new java.util.ArrayList<>();
+        when(bookingRepository.findByProfessionalProfessionalIdAndScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAsc(
+                eq("DHP-1"), any(LocalDateTime.class), any(LocalDateTime.class))).thenAnswer(invocation -> persisted);
+        when(bookingRepository.save(any(DailyHelpBookingEntity.class))).thenAnswer(invocation -> {
+            DailyHelpBookingEntity saved = invocation.getArgument(0);
+            persisted.add(saved);
+            return saved;
+        });
 
         dailyHelpService.createBooking(request(start));
 
@@ -125,10 +136,42 @@ class DailyHelpServiceTest {
                 () -> dailyHelpService.createBooking(request(start)));
 
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
-        assertEquals("BOOKED", slot.getStatus());
-        assertNotNull(slot.getBookingId());
-        verify(slotRepository, times(1)).save(slot);
+        assertEquals("AVAILABLE", slot.getStatus());
+        assertNull(slot.getBookingId());
+        verify(slotRepository, never()).save(any());
         verify(bookingRepository, times(1)).save(any(DailyHelpBookingEntity.class));
+    }
+
+    @Test
+    void sameBuyerCanBookDifferentProfessionalsForTheSameTimeAsSeparateOrders() {
+        DailyHelpServiceEntity service = service();
+        DailyHelpProfessionalEntity firstProfessional = professional();
+        DailyHelpProfessionalEntity secondProfessional = DailyHelpProfessionalEntity.builder()
+                .professionalId("DHP-2").fullName("Second Professional").phone("9876500001")
+                .currentLocality("Kurali").status("AVAILABLE").verified(1).build();
+        DailyHelpProfessionalSlotEntity firstSlot = slot(firstProfessional, "AVAILABLE");
+        DailyHelpProfessionalSlotEntity secondSlot = DailyHelpProfessionalSlotEntity.builder()
+                .slotId("SLOT-2").professional(secondProfessional).slotDate(firstSlot.getSlotDate())
+                .startTime(firstSlot.getStartTime()).endTime(firstSlot.getEndTime()).status("AVAILABLE").build();
+        LocalDateTime start = firstSlot.getSlotDate().atTime(firstSlot.getStartTime());
+        when(serviceRepository.findById("DH-CLEAN")).thenReturn(Optional.of(service));
+        when(slotRepository.findLockedBySlotId("SLOT-1")).thenReturn(Optional.of(firstSlot));
+        when(slotRepository.findLockedBySlotId("SLOT-2")).thenReturn(Optional.of(secondSlot));
+        when(professionalRepository.findLockedByProfessionalId("DHP-1")).thenReturn(Optional.of(firstProfessional));
+        when(professionalRepository.findLockedByProfessionalId("DHP-2")).thenReturn(Optional.of(secondProfessional));
+        when(bookingRepository.save(any(DailyHelpBookingEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var firstOrder = dailyHelpService.createBooking(request(start));
+        var secondOrder = dailyHelpService.createBooking(new DailyHelpBookingRequest(
+                "DH-CLEAN", "Buyer", "9876543210", "House 1", "Kurali",
+                start, BigDecimal.valueOf(2), "SLOT-2"));
+
+        assertEquals("DHP-1", firstOrder.professionalId());
+        assertEquals("DHP-2", secondOrder.professionalId());
+        assertNotEquals(firstOrder.id(), secondOrder.id());
+        verify(bookingRepository, times(2)).save(any(DailyHelpBookingEntity.class));
+        verify(slotRepository, never()).save(any());
     }
 
     @Test
@@ -268,6 +311,7 @@ class DailyHelpServiceTest {
         DailyHelpProfessionalSlotEntity slot = slot(professional, "AVAILABLE");
         when(serviceRepository.findById("DH-CLEAN")).thenReturn(Optional.of(service));
         when(slotRepository.findLockedBySlotId("SLOT-1")).thenReturn(Optional.of(slot));
+        when(professionalRepository.findLockedByProfessionalId("DHP-1")).thenReturn(Optional.of(professional));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> dailyHelpService.createBooking(request(slot.getSlotDate().atTime(slot.getStartTime()))));

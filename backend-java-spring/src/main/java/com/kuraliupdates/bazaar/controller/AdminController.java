@@ -252,6 +252,37 @@ public class AdminController {
         return ResponseEntity.ok(dailyHelpService.updateProfessionalAvailability(professionalId, request));
     }
 
+
+    @GetMapping("/daily-help/configuration")
+    @Transactional(readOnly = true)
+    @Operation(summary = "Read Daily Help booking configuration")
+    public ResponseEntity<Map<String, Object>> getDailyHelpConfiguration() {
+        Integer minutes = jdbcTemplate.queryForObject(
+                "SELECT TO_NUMBER(CONFIG_VALUE) FROM KU_COMPLIANCE_CONFIG WHERE CONFIG_KEY = ?",
+                Integer.class, "DAILY_HELP_TURNAROUND_MINUTES");
+        return ResponseEntity.ok(Map.of("turnaroundBufferMinutes", minutes == null ? 15 : minutes));
+    }
+
+    @PutMapping("/daily-help/configuration")
+    @Transactional
+    @Operation(summary = "Update Daily Help booking configuration")
+    public ResponseEntity<Map<String, Object>> updateDailyHelpConfiguration(
+            @RequestBody Map<String, Object> payload) {
+        BigDecimal value = configDecimal(payload, "turnaroundBufferMinutes", BigDecimal.ZERO, new BigDecimal("120"));
+        int minutes = value.intValueExact();
+        jdbcTemplate.update("""
+                UPDATE KU_COMPLIANCE_CONFIG
+                   SET CONFIG_VALUE = ?, UPDATED_AT = CURRENT_TIMESTAMP
+                 WHERE CONFIG_KEY = 'DAILY_HELP_TURNAROUND_MINUTES'
+                """, String.valueOf(minutes));
+        return getDailyHelpConfiguration();
+    }
+
+    private String currentActorEmail() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication == null ? "" : authentication.getName();
+    }
+
     @GetMapping("/daily-help/services")
     @Operation(summary = "Get all Daily Help services for admin management")
     public ResponseEntity<List<DailyHelpServiceAdminResponse>> getDailyHelpServices() {

@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -44,7 +45,19 @@ public class DailyHelpService {
     private final DailyHelpProfessionalRepository professionalRepository;
     private final DailyHelpBookingRepository bookingRepository;
     private final DailyHelpProfessionalSlotRepository slotRepository;
+    private final JdbcTemplate jdbcTemplate;
     private final DailyHelpOtpGenerator otpGenerator = new DailyHelpOtpGenerator();
+
+    private int getTurnaroundBufferMinutes() {
+        try {
+            Integer configured = jdbcTemplate.queryForObject(
+                    "SELECT TO_NUMBER(CONFIG_VALUE) FROM KU_COMPLIANCE_CONFIG WHERE CONFIG_KEY = ?",
+                    Integer.class, "DAILY_HELP_TURNAROUND_MINUTES");
+            return configured == null ? 15 : configured;
+        } catch (org.springframework.dao.EmptyResultDataAccessException ex) {
+            return 15;
+        }
+    }
 
     @Transactional(readOnly = true)
     public List<DailyHelpServiceResponse> getActiveServices() {
@@ -101,12 +114,16 @@ public class DailyHelpService {
         }
 
         DailyHelpProfessionalSlotEntity slot = slotRepository.findLockedBySlotId(request.slotId().trim())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Selected Daily Help slot was not found"));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Selected Daily Help availability window was not found"));
 
         if (!"AVAILABLE".equals(slot.getStatus())) {
-            throw new ApiException(HttpStatus.CONFLICT, "This slot is already booked. Please select a different slot.");
+            throw new ApiException(HttpStatus.CONFLICT, "This availability window is no longer active. Please choose another.");
         }
-        DailyHelpProfessionalEntity professional = slot.getProfessional();
+        // Lock the professional row, not the availability window: multiple buyers may
+        // book different non-overlapping intervals inside the same window.
+        DailyHelpProfessionalEntity professional = professionalRepository.findLockedByProfessionalId(
+                        slot.getProfessional().getProfessionalId())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help professional not found"));
         if (!Integer.valueOf(1).equals(professional.getVerified())
                 || !"AVAILABLE".equalsIgnoreCase(professional.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "Selected Daily Help professional is not currently available");
@@ -117,19 +134,41 @@ public class DailyHelpService {
             throw new ApiException(HttpStatus.CONFLICT, "Selected professional is not available in your locality");
         }
 
-        LocalDateTime slotStart = slot.getSlotDate().atTime(slot.getStartTime());
-        LocalDateTime slotEnd = slot.getSlotDate().atTime(slot.getEndTime());
-        long slotMinutes = Duration.between(slotStart, slotEnd).toMinutes();
+        LocalDateTime windowStart = slot.getSlotDate().atTime(slot.getStartTime());
+        LocalDateTime windowEnd = slot.getSlotDate().atTime(slot.getEndTime());
+        LocalDateTime bookingStart = request.scheduledStart();
         long requestedMinutes = request.requestedHours().multiply(BigDecimal.valueOf(60)).longValueExact();
+        LocalDateTime bookingEnd = bookingStart.plusMinutes(requestedMinutes);
+        if (!bookingStart.toLocalDate().equals(slot.getSlotDate())
+                || bookingStart.isBefore(windowStart) || bookingEnd.isAfter(windowEnd)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Selected time and duration must fit within the helper's availability window");
+        }
+        if (bookingStart.isBefore(LocalDateTime.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Selected time has already started. Please choose a future time.");
+        }
+        if (bookingStart.getMinute() % 15 != 0 || bookingStart.getSecond() != 0 || bookingStart.getNano() != 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Booking start time must be in 15-minute increments");
+        }
 
-        if (!slotStart.equals(request.scheduledStart())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Please select the exact start time of the chosen slot");
-        }
-        if (slotMinutes != requestedMinutes) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Selected slot duration does not match the requested booking duration");
-        }
-        if (slotStart.isBefore(LocalDateTime.now())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Selected slot has already started. Please choose a future slot.");
+        // The admin-managed turnaround buffer is applied on both sides of existing
+        // bookings. The professional-row lock serializes this check for the helper.
+        int turnaroundBufferMinutes = getTurnaroundBufferMinutes();
+        LocalDateTime dayStart = slot.getSlotDate().atStartOfDay();
+        LocalDateTime nextDayStart = dayStart.plusDays(1);
+        boolean conflict = bookingRepository
+                .findByProfessionalProfessionalIdAndScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAsc(
+                        professional.getProfessionalId(), dayStart, nextDayStart)
+                .stream()
+                .filter(existing -> List.of("PROFESSIONAL_ASSIGNED", "ARRIVING", "READY_TO_START", "IN_PROGRESS")
+                        .contains(existing.getStatus()))
+                .anyMatch(existing -> {
+                    LocalDateTime existingEnd = existing.getScheduledStart().plusMinutes(
+                            existing.getRequestedHours().multiply(BigDecimal.valueOf(60)).longValue());
+                    return bookingStart.isBefore(existingEnd.plusMinutes(turnaroundBufferMinutes))
+                            && bookingEnd.plusMinutes(turnaroundBufferMinutes).isAfter(existing.getScheduledStart());
+                });
+        if (conflict) {
+            throw new ApiException(HttpStatus.CONFLICT, "That time is no longer available. Please select another start time.");
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -141,7 +180,7 @@ public class DailyHelpService {
                 .buyerPhone(request.buyerPhone().trim())
                 .address(request.address().trim())
                 .locality(request.locality() == null ? professional.getCurrentLocality() : request.locality().trim())
-                .scheduledStart(slotStart)
+                .scheduledStart(bookingStart)
                 .requestedHours(request.requestedHours())
                 .hourlyRate(service.getPricePerHour())
                 .estimatedTotal(service.getPricePerHour().multiply(request.requestedHours()))
@@ -153,11 +192,6 @@ public class DailyHelpService {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
-
-        slot.setStatus("BOOKED");
-        slot.setBookingId(booking.getBookingId());
-        slot.setUpdatedAt(now);
-        slotRepository.save(slot);
 
         DailyHelpBookingEntity saved = bookingRepository.save(booking);
         return DailyHelpBookingResponse.from(saved, shouldExposeOtp(saved));
@@ -178,7 +212,7 @@ public class DailyHelpService {
                     LocalDateTime end = s.getSlotDate().atTime(s.getEndTime());
                     long minutes = Duration.between(start, end).toMinutes();
                     long requestedMinutes = requestedHours.multiply(BigDecimal.valueOf(60)).longValue();
-                    return !start.isBefore(now) && minutes == requestedMinutes;
+                    return !start.isBefore(now) && minutes >= requestedMinutes;
                 })
                 .map(DailyHelpSlotResponse::from)
                 .toList();
@@ -238,7 +272,28 @@ public class DailyHelpService {
             throw new ApiException(HttpStatus.FORBIDDEN, "You can only manage your own Daily Help slots");
         }
         if ("BOOKED".equals(slot.getStatus())) {
-            throw new ApiException(HttpStatus.CONFLICT, "A booked slot cannot be removed");
+            throw new ApiException(HttpStatus.CONFLICT, "A booked legacy slot cannot be removed");
+        }
+        DailyHelpProfessionalEntity lockedProfessional = professionalRepository
+                .findLockedByProfessionalId(professionalId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help professional not found"));
+        LocalDateTime windowStart = slot.getSlotDate().atTime(slot.getStartTime());
+        LocalDateTime windowEnd = slot.getSlotDate().atTime(slot.getEndTime());
+        boolean hasActiveBooking = bookingRepository
+                .findByProfessionalProfessionalIdAndScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAsc(
+                        lockedProfessional.getProfessionalId(), slot.getSlotDate().atStartOfDay(),
+                        slot.getSlotDate().plusDays(1).atStartOfDay())
+                .stream()
+                .filter(existing -> List.of("PROFESSIONAL_ASSIGNED", "ARRIVING", "READY_TO_START", "IN_PROGRESS")
+                        .contains(existing.getStatus()))
+                .anyMatch(existing -> {
+                    LocalDateTime existingEnd = existing.getScheduledStart().plusMinutes(
+                            existing.getRequestedHours().multiply(BigDecimal.valueOf(60)).longValue());
+                    return existing.getScheduledStart().isBefore(windowEnd)
+                            && existingEnd.isAfter(windowStart);
+                });
+        if (hasActiveBooking) {
+            throw new ApiException(HttpStatus.CONFLICT, "This availability window contains an active booking and cannot be removed");
         }
         slot.setStatus("CANCELLED");
         slot.setUpdatedAt(LocalDateTime.now());
@@ -250,6 +305,14 @@ public class DailyHelpService {
         return bookingRepository.findFirstByBuyerPhoneOrderByCreatedAtDesc(buyerPhone.trim())
                 .map(b -> DailyHelpBookingResponse.from(b, shouldExposeOtp(b)))
                 .orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DailyHelpBookingResponse> getBookingsForBuyer(String buyerPhone) {
+        return bookingRepository.findByBuyerPhoneOrderByScheduledStartDesc(buyerPhone.trim())
+                .stream()
+                .map(b -> DailyHelpBookingResponse.from(b, shouldExposeOtp(b)))
+                .toList();
     }
 
     @Transactional(readOnly = true)

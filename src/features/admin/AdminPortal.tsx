@@ -101,6 +101,8 @@ export const AdminDashboard: React.FC = () => {
     deliveryConfigLoading,
     deliveryConfigSaving,
     deliveryConfigError,
+    dailyHelpTurnaroundMinutes,
+    setDailyHelpTurnaroundMinutes,
     saveDeliveryConfiguration,
     refreshDeliveryConfiguration,
     sellerAreaConfig,
@@ -529,6 +531,15 @@ export const AdminDashboard: React.FC = () => {
                   </label>
                 ))}
               </div>
+
+              <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <h3 className="text-sm font-extrabold text-amber-950">Daily Help booking buffer</h3>
+                <p className="mt-1 text-xs text-amber-900">Minimum turnaround time before and after each booking for the same helper. Applies to new bookings immediately.</p>
+                <label className="mt-3 block max-w-xs text-xs font-bold text-slate-700">Turnaround buffer (minutes)
+                  <input type="number" min={0} max={120} step={5} value={dailyHelpTurnaroundMinutes} onChange={event => setDailyHelpTurnaroundMinutes(event.target.value === '' ? 15 : Number(event.target.value))} className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold" />
+                </label>
+                <p className="mt-2 text-[11px] text-amber-900">Allowed range: 0–120 minutes. Default: 15 minutes. Save using the Save settings button below.</p>
+              </section>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {([
                   ['batchEnabled', 'Enable combined rider delivery', 'Eligible multi-seller orders can be claimed as one trip.'],

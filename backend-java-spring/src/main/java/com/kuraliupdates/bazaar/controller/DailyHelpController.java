@@ -148,6 +148,16 @@ public class DailyHelpController {
         return ResponseEntity.ok(dailyHelpService.getProfessionalEarnings(professionalId));
     }
 
+    @GetMapping("/bookings")
+    public ResponseEntity<List<DailyHelpBookingResponse>> getBuyerBookings(
+            @RequestParam String buyerPhone, Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        if (!hasRole(authentication, "BUYER") || !samePhone(user.getPhone(), buyerPhone)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You can only access your own Daily Help bookings");
+        }
+        return ResponseEntity.ok(dailyHelpService.getBookingsForBuyer(user.getPhone()));
+    }
+
     @GetMapping("/bookings/latest")
     public ResponseEntity<DailyHelpBookingResponse> getLatestBooking(@RequestParam String buyerPhone, Authentication authentication) {
         UserEntity user = requireUser(authentication);
