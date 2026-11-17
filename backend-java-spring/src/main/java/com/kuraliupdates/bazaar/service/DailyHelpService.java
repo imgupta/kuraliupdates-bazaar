@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -44,7 +45,19 @@ public class DailyHelpService {
     private final DailyHelpProfessionalRepository professionalRepository;
     private final DailyHelpBookingRepository bookingRepository;
     private final DailyHelpProfessionalSlotRepository slotRepository;
+    private final JdbcTemplate jdbcTemplate;
     private final DailyHelpOtpGenerator otpGenerator = new DailyHelpOtpGenerator();
+
+    private int getTurnaroundBufferMinutes() {
+        try {
+            Integer configured = jdbcTemplate.queryForObject(
+                    "SELECT TO_NUMBER(CONFIG_VALUE) FROM KU_COMPLIANCE_CONFIG WHERE CONFIG_KEY = ?",
+                    Integer.class, "DAILY_HELP_TURNAROUND_MINUTES");
+            return configured == null ? 15 : configured;
+        } catch (org.springframework.dao.EmptyResultDataAccessException ex) {
+            return 15;
+        }
+    }
 
     @Transactional(readOnly = true)
     public List<DailyHelpServiceResponse> getActiveServices() {
@@ -137,8 +150,9 @@ public class DailyHelpService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Booking start time must be in 15-minute increments");
         }
 
-        // A 15-minute turnaround buffer is applied on both sides of existing
+        // The admin-managed turnaround buffer is applied on both sides of existing
         // bookings. The professional-row lock serializes this check for the helper.
+        int turnaroundBufferMinutes = getTurnaroundBufferMinutes();
         LocalDateTime dayStart = slot.getSlotDate().atStartOfDay();
         LocalDateTime nextDayStart = dayStart.plusDays(1);
         boolean conflict = bookingRepository
@@ -150,8 +164,8 @@ public class DailyHelpService {
                 .anyMatch(existing -> {
                     LocalDateTime existingEnd = existing.getScheduledStart().plusMinutes(
                             existing.getRequestedHours().multiply(BigDecimal.valueOf(60)).longValue());
-                    return bookingStart.isBefore(existingEnd.plusMinutes(15))
-                            && bookingEnd.plusMinutes(15).isAfter(existing.getScheduledStart());
+                    return bookingStart.isBefore(existingEnd.plusMinutes(turnaroundBufferMinutes))
+                            && bookingEnd.plusMinutes(turnaroundBufferMinutes).isAfter(existing.getScheduledStart());
                 });
         if (conflict) {
             throw new ApiException(HttpStatus.CONFLICT, "That time is no longer available. Please select another start time.");
