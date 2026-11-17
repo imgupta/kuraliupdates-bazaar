@@ -10,7 +10,6 @@ export const NegotiationChatModal: React.FC = () => {
     sendMessage,
     respondToOffer,
     products,
-    cart,
     role,
     user,
     showToast,
@@ -274,14 +273,14 @@ export const NegotiationChatModal: React.FC = () => {
               5% Off (₹{Math.round(basePrice * 0.95)})
             </button>
             <button
-              disabled={isOpening}
+              disabled={isOpening || isAccepted}
               onClick={() => setCustomOfferPrice(String(Math.round(basePrice * 0.9)))}
               className="bg-white hover:bg-amber-50 hover:text-amber-700 border border-slate-200 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-40"
             >
               10% Off (₹{Math.round(basePrice * 0.9)})
             </button>
             <button
-              disabled={isOpening}
+              disabled={isOpening || isAccepted}
               onClick={() => setCustomOfferPrice(String(Math.round(basePrice * 0.85)))}
               className="bg-white hover:bg-amber-50 hover:text-amber-700 border border-slate-200 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-40"
             >
