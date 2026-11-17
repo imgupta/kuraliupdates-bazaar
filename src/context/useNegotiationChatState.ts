@@ -68,7 +68,7 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
       // the cart. Upsert is idempotent, so polling cannot duplicate quantities.
       // Pending/rejected/expired offers only update an existing bargain line.
       if (product && status === 'ACCEPTED' && previous !== 'ACCEPTED' && chat.currentAgreedPrice != null) {
-        if (product.stock > 0) {
+        if (Number(product.stock ?? 0) > 0) {
           upsertBargainCartItem(product, chat.id, 'ACCEPTED', pendingOffer?.offeredPrice,
             chat.currentAgreedPrice, chat.currentAgreedOfferId);
         } else {
