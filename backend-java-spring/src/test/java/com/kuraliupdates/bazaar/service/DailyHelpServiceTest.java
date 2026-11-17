@@ -74,6 +74,7 @@ class DailyHelpServiceTest {
         DailyHelpProfessionalSlotEntity slot = slot(professional, "BOOKED");
         when(serviceRepository.findById("DH-CLEAN")).thenReturn(Optional.of(service));
         when(slotRepository.findLockedBySlotId("SLOT-1")).thenReturn(Optional.of(slot));
+        when(professionalRepository.findLockedByProfessionalId("DHP-1")).thenReturn(Optional.of(professional));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> dailyHelpService.createBooking(request(slot.getSlotDate().atTime(slot.getStartTime()))));
@@ -91,18 +92,17 @@ class DailyHelpServiceTest {
         LocalDateTime start = slot.getSlotDate().atTime(slot.getStartTime());
         when(serviceRepository.findById("DH-CLEAN")).thenReturn(Optional.of(service));
         when(slotRepository.findLockedBySlotId("SLOT-1")).thenReturn(Optional.of(slot));
-        when(slotRepository.save(any(DailyHelpProfessionalSlotEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(professionalRepository.findLockedByProfessionalId("DHP-1")).thenReturn(Optional.of(professional));
         when(bookingRepository.save(any(DailyHelpBookingEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = dailyHelpService.createBooking(request(start));
 
-        assertEquals("BOOKED", slot.getStatus());
-        assertNotNull(slot.getBookingId());
+        assertEquals("AVAILABLE", slot.getStatus());
+        assertNull(slot.getBookingId());
         assertEquals("PROFESSIONAL_ASSIGNED", response.status());
         assertEquals("DHP-1", response.professionalId());
-        verify(slotRepository).save(slot);
+        verify(slotRepository, never()).save(any());
         verify(bookingRepository).save(any(DailyHelpBookingEntity.class));
     }
 
@@ -114,8 +114,7 @@ class DailyHelpServiceTest {
         LocalDateTime start = slot.getSlotDate().atTime(slot.getStartTime());
         when(serviceRepository.findById("DH-CLEAN")).thenReturn(Optional.of(service));
         when(slotRepository.findLockedBySlotId("SLOT-1")).thenReturn(Optional.of(slot));
-        when(slotRepository.save(any(DailyHelpProfessionalSlotEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(professionalRepository.findLockedByProfessionalId("DHP-1")).thenReturn(Optional.of(professional));
         when(bookingRepository.save(any(DailyHelpBookingEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -125,9 +124,9 @@ class DailyHelpServiceTest {
                 () -> dailyHelpService.createBooking(request(start)));
 
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
-        assertEquals("BOOKED", slot.getStatus());
-        assertNotNull(slot.getBookingId());
-        verify(slotRepository, times(1)).save(slot);
+        assertEquals("AVAILABLE", slot.getStatus());
+        assertNull(slot.getBookingId());
+        verify(slotRepository, never()).save(any());
         verify(bookingRepository, times(1)).save(any(DailyHelpBookingEntity.class));
     }
 
