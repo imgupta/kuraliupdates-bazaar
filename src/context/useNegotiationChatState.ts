@@ -79,7 +79,7 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
           pendingOffer?.offeredPrice);
       }
       if (previous && previous !== status) {
-        if (status === 'ACCEPTED' && product?.stock > 0) showToastRef.current('Seller accepted your bargain. The agreed price is in your cart.', 'success');
+        if (status === 'ACCEPTED' && Number(product?.stock ?? 0) > 0) showToastRef.current('Seller accepted your bargain. The agreed price is in your cart.', 'success');
         if (status === 'REJECTED') showToastRef.current('Your bargain was declined. You can still order at the catalogue price.', 'info');
         if (status === 'EXPIRED') showToastRef.current('Your bargain expired. The catalogue price remains available.', 'info');
       }
