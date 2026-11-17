@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "KuraliUpdates",
+    "slug": "kuraliupdates",
+    "scheme": "kuraliupdates",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kuraliupdates.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ],
+    "platforms": [
+      "ios"
+    ]
+  }
+}
