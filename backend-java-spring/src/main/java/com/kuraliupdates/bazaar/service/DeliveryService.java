@@ -29,6 +29,7 @@ public class DeliveryService {
     private final OrderRepository orderRepository;
     private final JdbcTemplate jdbc;
     private final AtomicInteger resendGuardCleanupCounter = new AtomicInteger();
+    private final SecureRandom secureRandom = new SecureRandom();
     private final GoogleRoutesService googleRoutesService;
     @Transactional
     public DeliveryAgentEntity updateAvailability(com.kuraliupdates.bazaar.entity.UserEntity user, boolean available) {

@@ -102,12 +102,14 @@ export const AdminDashboard: React.FC = () => {
     deliveryConfigSaving,
     deliveryConfigError,
     saveDeliveryConfiguration,
+    refreshDeliveryConfiguration,
     sellerAreaConfig,
     setSellerAreaConfig,
     sellerAreaLoading,
     sellerAreaSaving,
     sellerAreaError,
     saveSellerAreaConfiguration,
+    refreshSellerAreaConfiguration,
   } = useAdminConfiguration(activeAdminTab, isRootAdmin, showToast);
 
   const refreshAdminData = useAdminDashboardRefresh({

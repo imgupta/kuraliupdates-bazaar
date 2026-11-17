@@ -144,11 +144,13 @@ export const useAdminConfiguration = (
     deliveryConfigSaving,
     deliveryConfigError,
     saveDeliveryConfiguration,
+    refreshDeliveryConfiguration,
     sellerAreaConfig,
     setSellerAreaConfig,
     sellerAreaLoading,
     sellerAreaSaving,
     sellerAreaError,
     saveSellerAreaConfiguration,
+    refreshSellerAreaConfiguration,
   };
 };
