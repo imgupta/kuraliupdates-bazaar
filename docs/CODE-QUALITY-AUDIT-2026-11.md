@@ -112,9 +112,15 @@ files, and 60 Markdown files.
   `cookie-parser`, `dotenv`, `express` and `jszip` packages and their three
   corresponding `@types` packages. These packages were absent from the current
   `package.json`; the tracked tree has no root `server.js` or other tracked
-  server entrypoint. The lockfile package records are retained where they may
-  still be part of transitive resolution; current declared frontend dependencies
-  are unchanged.
+  server entrypoint.
+- Implemented: scanned tracked frontend components, context hooks, portal
+  modules, test commands and build scripts for direct import/config references.
+  Removed unused direct dependencies `@google/genai` and `motion`, plus unused
+  build-tool declarations `autoprefixer` and `esbuild`, from both `package.json`
+  and the Bun workspace root. Kept `canvas-confetti` (used by checkout) and
+  `tsx` (used by CI's TypeScript test runner). Unused package graph records may
+  remain in the lockfile as non-root records; Bun installs only reachable
+  workspace dependencies.
 - Implemented: inspected the public ZIP central-directory inventory (78
   entries; 115,061 compressed bytes). It is an old source snapshot containing
   legacy React components, a small Spring Boot skeleton and a separate Angular
@@ -165,7 +171,7 @@ The previous PRs implemented lazy dashboard loading, the admin directory
 extraction and three backend responsibility extractions. This follow-up closes
 the remaining low-risk audit items: seller-only dead branches are removed from
 the legacy auth component while the dedicated seller wizard is preserved;
-stale lockfile-only server dependencies are cleaned up; and the obsolete
-public source archive is removed after metadata inventory. Transaction-heavy
-order/booking orchestration and unverified third-party dependencies remain
-intentionally unchanged.
+stale lockfile-only server dependencies and four unused direct dependencies
+are removed; and the obsolete public source archive is removed after metadata
+inventory. Transaction-heavy order/booking orchestration remains intentionally
+unchanged.
