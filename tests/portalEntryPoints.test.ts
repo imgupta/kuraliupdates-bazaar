@@ -64,3 +64,18 @@ test('legacy auth retains delivery and Daily Help email OTP registration', () =>
   assert.match(legacy, /bazaarApi\.sendOtp\(email, 'EMAIL', 'REGISTER'\)/);
   assert.match(legacy, /mode: 'REGISTER'/);
 });
+
+test('admin portal delegates refresh, seller document review and configuration lifecycles to focused hooks', () => {
+  const portal = read('../src/features/admin/AdminPortal.tsx');
+  const refreshHook = read('../src/features/admin/useAdminDashboardRefresh.ts');
+  const documentHook = read('../src/features/admin/useSellerDocumentReview.ts');
+  const configurationHook = read('../src/features/admin/useAdminConfiguration.ts');
+
+  assert.match(portal, /useAdminDashboardRefresh\(/);
+  assert.match(portal, /useSellerDocumentReview\(showToast\)/);
+  assert.match(portal, /useAdminConfiguration\(activeAdminTab, isRootAdmin, showToast\)/);
+  assert.match(refreshHook, /setInterval\(\(\) => void refreshAdminData\(\), 45000\)/);
+  assert.match(documentHook, /verifySellerDocument/);
+  assert.match(configurationHook, /updateDeliveryConfiguration/);
+  assert.match(configurationHook, /updateSellerServiceArea/);
+});
