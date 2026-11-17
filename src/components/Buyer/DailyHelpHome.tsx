@@ -191,7 +191,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
       <section>
         {catalogError && <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[11px] font-semibold text-rose-800">Daily Help services could not be loaded from the database. Please try again shortly.</div>}
         <div className="flex items-center justify-between mb-3">
-          <div><h2 className="text-lg font-black text-slate-900">What do you need help with?</h2><p className="text-xs text-slate-500">Choose a service and then select an available maid slot.</p></div>
+          <div><h2 className="text-lg font-black text-slate-900">What do you need help with?</h2><p className="text-xs text-slate-500">Choose a service, duration and start time within an available helper window.</p></div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredServices.map(service => (
@@ -238,14 +238,14 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
             </div>
 
             <div className="mt-5">
-              <div className="flex items-center justify-between mb-2"><h3 className="text-sm font-black text-slate-900">Available maids & slots</h3>{slots.length > 0 && <span className="text-[10px] font-bold text-emerald-700">{slots.length} available</span>}</div>
+              <div className="flex items-center justify-between mb-2"><h3 className="text-sm font-black text-slate-900">Available helpers & windows</h3>{slots.length > 0 && <span className="text-[10px] font-bold text-emerald-700">{slots.length} available</span>}</div>
               {slotsLoading ? (
                 <div className="rounded-xl border border-slate-200 p-6 text-center text-xs text-slate-500">Checking maid availability...</div>
               ) : slots.length === 0 ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-center">
                   <Clock3 className="w-6 h-6 mx-auto text-amber-600" />
-                  <p className="mt-2 text-sm font-black text-slate-800">All slots are booked</p>
-                  <p className="mt-1 text-xs text-slate-600">Please select a different slot or date.</p>
+                  <p className="mt-2 text-sm font-black text-slate-800">No matching availability</p>
+                  <p className="mt-1 text-xs text-slate-600">Please select another date or availability window.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
