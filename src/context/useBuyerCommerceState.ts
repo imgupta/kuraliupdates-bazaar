@@ -17,6 +17,7 @@ export const useBuyerCommerceState = (
   usePersistedValue('kurali_applied_coupon', appliedCoupon, { removeWhenNull: true });
 
   const addToCart = (product: Product, quantity = 1, negotiatedPrice?: number, acceptedOfferId?: string) => {
+    if (product.stock <= 0 || quantity <= 0) return;
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
@@ -36,6 +37,7 @@ export const useBuyerCommerceState = (
     negotiatedPrice?: number,
     acceptedOfferId?: string,
   ) => {
+    if (product.stock <= 0) return;
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       const bargainFields = {
@@ -99,9 +101,11 @@ export const useBuyerCommerceState = (
       removeFromCart(productId);
       return;
     }
-    setCart(prev => prev.map(item => item.product.id === productId
-      ? { ...item, quantity: Math.min(item.product.stock, quantity) }
-      : item));
+    setCart(prev => prev.flatMap(item => {
+      if (item.product.id !== productId) return [item];
+      const safeQuantity = Math.min(item.product.stock, quantity);
+      return safeQuantity > 0 ? [{ ...item, quantity: safeQuantity }] : [];
+    }));
   };
 
   const clearCart = () => {
