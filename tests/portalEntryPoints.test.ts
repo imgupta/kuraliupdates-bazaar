@@ -41,3 +41,26 @@ test('each role portal publishes its dashboard from a stable module entry point'
     /export type \{ BuyerPortalProps \} from ['"]\.\/BuyerPortal['"]/
   );
 });
+
+test('legacy auth keeps seller registration in the dedicated wizard', () => {
+  const auth = read('../src/components/Auth/AuthPageV2.tsx');
+  const legacyStart = auth.indexOf('const AuthPageV2Legacy');
+  const legacyEnd = auth.indexOf('const RoleRegistrationCard', legacyStart);
+  const legacy = auth.slice(legacyStart, legacyEnd);
+
+  assert.ok(legacyStart >= 0 && legacyEnd > legacyStart);
+  assert.doesNotMatch(legacy, /registrationRole\s*===\s*['"]seller['"]/);
+  assert.doesNotMatch(legacy, /storeNameRef|shopFrontPhotoRef|gstNumberRef|fssaiCertificateRef|uploadSellerDocument/);
+  assert.match(auth, /if \(props\.registrationRole === 'seller'\) return <SellerRegistrationWizard \/>;/);
+});
+
+test('legacy auth retains delivery and Daily Help email OTP registration', () => {
+  const auth = read('../src/components/Auth/AuthPageV2.tsx');
+  const legacyStart = auth.indexOf('const AuthPageV2Legacy');
+  const legacyEnd = auth.indexOf('const RoleRegistrationCard', legacyStart);
+  const legacy = auth.slice(legacyStart, legacyEnd);
+
+  assert.match(legacy, /registrationRole === 'delivery' \|\| registrationRole === 'professional'/);
+  assert.match(legacy, /bazaarApi\.sendOtp\(email, 'EMAIL', 'REGISTER'\)/);
+  assert.match(legacy, /mode: 'REGISTER'/);
+});

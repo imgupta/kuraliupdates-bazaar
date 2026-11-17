@@ -4,7 +4,6 @@ import { useApp } from '../../context/AppContext';
 import { KURALI_LOCALITIES } from '../../data/initialData';
 import { UserRole } from '../../types';
 import { bazaarApi } from '../../services/api';
-import { LocationPicker, DeliveryLocation } from './LocationPicker';
 import { SellerRegistrationWizard } from './SellerRegistrationWizard';
 
 type AuthMode = 'signin' | 'register';
@@ -17,7 +16,7 @@ interface AuthPageV2Props {
 
 const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer', loginRole }) => {
   const { loginWithOtp, registerUserWithOtp, showToast } = useApp();
-  const roleRegistration = registrationRole === 'seller' || registrationRole === 'delivery' || registrationRole === 'professional';
+  const roleRegistration = registrationRole === 'delivery' || registrationRole === 'professional';
 
   const [authMode, setAuthMode] = useState<AuthMode>(roleRegistration ? 'register' : 'signin');
   const [contactMethod, setContactMethod] = useState<ContactMethod>('email');
@@ -31,24 +30,16 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
   const [onboardingStatus, setOnboardingStatus] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [pendingToken, setPendingToken] = useState('');
   const [pendingIdentifier, setPendingIdentifier] = useState('');
-  const [shopLocation, setShopLocation] = useState<DeliveryLocation | null>(null);
   const [pendingRegistration, setPendingRegistration] = useState<{
     name: string;
     email: string;
     phone: string;
     locality: string;
     address: string;
-    storeName?: string;
-    category?: string;
+    wardNumber?: string;
     vehicleType?: string;
     vehicleNumber?: string;
     licenseNumber?: string;
-    businessType?: string; registeredBusinessName?: string; shopNumber?: string; wardNumber?: string;
-    streetLocality?: string; pinCode?: string; gstNumber?: string; fssaiNumber?: string;
-    fssaiLicenseType?: string; openingTime?: string; closingTime?: string; weeklyClosedDay?: string;
-    agreementAccepted?: boolean; agreementVersion?: string;
-    latitude?: number; longitude?: number; formattedAddress?: string; placeId?: string;
-    shopFrontPhoto?: File; gstCertificate?: File; fssaiCertificate?: File;
   } | null>(null);
 
   const nameRef = useRef<HTMLInputElement>(null);
@@ -56,24 +47,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
   const phoneRef = useRef<HTMLInputElement>(null);
   const localityRef = useRef<HTMLSelectElement>(null);
   const addressRef = useRef<HTMLInputElement>(null);
-  const storeNameRef = useRef<HTMLInputElement>(null);
-  const categoryRef = useRef<HTMLInputElement>(null);
-  const businessTypeRef = useRef<HTMLSelectElement>(null);
-  const registeredBusinessNameRef = useRef<HTMLInputElement>(null);
-  const shopNumberRef = useRef<HTMLInputElement>(null);
   const wardNumberRef = useRef<HTMLInputElement>(null);
-  const streetLocalityRef = useRef<HTMLInputElement>(null);
-  const pinCodeRef = useRef<HTMLInputElement>(null);
-  const gstNumberRef = useRef<HTMLInputElement>(null);
-  const fssaiNumberRef = useRef<HTMLInputElement>(null);
-  const fssaiLicenseTypeRef = useRef<HTMLSelectElement>(null);
-  const openingTimeRef = useRef<HTMLInputElement>(null);
-  const closingTimeRef = useRef<HTMLInputElement>(null);
-  const weeklyClosedDayRef = useRef<HTMLSelectElement>(null);
-  const agreementRef = useRef<HTMLInputElement>(null);
-  const shopFrontPhotoRef = useRef<HTMLInputElement>(null);
-  const gstCertificateRef = useRef<HTMLInputElement>(null);
-  const fssaiCertificateRef = useRef<HTMLInputElement>(null);
   const vehicleNumberRef = useRef<HTMLInputElement>(null);
   const licenseNumberRef = useRef<HTMLInputElement>(null);
   const vehicleTypeRef = useRef<HTMLSelectElement>(null);
@@ -101,10 +75,6 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
   };
 
   const openRegister = (role: UserRole = 'buyer') => {
-    if (role === 'seller') {
-      window.location.href = '/register/seller';
-      return;
-    }
     if (role === 'delivery') {
       window.location.href = '/register/delivery';
       return;
@@ -130,21 +100,6 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
         if (!name) throw new Error('Please enter your name');
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Please enter a valid email address');
         if (!/^\d{10}$/.test(phone)) throw new Error('Please enter a valid 10-digit mobile number');
-        if (registrationRole === 'seller') {
-          if (!(storeNameRef.current?.value || '').trim()) throw new Error('Please enter your shop name');
-          if (!(categoryRef.current?.value || '').trim()) throw new Error('Please enter your business category');
-          if (!(registeredBusinessNameRef.current?.value || '').trim()) throw new Error('Please enter the registered business name');
-          if (!(shopNumberRef.current?.value || '').trim()) throw new Error('Please enter the shop number');
-          if (!(wardNumberRef.current?.value || '').trim()) throw new Error('Please enter the ward number');
-          if (!(streetLocalityRef.current?.value || '').trim()) throw new Error('Please enter the street or locality');
-          if (!/^\d{6}$/.test(pinCodeRef.current?.value || '')) throw new Error('Please enter a valid 6-digit shop PIN code');
-          if (!agreementRef.current?.checked) throw new Error('Please accept the Seller Agreement and Terms');
-          if (!shopLocation) throw new Error('Please set your shop location on the map');
-          if (!shopFrontPhotoRef.current?.files?.[0]) throw new Error('Please upload a shop-front photo');
-          if (gstNumberRef.current?.value.trim() && !gstCertificateRef.current?.files?.[0]) throw new Error('Please upload the GST certificate for the supplied GSTIN');
-          const foodCategory = (categoryRef.current?.value || '').toLowerCase();
-          if (/(grocery|food|bakery|restaurant|dairy|meat)/.test(foodCategory) && !fssaiCertificateRef.current?.files?.[0]) throw new Error('Please upload the FSSAI certificate for this food business');
-        }
         if (registrationRole === 'delivery' || registrationRole === 'professional') {
           if (!(wardNumberRef.current?.value || '').trim()) throw new Error('Please enter your ward number');
         }
@@ -169,27 +124,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
           phone,
           locality: localityRef.current?.value || KURALI_LOCALITIES[1] || 'Main Bazaar & Clock Tower',
           address: (addressRef.current?.value || '').trim(),
-          storeName: storeNameRef.current?.value.trim(),
-          category: categoryRef.current?.value.trim(),
-          businessType: businessTypeRef.current?.value,
-          registeredBusinessName: registeredBusinessNameRef.current?.value.trim(),
-          shopNumber: shopNumberRef.current?.value.trim(),
           wardNumber: wardNumberRef.current?.value.trim(),
-          streetLocality: streetLocalityRef.current?.value.trim(),
-          pinCode: pinCodeRef.current?.value.trim(),
-          gstNumber: gstNumberRef.current?.value.trim(),
-          fssaiNumber: fssaiNumberRef.current?.value.trim(),
-          fssaiLicenseType: fssaiLicenseTypeRef.current?.value,
-          openingTime: openingTimeRef.current?.value,
-          closingTime: closingTimeRef.current?.value,
-          weeklyClosedDay: weeklyClosedDayRef.current?.value,
-          agreementAccepted: agreementRef.current?.checked,
-          agreementVersion: 'seller-terms-2026-11-01',
-          latitude: shopLocation?.latitude, longitude: shopLocation?.longitude,
-          formattedAddress: shopLocation?.formattedAddress, placeId: shopLocation?.placeId,
-          shopFrontPhoto: shopFrontPhotoRef.current?.files?.[0],
-          gstCertificate: gstCertificateRef.current?.files?.[0],
-          fssaiCertificate: fssaiCertificateRef.current?.files?.[0],
           vehicleType: vehicleTypeRef.current?.value,
           vehicleNumber: vehicleNumberRef.current?.value.trim(),
           licenseNumber: licenseNumberRef.current?.value.trim(),
@@ -242,10 +177,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
       if (authMode === 'register') {
         const registration = pendingRegistration;
         if (!registration) throw new Error('Registration details are missing. Please start registration again.');
-        const { name, email, phone, locality, address, storeName, category, vehicleType, vehicleNumber, licenseNumber,
-          businessType, registeredBusinessName, shopNumber, wardNumber, streetLocality, pinCode, gstNumber,
-          fssaiNumber, fssaiLicenseType, openingTime, closingTime, weeklyClosedDay, agreementAccepted, agreementVersion,
-          latitude, longitude, formattedAddress, placeId, shopFrontPhoto, gstCertificate, fssaiCertificate } = registration;
+        const { name, email, phone, locality, address, wardNumber, vehicleType, vehicleNumber, licenseNumber } = registration;
 
         const response = await bazaarApi.verifyOtp({
           mode: 'REGISTER',
@@ -253,11 +185,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
           role: registrationRole,
           locality,
           address,
-          storeName,
-          category,
-          businessType, registeredBusinessName, shopNumber, wardNumber, streetLocality, pinCode,
-          gstNumber, fssaiNumber, fssaiLicenseType, openingTime, closingTime, weeklyClosedDay,
-          agreementAccepted, agreementVersion, latitude, longitude, formattedAddress, placeId,
+          wardNumber,
           vehicleType,
           vehicleNumber,
           licenseNumber,
@@ -268,23 +196,6 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
 
         if (!response.success || !response.token || !response.user) {
           throw new Error(response.message || 'Registration verification failed');
-        }
-
-        if (registrationRole === 'seller') {
-          const uploads: Array<Promise<{ success: boolean; documentId?: string; message?: string }>> = [
-            shopFrontPhoto
-              ? bazaarApi.uploadSellerDocument(response.token, 'SHOP_FRONT_PHOTO', shopFrontPhoto)
-              : Promise.resolve({ success: false, message: 'Shop-front photo is missing' }),
-            gstCertificate
-              ? bazaarApi.uploadSellerDocument(response.token, 'GST_CERTIFICATE', gstCertificate)
-              : Promise.resolve({ success: true }),
-            fssaiCertificate
-              ? bazaarApi.uploadSellerDocument(response.token, 'FSSAI_CERTIFICATE', fssaiCertificate)
-              : Promise.resolve({ success: true }),
-          ];
-          const uploadResults = await Promise.all(uploads);
-          const failedUpload = uploadResults.find(result => !result.success);
-          if (failedUpload) throw new Error(failedUpload.message || 'Seller document upload failed. Sign in and contact support to complete document submission.');
         }
 
         const result = registerUserWithOtp({
@@ -326,13 +237,11 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
       }
 
       const serverRole = (response.user.role || '').toLowerCase();
-      const requestedProfileRole = registrationRole === 'seller'
-        ? 'SELLER'
-        : registrationRole === 'delivery'
-          ? 'DELIVERY'
-          : registrationRole === 'professional'
-            ? 'PROFESSIONAL'
-            : undefined;
+      const requestedProfileRole = registrationRole === 'delivery'
+        ? 'DELIVERY'
+        : registrationRole === 'professional'
+          ? 'PROFESSIONAL'
+          : undefined;
       if (requestedProfileRole && response.token) {
         const approval = await bazaarApi.getOnboardingStatus(response.token, requestedProfileRole);
         if (approval.success && approval.status !== 'APPROVED') {
@@ -359,15 +268,24 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
   };
 
   if (applicationSubmitted) {
-    const isSeller = registrationRole === 'seller';
     const isProfessional = registrationRole === 'professional';
-    const statusTitle = onboardingStatus === 'APPROVED' ? (isSeller ? 'Merchant account approved' : isProfessional ? 'Daily Help professional account approved' : 'Delivery partner account approved') : onboardingStatus === 'REJECTED' ? (isSeller ? 'Merchant application not approved' : isProfessional ? 'Daily Help professional application not approved' : 'Delivery partner application not approved') : (isSeller ? 'Your merchant application is under review' : isProfessional ? 'Your Daily Help professional application is under review' : 'Your delivery partner application is under review');
-    const statusMessage = onboardingStatus === 'APPROVED' ? 'Your account is approved. You can sign in and start using KuraliUpdates Bazaar.' : onboardingStatus === 'REJECTED' ? 'Your application was not approved by the Kurali admin team. Please contact support before submitting another application.' : (isSeller ? 'Our team will review your shop details before activating your merchant account.' : isProfessional ? 'Your professional profile is ready. Sign in to go available and receive nearby Daily Help jobs.' : 'Our team will review your delivery details before activating your partner account.');
+    const statusTitle = onboardingStatus === 'APPROVED'
+      ? (isProfessional ? 'Daily Help professional account approved' : 'Delivery partner account approved')
+      : onboardingStatus === 'REJECTED'
+        ? (isProfessional ? 'Daily Help professional application not approved' : 'Delivery partner application not approved')
+        : (isProfessional ? 'Your Daily Help professional application is under review' : 'Your delivery partner application is under review');
+    const statusMessage = onboardingStatus === 'APPROVED'
+      ? 'Your account is approved. You can sign in and start using KuraliUpdates Bazaar.'
+      : onboardingStatus === 'REJECTED'
+        ? 'Your application was not approved by the Kurali admin team. Please contact support before submitting another application.'
+        : (isProfessional
+          ? 'Your professional profile is ready. Sign in to go available and receive nearby Daily Help jobs.'
+          : 'Our team will review your delivery details before activating your partner account.');
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 flex items-center justify-center p-4">
         <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl border border-slate-200 p-7 sm:p-10 text-center">
-          <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-3xl ${isSeller ? 'bg-blue-100' : 'bg-emerald-100'}`}>
-            {isSeller ? <Store className="h-8 w-8 text-blue-700" /> : <Truck className="h-8 w-8 text-emerald-700" />}
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-100">
+            <Truck className="h-8 w-8 text-emerald-700" />
           </div>
           <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-[11px] font-black text-amber-800">
             <CheckCircle2 className="h-3.5 w-3.5" /> {onboardingStatus === 'APPROVED' ? 'Approved' : onboardingStatus === 'REJECTED' ? 'Rejected' : 'Application submitted'}
@@ -381,7 +299,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
           </div>
           <p className="mt-6 text-xs text-slate-500">You do not need to register again. Keep your email and mobile number available for future updates.</p>
           {pendingToken && onboardingStatus === 'PENDING' && (
-            <button type="button" onClick={async () => { const requestedProfileRole = registrationRole === 'seller' ? 'SELLER' : registrationRole === 'delivery' ? 'DELIVERY' : registrationRole === 'professional' ? 'PROFESSIONAL' : undefined; const approval = await bazaarApi.getOnboardingStatus(pendingToken, requestedProfileRole); if (approval.status === 'APPROVED') { setOnboardingStatus('APPROVED'); setApplicationSubmitted(false); window.location.href = '/'; } else if (approval.status === 'REJECTED') { setOnboardingStatus('REJECTED'); } else { showToast('Your application is still under review.', 'info'); } }} className="mt-5 inline-flex items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-5 py-2.5 text-xs font-black text-amber-800">Check approval status</button>
+            <button type="button" onClick={async () => { const requestedProfileRole = registrationRole === 'delivery' ? 'DELIVERY' : registrationRole === 'professional' ? 'PROFESSIONAL' : undefined; const approval = await bazaarApi.getOnboardingStatus(pendingToken, requestedProfileRole); if (approval.status === 'APPROVED') { setOnboardingStatus('APPROVED'); setApplicationSubmitted(false); window.location.href = '/'; } else if (approval.status === 'REJECTED') { setOnboardingStatus('REJECTED'); } else { showToast('Your application is still under review.', 'info'); } }} className="mt-5 inline-flex items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-5 py-2.5 text-xs font-black text-amber-800">Check approval status</button>
           )}
           <a href="/" className="mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 py-3 text-xs font-black text-white hover:bg-black"><ArrowLeft className="h-4 w-4" /> Return to Bazaar</a>
         </div>
@@ -391,21 +309,17 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
 
   const title = authMode === 'signin'
     ? 'Welcome back'
-    : registrationRole === 'seller'
-      ? 'Join as a Kurali Merchant'
-      : registrationRole === 'delivery'
-        ? 'Join Kurali Express'
-        : registrationRole === 'professional'
-          ? 'Join as a Daily Help Professional'
-          : 'Create your buyer account';
+    : registrationRole === 'delivery'
+      ? 'Join Kurali Express'
+      : registrationRole === 'professional'
+        ? 'Join as a Daily Help Professional'
+        : 'Create your buyer account';
 
   const subtitle = authMode === 'signin'
     ? 'Sign in securely with a one-time verification code.'
-    : registrationRole === 'seller'
-      ? 'Register your shop. Your merchant profile will be reviewed by the Kurali admin team.'
-      : registrationRole === 'delivery'
-        ? 'Register as a delivery partner. Your fleet profile will be reviewed before activation.'
-        : 'Start shopping across Kurali with email verification.';
+    : registrationRole === 'delivery'
+      ? 'Register as a delivery partner. Your fleet profile will be reviewed before activation.'
+      : 'Start your Daily Help professional registration with email verification.';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 flex items-center justify-center p-4 sm:p-6">
@@ -495,47 +409,6 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
                       <label className="block mb-1 text-xs font-bold text-slate-700">Address <span className="font-normal text-slate-400">(optional)</span></label>
                       <input ref={addressRef} type="text" placeholder="House / shop / landmark" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white" />
                     </div>
-                    {registrationRole === 'seller' && (
-                      <>
-                        <div>
-                          <label className="block mb-1 text-xs font-bold text-slate-700">Shop name <span className="text-rose-500">*</span></label>
-                          <input ref={storeNameRef} type="text" placeholder="Your shop name" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white" />
-                        </div>
-                        <div>
-                          <label className="block mb-1 text-xs font-bold text-slate-700">Business category <span className="text-rose-500">*</span></label>
-                          <input ref={categoryRef} type="text" placeholder="Groceries, pharmacy, electronics..." className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm outline-none focus:border-amber-500 focus:bg-white" />
-                        </div>
-                        <div>
-                          <label className="block mb-1 text-xs font-bold text-slate-700">Business constitution <span className="text-rose-500">*</span></label>
-                          <select ref={businessTypeRef} defaultValue="INDIVIDUAL" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm"><option value="INDIVIDUAL">Individual</option><option value="PROPRIETORSHIP">Proprietorship</option><option value="PARTNERSHIP">Partnership</option><option value="COMPANY">Company / LLP</option></select>
-                        </div>
-                        <div><label className="block mb-1 text-xs font-bold text-slate-700">Registered business / legal name *</label><input ref={registeredBusinessNameRef} type="text" placeholder="Name as per registration" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 px-3 text-sm" /></div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div><label className="block mb-1 text-xs font-bold text-slate-700">Shop number *</label><input ref={shopNumberRef} type="text" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
-                          <div><label className="block mb-1 text-xs font-bold text-slate-700">Ward number *</label><input ref={wardNumberRef} type="text" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div><label className="block mb-1 text-xs font-bold text-slate-700">Street / locality *</label><input ref={streetLocalityRef} type="text" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
-                          <div><label className="block mb-1 text-xs font-bold text-slate-700">PIN code *</label><input ref={pinCodeRef} type="text" inputMode="numeric" maxLength={6} className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
-                        </div>
-                        <div className="sm:col-span-2"><p className="mb-2 text-xs font-bold text-slate-700">Pin your shop location <span className="text-rose-500">*</span></p><LocationPicker value={shopLocation} onChange={setShopLocation} /></div>
-                        <div><label className="block mb-1 text-xs font-bold text-slate-700">GSTIN <span className="font-normal text-slate-400">(if registered / applicable)</span></label><input ref={gstNumberRef} type="text" placeholder="15-character GSTIN" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm uppercase" /></div>
-                        <div><label className="block mb-1 text-xs font-bold text-slate-700">FSSAI number <span className="font-normal text-slate-400">(required for applicable food businesses)</span></label><input ref={fssaiNumberRef} type="text" maxLength={14} placeholder="14-digit FSSAI number" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
-                        <div><label className="block mb-1 text-xs font-bold text-slate-700">FSSAI licence type</label><select ref={fssaiLicenseTypeRef} defaultValue="" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm"><option value="">Select if applicable</option><option>Basic Registration</option><option>State Licence</option><option>Central Licence</option></select></div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div><label className="block mb-1 text-xs font-bold text-slate-700">Opening time</label><input ref={openingTimeRef} type="time" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
-                          <div><label className="block mb-1 text-xs font-bold text-slate-700">Closing time</label><input ref={closingTimeRef} type="time" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm" /></div>
-                        </div>
-                        <div><label className="block mb-1 text-xs font-bold text-slate-700">Weekly closing day</label><select ref={weeklyClosedDayRef} defaultValue="" className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm"><option value="">No fixed weekly closure</option>{['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day => <option key={day}>{day}</option>)}</select></div>
-                        <div className="space-y-3 rounded-xl border border-slate-200 p-3">
-                          <p className="text-xs font-black text-slate-800">Business documents <span className="text-rose-500">*</span></p>
-                          <div><label className="block mb-1 text-xs font-bold text-slate-700">Shop-front photo *</label><input ref={shopFrontPhotoRef} type="file" accept="image/jpeg,image/png,application/pdf" className="w-full text-xs" /><p className="text-[10px] text-slate-500">PDF, JPG or PNG; maximum 5 MB.</p></div>
-                          <div><label className="block mb-1 text-xs font-bold text-slate-700">GST certificate <span className="font-normal text-slate-400">(required when GSTIN is supplied)</span></label><input ref={gstCertificateRef} type="file" accept="image/jpeg,image/png,application/pdf" className="w-full text-xs" /></div>
-                          <div><label className="block mb-1 text-xs font-bold text-slate-700">FSSAI certificate <span className="font-normal text-slate-400">(required for applicable food businesses)</span></label><input ref={fssaiCertificateRef} type="file" accept="image/jpeg,image/png,application/pdf" className="w-full text-xs" /></div>
-                        </div>
-                        <label className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[11px] text-slate-600"><input ref={agreementRef} type="checkbox" className="mt-0.5" /><span>I confirm that the information is accurate and accept the <a href="/seller-agreement.html" target="_blank" rel="noreferrer" className="font-bold text-blue-700 underline">Seller Agreement</a>, marketplace terms and privacy notice. I understand approval is subject to document and compliance review. <b className="text-rose-600">*</b></span></label>
-                      </>
-                    )}
                     {registrationRole === 'delivery' && (
                       <>
                         <div>

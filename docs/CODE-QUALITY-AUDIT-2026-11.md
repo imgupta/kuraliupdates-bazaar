@@ -3,8 +3,8 @@
 ## Scope and method
 
 This is a source-level review and implementation follow-up based on `main`
-commit `e031437eab3e203030b39e921f066f600efeaa5c` and the consolidated
-architecture-cleanup branch. It is not a SonarQube report:
+commit `a1bcfea0b3103e1145fe79e52889edd5e250e350` and the final hygiene
+cleanup branch. It is not a SonarQube report:
 cyclomatic complexity, cognitive complexity, duplication percentage, coverage,
 and production bundle sizes have not been measured by a local analyzer in this
 review. File counts and line counts below are structural indicators only.
@@ -32,12 +32,13 @@ files, and 60 Markdown files.
   component still contains buyer registration code. The two flows are not
   assumed equivalent; field capture and API payload parity must be checked
   before consolidating them.
-- Follow-up status: seller registration remains routed to the dedicated
-  `SellerRegistrationWizard`; buyer and professional/delivery OTP flows were
-  not rewritten. The legacy component still contains seller-only branches.
-  They are retained until a complete caller/route inventory and role-specific
-  OTP/document-upload regression suite can prove removal safe. This PR does
-  not claim that suspected unreachable auth code has been deleted.
+- Implemented: removed the unreachable seller-only validation, form fields,
+  pending payload properties, document-upload branch and seller approval
+  copy from `AuthPageV2Legacy`. The exported `AuthPageV2` wrapper still routes
+  seller registration to `SellerRegistrationWizard`; buyer registration stays
+  on `BuyerRegistrationPage`, while delivery and Daily Help registration keep
+  their existing email-OTP and role-specific fields. A source-contract test
+  guards these route and flow boundaries.
 
 ### 2. Admin UI decomposition
 
@@ -107,13 +108,28 @@ files, and 60 Markdown files.
   distribution purpose were not independently verified in this source-only
   review. It is retained rather than deleting a potentially intentional
   downloadable artefact without inspecting its contents and checking consumers.
-- Dependency removal was not attempted: the available repository code-search
-  result did not provide a complete import inventory, and package manifest
-  presence alone does not establish that a package is unused. No dependency
-  or lockfile was changed.
-- The public ZIP remains because its contents and distribution contract have
-  not been independently inspected. Removing it without that evidence could
-  break a customer-facing download.
+- Implemented: removed stale lockfile workspace-root entries for the legacy
+  `cookie-parser`, `dotenv`, `express` and `jszip` packages and their three
+  corresponding `@types` packages. These packages were absent from the current
+  `package.json`; the tracked tree has no root `server.js` or other tracked
+  server entrypoint.
+- Implemented: scanned tracked frontend components, context hooks, portal
+  modules, test commands and build scripts for direct import/config references.
+  Removed unused direct dependencies `@google/genai` and `motion`, plus unused
+  build-tool declarations `autoprefixer` and `esbuild`, from both `package.json`
+  and the Bun workspace root. Kept `canvas-confetti` (used by checkout) and
+  `tsx` (used by CI's TypeScript test runner). Unused package graph records may
+  remain in the lockfile as non-root records; Bun installs only reachable
+  workspace dependencies.
+- Implemented: inspected the public ZIP central-directory inventory (78
+  entries; 115,061 compressed bytes). It is an old source snapshot containing
+  legacy React components, a small Spring Boot skeleton and a separate Angular
+  scaffold, rather than a current release bundle. The inventory showed only
+  `.env.example` (not `.env`) and no wallet, private-key, keystore, truststore
+  or certificate-store paths. No in-repo README/architecture download reference
+  was found. Removed the undocumented stale archive from `public/` so future
+  deployments no longer publish that obsolete source snapshot. This was a
+  filename/metadata inventory, not a full scan of compressed file contents.
 
 ### 6. Documentation consolidation
 
@@ -141,22 +157,21 @@ requires running the configured analyzer against the checked-out commit.
 
 ## Verification required for this PR
 
-- TypeScript lint and all five portal builds plus the combined build must pass.
-- Inspect Vite output to confirm role dashboards are emitted as async chunks and
-  that the selected dashboard loads successfully.
-- Run existing browser E2E for buyer, seller, delivery, professional and admin
-  route entry. Skipped tests remain skipped and must not be counted as passes.
-- Backend source is unchanged; Maven verification remains a required regression
-  gate for the repository.
-- No Oracle data, secrets, staging configuration, payment behaviour, OTP
-  behaviour, schema or migration was changed.
+- TypeScript lint, all five portal builds and the combined build must pass.
+- Run the new auth-boundary source-contract tests and existing route/portal
+  regression tests; skipped browser E2E cases remain skipped, not passed.
+- Run backend Maven verification as the repository regression gate.
+- No Oracle data, secrets, payment behaviour, OTP contract, API route, schema
+  or migration was changed. The legacy auth cleanup removes unreachable UI
+  code only; delivery/professional OTP requests remain intact.
 
 ## Outcome
 
-This PR implements the admin directory extraction and three backend
-responsibility extractions with regression tests, alongside the lazy-loading
-change already merged in PR #371. It deliberately retains the legacy seller
-registration branches, transaction-heavy order/booking orchestration, package
-manifest entries and public ZIP where complete safety evidence is not yet
-available. Those are explicitly recorded as unverified candidates, not
-completed cleanups.
+The previous PRs implemented lazy dashboard loading, the admin directory
+extraction and three backend responsibility extractions. This follow-up closes
+the remaining low-risk audit items: seller-only dead branches are removed from
+the legacy auth component while the dedicated seller wizard is preserved;
+stale lockfile-only server dependencies and four unused direct dependencies
+are removed; and the obsolete public source archive is removed after metadata
+inventory. Transaction-heavy order/booking orchestration remains intentionally
+unchanged.
