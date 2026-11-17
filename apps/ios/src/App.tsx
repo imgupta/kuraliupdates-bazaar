@@ -35,6 +35,12 @@ export default function App() {
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryLocality, setDeliveryLocality] = useState(session?.user.locality || 'Kurali');
   const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [sellerProductTitle, setSellerProductTitle] = useState('');
+  const [sellerProductCategory, setSellerProductCategory] = useState('Grocery');
+  const [sellerProductMrp, setSellerProductMrp] = useState('');
+  const [sellerProductPrice, setSellerProductPrice] = useState('');
+  const [sellerProductStock, setSellerProductStock] = useState('1');
+
 
 
   useEffect(() => {
@@ -173,6 +179,26 @@ export default function App() {
     finally { setCheckoutBusy(false); }
   };
 
+
+  const createSellerProduct = async () => {
+    if (!session) return;
+    const mrp = Number(sellerProductMrp), sellerPrice = Number(sellerProductPrice), stock = Number(sellerProductStock);
+    if (!sellerProductTitle.trim() || !sellerProductCategory.trim() || !Number.isFinite(mrp) || mrp <= 0 || !Number.isFinite(sellerPrice) || sellerPrice <= 0 || sellerPrice > mrp || !Number.isInteger(stock) || stock < 0) {
+      setError('Enter a product name, category, valid MRP, selling price (not above MRP), and whole-number stock.');
+      return;
+    }
+    await runRoleAction('seller-create-product', () => mobileApi.sellerCreateProduct(session.token, {
+      title: sellerProductTitle.trim(), category: sellerProductCategory.trim(), mrp, sellerPrice, stock,
+      description: '', imageUrl: '', additionalDiscountPercent: 0, unit: 'piece', tags: [], isFeatured: false,
+    }));
+    setSellerProductTitle(''); setSellerProductMrp(''); setSellerProductPrice(''); setSellerProductStock('1');
+  };
+  const deleteSellerProduct = (product: MobileRecord) => {
+    if (!session) return;
+    const id = String(product.productId || product.id || '');
+    if (id) void runRoleAction('seller-delete:'+id, () => mobileApi.sellerDeleteProduct(session.token,id));
+  };
+
   const sendCode = async () => {
     if (!identifier.trim()) { setError(channel === 'PHONE' ? 'Enter your mobile number.' : 'Enter your email address.'); return; }
     setBusy(true); setError('');
@@ -254,7 +280,15 @@ export default function App() {
           <Text style={styles.muted}>Approval: {String(roleData.profile?.approvalStatus || roleData.profile?.status || 'Check with admin')}</Text>
           <Pressable style={styles.primary} onPress={() => void runRoleAction('store', () => mobileApi.sellerAvailability(session.token, !(roleData.profile?.open ?? roleData.profile?.isOpen ?? false)))}><Text style={styles.primaryText}>{(roleData.profile?.open ?? roleData.profile?.isOpen) ? 'Close store' : 'Open store'}</Text></Pressable>
           <Text style={styles.sectionTitle}>Products ({roleData.products?.length || 0})</Text>
-          {(roleData.products || []).map((p: MobileRecord, i: number) => <View key={String(p.productId || p.id || i)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(p.title || p.name || 'Product')}</Text><Text style={styles.muted}>Stock: {String(p.stock ?? '—')} · Price: {money(p.sellerPrice ?? p.price)}</Text></View>)}
+          <View style={styles.orderCard}>
+            <Text style={styles.orderTitle}>Add a product</Text>
+            <TextInput value={sellerProductTitle} onChangeText={setSellerProductTitle} placeholder="Product name" style={styles.input}/>
+            <TextInput value={sellerProductCategory} onChangeText={setSellerProductCategory} placeholder="Category" style={styles.input}/>
+            <View style={{ flexDirection: 'row', gap: 8 }}><TextInput value={sellerProductMrp} onChangeText={setSellerProductMrp} placeholder="MRP ₹" keyboardType="decimal-pad" style={[styles.input,{flex:1}]}/><TextInput value={sellerProductPrice} onChangeText={setSellerProductPrice} placeholder="Selling ₹" keyboardType="decimal-pad" style={[styles.input,{flex:1}]}/></View>
+            <TextInput value={sellerProductStock} onChangeText={setSellerProductStock} placeholder="Stock quantity" keyboardType="number-pad" style={styles.input}/>
+            <Pressable style={styles.primary} disabled={!!roleActionBusy} onPress={() => void createSellerProduct()}><Text style={styles.primaryText}>Create product</Text></Pressable>
+          </View>
+          {(roleData.products || []).map((p: MobileRecord, i: number) => <View key={String(p.productId || p.id || i)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(p.title || p.name || 'Product')}</Text><Text style={styles.muted}>Stock: {String(p.stock ?? '—')} · Price: {money(p.sellerPrice ?? p.price)}</Text><Pressable style={styles.secondary} onPress={() => deleteSellerProduct(p)}><Text style={styles.secondaryText}>Delete product</Text></Pressable></View>)}
           <Text style={styles.sectionTitle}>Orders ({roleData.orders?.length || 0})</Text>
           {(roleData.orders || []).map((o: MobileRecord, i: number) => <View key={String(o.orderId || o.id || i)} style={styles.orderCard}><Text style={styles.orderTitle}>Order #{String(o.orderId || o.id || '—')}</Text><Text style={styles.muted}>{String(o.status || '—').replaceAll('_',' ')}</Text><Text style={styles.muted}>Status updates remain server-controlled; use the seller portal for the full fulfilment workflow.</Text></View>)}
         </>}
