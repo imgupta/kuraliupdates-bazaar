@@ -143,6 +143,10 @@ export const mobileApi = {
   buyerPlaceOrder: (t: string, payload: MobileRecord) => authed<MobileRecord>('/buyers/orders', t, { method: 'POST', body: JSON.stringify(payload) }),
   buyerCancelOrder: (t: string, id: string) => authed<MobileRecord>(`/buyers/orders/${encodeURIComponent(id)}/cancel`, t, { method: 'POST' }),
   buyerTrackOrder: (t: string, id: string) => authed<MobileRecord>(`/buyers/orders/${encodeURIComponent(id)}/track`, t),
+  buyerAddresses: (t: string) => authed<MobileRecord[]>('/auth/me/addresses', t),
+  buyerCreateAddress: (t: string, payload: MobileRecord) => authed<MobileRecord>('/auth/me/addresses', t, { method: 'POST', body: JSON.stringify(payload) }),
+  buyerUpdateAddress: (t: string, id: string, payload: MobileRecord) => authed<MobileRecord>(`/auth/me/addresses/${encodeURIComponent(id)}`, t, { method: 'PUT', body: JSON.stringify(payload) }),
+  buyerSetDefaultAddress: (t: string, id: string) => authed<MobileRecord>(`/auth/me/addresses/${encodeURIComponent(id)}/default`, t, { method: 'PUT' }),
   // Bargaining never sends an offer merely by opening the chat.
   bargainList: (t: string, role: 'BUYER'|'SELLER' = 'BUYER') => authed<MobileRecord[]>(`/negotiations?role=${role}`, t, { headers: { 'X-Active-Role': role } }),
   bargainOpen: (t: string, productId: string, startingOfferPrice: number, openingMessage: string) => authed<MobileRecord>('/negotiations', t, { method: 'POST', headers: { 'X-Active-Role': 'BUYER' }, body: JSON.stringify({ productId, startingOfferPrice, openingMessage }) }),
