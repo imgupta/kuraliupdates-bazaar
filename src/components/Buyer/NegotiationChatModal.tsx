@@ -135,7 +135,7 @@ export const NegotiationChatModal: React.FC = () => {
 
           {role !== 'seller' && isAccepted && currentChat.bargainStatus !== 'CLOSED_PURCHASED' && (
             <span className="shrink-0 rounded-lg bg-emerald-100 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800">
-              Accepted · ₹{currentChat.currentAgreedPrice} · Added to cart
+              Accepted · ₹{currentChat.currentAgreedPrice}
             </span>
           )}
         </div>

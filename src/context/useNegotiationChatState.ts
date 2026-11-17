@@ -68,14 +68,18 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
       // the cart. Upsert is idempotent, so polling cannot duplicate quantities.
       // Pending/rejected/expired offers only update an existing bargain line.
       if (product && status === 'ACCEPTED' && previous !== 'ACCEPTED' && chat.currentAgreedPrice != null) {
-        upsertBargainCartItem(product, chat.id, 'ACCEPTED', pendingOffer?.offeredPrice,
-          chat.currentAgreedPrice, chat.currentAgreedOfferId);
+        if (product.stock > 0) {
+          upsertBargainCartItem(product, chat.id, 'ACCEPTED', pendingOffer?.offeredPrice,
+            chat.currentAgreedPrice, chat.currentAgreedOfferId);
+        } else {
+          showToastRef.current('Seller accepted your offer, but the product is now out of stock.', 'info');
+        }
       } else if (product && status !== 'CLOSED_PURCHASED') {
         updateExistingBargainCartItem(product, chat.id, status as 'PENDING_SELLER' | 'PENDING_BUYER' | 'REJECTED' | 'EXPIRED',
           pendingOffer?.offeredPrice);
       }
       if (previous && previous !== status) {
-        if (status === 'ACCEPTED') showToastRef.current('Seller accepted your bargain. Your cart price has been updated.', 'success');
+        if (status === 'ACCEPTED' && product?.stock > 0) showToastRef.current('Seller accepted your bargain. The agreed price is in your cart.', 'success');
         if (status === 'REJECTED') showToastRef.current('Your bargain was declined. You can still order at the catalogue price.', 'info');
         if (status === 'EXPIRED') showToastRef.current('Your bargain expired. The catalogue price remains available.', 'info');
       }
