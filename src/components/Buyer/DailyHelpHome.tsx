@@ -42,7 +42,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
   const [selectedSlot, setSelectedSlot] = useState<DailyHelpSlot | null>(null);
   const [selectedStartTime, setSelectedStartTime] = useState('09:00');
   const [slotsLoading, setSlotsLoading] = useState(false);
-  const [booking, setBooking] = useState<DailyHelpBooking | null>(null);
+  const [bookings, setBookings] = useState<DailyHelpBooking[]>([]);
   const [bookingBusy, setBookingBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
 
@@ -55,26 +55,25 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
 
   useEffect(() => {
     if (!user.phone) return;
-    buyerApi.getLatestDailyHelpBooking(user.phone).then(latest => {
-      if (latest && !['COMPLETED', 'CANCELLED'].includes(latest.status)) setBooking(latest);
-    });
+    buyerApi.getDailyHelpBookings(user.phone).then(setBookings);
   }, [user.phone]);
 
   useEffect(() => {
-    if (!booking?.id || !['SEARCHING','CONFIRMED','PROFESSIONAL_ASSIGNED','ARRIVING','READY_TO_START','IN_PROGRESS'].includes(booking.status)) return;
+    const active = bookings.filter(item => ['SEARCHING','CONFIRMED','PROFESSIONAL_ASSIGNED','ARRIVING','READY_TO_START','IN_PROGRESS'].includes(item.status));
+    if (!active.length) return;
     const refresh = async () => {
-      const latest = await buyerApi.getDailyHelpBooking(booking.id);
-      if (latest) setBooking(latest);
+      const updated = await Promise.all(active.map(item => buyerApi.getDailyHelpBooking(item.id)));
+      setBookings(current => current.map(item => updated.find(next => next?.id === item.id) || item));
     };
-    const interval = window.setInterval(refresh, booking.status === 'IN_PROGRESS' ? 5000 : 15000);
+    const interval = window.setInterval(refresh, active.some(item => item.status === 'IN_PROGRESS') ? 5000 : 15000);
     return () => window.clearInterval(interval);
-  }, [booking?.id, booking?.status]);
+  }, [bookings]);
 
   useEffect(() => {
-    if (booking?.status !== 'IN_PROGRESS' || !booking.serviceStartedAt) return;
+    if (!bookings.some(item => item.status === 'IN_PROGRESS' && item.serviceStartedAt)) return;
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
-  }, [booking?.status, booking?.serviceStartedAt]);
+  }, [bookings]);
 
   useEffect(() => {
     if (!selected) return;
@@ -87,10 +86,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
     return () => { cancelled = true; };
   }, [selected, bookingDate, hours, user.locality]);
 
-  const elapsedSeconds = useMemo(() => {
-    if (!booking?.serviceStartedAt) return 0;
-    return Math.floor((now - new Date(booking.serviceStartedAt).getTime()) / 1000);
-  }, [booking?.serviceStartedAt, now]);
+  const elapsedSeconds = (startedAt?: string) => startedAt ? Math.floor((now - new Date(startedAt).getTime()) / 1000) : 0;
 
   const minDate = localDateString(new Date());
   const filteredServices = useMemo(() => {
@@ -132,7 +128,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
       if (!result) throw new Error('Unable to create Daily Help booking');
       setSelected(null);
       setSelectedSlot(null);
-      setBooking(result);
+      setBookings(current => [result, ...current.filter(item => item.id !== result.id)]);
       showToast('Daily Help booking confirmed.', 'success');
     } catch (err: any) {
       showToast(err?.message || 'Unable to create the Daily Help booking.', 'error');
@@ -149,8 +145,11 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
 
   return (
     <div className="space-y-5">
-      {booking && (
-        <section className="bg-white border border-emerald-200 rounded-2xl p-4 sm:p-5 shadow-sm">
+      {bookings.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between"><h2 className="text-lg font-black text-slate-900">Your Daily Help orders</h2><span className="text-xs font-bold text-slate-500">{bookings.length} order{bookings.length === 1 ? '' : 's'}</span></div>
+          {bookings.map(booking => (
+        <article key={booking.id} className="bg-white border border-emerald-200 rounded-2xl p-4 sm:p-5 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-[10px] uppercase tracking-wider font-black text-emerald-700">Active Daily Help</p>
@@ -178,13 +177,15 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
           {booking.status === 'IN_PROGRESS' && booking.serviceStartedAt && (
             <div className="mt-4 rounded-xl bg-slate-900 text-white p-5 text-center">
               <div className="flex items-center justify-center gap-2 text-emerald-300 text-xs font-bold"><Timer className="w-4 h-4" /> SERVICE TIMER</div>
-              <div className="text-4xl font-black font-mono mt-2">{formatDuration(elapsedSeconds)}</div>
+              <div className="text-4xl font-black font-mono mt-2">{formatDuration(elapsedSeconds(booking.serviceStartedAt))}</div>
               <p className="text-[11px] text-slate-400 mt-2">Started {new Date(booking.serviceStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
             </div>
           )}
           {booking.status === 'COMPLETED' && (
             <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 text-emerald-800 p-3 text-xs font-bold"><CheckCircle2 className="w-4 h-4" /> Service completed successfully.</div>
           )}
+        </article>
+          ))}
         </section>
       )}
 
