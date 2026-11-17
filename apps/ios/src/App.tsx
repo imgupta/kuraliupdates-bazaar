@@ -24,7 +24,10 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Array<Record<string, unknown>>>([]);
-  const [loadingData, setLoadingData] = useState(false);\n  const [registeredRoles, setRegisteredRoles] = useState<MobileRole[]>(['BUYER']);\n  const [roleBusy, setRoleBusy] = useState(false);\n  const [roleStatus, setRoleStatus] = useState('');
+  const [loadingData, setLoadingData] = useState(false);
+  const [registeredRoles, setRegisteredRoles] = useState<MobileRole[]>(['BUYER']);
+  const [roleBusy, setRoleBusy] = useState(false);
+  const [roleStatus, setRoleStatus] = useState('');
 
   useEffect(() => {
     readSession().then(setSession).finally(() => setBooting(false));
@@ -50,6 +53,43 @@ export default function App() {
   useEffect(() => {
     if (session) void loadShop();
   }, [session, loadShop]);
+
+  const switchRole = useCallback(async (role: MobileRole) => {
+    if (!session || roleBusy || (session.user.role || 'BUYER').toUpperCase() === role) return;
+    setRoleBusy(true);
+    setError('');
+    setRoleStatus('');
+    try {
+      const handoff = await createRoleHandoff(session.token, role);
+      if (!handoff.success || !handoff.code) throw new Error('This role is not available for your account.');
+      const redeemed = await redeemRoleHandoff(handoff.code);
+      if (!redeemed.success || !redeemed.token) throw new Error('Could not securely switch roles. Please sign in again.');
+      const nextUser = redeemed.user || { ...session.user, role: redeemed.role || role };
+      await saveSession(redeemed.token, nextUser);
+      setSession({ token: redeemed.token, user: nextUser });
+      setTab('shop');
+      const status = await getRoleOnboardingStatus(redeemed.token, role).catch(() => null);
+      if (status?.status && status.status !== 'APPROVED') {
+        setRoleStatus(`Your ${role === 'PROFESSIONAL' ? 'Daily Help' : role.toLowerCase()} access is ${status.status.toLowerCase()}. Some actions may be unavailable until approval.`);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to switch role.');
+    } finally {
+      setRoleBusy(false);
+    }
+  }, [session, roleBusy]);
+
+  useEffect(() => {
+    if (!session) {
+      setRegisteredRoles(['BUYER']);
+      return;
+    }
+    let active = true;
+    getRegisteredRoles(session.token)
+      .then(roles => { if (active) setRegisteredRoles(roles.length ? roles : ['BUYER']); })
+      .catch(() => { if (active) setRegisteredRoles(['BUYER']); });
+    return () => { active = false; };
+  }, [session]);
 
   const sendCode = async () => {
     if (!identifier.trim()) { setError(channel === 'PHONE' ? 'Enter your mobile number.' : 'Enter your email address.'); return; }
@@ -132,7 +172,8 @@ export default function App() {
           columnWrapperStyle={styles.productRow}
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={loadingData} onRefresh={loadShop} tintColor="#087f5b" />}
-          ListHeaderComponent={<View style={styles.hero}><Text style={styles.heroEyebrow}>SHOP LOCAL</Text><Text style={styles.heroTitle}>Your everyday needs,{"\n"}right around the corner.</Text><Text style={styles.heroCopy}>Discover products from shops in Kurali.</Text></View>}
+          ListHeaderComponent={<View style={styles.hero}><Text style={styles.heroEyebrow}>SHOP LOCAL</Text><Text style={styles.heroTitle}>Your everyday needs,{"
+"}right around the corner.</Text><Text style={styles.heroCopy}>Discover products from shops in Kurali.</Text></View>}
           ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>{loadingData ? 'Finding local products…' : 'No products found'}</Text><Text style={styles.muted}>Pull down to refresh or try another search.</Text></View>}
           renderItem={({ item }) => <View style={styles.productCard}><View style={styles.productImage}><Text style={styles.productEmoji}>🛍️</Text></View><Text numberOfLines={2} style={styles.productTitle}>{item.name || item.title}</Text><Text numberOfLines={1} style={styles.productSeller}>{item.seller?.name || 'Local seller'}</Text><Text style={styles.price}>{money(item.sellerPrice ?? item.price)} <Text style={styles.unit}>{item.unit || ''}</Text></Text></View>}
         />
@@ -174,7 +215,13 @@ const styles = StyleSheet.create({
   welcome: { color: '#183b2f', fontSize: 22, fontWeight: '800', marginTop: 2 },
   localBadge: { backgroundColor: '#e2f2e9', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7 },
   localBadgeText: { color: '#087f5b', fontWeight: '800', fontSize: 10, letterSpacing: 1 },
-  roleTabs: { paddingHorizontal: 16, paddingBottom: 10, gap: 8, alignItems: 'center' },\n  roleChip: { borderWidth: 1, borderColor: '#d9e6dc', backgroundColor: '#fff', borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8 },\n  roleChipActive: { backgroundColor: '#087f5b', borderColor: '#087f5b' },\n  roleChipText: { color: '#486154', fontWeight: '700', fontSize: 12 },\n  roleChipTextActive: { color: '#fff' },\n  roleStatus: { color: '#63766b', paddingHorizontal: 20, paddingBottom: 8, fontSize: 12 },\n  tabs: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, paddingBottom: 12 },
+  roleTabs: { paddingHorizontal: 16, paddingBottom: 10, gap: 8, alignItems: 'center' },
+  roleChip: { borderWidth: 1, borderColor: '#d9e6dc', backgroundColor: '#fff', borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8 },
+  roleChipActive: { backgroundColor: '#087f5b', borderColor: '#087f5b' },
+  roleChipText: { color: '#486154', fontWeight: '700', fontSize: 12 },
+  roleChipTextActive: { color: '#fff' },
+  roleStatus: { color: '#63766b', paddingHorizontal: 20, paddingBottom: 8, fontSize: 12 },
+  tabs: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, paddingBottom: 12 },
   tab: { paddingHorizontal: 17, paddingVertical: 10, borderRadius: 20, backgroundColor: '#eaf0eb' },
   tabSelected: { backgroundColor: '#087f5b' },
   tabText: { color: '#617169', fontWeight: '600', fontSize: 13 },
