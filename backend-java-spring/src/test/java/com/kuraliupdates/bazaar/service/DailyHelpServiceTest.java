@@ -43,7 +43,7 @@ class DailyHelpServiceTest {
 
     @org.junit.jupiter.api.BeforeEach
     void defaultTurnaroundBuffer() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class), any(Object.class))).thenReturn(15);
+        lenient().when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class), any(Object[].class))).thenReturn(15);
     }
 
     @Test
