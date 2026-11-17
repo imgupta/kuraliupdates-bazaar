@@ -254,6 +254,13 @@ class DailyHelpControllerTest {
         verifyNoInteractions(dailyHelpService);
     }
 
+    @Test
+    void missingAuthenticationCannotCancelDailyHelpBooking() {
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
+                () -> controller.cancelBuyerBooking("BOOK-1", null)).getStatus());
+        verifyNoInteractions(dailyHelpService);
+    }
+
     private Authentication authentication(UserEntity user) {
         Authentication authentication = mock(Authentication.class);
         when(authentication.getPrincipal()).thenReturn(user);
