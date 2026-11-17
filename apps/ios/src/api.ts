@@ -76,3 +76,38 @@ export async function getMyOrders(token: string) {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+
+export type MobileRole = 'BUYER' | 'SELLER' | 'DELIVERY' | 'DAILY_HELP_PROFESSIONAL';
+
+export async function getRegisteredRoles(token: string): Promise<MobileRole[]> {
+  const result = await request<{ success?: boolean; roles?: string[] }>('/auth/me/roles', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const allowed: MobileRole[] = ['BUYER', 'SELLER', 'DELIVERY', 'DAILY_HELP_PROFESSIONAL'];
+  return (Array.isArray(result.roles) ? result.roles : [])
+    .map(role => role.toUpperCase() as MobileRole)
+    .filter((role, index, all) => allowed.includes(role) && all.indexOf(role) === index);
+}
+
+export async function createRoleHandoff(token: string, role: MobileRole) {
+  return request<{ success: boolean; code?: string; role?: string }>('/auth/portal-handoff', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function redeemRoleHandoff(code: string) {
+  return request<{ success: boolean; token?: string; user?: AuthUser; roles?: string[]; role?: string }>(
+    '/auth/portal-handoff/redeem',
+    { method: 'POST', body: JSON.stringify({ code }) },
+  );
+}
+
+export async function getRoleOnboardingStatus(token: string, role: MobileRole) {
+  return request<{ success: boolean; role?: string; status?: string; message?: string }>(
+    `/auth/onboarding-status?role=${encodeURIComponent(role)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+}
