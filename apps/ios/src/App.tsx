@@ -65,6 +65,11 @@ export default function App() {
   const [negotiatedItems, setNegotiatedItems] = useState<Record<string, { price: number; offerId: string }>>({});
   const [trackingByOrder, setTrackingByOrder] = useState<Record<string, MobileRecord>>({});
   const [trackingBusy, setTrackingBusy] = useState('');
+  const [savedAddresses, setSavedAddresses] = useState<MobileRecord[]>([]);
+  const [addressLabel, setAddressLabel] = useState('Home');
+  const [addressLine, setAddressLine] = useState('');
+  const [addressLandmark, setAddressLandmark] = useState('');
+  const [addressBusy, setAddressBusy] = useState(false);
   const [editingProductId, setEditingProductId] = useState('');
   const [editingProductRecord, setEditingProductRecord] = useState<MobileRecord | null>(null);
   const [timerNow, setTimerNow] = useState(Date.now());
@@ -179,6 +184,30 @@ export default function App() {
     return () => clearInterval(timer);
   }, [activeRole, roleData.mine]);
 
+  const loadSavedAddresses = async () => {
+    if (!session) return;
+    try { setSavedAddresses(await mobileApi.buyerAddresses(session.token)); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Unable to load saved addresses.'); }
+  };
+  const saveBuyerAddress = async () => {
+    if (!session || !addressLine.trim()) { setError('Enter your full address.'); return; }
+    setAddressBusy(true); setError('');
+    try {
+      const payload = { label: addressLabel.trim() || 'Other', addressLine1: addressLine.trim(), landmark: addressLandmark.trim(), formattedAddress: [addressLine.trim(), addressLandmark.trim(), deliveryLocality].filter(Boolean).join(', '), isDefault: savedAddresses.length === 0 };
+      await mobileApi.buyerCreateAddress(session.token, payload);
+      setAddressLine(''); setAddressLandmark('');
+      await loadSavedAddresses();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save address.'); }
+    finally { setAddressBusy(false); }
+  };
+  const chooseDefaultAddress = async (address: MobileRecord) => {
+    if (!session) return;
+    try {
+      await mobileApi.buyerSetDefaultAddress(session.token, String(address.addressId));
+      setDeliveryAddress(String(address.formattedAddress || address.addressLine1 || ''));
+      await loadSavedAddresses();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Unable to set default address.'); }
+  };
   const loadOrderTracking = async (orderId: string) => {
     if (!session || !orderId) return;
     setTrackingBusy(orderId);
@@ -499,7 +528,7 @@ export default function App() {
       </>}
       {activeRole === 'BUYER' && tab === 'orders' && <ScrollView contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={loadingData} onRefresh={loadShop} />}><Text style={styles.sectionTitle}>Your orders</Text>{orders.length ? orders.map((order, index) => { const id=String(order.orderId || order.id || ''); const status=String(order.status || '').toUpperCase(); const track=trackingByOrder[id]; return <View key={id || index} style={styles.orderCard}><Text style={styles.orderTitle}>Order #{id || '—'}</Text><Text style={styles.muted}>{status.replaceAll('_', ' ') || 'Status unavailable'}</Text><Text style={styles.price}>{money(order.finalPayable ?? order.totalAmount)}</Text><Pressable disabled={!id || trackingBusy===id} style={styles.primary} onPress={() => void loadOrderTracking(id)}><Text style={styles.primaryText}>{trackingBusy===id ? 'Loading…' : 'Track order'}</Text></Pressable>{track && <View><Text style={styles.muted}>Latest status: {String(track.status || track.orderStatus || status)}</Text>{track.deliveryAgentName ? <Text style={styles.muted}>Delivery agent: {String(track.deliveryAgentName)}</Text> : null}{track.updatedAt ? <Text style={styles.muted}>Updated: {String(track.updatedAt)}</Text> : null}</View>}{['PLACED','PENDING_COD','ACCEPTED_BY_SELLER'].includes(status) && <Pressable style={styles.secondary} onPress={() => cancelBuyerOrder(id)}><Text style={styles.secondaryText}>Request cancellation</Text></Pressable>}</View>; }) : <View style={styles.empty}><Text style={styles.emptyTitle}>No orders yet</Text><Text style={styles.muted}>Your order history will appear here.</Text></View>}</ScrollView>}
       {activeRole === 'BUYER' && tab === 'help' && <ScrollView contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={helpLoading} onRefresh={loadDailyHelp}/>}><Text style={styles.sectionTitle}>Book Daily Help</Text><Text style={styles.muted}>Choose a service and an available professional time. Booking is confirmed by the server.</Text>{helpServices.map(service => <Pressable key={String(service.id)} onPress={() => setHelpServiceId(String(service.id))} style={[styles.orderCard, helpServiceId === String(service.id) && {borderColor:'#087f5b',borderWidth:2}]}><Text style={styles.orderTitle}>{String(service.name || service.category || 'Service')}</Text><Text style={styles.muted}>{String(service.description || '')} · {money(service.pricePerHour)}/hour</Text></Pressable>)}<TextInput value={helpDate} onChangeText={setHelpDate} placeholder="Date YYYY-MM-DD" style={styles.input}/><TextInput value={helpHours} onChangeText={setHelpHours} placeholder="Hours (1–12)" keyboardType="decimal-pad" style={styles.input}/><TextInput value={helpLocality} onChangeText={setHelpLocality} placeholder="Locality" style={styles.input}/><TextInput value={helpAddress} onChangeText={setHelpAddress} placeholder="Full service address" multiline style={styles.input}/><Pressable style={styles.primary} disabled={helpLoading} onPress={() => void loadDailyHelp()}><Text style={styles.primaryText}>Find available slots</Text></Pressable><Text style={styles.sectionTitle}>Available slots</Text>{helpSlots.map(slot => <View key={String(slot.slotId)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(slot.professionalName || 'Professional')} · {String(slot.startTime || '')}–{String(slot.endTime || '')}</Text><Text style={styles.muted}>{String(slot.locality || helpLocality)} · Rating {String(slot.rating || '—')}</Text><Pressable style={styles.primary} onPress={() => void bookDailyHelpSlot(slot)}><Text style={styles.primaryText}>Book this slot</Text></Pressable></View>)}<Text style={styles.sectionTitle}>My Daily Help bookings</Text>{helpBookings.map((booking,i) => <View key={String(booking.id || booking.bookingId || i)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(booking.serviceName || 'Daily Help')}</Text><Text style={styles.muted}>{String(booking.status || '—')} · {String(booking.scheduledStart || '')}</Text></View>)}</ScrollView>}
-      {activeRole === 'BUYER' && tab === 'account' && <View style={styles.accountCard}><Text style={styles.sectionTitle}>Your account</Text><Text style={styles.accountName}>{session.user.name || 'KuraliUpdates customer'}</Text><Text style={styles.muted}>{session.user.phone || session.user.email || ''}</Text><Text style={styles.muted}>Role: {(session.user.role || 'BUYER').replaceAll('_', ' ')}</Text><Pressable onPress={signOut} style={styles.secondary}><Text style={styles.secondaryText}>Sign out</Text></Pressable></View>}
+      {activeRole === 'BUYER' && tab === 'account' && <ScrollView contentContainerStyle={styles.listContent}><View style={styles.accountCard}><Text style={styles.sectionTitle}>Your account</Text><Text style={styles.accountName}>{session.user.name || 'KuraliUpdates customer'}</Text><Text style={styles.muted}>{session.user.phone || session.user.email || ''}</Text><Text style={styles.muted}>Role: {(session.user.role || 'BUYER').replaceAll('_', ' ')}</Text></View><View style={styles.orderCard}><Text style={styles.sectionTitle}>Saved addresses</Text><Pressable style={styles.secondary} onPress={() => void loadSavedAddresses()}><Text style={styles.secondaryText}>Refresh addresses</Text></Pressable>{savedAddresses.map((a,i)=><View key={String(a.addressId || i)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(a.label || 'Address')} {Number(a.isDefault)===1 ? '· Default' : ''}</Text><Text style={styles.muted}>{String(a.formattedAddress || a.addressLine1 || '')}</Text>{Number(a.isDefault)!==1 && <Pressable style={styles.secondary} onPress={()=>void chooseDefaultAddress(a)}><Text style={styles.secondaryText}>Set as default / use for checkout</Text></Pressable>}</View>)}<TextInput value={addressLabel} onChangeText={setAddressLabel} placeholder="Label (Home / Work)" style={styles.input}/><TextInput value={addressLine} onChangeText={setAddressLine} placeholder="Full address" multiline style={styles.input}/><TextInput value={addressLandmark} onChangeText={setAddressLandmark} placeholder="Landmark (optional)" style={styles.input}/><Pressable disabled={addressBusy} style={styles.primary} onPress={()=>void saveBuyerAddress()}><Text style={styles.primaryText}>{addressBusy ? 'Saving…' : 'Save address'}</Text></Pressable><Text style={styles.muted}>You can add, update only through supported server routes, and set a default address. Address deletion is not available in the current API.</Text></View><Pressable onPress={signOut} style={styles.secondary}><Text style={styles.secondaryText}>Sign out</Text></Pressable></ScrollView>}
       {!!error && <Text style={styles.inlineError}>{error}</Text>}
       <View style={styles.bottomNote}><Text style={styles.bottomNoteText}>Made for Kurali · Punjab</Text></View>
     </SafeAreaView>
