@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { BargainOffer, ChatMessage, NegotiationChat, Product, Seller, UserRole } from '../types';
+import type { BargainOffer, NegotiationChat, Product, Seller, UserRole } from '../types';
 import { negotiationChatApi } from '../services/domains/negotiationChatApi';
 
 type NegotiationUser = { name?: string; email?: string; phone?: string };
@@ -67,7 +67,7 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
       // An accepted offer is the only bargaining event that adds a product to
       // the cart. Upsert is idempotent, so polling cannot duplicate quantities.
       // Pending/rejected/expired offers only update an existing bargain line.
-      if (product && status === 'ACCEPTED' && chat.currentAgreedPrice != null) {
+      if (product && status === 'ACCEPTED' && previous !== 'ACCEPTED' && chat.currentAgreedPrice != null) {
         upsertBargainCartItem(product, chat.id, 'ACCEPTED', pendingOffer?.offeredPrice,
           chat.currentAgreedPrice, chat.currentAgreedOfferId);
       } else if (product && status !== 'CLOSED_PURCHASED') {
@@ -81,7 +81,7 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
       }
       lastSeenStatusRef.current.set(chat.id, status);
     });
-  }, [chats, products, role, updateExistingBargainCartItem]);
+  }, [chats, products, role, upsertBargainCartItem, updateExistingBargainCartItem]);
   const openChatForProduct = (product: Product, startingOfferPrice?: number): string => {
     if (role !== 'buyer') {
       showToast('Only a signed-in buyer can start a bargaining conversation.', 'error');
