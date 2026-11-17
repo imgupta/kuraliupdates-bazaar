@@ -9,6 +9,8 @@ import java.util.Optional;
 public interface DailyHelpBookingRepository extends JpaRepository<DailyHelpBookingEntity, String> {
     Optional<DailyHelpBookingEntity> findFirstByBuyerPhoneOrderByCreatedAtDesc(String buyerPhone);
 
+    java.util.List<DailyHelpBookingEntity> findByBuyerPhoneOrderByScheduledStartDesc(String buyerPhone);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<DailyHelpBookingEntity> findLockedByBookingId(String bookingId);
 
