@@ -167,6 +167,14 @@ public class DailyHelpController {
         return ResponseEntity.ok(dailyHelpService.getLatestBooking(user.getPhone()));
     }
 
+    @PostMapping("/bookings/{bookingId}/cancel")
+    public ResponseEntity<DailyHelpBookingResponse> cancelBuyerBooking(
+            @PathVariable String bookingId, Authentication authentication) {
+        UserEntity user = requireUser(authentication);
+        requireRole(authentication, "BUYER");
+        return ResponseEntity.ok(dailyHelpService.cancelBookingForBuyer(bookingId, user));
+    }
+
     @GetMapping("/bookings/{bookingId}")
     public ResponseEntity<DailyHelpBookingResponse> getBooking(@PathVariable String bookingId, Authentication authentication) {
         UserEntity user = requireUser(authentication);
