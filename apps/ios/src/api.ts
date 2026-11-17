@@ -144,7 +144,7 @@ export const mobileApi = {
   buyerCancelOrder: (t: string, id: string) => authed<MobileRecord>(`/buyers/orders/${encodeURIComponent(id)}/cancel`, t, { method: 'POST' }),
   buyerTrackOrder: (t: string, id: string) => authed<MobileRecord>(`/buyers/orders/${encodeURIComponent(id)}/track`, t),
   // Bargaining never sends an offer merely by opening the chat.
-  bargainList: (t: string) => authed<MobileRecord[]>('/negotiations?role=BUYER', t, { headers: { 'X-Active-Role': 'BUYER' } }),
+  bargainList: (t: string, role: 'BUYER'|'SELLER' = 'BUYER') => authed<MobileRecord[]>(`/negotiations?role=${role}`, t, { headers: { 'X-Active-Role': role } }),
   bargainOpen: (t: string, productId: string, startingOfferPrice: number, openingMessage: string) => authed<MobileRecord>('/negotiations', t, { method: 'POST', headers: { 'X-Active-Role': 'BUYER' }, body: JSON.stringify({ productId, startingOfferPrice, openingMessage }) }),
   bargainSend: (t: string, chatId: string, text: string, offerPrice?: number) => authed<MobileRecord>(`/negotiations/${encodeURIComponent(chatId)}/messages`, t, { method: 'POST', headers: { 'X-Active-Role': 'BUYER' }, body: JSON.stringify({ text, ...(offerPrice === undefined ? {} : { offerPrice }) }) }),
   bargainRespond: (t: string, chatId: string, offerId: string, action: 'ACCEPT'|'REJECT'|'COUNTER', counterPrice?: number) => authed<MobileRecord>(`/negotiations/${encodeURIComponent(chatId)}/offers/${encodeURIComponent(offerId)}/respond`, t, { method: 'POST', headers: { 'X-Active-Role': 'BUYER' }, body: JSON.stringify({ action, ...(counterPrice === undefined ? {} : { counterPrice }) }) }),
