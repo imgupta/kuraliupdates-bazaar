@@ -198,7 +198,7 @@ public class DailyHelpService {
                     LocalDateTime end = s.getSlotDate().atTime(s.getEndTime());
                     long minutes = Duration.between(start, end).toMinutes();
                     long requestedMinutes = requestedHours.multiply(BigDecimal.valueOf(60)).longValue();
-                    return !start.isBefore(now) && minutes == requestedMinutes;
+                    return !start.isBefore(now) && minutes >= requestedMinutes;
                 })
                 .map(DailyHelpSlotResponse::from)
                 .toList();
