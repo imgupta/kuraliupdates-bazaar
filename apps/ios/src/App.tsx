@@ -4,7 +4,7 @@ import {
   SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { getMyOrders, Product, searchProducts, sendLoginOtp, LoginChannel, verifyLoginOtp } from './api';
+import { getMyOrders, Product, searchProducts, sendLoginOtp, LoginChannel, verifyLoginOtp, getRegisteredRoles, createRoleHandoff, redeemRoleHandoff, getRoleOnboardingStatus, MobileRole } from './api';
 import { clearSession, MobileUser, readSession, saveSession } from './session';
 
 type Tab = 'shop' | 'orders' | 'account';
@@ -24,7 +24,7 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Array<Record<string, unknown>>>([]);
-  const [loadingData, setLoadingData] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);\n  const [registeredRoles, setRegisteredRoles] = useState<MobileRole[]>(['BUYER']);\n  const [roleBusy, setRoleBusy] = useState(false);\n  const [roleStatus, setRoleStatus] = useState('');
 
   useEffect(() => {
     readSession().then(setSession).finally(() => setBooting(false));
@@ -113,6 +113,13 @@ export default function App() {
         <View><Text style={styles.brandSmall}>KuraliUpdates</Text><Text style={styles.welcome}>Hello, {greeting}</Text></View>
         <View style={styles.localBadge}><Text style={styles.localBadgeText}>KURALI</Text></View>
       </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roleTabs}>
+        {registeredRoles.map(role => <Pressable key={role} disabled={roleBusy} onPress={() => void switchRole(role)} style={[styles.roleChip, (session.user.role || 'BUYER').toUpperCase() === role && styles.roleChipActive]}>
+          <Text style={[styles.roleChipText, (session.user.role || 'BUYER').toUpperCase() === role && styles.roleChipTextActive]}>{role === 'DAILY_HELP_PROFESSIONAL' ? 'Daily Help' : role === 'DELIVERY' ? 'Delivery' : role[0] + role.slice(1).toLowerCase()}</Text>
+        </Pressable>)}
+        {roleBusy && <ActivityIndicator color="#087f5b" />}
+      </ScrollView>
+      {!!roleStatus && <Text style={styles.roleStatus}>{roleStatus}</Text>}
       <View style={styles.tabs}>
         {(['shop', 'orders', 'account'] as Tab[]).map(item => <Pressable key={item} onPress={() => setTab(item)} style={[styles.tab, tab === item && styles.tabSelected]}><Text style={[styles.tabText, tab === item && styles.tabTextSelected]}>{item === 'shop' ? 'Shop' : item === 'orders' ? 'My orders' : 'Account'}</Text></Pressable>)}
       </View>
@@ -131,7 +138,7 @@ export default function App() {
         />
       </>}
       {tab === 'orders' && <ScrollView contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={loadingData} onRefresh={loadShop} />}><Text style={styles.sectionTitle}>Your orders</Text>{orders.length ? orders.map((order, index) => <View key={String(order.orderId || order.id || index)} style={styles.orderCard}><Text style={styles.orderTitle}>Order #{String(order.orderId || order.id || '—')}</Text><Text style={styles.muted}>{String(order.status || 'Status unavailable').replaceAll('_', ' ')}</Text><Text style={styles.price}>{money(order.finalPayable ?? order.totalAmount)}</Text></View>) : <View style={styles.empty}><Text style={styles.emptyTitle}>No orders yet</Text><Text style={styles.muted}>Your order history will appear here.</Text></View>}</ScrollView>}
-      {tab === 'account' && <View style={styles.accountCard}><Text style={styles.sectionTitle}>Your account</Text><Text style={styles.accountName}>{session.user.name || 'KuraliUpdates customer'}</Text><Text style={styles.muted}>{session.user.phone || session.user.email || ''}</Text><Text style={styles.muted}>Role: Buyer</Text><Pressable onPress={signOut} style={styles.secondary}><Text style={styles.secondaryText}>Sign out</Text></Pressable></View>}
+      {tab === 'account' && <View style={styles.accountCard}><Text style={styles.sectionTitle}>Your account</Text><Text style={styles.accountName}>{session.user.name || 'KuraliUpdates customer'}</Text><Text style={styles.muted}>{session.user.phone || session.user.email || ''}</Text><Text style={styles.muted}>Role: {(session.user.role || 'BUYER').replaceAll('_', ' ')}</Text><Pressable onPress={signOut} style={styles.secondary}><Text style={styles.secondaryText}>Sign out</Text></Pressable></View>}
       {!!error && <Text style={styles.inlineError}>{error}</Text>}
       <View style={styles.bottomNote}><Text style={styles.bottomNoteText}>Made for Kurali · Punjab</Text></View>
     </SafeAreaView>
@@ -167,7 +174,7 @@ const styles = StyleSheet.create({
   welcome: { color: '#183b2f', fontSize: 22, fontWeight: '800', marginTop: 2 },
   localBadge: { backgroundColor: '#e2f2e9', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7 },
   localBadgeText: { color: '#087f5b', fontWeight: '800', fontSize: 10, letterSpacing: 1 },
-  tabs: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, paddingBottom: 12 },
+  roleTabs: { paddingHorizontal: 16, paddingBottom: 10, gap: 8, alignItems: 'center' },\n  roleChip: { borderWidth: 1, borderColor: '#d9e6dc', backgroundColor: '#fff', borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8 },\n  roleChipActive: { backgroundColor: '#087f5b', borderColor: '#087f5b' },\n  roleChipText: { color: '#486154', fontWeight: '700', fontSize: 12 },\n  roleChipTextActive: { color: '#fff' },\n  roleStatus: { color: '#63766b', paddingHorizontal: 20, paddingBottom: 8, fontSize: 12 },\n  tabs: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, paddingBottom: 12 },
   tab: { paddingHorizontal: 17, paddingVertical: 10, borderRadius: 20, backgroundColor: '#eaf0eb' },
   tabSelected: { backgroundColor: '#087f5b' },
   tabText: { color: '#617169', fontWeight: '600', fontSize: 13 },
