@@ -26,6 +26,8 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
     let requestInFlight = false;
     setChats([]);
     setActiveChatId(null);
+    // A different signed-in role/account must not inherit transition history.
+    lastSeenStatusRef.current.clear();
     const refresh = async (notify: boolean) => {
       if (!['buyer', 'seller'].includes(role) || requestInFlight || !localStorage.getItem('kurali_auth_token')) return;
       requestInFlight = true;
@@ -64,10 +66,12 @@ export const useNegotiationChatState = ({ role, user, products, upsertBargainCar
       const previous = lastSeenStatusRef.current.get(chat.id);
       const product = products.find(item => item.id === chat.productId);
       const pendingOffer = [...chat.messages].reverse().find(message => message.offer?.status === 'pending')?.offer;
-      // An accepted offer is the only bargaining event that adds a product to
-      // the cart. Upsert is idempotent, so polling cannot duplicate quantities.
+      // Only a status transition observed during this signed-in session may add
+      // an accepted bargain to the cart. On initial hydration, historical ACCEPTED
+      // chats are baselined below and must never resurrect old/removed cart items.
       // Pending/rejected/expired offers only update an existing bargain line.
-      if (product && status === 'ACCEPTED' && previous !== 'ACCEPTED' && chat.currentAgreedPrice != null) {
+      const newlyAccepted = previous != null && previous !== 'ACCEPTED' && status === 'ACCEPTED';
+      if (product && newlyAccepted && chat.currentAgreedPrice != null) {
         if (Number(product.stock ?? 0) > 0) {
           upsertBargainCartItem(product, chat.id, 'ACCEPTED', pendingOffer?.offeredPrice,
             chat.currentAgreedPrice, chat.currentAgreedOfferId);
