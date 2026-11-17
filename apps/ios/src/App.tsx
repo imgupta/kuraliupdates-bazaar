@@ -31,6 +31,11 @@ export default function App() {
   const [roleData, setRoleData] = useState<MobileRecord>({});
   const [roleOtp, setRoleOtp] = useState('');
   const [roleActionBusy, setRoleActionBusy] = useState('');
+  const [cart, setCart] = useState<Record<string, number>>({});
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryLocality, setDeliveryLocality] = useState(session?.user.locality || 'Kurali');
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+
 
   useEffect(() => {
     readSession().then(setSession).finally(() => setBooting(false));
@@ -130,6 +135,43 @@ export default function App() {
   }, [session]);
 
   useEffect(() => { if (session && activeRole !== 'BUYER') void refreshRoleDashboard(); }, [session, activeRole, refreshRoleDashboard]);
+
+
+  const cartItems = products.filter(p => (cart[p.productId] || 0) > 0);
+  const cartTotal = cartItems.reduce((sum, p) => sum + Number(p.sellerPrice ?? p.price ?? 0) * (cart[p.productId] || 0), 0);
+  const setProductQuantity = (productId: string, delta: number) => setCart(previous => {
+    const next = Math.max(0, Math.min(99, (previous[productId] || 0) + delta));
+    const copy = { ...previous };
+    if (next === 0) delete copy[productId]; else copy[productId] = next;
+    return copy;
+  });
+  const checkout = async () => {
+    if (!session || !cartItems.length || checkoutBusy) return;
+    if (!deliveryAddress.trim() || !deliveryLocality.trim()) { setError('Enter your delivery address and locality before checkout.'); return; }
+    const phone = String(session.user.phone || '').replace(/\\D/g, '').slice(-10);
+    if (!/^\\d{10}$/.test(phone)) { setError('Add a verified 10-digit mobile number to your account before ordering.'); return; }
+    const sellerIds = [...new Set(cartItems.map(p => p.sellerId || p.seller?.sellerId).filter(Boolean))] as string[];
+    if (cartItems.some(p => !(p.sellerId || p.seller?.sellerId))) { setError('A product is missing its seller identity. Refresh the catalogue before checkout.'); return; }
+    if (sellerIds.length > 3) { setError('Your cart exceeds the current three-seller checkout limit. Remove items from one or more sellers.'); return; }
+    setCheckoutBusy(true); setError('');
+    try {
+      const items = cartItems.map(p => ({ productId: p.productId, quantity: cart[p.productId] }));
+      if (sellerIds.length > 1) {
+        await mobileApi.buyerCheckout(session.token, { deliveryAddress: deliveryAddress.trim(), deliveryLocality: deliveryLocality.trim(), paymentMethod: 'COD', fulfilmentMode: 'DELIVERY', items });
+      } else {
+        await mobileApi.buyerPlaceOrder(session.token, {
+          buyerName: session.user.name || 'Buyer', buyerPhone: phone, buyerEmail: session.user.email || undefined,
+          deliveryAddress: deliveryAddress.trim(), deliveryLocality: deliveryLocality.trim(), sellerId: sellerIds[0],
+          subtotal: cartTotal, discountAmount: 0, deliveryFee: 0, finalPayable: cartTotal,
+          paymentMethod: 'COD', items,
+        });
+      }
+      setCart({});
+      await loadShop();
+      setTab('orders');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Checkout could not be completed.'); }
+    finally { setCheckoutBusy(false); }
+  };
 
   const sendCode = async () => {
     if (!identifier.trim()) { setError(channel === 'PHONE' ? 'Enter your mobile number.' : 'Enter your email address.'); return; }
@@ -246,7 +288,7 @@ export default function App() {
           refreshControl={<RefreshControl refreshing={loadingData} onRefresh={loadShop} tintColor="#087f5b" />}
           ListHeaderComponent={<View style={styles.hero}><Text style={styles.heroEyebrow}>SHOP LOCAL</Text><Text style={styles.heroTitle}>Your everyday needs,{"\n"}right around the corner.</Text><Text style={styles.heroCopy}>Discover products from shops in Kurali.</Text></View>}
           ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>{loadingData ? 'Finding local products…' : 'No products found'}</Text><Text style={styles.muted}>Pull down to refresh or try another search.</Text></View>}
-          renderItem={({ item }) => <View style={styles.productCard}><View style={styles.productImage}><Text style={styles.productEmoji}>🛍️</Text></View><Text numberOfLines={2} style={styles.productTitle}>{item.name || item.title}</Text><Text numberOfLines={1} style={styles.productSeller}>{item.seller?.name || 'Local seller'}</Text><Text style={styles.price}>{money(item.sellerPrice ?? item.price)} <Text style={styles.unit}>{item.unit || ''}</Text></Text></View>}
+          renderItem={({ item }) => <View style={styles.productCard}><View style={styles.productImage}><Text style={styles.productEmoji}>🛍️</Text></View><Text numberOfLines={2} style={styles.productTitle}>{item.name || item.title}</Text><Text numberOfLines={1} style={styles.productSeller}>{item.seller?.name || 'Local seller'}</Text><Text style={styles.price}>{money(item.sellerPrice ?? item.price)} <Text style={styles.unit}>{item.unit || ''}</Text></Text><View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}><Pressable accessibilityLabel={`Decrease ${item.name || item.title} quantity`} onPress={() => setProductQuantity(item.productId, -1)} style={styles.quantityButton}><Text style={styles.quantityText}>−</Text></Pressable><Text style={styles.quantityValue}>{cart[item.productId] || 0}</Text><Pressable accessibilityLabel={`Increase ${item.name || item.title} quantity`} disabled={Number(item.stock ?? item.stockQty ?? 999) <= (cart[item.productId] || 0)} onPress={() => setProductQuantity(item.productId, 1)} style={styles.quantityButton}><Text style={styles.quantityText}>+</Text></Pressable></View></View>}\n          ListFooterComponent={cartItems.length ? <View style={styles.orderCard}><Text style={styles.sectionTitle}>Your cart ({cartItems.length} products)</Text>{cartItems.map(p => <View key={p.productId} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 }}><Text style={styles.muted}>{p.name || p.title} × {cart[p.productId]}</Text><Text style={styles.orderTitle}>{money(Number(p.sellerPrice ?? p.price) * cart[p.productId])}</Text></View>)}<Text style={styles.price}>Total {money(cartTotal)}</Text><Text style={styles.muted}>Cash on delivery · server validates stock, seller eligibility and delivery rules</Text><TextInput value={deliveryAddress} onChangeText={setDeliveryAddress} placeholder="Full delivery address" multiline style={styles.input}/><TextInput value={deliveryLocality} onChangeText={setDeliveryLocality} placeholder="Locality / village" style={styles.input}/><Pressable disabled={checkoutBusy} onPress={() => void checkout()} style={styles.primary}>{checkoutBusy ? <ActivityIndicator color="#fff"/> : <Text style={styles.primaryText}>Place order · {money(cartTotal)}</Text>}</Pressable></View> : null}
         />
       </>}
       {activeRole === 'BUYER' && tab === 'orders' && <ScrollView contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={loadingData} onRefresh={loadShop} />}><Text style={styles.sectionTitle}>Your orders</Text>{orders.length ? orders.map((order, index) => <View key={String(order.orderId || order.id || index)} style={styles.orderCard}><Text style={styles.orderTitle}>Order #{String(order.orderId || order.id || '—')}</Text><Text style={styles.muted}>{String(order.status || 'Status unavailable').replaceAll('_', ' ')}</Text><Text style={styles.price}>{money(order.finalPayable ?? order.totalAmount)}</Text></View>) : <View style={styles.empty}><Text style={styles.emptyTitle}>No orders yet</Text><Text style={styles.muted}>Your order history will appear here.</Text></View>}</ScrollView>}
@@ -308,6 +350,9 @@ const styles = StyleSheet.create({
   productCard: { flex: 1, backgroundColor: '#fff', borderRadius: 15, padding: 11, borderWidth: 1, borderColor: '#e9eee9' },
   productImage: { height: 100, borderRadius: 10, backgroundColor: '#f0f5f0', alignItems: 'center', justifyContent: 'center' },
   productEmoji: { fontSize: 36 },
+  quantityButton: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#e5f2e9', alignItems: 'center', justifyContent: 'center' },
+  quantityText: { color: '#087f5b', fontSize: 20, fontWeight: '800' },
+  quantityValue: { color: '#173b2f', fontWeight: '700', minWidth: 22, textAlign: 'center' },
   productTitle: { color: '#213c30', fontSize: 13, fontWeight: '700', marginTop: 10, minHeight: 34 },
   productSeller: { color: '#849087', fontSize: 11, marginTop: 3 },
   price: { color: '#087f5b', fontSize: 16, fontWeight: '800', marginTop: 7 },
