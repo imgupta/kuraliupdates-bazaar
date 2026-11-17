@@ -131,6 +131,38 @@ class DailyHelpServiceTest {
     }
 
     @Test
+    void sameBuyerCanBookDifferentProfessionalsForTheSameTimeAsSeparateOrders() {
+        DailyHelpServiceEntity service = service();
+        DailyHelpProfessionalEntity firstProfessional = professional();
+        DailyHelpProfessionalEntity secondProfessional = DailyHelpProfessionalEntity.builder()
+                .professionalId("DHP-2").fullName("Second Professional").phone("9876500001")
+                .currentLocality("Kurali").status("AVAILABLE").verified(1).build();
+        DailyHelpProfessionalSlotEntity firstSlot = slot(firstProfessional, "AVAILABLE");
+        DailyHelpProfessionalSlotEntity secondSlot = DailyHelpProfessionalSlotEntity.builder()
+                .slotId("SLOT-2").professional(secondProfessional).slotDate(firstSlot.getSlotDate())
+                .startTime(firstSlot.getStartTime()).endTime(firstSlot.getEndTime()).status("AVAILABLE").build();
+        LocalDateTime start = firstSlot.getSlotDate().atTime(firstSlot.getStartTime());
+        when(serviceRepository.findById("DH-CLEAN")).thenReturn(Optional.of(service));
+        when(slotRepository.findLockedBySlotId("SLOT-1")).thenReturn(Optional.of(firstSlot));
+        when(slotRepository.findLockedBySlotId("SLOT-2")).thenReturn(Optional.of(secondSlot));
+        when(professionalRepository.findLockedByProfessionalId("DHP-1")).thenReturn(Optional.of(firstProfessional));
+        when(professionalRepository.findLockedByProfessionalId("DHP-2")).thenReturn(Optional.of(secondProfessional));
+        when(bookingRepository.save(any(DailyHelpBookingEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var firstOrder = dailyHelpService.createBooking(request(start));
+        var secondOrder = dailyHelpService.createBooking(new DailyHelpBookingRequest(
+                "DH-CLEAN", "Buyer", "9876543210", "House 1", "Kurali",
+                start, BigDecimal.valueOf(2), "SLOT-2"));
+
+        assertEquals("DHP-1", firstOrder.professionalId());
+        assertEquals("DHP-2", secondOrder.professionalId());
+        assertNotEquals(firstOrder.id(), secondOrder.id());
+        verify(bookingRepository, times(2)).save(any(DailyHelpBookingEntity.class));
+        verify(slotRepository, never()).save(any());
+    }
+
+    @Test
     void professionalCannotCancelAnotherProfessionalsSlot() {
         DailyHelpProfessionalSlotEntity slot = slot(professional(), "AVAILABLE");
         when(slotRepository.findLockedBySlotId("SLOT-1")).thenReturn(Optional.of(slot));
