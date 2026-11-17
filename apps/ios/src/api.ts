@@ -1,8 +1,5 @@
-import Constants from 'expo-constants';
-
-const configuredBaseUrl = Constants.expoConfig?.extra?.apiBaseUrl;
 export const API_BASE_URL =
-  (typeof configuredBaseUrl === 'string' && configuredBaseUrl.trim()) ||
+  process.env.EXPO_PUBLIC_API_BASE_URL ||
   'https://kuraliupdates-bazaar.onrender.com/api/v1';
 
 export type LoginChannel = 'EMAIL' | 'PHONE';
