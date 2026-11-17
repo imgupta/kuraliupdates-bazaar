@@ -1,13 +1,13 @@
 import React from 'react';
-import { MessageSquare, ShoppingBag, Star, TrendingDown, Store } from 'lucide-react';
+import { MessageSquare, ShoppingBag, Star, Store, Plus, Minus } from 'lucide-react';
 import { Product } from '../../types';
 
 interface ProductCardProps {
   product: Product;
-  relatedSellerCount?: number;
-  onCompare: (product: Product) => void;
+  quantity: number;
   onBargain: (product: Product) => void;
   onAddToCart: (product: Product) => void;
+  onRemoveFromCart: (product: Product) => void;
   onBuyNow: (product: Product) => void;
   onViewDetails: (product: Product) => void;
 }
@@ -16,12 +16,11 @@ const getEffectivePrice = (product: Product) =>
   Math.round(product.sellerPrice * (1 - product.additionalDiscountPercent / 100));
 
 export const ProductCard: React.FC<ProductCardProps> = ({
-  product, relatedSellerCount = 1, onCompare, onBargain, onAddToCart, onBuyNow, onViewDetails,
+  product, quantity, onBargain, onAddToCart, onRemoveFromCart, onBuyNow, onViewDetails,
 }) => {
   const effectivePrice = getEffectivePrice(product);
   const savings = Math.max(0, product.mrp - effectivePrice);
   const discount = product.mrp > 0 ? Math.round((savings / product.mrp) * 100) : 0;
-  const hasComparableStores = relatedSellerCount > 1;
 
   return (
     <article className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:border-amber-300 hover:shadow-md">
@@ -64,24 +63,29 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         <div className="grid grid-cols-2 gap-1.5">
-          <button onClick={() => onAddToCart(product)} disabled={product.stock <= 0}
-            className="flex items-center justify-center gap-1 rounded-xl bg-amber-500 py-2.5 text-[11px] font-extrabold text-white transition-colors hover:bg-amber-600 disabled:bg-slate-300">
-            <ShoppingBag className="h-3.5 w-3.5" />Add to Cart
-          </button>
+          <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-1.5 py-1">
+            <button type="button" onClick={() => onRemoveFromCart(product)} disabled={quantity <= 0}
+              aria-label={`Remove one ${product.title} from cart`}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-30">
+              <Minus className="h-4 w-4" />
+            </button>
+            <span aria-live="polite" className="min-w-5 text-center text-sm font-extrabold tabular-nums text-slate-900">{quantity}</span>
+            <button type="button" onClick={() => onAddToCart(product)} disabled={product.stock <= 0 || quantity >= product.stock}
+              aria-label={`Add one ${product.title} to cart`}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-slate-300">
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
           <button onClick={() => onBuyNow(product)} disabled={product.stock <= 0}
             className="rounded-xl bg-slate-900 py-2.5 text-[11px] font-extrabold text-white transition-colors hover:bg-slate-800 disabled:bg-slate-300">
             Buy Now
           </button>
         </div>
 
-        <div className="flex min-h-5 items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[10px]">
-          {hasComparableStores ? (
-            <button onClick={() => onCompare(product)} className="flex items-center gap-1 font-bold text-amber-700 hover:text-amber-800">
-              <TrendingDown className="h-3 w-3" />Compare {relatedSellerCount} stores
-            </button>
-          ) : <span className="text-slate-400">{product.stock > 0 ? 'Single store offer' : 'Unavailable'}</span>}
-          <button onClick={() => onBargain(product)} className="flex items-center gap-1 font-semibold text-slate-500 hover:text-slate-800">
-            <MessageSquare className="h-3 w-3" />Bargain
+        <div className="border-t border-slate-100 pt-2">
+          <button onClick={() => onBargain(product)} disabled={product.stock <= 0}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-bold text-amber-800 transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40">
+            <MessageSquare className="h-3.5 w-3.5" />Make an offer
           </button>
         </div>
       </div>

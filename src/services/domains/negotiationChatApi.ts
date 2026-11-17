@@ -72,14 +72,10 @@ export const negotiationChatApi = {
       headers: { 'X-Active-Role': role.toUpperCase() },
     });
   },
-  async open(product: Product, startingOfferPrice?: number): Promise<NegotiationChat> {
+  async open(product: Product): Promise<NegotiationChat> {
     const raw = await request<any>('/negotiations', {
       method: 'POST',
-      body: JSON.stringify({
-        productId: product.id,
-        startingOfferPrice: startingOfferPrice ?? Math.round(product.sellerPrice * (1 - (product.additionalDiscountPercent || 0) / 100) * 0.9),
-        openingMessage: `Hi, I'm interested in ${product.title}. Can you offer a better price?`,
-      }),
+      body: JSON.stringify({ productId: product.id }),
     });
     return normalizeChat(raw);
   },
