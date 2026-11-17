@@ -17,6 +17,9 @@ public interface DailyHelpBookingRepository extends JpaRepository<DailyHelpBooki
 
     java.util.List<DailyHelpBookingEntity> findByProfessionalProfessionalIdOrderByScheduledStartDesc(String professionalId);
 
+    java.util.List<DailyHelpBookingEntity> findByProfessionalProfessionalIdAndScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAsc(
+            String professionalId, java.time.LocalDateTime dayStart, java.time.LocalDateTime nextDayStart);
+
     java.util.List<DailyHelpBookingEntity> findByProfessionalProfessionalIdAndStatusOrderByScheduledStartDesc(
             String professionalId, String status);
 }
