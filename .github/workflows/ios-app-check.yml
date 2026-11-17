@@ -1,0 +1,45 @@
+name: iOS app quality gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/ios/**'
+      - '.github/workflows/ios-app-check.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/ios/**'
+      - '.github/workflows/ios-app-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-app:
+    name: Typecheck and export native iOS bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/ios
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: Align Expo native dependencies
+        run: bunx expo install --fix
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Validate Expo configuration
+        run: bunx expo config --type public
+      - name: Export iOS bundle
+        run: bun run export:ios
