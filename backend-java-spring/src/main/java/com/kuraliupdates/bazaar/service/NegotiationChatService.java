@@ -117,6 +117,9 @@ public class NegotiationChatService {
             BigDecimal original = (BigDecimal) chat.get("originalPrice");
             validatePrice(offerPrice, original);
         }
+        int existingOfferCount = offerPrice == null ? 0 : jdbc.queryForObject(
+                "SELECT COUNT(*) FROM CHAT_MESSAGES WHERE CHAT_ID=? AND OFFER_PRICE IS NOT NULL",
+                Integer.class, chatId);
         insertMessage(chatId, role, safeName(user.getName(), role.equals("SELLER") ? "Seller" : "Buyer"),
                 blank(request.text()) ? "Price offer: ₹" + offerPrice : request.text().trim(), offerPrice, offerPrice == null ? null : "PENDING");
         if (offerPrice != null) {
@@ -124,7 +127,10 @@ public class NegotiationChatService {
             jdbc.update("UPDATE NEGOTIATION_CHATS SET BARGAIN_STATUS=?, EXPIRES_AT=?, LAST_UPDATED=? WHERE CHAT_ID=?",
                     nextStatus, Timestamp.valueOf(LocalDateTime.now().plusHours(24)), Timestamp.valueOf(LocalDateTime.now()), chatId);
             String recipient = "SELLER".equals(role) ? normalizeEmail(Objects.toString(chat.get("buyerEmail"), "")) : sellerEmail(Objects.toString(chat.get("sellerId"), ""));
-            notifyParticipant(chatId, recipient, "SELLER".equals(role) ? "BUYER" : "SELLER", "COUNTER_OFFER", "A new counter-offer is waiting for your response.");
+            boolean firstBuyerOffer = "BUYER".equals(role) && existingOfferCount == 0;
+            notifyParticipant(chatId, recipient, "SELLER".equals(role) ? "BUYER" : "SELLER",
+                    firstBuyerOffer ? "NEW_OFFER" : "COUNTER_OFFER",
+                    firstBuyerOffer ? "A buyer sent you a price offer." : "A new counter-offer is waiting for your response.");
         } else {
             jdbc.update("UPDATE NEGOTIATION_CHATS SET LAST_UPDATED=? WHERE CHAT_ID=?", Timestamp.valueOf(LocalDateTime.now()), chatId);
         }

@@ -267,7 +267,7 @@ export const NegotiationChatModal: React.FC = () => {
           <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium">
             <span className="text-[11px] font-bold text-slate-500">Quick Offers:</span>
             <button
-              disabled={isOpening}
+              disabled={isOpening || isAccepted}
               onClick={() => setCustomOfferPrice(String(Math.round(basePrice * 0.95)))}
               className="bg-white hover:bg-amber-50 hover:text-amber-700 border border-slate-200 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-40"
             >
@@ -314,10 +314,10 @@ export const NegotiationChatModal: React.FC = () => {
                 if (val > 0 && val < basePrice) handleSendOffer(val);
                 else showToast('Offer must be greater than zero and below the current price.', 'error');
               }}
-              disabled={!customOfferPrice || isOpening || Number(customOfferPrice) >= basePrice || Number(customOfferPrice) <= 0}
+              disabled={!customOfferPrice || isOpening || isAccepted || Number(customOfferPrice) >= basePrice || Number(customOfferPrice) <= 0}
               className="bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white px-2 py-1 rounded-md text-xs font-bold cursor-pointer"
             >
-              {counteringOfferId ? 'Send Counter' : 'Send Offer'}
+              {isAccepted ? 'Offer accepted' : counteringOfferId ? 'Send Counter' : 'Send Offer'}
             </button>
           </div>
         </div>
