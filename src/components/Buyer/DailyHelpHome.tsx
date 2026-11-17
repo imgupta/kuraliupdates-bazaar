@@ -88,6 +88,17 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
 
   const elapsedSeconds = (startedAt?: string) => startedAt ? Math.floor((now - new Date(startedAt).getTime()) / 1000) : 0;
 
+  const selectedTimeValid = useMemo(() => {
+    if (!selectedSlot || !/^\\d{2}:\\d{2}$/.test(selectedStartTime)) return false;
+    const [startHour, startMinute] = selectedStartTime.split(':').map(Number);
+    const [windowStartHour, windowStartMinute] = selectedSlot.startTime.slice(0, 5).split(':').map(Number);
+    const [windowEndHour, windowEndMinute] = selectedSlot.endTime.slice(0, 5).split(':').map(Number);
+    const start = startHour * 60 + startMinute;
+    const windowStart = windowStartHour * 60 + windowStartMinute;
+    const windowEnd = windowEndHour * 60 + windowEndMinute;
+    return start % 15 === 0 && start >= windowStart && start + hours * 60 <= windowEnd;
+  }, [selectedSlot, selectedStartTime, hours]);
+
   const minDate = localDateString(new Date());
   const filteredServices = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -279,7 +290,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
               </div>
             )}
 
-            <button disabled={bookingBusy || !selectedSlot || !user.name || !user.phone} onClick={createBooking} className="mt-5 w-full py-3 rounded-xl bg-amber-600 disabled:bg-slate-300 text-white text-sm font-black cursor-pointer">{bookingBusy ? 'Confirming slot...' : selectedSlot ? 'Confirm Daily Help Booking' : 'Select a Maid Slot'}</button>
+            <button disabled={bookingBusy || !selectedSlot || !selectedTimeValid || !user.name || !user.phone} onClick={createBooking} className="mt-5 w-full py-3 rounded-xl bg-amber-600 disabled:bg-slate-300 text-white text-sm font-black cursor-pointer">{bookingBusy ? 'Confirming slot...' : !selectedSlot ? 'Select a Maid Slot' : !selectedTimeValid ? 'Choose a valid start time' : 'Confirm Daily Help Booking'}</button>
           </div>
         </div>
       )}
