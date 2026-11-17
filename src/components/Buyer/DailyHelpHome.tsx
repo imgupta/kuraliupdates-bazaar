@@ -89,7 +89,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
   const elapsedSeconds = (startedAt?: string) => startedAt ? Math.floor((now - new Date(startedAt).getTime()) / 1000) : 0;
 
   const selectedTimeValid = useMemo(() => {
-    if (!selectedSlot || !/^\\d{2}:\\d{2}$/.test(selectedStartTime)) return false;
+    if (!selectedSlot || !/^\d{2}:\d{2}$/.test(selectedStartTime)) return false;
     const [startHour, startMinute] = selectedStartTime.split(':').map(Number);
     const [windowStartHour, windowStartMinute] = selectedSlot.startTime.slice(0, 5).split(':').map(Number);
     const [windowEndHour, windowEndMinute] = selectedSlot.endTime.slice(0, 5).split(':').map(Number);
