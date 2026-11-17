@@ -115,8 +115,14 @@ class DailyHelpServiceTest {
         when(serviceRepository.findById("DH-CLEAN")).thenReturn(Optional.of(service));
         when(slotRepository.findLockedBySlotId("SLOT-1")).thenReturn(Optional.of(slot));
         when(professionalRepository.findLockedByProfessionalId("DHP-1")).thenReturn(Optional.of(professional));
-        when(bookingRepository.save(any(DailyHelpBookingEntity.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        java.util.List<DailyHelpBookingEntity> persisted = new java.util.ArrayList<>();
+        when(bookingRepository.findByProfessionalProfessionalIdAndScheduledStartGreaterThanEqualAndScheduledStartLessThanOrderByScheduledStartAsc(
+                eq("DHP-1"), any(LocalDateTime.class), any(LocalDateTime.class))).thenAnswer(invocation -> persisted);
+        when(bookingRepository.save(any(DailyHelpBookingEntity.class))).thenAnswer(invocation -> {
+            DailyHelpBookingEntity saved = invocation.getArgument(0);
+            persisted.add(saved);
+            return saved;
+        });
 
         dailyHelpService.createBooking(request(start));
 
