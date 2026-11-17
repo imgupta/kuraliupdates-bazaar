@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable,
+  ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable,
   SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -63,6 +63,10 @@ export default function App() {
   const [bargainMessage, setBargainMessage] = useState('');
   const [bargainBusy, setBargainBusy] = useState(false);
   const [negotiatedItems, setNegotiatedItems] = useState<Record<string, { price: number; offerId: string }>>({});
+  const [trackingByOrder, setTrackingByOrder] = useState<Record<string, MobileRecord>>({});
+  const [trackingBusy, setTrackingBusy] = useState('');
+  const [editingProductId, setEditingProductId] = useState('');
+  const [timerNow, setTimerNow] = useState(Date.now());
 
 
 
@@ -167,6 +171,49 @@ export default function App() {
 
   useEffect(() => { if (session && activeRole !== 'BUYER') void refreshRoleDashboard(); }, [session, activeRole, refreshRoleDashboard]);
 
+
+  useEffect(() => {
+    if (activeRole !== 'PROFESSIONAL' || !(roleData.mine || []).some((job: MobileRecord) => String(job.status || '').toUpperCase() === 'IN_PROGRESS' && job.serviceStartedAt)) return;
+    const timer = setInterval(() => setTimerNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [activeRole, roleData.mine]);
+
+  const loadOrderTracking = async (orderId: string) => {
+    if (!session || !orderId) return;
+    setTrackingBusy(orderId);
+    try { const result = await mobileApi.buyerTrackOrder(session.token, orderId); setTrackingByOrder(previous => ({ ...previous, [orderId]: result })); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Unable to load tracking details.'); }
+    finally { setTrackingBusy(''); }
+  };
+  const cancelBuyerOrder = (orderId: string) => {
+    if (!session || !orderId) return;
+    Alert.alert('Cancel order?', 'The server will check whether this order is still eligible for cancellation.', [
+      { text: 'Keep order', style: 'cancel' },
+      { text: 'Cancel order', style: 'destructive', onPress: () => { void (async () => {
+        try { await mobileApi.buyerCancelOrder(session.token, orderId); await loadShop(); }
+        catch (e) { setError(e instanceof Error ? e.message : 'Order could not be cancelled.'); }
+      })(); } },
+    ]);
+  };
+  const beginEditProduct = (product: MobileRecord) => {
+    setEditingProductId(String(product.productId || product.id || ''));
+    setSellerProductTitle(String(product.title || product.name || ''));
+    setSellerProductCategory(String(product.category || 'Grocery'));
+    setSellerProductMrp(String(product.mrp ?? ''));
+    setSellerProductPrice(String(product.sellerPrice ?? product.price ?? ''));
+    setSellerProductStock(String(product.stock ?? product.stockQty ?? '0'));
+  };
+  const saveSellerProduct = async () => {
+    if (!session || !editingProductId) return;
+    const mrp=Number(sellerProductMrp), price=Number(sellerProductPrice), stock=Number(sellerProductStock);
+    if (!sellerProductTitle.trim() || !sellerProductCategory.trim() || !Number.isFinite(mrp) || mrp<=0 || !Number.isFinite(price) || price<=0 || price>mrp || !Number.isInteger(stock) || stock<0) { setError('Enter valid product details and stock.'); return; }
+    await runRoleAction('seller-edit-product', () => mobileApi.sellerUpdateProduct(session.token, editingProductId, {
+      title:sellerProductTitle.trim(), category:sellerProductCategory.trim(), mrp, sellerPrice:price, stock,
+      description:'', imageUrl:'', additionalDiscountPercent:0, unit:'piece', tags:[], isFeatured:false,
+    }));
+    setEditingProductId('');
+    setSellerProductTitle(''); setSellerProductMrp(''); setSellerProductPrice(''); setSellerProductStock('1');
+  };
 
   const cartItems = products.filter(p => (cart[p.productId] || 0) > 0);
   const cartTotal = cartItems.reduce((sum, p) => sum + Number(negotiatedItems[p.productId]?.price ?? p.sellerPrice ?? p.price ?? 0) * (cart[p.productId] || 0), 0);
@@ -389,9 +436,10 @@ export default function App() {
             <TextInput value={sellerProductCategory} onChangeText={setSellerProductCategory} placeholder="Category" style={styles.input}/>
             <View style={{ flexDirection: 'row', gap: 8 }}><TextInput value={sellerProductMrp} onChangeText={setSellerProductMrp} placeholder="MRP ₹" keyboardType="decimal-pad" style={[styles.input,{flex:1}]}/><TextInput value={sellerProductPrice} onChangeText={setSellerProductPrice} placeholder="Selling ₹" keyboardType="decimal-pad" style={[styles.input,{flex:1}]}/></View>
             <TextInput value={sellerProductStock} onChangeText={setSellerProductStock} placeholder="Stock quantity" keyboardType="number-pad" style={styles.input}/>
-            <Pressable style={styles.primary} disabled={!!roleActionBusy} onPress={() => void createSellerProduct()}><Text style={styles.primaryText}>Create product</Text></Pressable>
+            <Pressable style={styles.primary} disabled={!!roleActionBusy} onPress={() => editingProductId ? void saveSellerProduct() : void createSellerProduct()}><Text style={styles.primaryText}>{editingProductId ? 'Save product changes' : 'Create product'}</Text></Pressable>
+            {editingProductId ? <Pressable style={styles.secondary} onPress={() => { setEditingProductId(''); setSellerProductTitle(''); setSellerProductMrp(''); setSellerProductPrice(''); setSellerProductStock('1'); }}><Text style={styles.secondaryText}>Stop editing</Text></Pressable> : null}
           </View>
-          {(roleData.products || []).map((p: MobileRecord, i: number) => <View key={String(p.productId || p.id || i)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(p.title || p.name || 'Product')}</Text><Text style={styles.muted}>Stock: {String(p.stock ?? '—')} · Price: {money(p.sellerPrice ?? p.price)}</Text><Pressable style={styles.secondary} onPress={() => deleteSellerProduct(p)}><Text style={styles.secondaryText}>Delete product</Text></Pressable></View>)}
+          {(roleData.products || []).map((p: MobileRecord, i: number) => <View key={String(p.productId || p.id || i)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(p.title || p.name || 'Product')}</Text><Text style={styles.muted}>Stock: {String(p.stock ?? '—')} · Price: {money(p.sellerPrice ?? p.price)}</Text><Pressable style={styles.primary} onPress={() => beginEditProduct(p)}><Text style={styles.primaryText}>Edit product</Text></Pressable><Pressable style={styles.secondary} onPress={() => deleteSellerProduct(p)}><Text style={styles.secondaryText}>Delete product</Text></Pressable></View>)}
           <Text style={styles.sectionTitle}>Bill discounts</Text>
           <View style={styles.orderCard}><TextInput value={discountDescription} onChangeText={setDiscountDescription} placeholder="Discount description" style={styles.input}/><TextInput value={discountMinimum} onChangeText={setDiscountMinimum} placeholder="Minimum bill ₹" keyboardType="decimal-pad" style={styles.input}/><TextInput value={discountPercent} onChangeText={setDiscountPercent} placeholder="Discount percent" keyboardType="decimal-pad" style={styles.input}/><Pressable style={styles.primary} onPress={() => void createSellerDiscount()}><Text style={styles.primaryText}>Create bill discount</Text></Pressable></View>
           {(roleData.discounts || []).map((d:MobileRecord,i:number) => <View key={String(d.ruleId || i)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(d.description || 'Bill discount')}</Text><Text style={styles.muted}>{String(d.discountPercentage ?? 0)}% off above {money(d.minBillAmount)}</Text><Pressable style={styles.secondary} onPress={() => void runRoleAction('discount-delete', () => mobileApi.sellerDeleteDiscount(session.token,String(d.ruleId)))}><Text style={styles.secondaryText}>Delete discount</Text></Pressable></View>)}
@@ -418,7 +466,7 @@ export default function App() {
           <Text style={styles.sectionTitle}>Available jobs ({roleData.available?.length || 0})</Text>
           {(roleData.available || []).map((job: MobileRecord, i: number) => { const id=String(job.bookingId || job.id || ''); const pid=String(roleData.profile?.professionalId || roleData.profile?.id || ''); return <View key={id || i} style={styles.orderCard}><Text style={styles.orderTitle}>Booking #{id || '—'}</Text><Text style={styles.muted}>{String(job.serviceName || job.service || 'Daily Help request')} · {String(job.scheduledStart || '')}</Text><Pressable style={styles.primary} onPress={() => void runRoleAction('accept:'+id, () => mobileApi.dailyAccept(session.token,pid,id))}><Text style={styles.primaryText}>Accept job</Text></Pressable></View>; })}
           <Text style={styles.sectionTitle}>My jobs ({roleData.mine?.length || 0})</Text>
-          {(roleData.mine || []).map((job: MobileRecord, i: number) => { const id=String(job.bookingId || job.id || ''); const pid=String(roleData.profile?.professionalId || roleData.profile?.id || ''); const status=String(job.status || '').toUpperCase(); return <View key={id || i} style={styles.orderCard}><Text style={styles.orderTitle}>Booking #{id || '—'}</Text><Text style={styles.muted}>{status || '—'} · {String(job.scheduledStart || '')}</Text>{status !== 'IN_PROGRESS' && <><TextInput value={roleOtp} onChangeText={setRoleOtp} placeholder="Customer start OTP" keyboardType="number-pad" maxLength={6} style={styles.input}/><Pressable style={styles.primary} onPress={() => void runRoleAction('start:'+id, () => mobileApi.dailyStart(session.token,id,pid,roleOtp))}><Text style={styles.primaryText}>Start service with OTP</Text></Pressable></>}{status === 'IN_PROGRESS' && <Pressable style={styles.primary} onPress={() => void runRoleAction('complete:'+id, () => mobileApi.dailyComplete(session.token,id,pid))}><Text style={styles.primaryText}>Complete service</Text></Pressable>}</View>; })}
+          {(roleData.mine || []).map((job: MobileRecord, i: number) => { const id=String(job.bookingId || job.id || ''); const pid=String(roleData.profile?.professionalId || roleData.profile?.id || ''); const status=String(job.status || '').toUpperCase(); return <View key={id || i} style={styles.orderCard}><Text style={styles.orderTitle}>Booking #{id || '—'}</Text><Text style={styles.muted}>{status || '—'} · {String(job.scheduledStart || '')}</Text>{status !== 'IN_PROGRESS' && <><TextInput value={roleOtp} onChangeText={setRoleOtp} placeholder="Customer start OTP" keyboardType="number-pad" maxLength={6} style={styles.input}/><Pressable style={styles.primary} onPress={() => void runRoleAction('start:'+id, () => mobileApi.dailyStart(session.token,id,pid,roleOtp))}><Text style={styles.primaryText}>Start service with OTP</Text></Pressable></>}{status === 'IN_PROGRESS' && <><Text style={styles.price}>Service timer: {job.serviceStartedAt ? (() => { const started=Date.parse(String(job.serviceStartedAt)); const elapsed=Math.max(0, Math.floor((timerNow-started)/1000)); return Number.isFinite(started) ? `${String(Math.floor(elapsed/3600)).padStart(2,'0')}:${String(Math.floor((elapsed%3600)/60)).padStart(2,'0')}:${String(elapsed%60).padStart(2,'0')}` : 'Awaiting server start time'; })() : 'Awaiting server start time'}</Text><Pressable style={styles.primary} onPress={() => void runRoleAction('complete:'+id, () => mobileApi.dailyComplete(session.token,id,pid))}><Text style={styles.primaryText}>Complete service</Text></Pressable></>}</View>; })}
         </>}
         {!!roleActionBusy && <ActivityIndicator color="#087f5b" />}
       </ScrollView>}
@@ -445,7 +493,7 @@ export default function App() {
           <Pressable style={styles.secondary} onPress={() => setActiveBargain(null)}><Text style={styles.secondaryText}>Close chat</Text></Pressable>
         </View>}
       </>}
-      {activeRole === 'BUYER' && tab === 'orders' && <ScrollView contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={loadingData} onRefresh={loadShop} />}><Text style={styles.sectionTitle}>Your orders</Text>{orders.length ? orders.map((order, index) => <View key={String(order.orderId || order.id || index)} style={styles.orderCard}><Text style={styles.orderTitle}>Order #{String(order.orderId || order.id || '—')}</Text><Text style={styles.muted}>{String(order.status || 'Status unavailable').replaceAll('_', ' ')}</Text><Text style={styles.price}>{money(order.finalPayable ?? order.totalAmount)}</Text></View>) : <View style={styles.empty}><Text style={styles.emptyTitle}>No orders yet</Text><Text style={styles.muted}>Your order history will appear here.</Text></View>}</ScrollView>}
+      {activeRole === 'BUYER' && tab === 'orders' && <ScrollView contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={loadingData} onRefresh={loadShop} />}><Text style={styles.sectionTitle}>Your orders</Text>{orders.length ? orders.map((order, index) => { const id=String(order.orderId || order.id || ''); const status=String(order.status || '').toUpperCase(); const track=trackingByOrder[id]; return <View key={id || index} style={styles.orderCard}><Text style={styles.orderTitle}>Order #{id || '—'}</Text><Text style={styles.muted}>{status.replaceAll('_', ' ') || 'Status unavailable'}</Text><Text style={styles.price}>{money(order.finalPayable ?? order.totalAmount)}</Text><Pressable disabled={!id || trackingBusy===id} style={styles.primary} onPress={() => void loadOrderTracking(id)}><Text style={styles.primaryText}>{trackingBusy===id ? 'Loading…' : 'Track order'}</Text></Pressable>{track && <View><Text style={styles.muted}>Latest status: {String(track.status || track.orderStatus || status)}</Text>{track.deliveryAgentName ? <Text style={styles.muted}>Delivery agent: {String(track.deliveryAgentName)}</Text> : null}{track.updatedAt ? <Text style={styles.muted}>Updated: {String(track.updatedAt)}</Text> : null}</View>}{['PLACED','PENDING_COD'].includes(status) && <Pressable style={styles.secondary} onPress={() => cancelBuyerOrder(id)}><Text style={styles.secondaryText}>Request cancellation</Text></Pressable>}</View>; }) : <View style={styles.empty}><Text style={styles.emptyTitle}>No orders yet</Text><Text style={styles.muted}>Your order history will appear here.</Text></View>}</ScrollView>}
       {activeRole === 'BUYER' && tab === 'help' && <ScrollView contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={helpLoading} onRefresh={loadDailyHelp}/>}><Text style={styles.sectionTitle}>Book Daily Help</Text><Text style={styles.muted}>Choose a service and an available professional time. Booking is confirmed by the server.</Text>{helpServices.map(service => <Pressable key={String(service.id)} onPress={() => setHelpServiceId(String(service.id))} style={[styles.orderCard, helpServiceId === String(service.id) && {borderColor:'#087f5b',borderWidth:2}]}><Text style={styles.orderTitle}>{String(service.name || service.category || 'Service')}</Text><Text style={styles.muted}>{String(service.description || '')} · {money(service.pricePerHour)}/hour</Text></Pressable>)}<TextInput value={helpDate} onChangeText={setHelpDate} placeholder="Date YYYY-MM-DD" style={styles.input}/><TextInput value={helpHours} onChangeText={setHelpHours} placeholder="Hours (1–12)" keyboardType="decimal-pad" style={styles.input}/><TextInput value={helpLocality} onChangeText={setHelpLocality} placeholder="Locality" style={styles.input}/><TextInput value={helpAddress} onChangeText={setHelpAddress} placeholder="Full service address" multiline style={styles.input}/><Pressable style={styles.primary} disabled={helpLoading} onPress={() => void loadDailyHelp()}><Text style={styles.primaryText}>Find available slots</Text></Pressable><Text style={styles.sectionTitle}>Available slots</Text>{helpSlots.map(slot => <View key={String(slot.slotId)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(slot.professionalName || 'Professional')} · {String(slot.startTime || '')}–{String(slot.endTime || '')}</Text><Text style={styles.muted}>{String(slot.locality || helpLocality)} · Rating {String(slot.rating || '—')}</Text><Pressable style={styles.primary} onPress={() => void bookDailyHelpSlot(slot)}><Text style={styles.primaryText}>Book this slot</Text></Pressable></View>)}<Text style={styles.sectionTitle}>My Daily Help bookings</Text>{helpBookings.map((booking,i) => <View key={String(booking.id || booking.bookingId || i)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(booking.serviceName || 'Daily Help')}</Text><Text style={styles.muted}>{String(booking.status || '—')} · {String(booking.scheduledStart || '')}</Text></View>)}</ScrollView>}
       {activeRole === 'BUYER' && tab === 'account' && <View style={styles.accountCard}><Text style={styles.sectionTitle}>Your account</Text><Text style={styles.accountName}>{session.user.name || 'KuraliUpdates customer'}</Text><Text style={styles.muted}>{session.user.phone || session.user.email || ''}</Text><Text style={styles.muted}>Role: {(session.user.role || 'BUYER').replaceAll('_', ' ')}</Text><Pressable onPress={signOut} style={styles.secondary}><Text style={styles.secondaryText}>Sign out</Text></Pressable></View>}
       {!!error && <Text style={styles.inlineError}>{error}</Text>}
