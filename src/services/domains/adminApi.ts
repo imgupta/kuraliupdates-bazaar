@@ -95,6 +95,25 @@ export const adminApi = {
       }
     },
 
+
+  async getDailyHelpConfiguration(): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/daily-help/configuration`, { headers: adminAuthHeaders(), cache: 'no-store' });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to load Daily Help settings (HTTP ${res.status})`);
+    return data;
+  },
+
+  async updateDailyHelpConfiguration(payload: { turnaroundBufferMinutes: number }): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/daily-help/configuration`, {
+      method: 'PUT',
+      headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to save Daily Help settings (HTTP ${res.status})`);
+    return data;
+  },
+
   async getAdminDailyHelpServices(): Promise<any[]> {
       try {
         const res = await fetch(`${API_BASE_URL}/admin/daily-help/services`, { headers: adminAuthHeaders() });
