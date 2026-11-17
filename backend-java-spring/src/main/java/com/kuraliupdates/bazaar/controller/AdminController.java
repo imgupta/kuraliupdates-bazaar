@@ -272,10 +272,9 @@ public class AdminController {
         int minutes = value.intValueExact();
         jdbcTemplate.update("""
                 UPDATE KU_COMPLIANCE_CONFIG
-                   SET CONFIG_VALUE = ?, UPDATED_AT = CURRENT_TIMESTAMP,
-                       UPDATED_BY = (SELECT USER_ID FROM USERS WHERE LOWER(EMAIL) = LOWER(?))
+                   SET CONFIG_VALUE = ?, UPDATED_AT = CURRENT_TIMESTAMP
                  WHERE CONFIG_KEY = 'DAILY_HELP_TURNAROUND_MINUTES'
-                """, String.valueOf(minutes), currentActorEmail());
+                """, String.valueOf(minutes));
         return getDailyHelpConfiguration();
     }
 
