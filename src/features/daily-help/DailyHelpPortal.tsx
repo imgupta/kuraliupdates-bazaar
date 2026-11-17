@@ -97,8 +97,8 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
       <section className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-black uppercase tracking-wide text-slate-800">My Availability Slots</h2>
-            <p className="text-xs text-slate-500 mt-1">Add one continuous availability window. We automatically split it into one-hour booking slots for customers.</p>
+            <h2 className="text-sm font-black uppercase tracking-wide text-slate-800">My Availability Windows</h2>
+            <p className="text-xs text-slate-500 mt-1">Set one continuous availability window. Buyers can choose different, non-overlapping booking times within it.</p>
           </div>
           <CalendarClock className="w-5 h-5 text-amber-600" />
         </div>
