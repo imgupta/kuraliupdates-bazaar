@@ -49,9 +49,9 @@ test('legacy auth keeps seller registration in the dedicated wizard', () => {
   const legacy = auth.slice(legacyStart, legacyEnd);
 
   assert.ok(legacyStart >= 0 && legacyEnd > legacyStart);
-  assert.doesNotMatch(legacy, /registrationRole\\s*===\\s*['"]seller['"]/);
+  assert.doesNotMatch(legacy, /registrationRole\s*===\s*['"]seller['"]/);
   assert.doesNotMatch(legacy, /storeNameRef|shopFrontPhotoRef|gstNumberRef|fssaiCertificateRef|uploadSellerDocument/);
-  assert.match(auth, /if \\(props\\.registrationRole === 'seller'\\) return <SellerRegistrationWizard \\/>;/);
+  assert.match(auth, /if \(props\.registrationRole === 'seller'\) return <SellerRegistrationWizard \/>;/);
 });
 
 test('legacy auth retains delivery and Daily Help email OTP registration', () => {
@@ -60,7 +60,7 @@ test('legacy auth retains delivery and Daily Help email OTP registration', () =>
   const legacyEnd = auth.indexOf('const RoleRegistrationCard', legacyStart);
   const legacy = auth.slice(legacyStart, legacyEnd);
 
-  assert.match(legacy, /registrationRole === 'delivery' \\|\\| registrationRole === 'professional'/);
-  assert.match(legacy, /bazaarApi\\.sendOtp\\(email, 'EMAIL', 'REGISTER'\\)/);
+  assert.match(legacy, /registrationRole === 'delivery' \|\| registrationRole === 'professional'/);
+  assert.match(legacy, /bazaarApi\.sendOtp\(email, 'EMAIL', 'REGISTER'\)/);
   assert.match(legacy, /mode: 'REGISTER'/);
 });
