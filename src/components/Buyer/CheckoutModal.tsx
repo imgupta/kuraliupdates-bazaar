@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   ShieldCheck,
@@ -330,7 +330,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
             <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Order review · {cart.reduce((total, item) => total + item.quantity, 0)} units across {cart.length} products</h3>
             {cart.map(item => {
               const unitPrice = item.negotiatedPrice ?? Number((item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100)).toFixed(2));
-              const maxQuantity = Math.max(1, Number(item.product.stock) || item.quantity);
+              const maxQuantity = Math.max(0, Number(item.product.stock) || 0);
               return (
                 <div key={item.product.id} className="flex items-center justify-between gap-3 text-xs">
                   <div className="min-w-0 flex-1">
