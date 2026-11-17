@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   ShieldCheck,
@@ -13,6 +13,8 @@ import {
   Truck,
   Sparkles,
   Store,
+  Plus,
+  Minus,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useApp } from '../../context/AppContext';
@@ -23,13 +25,29 @@ interface CheckoutModalProps {
 }
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
-  const { cart, cartCalculations, createOrder, user } = useApp();
-  const selectedAddress = user.savedAddresses?.find(address => address.isDefault) || user.savedAddresses?.[0];
+  const { cart, cartCalculations, createOrder, user, updateCartQuantity } = useApp();
+  const defaultAddress = user.savedAddresses?.find(address => address.isDefault) || user.savedAddresses?.[0];
+  const [selectedAddressId, setSelectedAddressId] = useState(defaultAddress?.id || '');
+  const selectedAddress = user.savedAddresses?.find(address => address.id === selectedAddressId) || defaultAddress;
 
-  const [buyerName, setBuyerName] = useState(user.name || 'Simranjit Kaur');
-  const [buyerPhone, setBuyerPhone] = useState(user.phone || '+91 98760 12345');
-  const [deliveryLocality, setDeliveryLocality] = useState(user.locality || KURALI_LOCALITIES[1] || 'Main Bazaar');
+  const [buyerName, setBuyerName] = useState(user.name || '');
+  const [buyerPhone, setBuyerPhone] = useState(user.phone || '');
+  const [deliveryLocality, setDeliveryLocality] = useState(user.locality || KURALI_LOCALITIES.find(l => !l.startsWith('All')) || 'Main Bazaar');
   const [streetAddress, setStreetAddress] = useState(selectedAddress?.addressLine1 || user.addressLine1 || user.address || '');
+
+  // Checkout can remain mounted while profile/address data finishes hydrating.
+  // Reconcile only when the buyer has not explicitly selected another address.
+  useEffect(() => {
+    setBuyerName(user.name || '');
+    setBuyerPhone(user.phone || '');
+    if (!selectedAddressId && defaultAddress?.id) setSelectedAddressId(defaultAddress.id);
+    if (defaultAddress && (!selectedAddressId || selectedAddressId === defaultAddress.id)) {
+      setStreetAddress(defaultAddress.addressLine1 || '');
+    } else if (!defaultAddress) {
+      setStreetAddress(user.addressLine1 || user.address || '');
+    }
+    if (user.locality && KURALI_LOCALITIES.includes(user.locality)) setDeliveryLocality(user.locality);
+  }, [user.name, user.phone, user.locality, user.addressLine1, user.address, defaultAddress?.id, defaultAddress?.addressLine1]);
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Card' | 'COD' | 'NetBanking'>('COD');
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'review' | 'payment'>('review');
@@ -44,7 +62,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
 
     setIsProcessing(true);
     try {
-      const fullAddress = [streetAddress, selectedAddress?.landmark || user.landmark, selectedAddress?.formattedAddress || user.formattedAddress, deliveryLocality, 'Kurali (Punjab)'].filter((value, index, values) => value && values.indexOf(value) === index).join(', ');
+      const fullAddress = [streetAddress, selectedAddress?.landmark, selectedAddress?.formattedAddress, deliveryLocality, 'Kurali (Punjab)'].filter((value, index, values) => value && values.indexOf(value) === index).join(', ');
       const created = await createOrder({
         buyerName,
         buyerPhone,
@@ -124,6 +142,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
               <MapPin className="w-3.5 h-3.5 text-amber-600" />
               {fulfilmentMode === 'STORE_PICKUP' ? '1. Your pickup locality in Kurali' : '1. Delivery Address in Kurali'}
             </h3>
+
+            {user.savedAddresses && user.savedAddresses.length > 0 && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Saved address</label>
+                <select
+                  value={selectedAddress?.id || ''}
+                  onChange={e => {
+                    const next = user.savedAddresses?.find(address => address.id === e.target.value);
+                    setSelectedAddressId(e.target.value);
+                    setStreetAddress(next?.addressLine1 || '');
+                  }}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-amber-500 outline-none"
+                >
+                  {user.savedAddresses.map(address => (
+                    <option key={address.id} value={address.id}>{address.label} · {address.addressLine1}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -290,16 +327,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
 
           {/* Review the exact items before proceeding to payment. */}
           <section className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Order review · {cart.length} item{cart.length === 1 ? '' : 's'}</h3>
-            {cart.map(item => (
-              <div key={item.product.id} className="flex items-center justify-between gap-3 text-xs">
-                <div className="min-w-0">
-                  <p className="truncate font-bold text-slate-800">{item.product.title}</p>
-                  <p className="text-slate-500">Qty {item.quantity} · {item.product.sellerName}</p>
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Order review · {cart.reduce((total, item) => total + item.quantity, 0)} units across {cart.length} products</h3>
+            {cart.map(item => {
+              const unitPrice = item.negotiatedPrice ?? Number((item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100)).toFixed(2));
+              const maxQuantity = Math.max(0, Number(item.product.stock) || 0);
+              return (
+                <div key={item.product.id} className="flex items-center justify-between gap-3 text-xs">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold text-slate-800">{item.product.title}</p>
+                    <p className="text-slate-500">{item.product.sellerName} · ₹{unitPrice.toFixed(2)} each</p>
+                    <div className="mt-2 inline-flex items-center rounded-lg border border-slate-200 bg-slate-50">
+                      <button type="button" aria-label={`Decrease quantity of ${item.product.title}`} disabled={item.quantity <= 1} onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)} className="p-2 text-slate-700 disabled:opacity-30"><Minus className="h-3 w-3" /></button>
+                      <span className="min-w-7 text-center font-bold">{item.quantity}</span>
+                      <button type="button" aria-label={`Increase quantity of ${item.product.title}`} disabled={item.quantity >= maxQuantity} onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)} className="p-2 text-slate-700 disabled:opacity-30"><Plus className="h-3 w-3" /></button>
+                    </div>
+                  </div>
+                  <span className="shrink-0 font-extrabold text-slate-900">₹{(unitPrice * item.quantity).toFixed(2)}</span>
                 </div>
-                <span className="shrink-0 font-extrabold text-slate-900">₹{((item.negotiatedPrice ?? item.product.sellerPrice) * item.quantity).toFixed(2)}</span>
-              </div>
-            ))}
+              );
+            })}
           </section>
 
           {/* Section 3: Final Bill Breakdown */}
