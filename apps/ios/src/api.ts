@@ -126,7 +126,7 @@ export const mobileApi = {
   deliveryAvailable: (t: string) => authed<MobileRecord[]>('/delivery/jobs/available', t),
   deliveryMine: (t: string) => authed<MobileRecord[]>('/delivery/jobs/mine', t),
   deliveryClaim: (t: string, orderId: string, agentId: string) => authed<MobileRecord>(`/delivery/jobs/${encodeURIComponent(orderId)}/claim?agentId=${encodeURIComponent(agentId)}`, t, { method: 'POST' }),
-  deliveryAvailability: (t: string, available: boolean) => authed<MobileRecord>('/delivery/me/availability', t, { method: 'PUT', body: JSON.stringify({ status: available ? 'AVAILABLE' : 'UNAVAILABLE' }) }),
+  deliveryAvailability: (t: string, available: boolean) => authed<MobileRecord>('/delivery/me/availability', t, { method: 'PUT', body: JSON.stringify({ available }) }),
   deliveryPickup: (t: string, id: string) => authed<MobileRecord>(`/delivery/jobs/${encodeURIComponent(id)}/confirm-pickup`, t, { method: 'POST' }),
   deliveryResendOtp: (t: string, id: string) => authed<MobileRecord>(`/delivery/jobs/${encodeURIComponent(id)}/resend-otp`, t, { method: 'POST' }),
   deliveryVerifyOtp: (t: string, id: string, otp: string) => authed<MobileRecord>(`/delivery/jobs/${encodeURIComponent(id)}/verify-otp`, t, { method: 'POST', body: JSON.stringify({ otp }) }),
@@ -134,7 +134,7 @@ export const mobileApi = {
   dailyAvailable: (t: string, id: string) => authed<MobileRecord[]>(`/daily-help/professionals/${encodeURIComponent(id)}/jobs/available`, t),
   dailyMine: (t: string, id: string) => authed<MobileRecord[]>(`/daily-help/professionals/${encodeURIComponent(id)}/jobs`, t),
   dailyAccept: (t: string, id: string, bookingId: string) => authed<MobileRecord>(`/daily-help/professionals/${encodeURIComponent(id)}/jobs/${encodeURIComponent(bookingId)}/accept`, t, { method: 'POST' }),
-  dailyAvailability: (t: string, id: string, available: boolean) => authed<MobileRecord>(`/daily-help/professionals/${encodeURIComponent(id)}/availability`, t, { method: 'POST', body: JSON.stringify({ available }) }),
+  dailyAvailability: (t: string, id: string, available: boolean) => authed<MobileRecord>(`/daily-help/professionals/${encodeURIComponent(id)}/availability`, t, { method: 'POST', body: JSON.stringify({ status: available ? 'AVAILABLE' : 'UNAVAILABLE' }) }),
   dailyStart: (t: string, bookingId: string, professionalId: string, otp: string) => authed<MobileRecord>(`/daily-help/bookings/${encodeURIComponent(bookingId)}/start`, t, { method: 'POST', body: JSON.stringify({ professionalId, otp }) }),
   dailyComplete: (t: string, bookingId: string, professionalId: string) => authed<MobileRecord>(`/daily-help/bookings/${encodeURIComponent(bookingId)}/complete?professionalId=${encodeURIComponent(professionalId)}`, t, { method: 'POST' }),
 };
