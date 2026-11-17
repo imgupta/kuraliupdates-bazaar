@@ -74,7 +74,6 @@ class DailyHelpServiceTest {
         DailyHelpProfessionalSlotEntity slot = slot(professional, "BOOKED");
         when(serviceRepository.findById("DH-CLEAN")).thenReturn(Optional.of(service));
         when(slotRepository.findLockedBySlotId("SLOT-1")).thenReturn(Optional.of(slot));
-        when(professionalRepository.findLockedByProfessionalId("DHP-1")).thenReturn(Optional.of(professional));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> dailyHelpService.createBooking(request(slot.getSlotDate().atTime(slot.getStartTime()))));
