@@ -40,6 +40,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
   const [bookingDate, setBookingDate] = useState(localDateString(new Date(Date.now() + 24 * 60 * 60 * 1000)));
   const [slots, setSlots] = useState<DailyHelpSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<DailyHelpSlot | null>(null);
+  const [selectedStartTime, setSelectedStartTime] = useState('09:00');
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [booking, setBooking] = useState<DailyHelpBooking | null>(null);
   const [bookingBusy, setBookingBusy] = useState(false);
@@ -117,7 +118,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
 
     setBookingBusy(true);
     try {
-      const scheduledStart = `${selectedSlot.slotDate}T${selectedSlot.startTime}`;
+      const scheduledStart = `${selectedSlot.slotDate}T${selectedStartTime}:00`;
       const result = await buyerApi.createDailyHelpBooking({
         serviceId: selected.id,
         buyerName: user.name,
@@ -220,6 +221,9 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
               <label className="text-xs font-bold text-slate-700">Duration
                 <select value={hours} onChange={e => setHours(Number(e.target.value))} className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 bg-white">
                   <option value={1}>1 hour</option>
+                  <option value={1.5}>1.5 hours</option>
+                  <option value={2}>2 hours</option>
+                  <option value={3}>3 hours</option>
                 </select>
               </label>
               <label className="text-xs font-bold text-slate-700">Date
@@ -230,7 +234,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
             <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs">
               <div className="flex justify-between"><span>Rate</span><strong>₹{selected.pricePerHour}/hr</strong></div>
               <div className="flex justify-between mt-1"><span>Estimated total</span><strong>₹{selected.pricePerHour * hours}</strong></div>
-              <div className="mt-2 flex gap-2 text-slate-500"><CalendarDays className="w-4 h-4 shrink-0" /> Choose any available one-hour period within the professional’s availability window.</div>
+              <div className="mt-2 flex gap-2 text-slate-500"><CalendarDays className="w-4 h-4 shrink-0" /> Choose a start time inside the helper’s availability window. Start times use 15-minute increments.</div>
             </div>
 
             <div className="mt-5">
@@ -248,7 +252,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
                   {slots.map(slot => {
                     const active = selectedSlot?.slotId === slot.slotId;
                     return (
-                      <button key={slot.slotId} onClick={() => setSelectedSlot(slot)} className={`w-full text-left rounded-xl border p-3 transition-all cursor-pointer ${active ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-500' : 'border-slate-200 hover:border-amber-300 bg-white'}`}>
+                      <button key={slot.slotId} onClick={() => { setSelectedSlot(slot); setSelectedStartTime(slot.startTime.slice(0,5)); }} className={`w-full text-left rounded-xl border p-3 transition-all cursor-pointer ${active ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-500' : 'border-slate-200 hover:border-amber-300 bg-white'}`}>
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center shrink-0"><UserRound className="w-4 h-4" /></div>
@@ -266,7 +270,11 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
             {selectedSlot && (
               <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
                 <div className="flex items-center gap-2 font-black"><MapPin className="w-4 h-4" /> {selectedSlot.professionalName}</div>
-                <p className="mt-1">Selected slot: {selectedSlot.startTime.slice(0,5)} - {selectedSlot.endTime.slice(0,5)} on {selectedSlot.slotDate}</p>
+                <p className="mt-1">Availability window: {selectedSlot.startTime.slice(0,5)} - {selectedSlot.endTime.slice(0,5)} on {selectedSlot.slotDate}</p>
+                <label className="block mt-3 font-bold">Your start time
+                  <input type="time" step={900} min={selectedSlot.startTime.slice(0,5)} max={selectedSlot.endTime.slice(0,5)} value={selectedStartTime} onChange={e => setSelectedStartTime(e.target.value)} className="mt-1 w-full rounded-lg border border-emerald-300 bg-white px-3 py-2" />
+                </label>
+                <p className="mt-1">Estimated finish: {(() => { const [h,m] = selectedStartTime.split(':').map(Number); const end = h * 60 + m + hours * 60; return `${String(Math.floor(end / 60)).padStart(2,'0')}:${String(end % 60).padStart(2,'0')}`; })()}</p>
               </div>
             )}
 
@@ -280,7 +288,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
           <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><ShieldCheck className="h-5 w-5" /></div>
           <div className="min-w-0">
             <h2 className="text-sm font-black text-slate-900">Daily Help, whenever you need it</h2>
-            <p className="mt-1 text-xs leading-relaxed text-slate-600">Book a trusted local professional by the hour. Choose a service and date to see available one-hour slots. Your service timer starts only after OTP verification.</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">Book a trusted local professional by the hour. Choose a service, date, duration and start time within a helper’s availability window. Your service timer starts only after OTP verification.</p>
             <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold text-slate-600">
               <span className="rounded-full border border-amber-100 bg-white px-2.5 py-1">Verified professionals</span>
               <span className="rounded-full border border-amber-100 bg-white px-2.5 py-1">Live availability</span>
