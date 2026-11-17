@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { getMyOrders, Product, searchProducts, sendLoginOtp, LoginChannel, verifyLoginOtp, getRegisteredRoles, createRoleHandoff, redeemRoleHandoff, getRoleOnboardingStatus, MobileRole, mobileApi, MobileRecord } from './api';
 import { clearSession, MobileUser, readSession, saveSession } from './session';
 
-type Tab = 'shop' | 'orders' | 'account';
+type Tab = 'shop' | 'orders' | 'help' | 'account';
 
 const money = (value: unknown) => `₹${Number(value ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
@@ -40,6 +40,16 @@ export default function App() {
   const [sellerProductMrp, setSellerProductMrp] = useState('');
   const [sellerProductPrice, setSellerProductPrice] = useState('');
   const [sellerProductStock, setSellerProductStock] = useState('1');
+  const [helpServices, setHelpServices] = useState<MobileRecord[]>([]);
+  const [helpSlots, setHelpSlots] = useState<MobileRecord[]>([]);
+  const [helpBookings, setHelpBookings] = useState<MobileRecord[]>([]);
+  const [helpServiceId, setHelpServiceId] = useState('');
+  const [helpDate, setHelpDate] = useState(() => { const d = new Date(); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); });
+  const [helpHours, setHelpHours] = useState('2');
+  const [helpAddress, setHelpAddress] = useState('');
+  const [helpLocality, setHelpLocality] = useState('Kurali');
+  const [helpLoading, setHelpLoading] = useState(false);
+
 
 
 
@@ -199,6 +209,40 @@ export default function App() {
     if (id) void runRoleAction('seller-delete:'+id, () => mobileApi.sellerDeleteProduct(session.token,id));
   };
 
+
+  const loadDailyHelp = async () => {
+    if (!session) return;
+    setHelpLoading(true); setError('');
+    try {
+      const [services, bookings] = await Promise.all([
+        mobileApi.dailyServices(),
+        session.user.phone ? mobileApi.dailyBookings(session.token, session.user.phone) : Promise.resolve([]),
+      ]);
+      setHelpServices(services); setHelpBookings(bookings);
+      if (!helpServiceId && services[0]?.id) setHelpServiceId(String(services[0].id));
+      const slots = await mobileApi.dailySlots(helpDate, Number(helpHours), helpLocality);
+      setHelpSlots(slots);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Unable to load Daily Help.'); }
+    finally { setHelpLoading(false); }
+  };
+  const bookDailyHelpSlot = async (slot: MobileRecord) => {
+    if (!session || !session.user.phone || !session.user.name) { setError('Your account needs a verified phone number and name to book Daily Help.'); return; }
+    if (!helpAddress.trim() || !helpServiceId) { setError('Enter the service address and choose a service.'); return; }
+    const start = String(slot.startTime || '');
+    if (!slot.slotId || !start) { setError('This availability slot is missing required booking details.'); return; }
+    setHelpLoading(true); setError('');
+    try {
+      await mobileApi.dailyCreateBooking(session.token, {
+        serviceId: helpServiceId, buyerName: session.user.name, buyerPhone: session.user.phone,
+        address: helpAddress.trim(), locality: helpLocality.trim(),
+        scheduledStart: `${helpDate}T${start.length === 5 ? start + ':00' : start}`,
+        requestedHours: Number(helpHours), slotId: String(slot.slotId),
+      });
+      await loadDailyHelp();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Daily Help booking failed.'); }
+    finally { setHelpLoading(false); }
+  };
+
   const sendCode = async () => {
     if (!identifier.trim()) { setError(channel === 'PHONE' ? 'Enter your mobile number.' : 'Enter your email address.'); return; }
     setBusy(true); setError('');
@@ -269,7 +313,7 @@ export default function App() {
       </ScrollView>
       {!!roleStatus && <Text style={styles.roleStatus}>{roleStatus}</Text>}
       {activeRole === 'BUYER' && <View style={styles.tabs}>
-        {(['shop', 'orders', 'account'] as Tab[]).map(item => <Pressable key={item} onPress={() => setTab(item)} style={[styles.tab, tab === item && styles.tabSelected]}><Text style={[styles.tabText, tab === item && styles.tabTextSelected]}>{item === 'shop' ? 'Shop' : item === 'orders' ? 'My orders' : 'Account'}</Text></Pressable>)}
+        {(['shop', 'orders', 'help', 'account'] as Tab[]).map(item => <Pressable key={item} onPress={() => { setTab(item); if (item === 'help') void loadDailyHelp(); }} style={[styles.tab, tab === item && styles.tabSelected]}><Text style={[styles.tabText, tab === item && styles.tabTextSelected]}>{item === 'shop' ? 'Shop' : item === 'orders' ? 'Orders' : item === 'help' ? 'Daily Help' : 'Account'}</Text></Pressable>)}
       </View>}
       {activeRole !== 'BUYER' && <ScrollView contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={loadingData} onRefresh={refreshRoleDashboard} />}>
         <Text style={styles.sectionTitle}>{activeRole === 'SELLER' ? 'Seller workspace' : activeRole === 'DELIVERY' ? 'Delivery workspace' : 'Daily Help workspace'}</Text>
@@ -326,6 +370,7 @@ export default function App() {
         />
       </>}
       {activeRole === 'BUYER' && tab === 'orders' && <ScrollView contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={loadingData} onRefresh={loadShop} />}><Text style={styles.sectionTitle}>Your orders</Text>{orders.length ? orders.map((order, index) => <View key={String(order.orderId || order.id || index)} style={styles.orderCard}><Text style={styles.orderTitle}>Order #{String(order.orderId || order.id || '—')}</Text><Text style={styles.muted}>{String(order.status || 'Status unavailable').replaceAll('_', ' ')}</Text><Text style={styles.price}>{money(order.finalPayable ?? order.totalAmount)}</Text></View>) : <View style={styles.empty}><Text style={styles.emptyTitle}>No orders yet</Text><Text style={styles.muted}>Your order history will appear here.</Text></View>}</ScrollView>}
+      {activeRole === 'BUYER' && tab === 'help' && <ScrollView contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={helpLoading} onRefresh={loadDailyHelp}/>}><Text style={styles.sectionTitle}>Book Daily Help</Text><Text style={styles.muted}>Choose a service and an available professional time. Booking is confirmed by the server.</Text>{helpServices.map(service => <Pressable key={String(service.id)} onPress={() => setHelpServiceId(String(service.id))} style={[styles.orderCard, helpServiceId === String(service.id) && {borderColor:'#087f5b',borderWidth:2}]}><Text style={styles.orderTitle}>{String(service.name || service.category || 'Service')}</Text><Text style={styles.muted}>{String(service.description || '')} · {money(service.pricePerHour)}/hour</Text></Pressable>)}<TextInput value={helpDate} onChangeText={setHelpDate} placeholder="Date YYYY-MM-DD" style={styles.input}/><TextInput value={helpHours} onChangeText={setHelpHours} placeholder="Hours (1–12)" keyboardType="decimal-pad" style={styles.input}/><TextInput value={helpLocality} onChangeText={setHelpLocality} placeholder="Locality" style={styles.input}/><TextInput value={helpAddress} onChangeText={setHelpAddress} placeholder="Full service address" multiline style={styles.input}/><Pressable style={styles.primary} disabled={helpLoading} onPress={() => void loadDailyHelp()}><Text style={styles.primaryText}>Find available slots</Text></Pressable><Text style={styles.sectionTitle}>Available slots</Text>{helpSlots.map(slot => <View key={String(slot.slotId)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(slot.professionalName || 'Professional')} · {String(slot.startTime || '')}–{String(slot.endTime || '')}</Text><Text style={styles.muted}>{String(slot.locality || helpLocality)} · Rating {String(slot.rating || '—')}</Text><Pressable style={styles.primary} onPress={() => void bookDailyHelpSlot(slot)}><Text style={styles.primaryText}>Book this slot</Text></Pressable></View>)}<Text style={styles.sectionTitle}>My Daily Help bookings</Text>{helpBookings.map((booking,i) => <View key={String(booking.id || booking.bookingId || i)} style={styles.orderCard}><Text style={styles.orderTitle}>{String(booking.serviceName || 'Daily Help')}</Text><Text style={styles.muted}>{String(booking.status || '—')} · {String(booking.scheduledStart || '')}</Text></View>)}</ScrollView>}
       {activeRole === 'BUYER' && tab === 'account' && <View style={styles.accountCard}><Text style={styles.sectionTitle}>Your account</Text><Text style={styles.accountName}>{session.user.name || 'KuraliUpdates customer'}</Text><Text style={styles.muted}>{session.user.phone || session.user.email || ''}</Text><Text style={styles.muted}>Role: {(session.user.role || 'BUYER').replaceAll('_', ' ')}</Text><Pressable onPress={signOut} style={styles.secondary}><Text style={styles.secondaryText}>Sign out</Text></Pressable></View>}
       {!!error && <Text style={styles.inlineError}>{error}</Text>}
       <View style={styles.bottomNote}><Text style={styles.bottomNoteText}>Made for Kurali · Punjab</Text></View>
