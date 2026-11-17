@@ -294,6 +294,14 @@ public class DailyHelpService {
     }
 
     @Transactional(readOnly = true)
+    public List<DailyHelpBookingResponse> getBookingsForBuyer(String buyerPhone) {
+        return bookingRepository.findByBuyerPhoneOrderByScheduledStartDesc(buyerPhone.trim())
+                .stream()
+                .map(b -> DailyHelpBookingResponse.from(b, shouldExposeOtp(b)))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public DailyHelpBookingResponse getBookingForUser(String bookingId, com.kuraliupdates.bazaar.entity.UserEntity user) {
         DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
