@@ -26,17 +26,19 @@ public class SecurityFilterBeans {
     }
 
     @Bean
-    @ConditionalOnBean(OtpAbuseProtectionFilter.class)
-    public FilterRegistrationBean<OtpAbuseProtectionFilter> otpAbuseProtectionFilterRegistration(OtpAbuseProtectionFilter filter) {
-        FilterRegistrationBean<OtpAbuseProtectionFilter> registration = new FilterRegistrationBean<>(filter);
+    public FilterRegistrationBean<OtpAbuseProtectionFilter> otpAbuseProtectionFilterRegistration(
+            org.springframework.beans.factory.ObjectProvider<OtpAbuseProtectionFilter> provider) {
+        FilterRegistrationBean<OtpAbuseProtectionFilter> registration = new FilterRegistrationBean<>();
+        provider.ifAvailable(registration::setFilter);
         registration.setEnabled(false);
         return registration;
     }
 
     @Bean
-    @ConditionalOnBean(AdminMfaFilter.class)
-    public FilterRegistrationBean<AdminMfaFilter> adminMfaFilterRegistration(AdminMfaFilter filter) {
-        FilterRegistrationBean<AdminMfaFilter> registration = new FilterRegistrationBean<>(filter);
+    public FilterRegistrationBean<AdminMfaFilter> adminMfaFilterRegistration(
+            org.springframework.beans.factory.ObjectProvider<AdminMfaFilter> provider) {
+        FilterRegistrationBean<AdminMfaFilter> registration = new FilterRegistrationBean<>();
+        provider.ifAvailable(registration::setFilter);
         registration.setEnabled(false);
         return registration;
     }
