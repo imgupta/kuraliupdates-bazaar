@@ -71,6 +71,11 @@ logging:
     org.flywaydb: DEBUG
     org.springframework.jdbc: INFO
 
+ku:
+  security:
+    # Keep empty until the exact Vercel-to-Render proxy CIDR chain is verified.
+    trusted-proxy-cidrs: ${KU_SECURITY_TRUSTED_PROXY_CIDRS:}
+
 app:
   document-scanner:
     clamav:
