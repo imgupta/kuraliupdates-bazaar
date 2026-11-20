@@ -109,6 +109,10 @@ public class OtpService {
 
     @Transactional
     public void verify(String identifier, String type, String otp) {
+        if (!e2eOtpCaptureService.mayBypassCooldown(identifier)) {
+            apiRateLimitService.requireAllowed("otp-verify-identifier", type + ":" + identifier,
+                    20, Duration.ofHours(1));
+        }
         if (otp == null || !otp.matches("\\d{6}")) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "OTP must be 6 digits");
         }
