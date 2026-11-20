@@ -4,6 +4,7 @@ import { safeStorageGet, safeStorageRemove, safeStorageSet } from '../shared/sto
 
 const AUTH_SESSION_KEY = 'kurali_auth_session';
 const AUTH_TOKEN_KEY = 'kurali_auth_token';
+const COOKIE_SESSION_MARKER = '__COOKIE_SESSION__';
 const LEGACY_USER_KEY = 'kurali_user';
 
 const parseStoredSession = (): UserProfile | null => {
@@ -43,8 +44,10 @@ export const persistAuthSession = (profile: UserProfile): void => {
   safeStorageSet(AUTH_SESSION_KEY, JSON.stringify(profile));
 };
 
-export const persistAuthToken = (token: string): void => {
-  safeStorageSet(AUTH_TOKEN_KEY, token);
+export const persistAuthToken = (_token: string): void => {
+  // Never persist the server credential. A non-secret marker preserves the
+  // existing portal bootstrap contract while authentication lives in HttpOnly cookies.
+  safeStorageSet(AUTH_TOKEN_KEY, COOKIE_SESSION_MARKER);
 };
 
 export const removeAuthToken = (): void => {
