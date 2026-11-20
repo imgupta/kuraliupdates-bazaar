@@ -1,15 +1,12 @@
-/** Shared API configuration for all independently built first-party portals.
+/** Shared API configuration for every first-party portal.
  *
- * Production traffic must use the same-origin Vercel rewrite. This keeps browser
- * API traffic first-party; local development may opt into a direct backend.
+ * Browser traffic always targets the current origin. Vercel rewrites production
+ * /api/v1 requests to Render; Vite proxies the same path during local development.
  */
-const configuredApiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '');
-
-export const API_BASE_URL = import.meta.env.DEV
-  ? (configuredApiBase || 'http://localhost:8080/api/v1')
-  : '/api/v1';
+export const API_BASE_URL = '/api/v1';
 
 export const adminAuthHeaders = (): Record<string, string> => {
-  const token = localStorage.getItem('kurali_auth_token');
+  let token: string | null = null;
+  try { token = localStorage.getItem('kurali_auth_token'); } catch { /* storage may be blocked */ }
   return { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 };
