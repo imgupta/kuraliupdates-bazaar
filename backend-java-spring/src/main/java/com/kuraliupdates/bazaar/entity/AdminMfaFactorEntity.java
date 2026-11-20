@@ -40,6 +40,9 @@ public class AdminMfaFactorEntity {
     @Column(name = "STEP_UP_EXPIRES_AT")
     private LocalDateTime stepUpExpiresAt;
 
+    @Column(name = "LAST_TOTP_COUNTER")
+    private Long lastTotpCounter;
+
     @Column(name = "CREATED_AT", nullable = false)
     private LocalDateTime createdAt;
 
