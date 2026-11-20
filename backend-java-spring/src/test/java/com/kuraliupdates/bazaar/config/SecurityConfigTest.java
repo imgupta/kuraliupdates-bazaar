@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = HealthController.class)
-@Import({SecurityConfig.class, SessionAuthenticationFilter.class, SecurityConfigTest.ProbeController.class})
+@Import({SecurityConfig.class, SessionAuthenticationFilter.class, com.kuraliupdates.bazaar.security.OtpAbuseProtectionFilter.class, SecurityConfigTest.ProbeController.class})
 class SecurityConfigTest {
 
     @Autowired
@@ -43,7 +43,10 @@ class SecurityConfigTest {
     private AuthService authService;
 
     @org.springframework.boot.test.mock.mockito.MockBean
-    private com.kuraliupdates.bazaar.security.OtpAbuseProtectionFilter otpAbuseProtectionFilter;
+    private com.kuraliupdates.bazaar.service.ApiRateLimitService apiRateLimitService;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.kuraliupdates.bazaar.security.TrustedClientIpResolver trustedClientIpResolver;
 
     @org.springframework.boot.test.mock.mockito.MockBean
     private DataSource dataSource;
