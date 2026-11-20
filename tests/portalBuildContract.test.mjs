@@ -45,10 +45,7 @@ test('the combined Bazaar build remains the root Vite build', () => {
 test('Vercel sends API requests to the Render backend before the SPA fallback', () => {
   const config = JSON.parse(read('vercel.json'));
   assert.equal(config.rewrites[0].source, '/api/v1/:path*');
-  assert.equal(
-    config.rewrites[0].destination,
-    'https://kuraliupdates-bazaar.onrender.com/api/v1/:path*',
-  );
+  assert.equal(config.rewrites[0].destination, 'https://kuraliupdates-bazaar.onrender.com/api/v1/:path*');
   assert.equal(config.rewrites[1].destination, '/index.html');
 });
 
@@ -56,4 +53,20 @@ test('production browser API calls stay on the first-party origin', () => {
   const apiConfig = read('src/services/http/apiConfig.ts');
   assert.match(apiConfig, /import\.meta\.env\.DEV/);
   assert.match(apiConfig, /:\s*'\/api\/v1'/);
+});
+
+
+test('cookie-session registration accepts browser responses without a JavaScript bearer token', () => {
+  const operations = read('src/context/useAuthOperations.ts');
+  assert.match(operations, /if \(!params\.serverUser\)/);
+  assert.match(operations, /persistAuthToken\(params\.token \|\| '__COOKIE_SESSION__'\)/);
+  assert.match(operations, /refreshBuyerAddresses\(params\.token \|\| '__COOKIE_SESSION__'/);
+});
+
+test('secure API transport adds CSRF and pseudonymous device headers only to first-party API requests', () => {
+  const secureFetch = read('src/services/http/secureApiFetch.ts');
+  assert.match(secureFetch, /X-KU-CSRF/);
+  assert.match(secureFetch, /X-KU-Device-ID/);
+  assert.match(secureFetch, /credentials: 'same-origin'/);
+  assert.match(secureFetch, /requestUrl\.pathname === apiPath/);
 });
