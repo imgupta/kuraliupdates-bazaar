@@ -68,12 +68,13 @@ class SessionAuthenticationFilterTest {
         SessionAuthenticationFilter filter = new SessionAuthenticationFilter(authService);
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setCookies(new MockCookie(SessionAuthenticationFilter.SESSION_COOKIE, "cookie-session"));
-        MockFilterChain chain = new MockFilterChain();
+        java.util.concurrent.atomic.AtomicReference<jakarta.servlet.http.HttpServletRequest> captured = new java.util.concurrent.atomic.AtomicReference<>();
 
-        filter.doFilter(request, new MockHttpServletResponse(), chain);
+        filter.doFilter(request, new MockHttpServletResponse(), (wrappedRequest, wrappedResponse) ->
+                captured.set((jakarta.servlet.http.HttpServletRequest) wrappedRequest));
 
-        assertEquals("Bearer cookie-session", ((jakarta.servlet.http.HttpServletRequest) chain.getRequest())
-                .getHeader(HttpHeaders.AUTHORIZATION));
+        assertNotNull(captured.get());
+        assertEquals("Bearer cookie-session", captured.get().getHeader(HttpHeaders.AUTHORIZATION));
         assertEquals(user, SecurityContextHolder.getContext().getAuthentication().getPrincipal());
     }
 
