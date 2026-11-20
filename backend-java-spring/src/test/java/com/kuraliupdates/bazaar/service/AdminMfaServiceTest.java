@@ -26,11 +26,10 @@ class AdminMfaServiceTest {
                 new MockEnvironment().withProperty("app.jwt.secret", ROOT_SECRET));
 
         AdminMfaService.Enrollment enrollment = service.beginEnrollment("admin-1", "admin@example.test");
-        AdminMfaFactorEntity factor = org.mockito.ArgumentCaptor.forClass(AdminMfaFactorEntity.class).getValue();
-        // Capture the entity persisted by enrollment without relying on an unencrypted field.
+        // Capture the encrypted entity persisted by enrollment.
         org.mockito.ArgumentCaptor<AdminMfaFactorEntity> saved = org.mockito.ArgumentCaptor.forClass(AdminMfaFactorEntity.class);
         verify(factors).save(saved.capture());
-        factor = saved.getValue();
+        AdminMfaFactorEntity factor = saved.getValue();
         assertNotEquals(enrollment.secret(), factor.getEncryptedSecret());
         assertTrue(enrollment.otpauthUri().startsWith("otpauth://totp/"));
 
@@ -50,15 +49,18 @@ class AdminMfaServiceTest {
     void recoveryCodeCanBeConsumedOnceToCreateNewStepUp() {
         AdminMfaFactorRepository factors = mock(AdminMfaFactorRepository.class);
         AdminMfaRecoveryCodeRepository recovery = mock(AdminMfaRecoveryCodeRepository.class);
+        when(factors.save(any(AdminMfaFactorEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(recovery.deleteAllForUser("admin-1")).thenReturn(0);
         when(recovery.consume(eq("admin-1"), anyString(), any())).thenReturn(1);
-        AdminMfaFactorEntity factor = AdminMfaFactorEntity.builder()
-                .userId("admin-1").encryptedSecret("encrypted").enabled(1).build();
-        AdminMfaService service = spy(new AdminMfaService(factors, recovery,
-                new MockEnvironment().withProperty("app.jwt.secret", ROOT_SECRET)));
-        doReturn("JBSWY3DPEHPK3PXP").when(service).decryptForTest(anyString());
+        AdminMfaService service = new AdminMfaService(factors, recovery,
+                new MockEnvironment().withProperty("app.jwt.secret", ROOT_SECRET));
+
+        service.beginEnrollment("admin-1", "admin@example.test");
+        org.mockito.ArgumentCaptor<AdminMfaFactorEntity> saved = org.mockito.ArgumentCaptor.forClass(AdminMfaFactorEntity.class);
+        verify(factors).save(saved.capture());
+        AdminMfaFactorEntity factor = saved.getValue();
+        factor.setEnabled(1);
         when(factors.findById("admin-1")).thenReturn(Optional.of(factor));
-        // The recovery-code path does not need the TOTP secret to decrypt successfully.
-        doReturn(false).when(service).verifyTotpForTest(anyString(), anyString(), any());
 
         String token = service.verifyStepUp("admin-1", "session-token", "ABCD-EFGH-IJKL-MNOP-QRST");
 
@@ -66,4 +68,5 @@ class AdminMfaServiceTest {
         verify(recovery).consume(eq("admin-1"), anyString(), any());
         assertTrue(service.isStepUpValid("admin-1", "session-token", token));
     }
+
 }
