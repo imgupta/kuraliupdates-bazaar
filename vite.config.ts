@@ -32,7 +32,7 @@ export default defineConfig(() => {
         '/api/v1': {
           target: process.env.VITE_DEV_API_PROXY_TARGET || 'http://localhost:8080',
           changeOrigin: true,
-          secure: false,
+          secure: true,
         },
       },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
