@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = HealthController.class)
-@Import({SecurityConfig.class, SessionAuthenticationFilter.class, com.kuraliupdates.bazaar.security.OtpAbuseProtectionFilter.class, com.kuraliupdates.bazaar.security.AdminMfaFilter.class, SecurityConfigTest.ProbeController.class})
+@Import({SecurityConfig.class, SessionAuthenticationFilter.class, com.kuraliupdates.bazaar.config.SecurityFilterBeans.class, SecurityConfigTest.ProbeController.class})
 class SecurityConfigTest {
 
     @Autowired
