@@ -12,7 +12,7 @@ Scope: web application and Spring Boot API only. Native iOS is explicitly exclud
 - **Oracle migration:** V43 converts existing `USER_SESSIONS.SESSION_TOKEN` and `AUTH_PORTAL_HANDOFFS.SESSION_TOKEN` values to lowercase SHA-256 hex in place, preserving valid existing browser tokens because lookups hash the presented token before querying. Migration has not been run against staging or production from this session.
 - **Session lifetime:** standard web sessions now have a 12-hour absolute expiry; E2E sessions remain short-lived and portal handoff sessions cannot outlive their source.
 - **Security headers:** HSTS, no-store cache controls, strict referrer policy, CSP report-only and Permissions-Policy are configured. CSP remains report-only pending a real asset/report review.
-- **Automation:** CodeQL covers Java and JavaScript/TypeScript. Trivy scans Maven and Bun dependency manifests/lockfiles without relying on GitHub Dependency Graph. ZAP remains opt-in and requires an explicitly configured HTTPS `STAGING_BASE_URL`.
+- **Automation and dependency remediation:** CodeQL covers Java and JavaScript/TypeScript. Trivy scans Maven and Bun dependency manifests/lockfiles without relying on GitHub Dependency Graph. Its first scan identified a high-severity Vite advisory; Vite and the Bun lockfile were upgraded from 8.3.2 to patched 8.3.3, after which the dependency scan passed. ZAP remains opt-in and requires an explicitly configured HTTPS `STAGING_BASE_URL`.
 - **Regression tests:** added cookie-session filter tests, CSRF allow/deny tests, token-hash tests, portal handoff digest assertions and Vercel proxy contract tests. Browser local login/handoff tests were updated to use cookies.
 
 ## Remaining controls before security programme completion
