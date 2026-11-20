@@ -1,6 +1,8 @@
 package com.kuraliupdates.bazaar.controller;
 
 import com.kuraliupdates.bazaar.dto.admin.AdminBuyerResponse;
+import com.kuraliupdates.bazaar.dto.admin.AdminSellerResponse;
+import com.kuraliupdates.bazaar.dto.admin.AdminDeliveryAgentResponse;
 import com.kuraliupdates.bazaar.dto.admin.AdminAnalyticsResponse;
 import com.kuraliupdates.bazaar.entity.OrderEntity;
 import java.math.BigDecimal;
@@ -79,14 +81,14 @@ public class AdminController {
 
     @GetMapping("/sellers")
     @Operation(summary = "Get all seller accounts from the database")
-    public ResponseEntity<List<SellerEntity>> getAllSellers() {
-        return ResponseEntity.ok(sellerRepository.findAll());
+    public ResponseEntity<List<AdminSellerResponse>> getAllSellers() {
+        return ResponseEntity.ok(sellerRepository.findAll().stream().map(AdminSellerResponse::from).toList());
     }
 
     @GetMapping("/delivery")
     @Operation(summary = "Get all delivery partners from the database")
-    public ResponseEntity<List<DeliveryAgentEntity>> getAllDeliveryAgents() {
-        return ResponseEntity.ok(deliveryAgentRepository.findAll());
+    public ResponseEntity<List<AdminDeliveryAgentResponse>> getAllDeliveryAgents() {
+        return ResponseEntity.ok(deliveryAgentRepository.findAll().stream().map(AdminDeliveryAgentResponse::from).toList());
     }
 
     @GetMapping("/analytics/demand-trends")
@@ -152,13 +154,13 @@ public class AdminController {
 
     @GetMapping("/sellers/pending")
     @Operation(summary = "Get list of newly registered sellers waiting for Admin Approval")
-    public ResponseEntity<List<SellerEntity>> getPendingSellers() {
-        return ResponseEntity.ok(sellerRepository.findByStatusNormalized("PENDING"));
+    public ResponseEntity<List<AdminSellerResponse>> getPendingSellers() {
+        return ResponseEntity.ok(sellerRepository.findByStatusNormalized("PENDING").stream().map(AdminSellerResponse::from).toList());
     }
 
     @PostMapping("/sellers/{sellerId}/approve")
     @Operation(summary = "Admin approves Kurali store to publish inventory & start selling")
-    public ResponseEntity<SellerEntity> approveSeller(@PathVariable String sellerId) {
+    public ResponseEntity<AdminSellerResponse> approveSeller(@PathVariable String sellerId) {
         return sellerRepository.findById(sellerId).map(seller -> {
             List<com.kuraliupdates.bazaar.entity.SellerDocumentEntity> documents =
                     sellerDocumentRepository.findBySellerIdOrderByUploadedAtDesc(sellerId);
@@ -189,40 +191,40 @@ public class AdminController {
             }
             seller.setStatus("APPROVED");
             seller.setApprovedAt(LocalDateTime.now());
-            return ResponseEntity.ok(sellerRepository.save(seller));
+            return ResponseEntity.ok(AdminSellerResponse.from(sellerRepository.save(seller)));
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/sellers/{sellerId}/reject")
     @Operation(summary = "Admin rejects Kurali store registration")
-    public ResponseEntity<SellerEntity> rejectSeller(@PathVariable String sellerId) {
+    public ResponseEntity<AdminSellerResponse> rejectSeller(@PathVariable String sellerId) {
         return sellerRepository.findById(sellerId).map(seller -> {
             seller.setStatus("REJECTED");
-            return ResponseEntity.ok(sellerRepository.save(seller));
+            return ResponseEntity.ok(AdminSellerResponse.from(sellerRepository.save(seller)));
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/delivery/pending")
     @Operation(summary = "Get delivery partners waiting for Admin Approval")
-    public ResponseEntity<List<DeliveryAgentEntity>> getPendingDeliveryAgents() {
-        return ResponseEntity.ok(deliveryAgentRepository.findByStatus("PENDING"));
+    public ResponseEntity<List<AdminDeliveryAgentResponse>> getPendingDeliveryAgents() {
+        return ResponseEntity.ok(deliveryAgentRepository.findByStatus("PENDING").stream().map(AdminDeliveryAgentResponse::from).toList());
     }
 
     @PostMapping("/delivery/{agentId}/approve")
     @Operation(summary = "Admin approves Kurali Express delivery partner")
-    public ResponseEntity<DeliveryAgentEntity> approveDeliveryAgent(@PathVariable String agentId) {
+    public ResponseEntity<AdminDeliveryAgentResponse> approveDeliveryAgent(@PathVariable String agentId) {
         return deliveryAgentRepository.findById(agentId).map(agent -> {
             agent.setStatus("ACTIVE");
-            return ResponseEntity.ok(deliveryAgentRepository.save(agent));
+            return ResponseEntity.ok(AdminDeliveryAgentResponse.from(deliveryAgentRepository.save(agent)));
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/delivery/{agentId}/reject")
     @Operation(summary = "Admin rejects Kurali Express delivery partner")
-    public ResponseEntity<DeliveryAgentEntity> rejectDeliveryAgent(@PathVariable String agentId) {
+    public ResponseEntity<AdminDeliveryAgentResponse> rejectDeliveryAgent(@PathVariable String agentId) {
         return deliveryAgentRepository.findById(agentId).map(agent -> {
             agent.setStatus("REJECTED");
-            return ResponseEntity.ok(deliveryAgentRepository.save(agent));
+            return ResponseEntity.ok(AdminDeliveryAgentResponse.from(deliveryAgentRepository.save(agent)));
         }).orElse(ResponseEntity.notFound().build());
     }
 
