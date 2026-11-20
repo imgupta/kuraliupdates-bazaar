@@ -43,11 +43,20 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+            // The current web client authenticates with explicit Bearer headers.
+            // Do not enable cookie-based CSRF semantics until the coordinated
+            // HttpOnly-cookie migration and CSRF token contract are deployed.
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .headers(headers -> headers
                 .frameOptions(frame -> frame.deny())
                 .contentTypeOptions(contentType -> {})
+                .cacheControl(cache -> {})
+                // HSTS is emitted only on HTTPS requests by Spring Security.
+                .httpStrictTransportSecurity(hsts -> hsts
+                    .includeSubDomains(true)
+                    .maxAgeInSeconds(31_536_000)
+                )
                 .referrerPolicy(referrer -> referrer.policy(
                     org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN
                 ))
