@@ -36,7 +36,8 @@ public class SessionAuthenticationFilter extends OncePerRequestFilter {
             "https://bazaar.kuraliupdates.com", "https://buyer.kuraliupdates.com",
             "https://seller.kuraliupdates.com", "https://delivery.kuraliupdates.com",
             "https://admin.kuraliupdates.com", "https://dailyhelp.kuraliupdates.com",
-            "http://localhost:3000", "http://localhost:4200", "http://localhost:5173"
+            "http://localhost:3000", "http://localhost:4200", "http://localhost:5173",
+            "http://127.0.0.1:4173", "http://localhost:4173"
     );
     private final AuthService authService;
 
