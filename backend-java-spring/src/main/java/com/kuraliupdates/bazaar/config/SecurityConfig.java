@@ -52,22 +52,6 @@ public class SecurityConfig {
     }
 
     @Bean
-    @ConditionalOnBean(OtpAbuseProtectionFilter.class)
-    public FilterRegistrationBean<OtpAbuseProtectionFilter> otpAbuseProtectionFilterRegistration(OtpAbuseProtectionFilter filter) {
-        FilterRegistrationBean<OtpAbuseProtectionFilter> registration = new FilterRegistrationBean<>(filter);
-        registration.setEnabled(false);
-        return registration;
-    }
-
-    @Bean
-    @ConditionalOnBean(AdminMfaFilter.class)
-    public FilterRegistrationBean<AdminMfaFilter> adminMfaFilterRegistration(AdminMfaFilter filter) {
-        FilterRegistrationBean<AdminMfaFilter> registration = new FilterRegistrationBean<>(filter);
-        registration.setEnabled(false);
-        return registration;
-    }
-
-    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             // Browser cookie requests are protected by the explicit double-submit
