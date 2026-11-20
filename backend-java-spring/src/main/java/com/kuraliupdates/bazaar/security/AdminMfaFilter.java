@@ -11,14 +11,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Set;
 
 /** Requires a fresh TOTP/recovery-code step-up for every admin API except MFA setup itself. */
-@Component
 public class AdminMfaFilter extends OncePerRequestFilter {
     private static final Set<String> EXEMPT_PATHS = Set.of(
             "/admin/mfa/status", "/admin/mfa/enroll", "/admin/mfa/confirm", "/admin/mfa/verify");
