@@ -109,4 +109,62 @@ class AuthServicePortalSessionTest {
                 () -> authService.createPortalSession("source-session", "SELLER"));
         verify(sessions, never()).save(any(UserSessionEntity.class));
     }
+    @Test
+    void refreshRotatesOpaqueTokenWithoutExtendingAbsoluteExpiry() {
+        LocalDateTime now = LocalDateTime.now();
+        UserSessionEntity active = UserSessionEntity.builder()
+                .sessionToken(AuthService.hashSessionToken("old-token"))
+                .userId("user-admin")
+                .createdAt(now.minusMinutes(10))
+                .expiresAt(now.plusMinutes(10))
+                .absoluteExpiresAt(now.plusHours(2))
+                .build();
+        when(sessions.findBySessionToken(AuthService.hashSessionToken("old-token"))).thenReturn(Optional.of(active));
+        when(sessions.rotateSessionToken(anyString(), anyString(), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(1);
+
+        String nextToken = authService.refreshSession("old-token");
+
+        assertNotEquals("old-token", nextToken);
+        verify(sessions).rotateSessionToken(eq(AuthService.hashSessionToken("old-token")),
+                eq(AuthService.hashSessionToken(nextToken)), any(LocalDateTime.class), any(LocalDateTime.class));
+    }
+
+    @Test
+    void concurrentOrReplayedRefreshCannotRotateTheSameSessionTwice() {
+        LocalDateTime now = LocalDateTime.now();
+        UserSessionEntity active = UserSessionEntity.builder()
+                .sessionToken(AuthService.hashSessionToken("old-token"))
+                .userId("user-admin")
+                .expiresAt(now.plusMinutes(10))
+                .absoluteExpiresAt(now.plusHours(2))
+                .build();
+        when(sessions.findBySessionToken(AuthService.hashSessionToken("old-token"))).thenReturn(Optional.of(active));
+        when(sessions.rotateSessionToken(anyString(), anyString(), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(0);
+
+        assertThrows(RuntimeException.class, () -> authService.refreshSession("old-token"));
+    }
+
+    @Test
+    void requireUserTouchesOnlyActiveSessionAndRejectsExpiredIdleWindow() {
+        LocalDateTime now = LocalDateTime.now();
+        UserEntity buyer = UserEntity.builder().userId("buyer-1").accountStatus("ACTIVE").build();
+        UserSessionEntity active = UserSessionEntity.builder().sessionToken(AuthService.hashSessionToken("active"))
+                .userId(buyer.getUserId()).expiresAt(now.plusMinutes(20)).absoluteExpiresAt(now.plusHours(3)).build();
+        when(sessions.findBySessionToken(AuthService.hashSessionToken("active"))).thenReturn(Optional.of(active));
+        when(users.findById(buyer.getUserId())).thenReturn(Optional.of(buyer));
+
+        assertEquals(buyer, authService.requireUser("active"));
+        verify(sessions).touchSession(eq(AuthService.hashSessionToken("active")), any(LocalDateTime.class),
+                any(LocalDateTime.class), any(LocalDateTime.class));
+
+        UserSessionEntity idleExpired = UserSessionEntity.builder().sessionToken(AuthService.hashSessionToken("idle"))
+                .userId(buyer.getUserId()).expiresAt(now.minusMinutes(1)).absoluteExpiresAt(now.plusHours(2)).build();
+        when(sessions.findBySessionToken(AuthService.hashSessionToken("idle"))).thenReturn(Optional.of(idleExpired));
+        assertThrows(RuntimeException.class, () -> authService.requireUser("idle"));
+        verify(sessions, never()).touchSession(eq(AuthService.hashSessionToken("idle")), any(LocalDateTime.class),
+                any(LocalDateTime.class), any(LocalDateTime.class));
+    }
+
 }
