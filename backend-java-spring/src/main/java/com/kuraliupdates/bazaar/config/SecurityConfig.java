@@ -14,6 +14,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import com.kuraliupdates.bazaar.security.OtpAbuseProtectionFilter;
+import com.kuraliupdates.bazaar.security.AdminMfaFilter;
 
 import java.util.List;
 
@@ -23,11 +24,14 @@ public class SecurityConfig {
 
     private final SessionAuthenticationFilter sessionAuthenticationFilter;
     private final OtpAbuseProtectionFilter otpAbuseProtectionFilter;
+    private final AdminMfaFilter adminMfaFilter;
 
     public SecurityConfig(SessionAuthenticationFilter sessionAuthenticationFilter,
-                          OtpAbuseProtectionFilter otpAbuseProtectionFilter) {
+                          OtpAbuseProtectionFilter otpAbuseProtectionFilter,
+                          AdminMfaFilter adminMfaFilter) {
         this.sessionAuthenticationFilter = sessionAuthenticationFilter;
         this.otpAbuseProtectionFilter = otpAbuseProtectionFilter;
+        this.adminMfaFilter = adminMfaFilter;
     }
 
     /**
@@ -49,6 +53,13 @@ public class SecurityConfig {
     public FilterRegistrationBean<OtpAbuseProtectionFilter> otpAbuseProtectionFilterRegistration() {
         FilterRegistrationBean<OtpAbuseProtectionFilter> registration =
                 new FilterRegistrationBean<>(otpAbuseProtectionFilter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    public FilterRegistrationBean<AdminMfaFilter> adminMfaFilterRegistration() {
+        FilterRegistrationBean<AdminMfaFilter> registration = new FilterRegistrationBean<>(adminMfaFilter);
         registration.setEnabled(false);
         return registration;
     }
@@ -92,6 +103,7 @@ public class SecurityConfig {
             )
             .addFilterBefore(sessionAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(otpAbuseProtectionFilter, SessionAuthenticationFilter.class)
+            .addFilterAfter(adminMfaFilter, SessionAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 // Public health and API documentation endpoints.
                 .requestMatchers(HttpMethod.GET,
