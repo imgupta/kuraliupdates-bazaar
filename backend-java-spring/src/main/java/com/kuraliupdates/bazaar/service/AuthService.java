@@ -568,7 +568,7 @@ public class AuthService {
         LocalDateTime now = LocalDateTime.now();
         sessionRepository.save(UserSessionEntity.builder()
                 .sessionToken(hashSessionToken(token)).userId(user.getUserId()).activeRole(activeRole)
-                .createdAt(now).expiresAt(now.plusDays(30)).build());
+                .createdAt(now).expiresAt(now.plusHours(12)).build());
         return token;
     }
 
