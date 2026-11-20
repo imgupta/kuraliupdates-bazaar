@@ -59,25 +59,25 @@ class AuthControllerPortalHandoffTest {
     void redeemsHandoffAndRevalidatesSessionRole() {
         PortalHandoffEntity stored = PortalHandoffEntity.builder()
                 .codeHash("b".repeat(64))
-                .sessionToken("active-session")
+                .sessionToken(AuthService.hashSessionToken("active-session"))
                 .role("SELLER")
                 .createdAt(LocalDateTime.now().minusSeconds(5))
                 .expiresAt(LocalDateTime.now().plusSeconds(55))
                 .build();
         when(handoffService.consume("b".repeat(64))).thenReturn(Optional.of(stored));
-        when(authService.createPortalSession("active-session", "SELLER")).thenReturn("target-session");
+        when(authService.createPortalSessionFromHash(AuthService.hashSessionToken("active-session"), "SELLER")).thenReturn("target-session");
         when(authService.registeredRoles("target-session")).thenReturn(List.of("BUYER", "SELLER"));
         UserResponse user = mock(UserResponse.class);
         when(user.addresses()).thenReturn(List.of());
         when(authService.currentUser("target-session")).thenReturn(user);
 
-        ResponseEntity<Map<String, Object>> response = controller().redeemPortalHandoff(Map.of("code", "b".repeat(64)));
+        ResponseEntity<Map<String, Object>> response = controller().redeemPortalHandoff(Map.of("code", "b".repeat(64)), new org.springframework.mock.web.MockHttpServletRequest());
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("target-session", response.getBody().get("token"));
         assertEquals("SELLER", response.getBody().get("role"));
         verify(handoffService).consume("b".repeat(64));
-        verify(authService).createPortalSession("active-session", "SELLER");
+        verify(authService).createPortalSessionFromHash(AuthService.hashSessionToken("active-session"), "SELLER");
         verify(authService).registeredRoles("target-session");
     }
 
