@@ -88,11 +88,18 @@ export const installSecureApiFetch = (): void => {
       if (csrf) headers.set(CSRF_HEADER, csrf);
     }
 
-    return originalFetch(input, {
+    const response = await originalFetch(input, {
       ...init,
       headers,
       credentials: 'same-origin',
       cache: init?.cache || 'no-store',
     });
+    if (response.status === 403) {
+      const payload = await response.clone().json().catch(() => null);
+      if (payload?.code === 'ADMIN_MFA_REQUIRED') {
+        window.dispatchEvent(new Event('ku-admin-mfa-required'));
+      }
+    }
+    return response;
   };
 };
