@@ -147,9 +147,20 @@ public class AuthController {
 
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> currentUser(
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        UserResponse user = authService.currentUser(bearerToken(authorization));
-        return userResponse(user);
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            HttpServletRequest request) {
+        String token = bearerToken(authorization);
+        UserResponse user = authService.currentUser(token);
+        ResponseEntity.BodyBuilder response = ResponseEntity.ok();
+        if (token != null && !isFirstPartyBrowserOrigin(request.getHeader(HttpHeaders.ORIGIN))) {
+            // Legacy non-browser clients continue using bearer auth. Browser-origin
+            // calls are upgraded by OTP/handoff; never echo the token in JSON.
+            response.header(HttpHeaders.SET_COOKIE, sessionCookie(token).toString());
+        } else if (token != null) {
+            response.header(HttpHeaders.SET_COOKIE, sessionCookie(token).toString());
+        }
+        return response.body(Map.of("success", true, "authenticated", true,
+                "user", user, "addresses", user.addresses()));
     }
 
     @PutMapping("/me")
