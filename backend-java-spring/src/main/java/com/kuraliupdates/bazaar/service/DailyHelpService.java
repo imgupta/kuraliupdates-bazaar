@@ -335,6 +335,30 @@ public class DailyHelpService {
         return DailyHelpBookingResponse.from(booking, buyerOwns && shouldExposeOtp(booking));
     }
 
+    @Transactional
+    public DailyHelpBookingResponse cancelBookingForBuyer(String bookingId, com.kuraliupdates.bazaar.entity.UserEntity user) {
+        if (user == null || user.getPhone() == null || user.getPhone().isBlank()) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer account is required");
+        }
+        DailyHelpBookingEntity booking = bookingRepository.findLockedByBookingId(bookingId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
+        if (!PhoneIdentityMatcher.matches(user.getPhone(), booking.getBuyerPhone())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You can only cancel your own Daily Help booking");
+        }
+        String current = booking.getStatus() == null ? "" : booking.getStatus().trim().toUpperCase(java.util.Locale.ROOT);
+        boolean cancellable = List.of("PROFESSIONAL_ASSIGNED", "ARRIVING", "READY_TO_START").contains(current)
+                && booking.getServiceStartedAt() == null && booking.getOtpVerifiedAt() == null
+                && booking.getScheduledStart() != null && booking.getScheduledStart().isAfter(LocalDateTime.now());
+        if (!cancellable) {
+            throw new ApiException(HttpStatus.CONFLICT, "This booking can no longer be cancelled. Contact support if you need help.");
+        }
+        booking.setStatus("CANCELLED_BY_BUYER");
+        booking.setStartOtp(null);
+        booking.setOtpExpiresAt(null);
+        booking.setUpdatedAt(LocalDateTime.now());
+        return DailyHelpBookingResponse.from(bookingRepository.save(booking), false);
+    }
+
     @Transactional(readOnly = true)
     public DailyHelpBookingResponse getBooking(String bookingId) {
         DailyHelpBookingEntity booking = bookingRepository.findById(bookingId)

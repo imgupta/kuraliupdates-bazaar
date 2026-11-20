@@ -518,6 +518,50 @@ class DailyHelpServiceTest {
         verify(bookingRepository, never()).save(any());
     }
 
+    @Test
+    void buyerCanCancelOwnFutureBookingBeforeServiceStarts() {
+        DailyHelpBookingEntity booking = booking("BOOK-CANCEL-OWN", "PROFESSIONAL_ASSIGNED");
+        booking.setStartOtp("4821");
+        when(bookingRepository.findLockedByBookingId("BOOK-CANCEL-OWN")).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any(DailyHelpBookingEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        UserEntity buyer = UserEntity.builder().userId("USER-1").phone("9876543210").role("BUYER").build();
+
+        var response = dailyHelpService.cancelBookingForBuyer("BOOK-CANCEL-OWN", buyer);
+
+        assertEquals("CANCELLED_BY_BUYER", response.status());
+        assertNull(response.startOtp());
+        assertNull(booking.getStartOtp());
+        assertNull(booking.getOtpExpiresAt());
+        verify(bookingRepository).save(booking);
+    }
+
+    @Test
+    void buyerCannotCancelAnotherBuyersBooking() {
+        DailyHelpBookingEntity booking = booking("BOOK-CANCEL-OTHER", "PROFESSIONAL_ASSIGNED");
+        when(bookingRepository.findLockedByBookingId("BOOK-CANCEL-OTHER")).thenReturn(Optional.of(booking));
+        UserEntity other = UserEntity.builder().userId("USER-2").phone("9999999999").role("BUYER").build();
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.cancelBookingForBuyer("BOOK-CANCEL-OTHER", other));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
+        verify(bookingRepository, never()).save(any());
+    }
+
+    @Test
+    void buyerCannotCancelStartedBooking() {
+        DailyHelpBookingEntity booking = booking("BOOK-CANCEL-STARTED", "IN_PROGRESS");
+        booking.setServiceStartedAt(LocalDateTime.now().minusMinutes(1));
+        when(bookingRepository.findLockedByBookingId("BOOK-CANCEL-STARTED")).thenReturn(Optional.of(booking));
+        UserEntity buyer = UserEntity.builder().userId("USER-1").phone("9876543210").role("BUYER").build();
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.cancelBookingForBuyer("BOOK-CANCEL-STARTED", buyer));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        verify(bookingRepository, never()).save(any());
+    }
+
     private DailyHelpBookingRequest request(LocalDateTime start) {
         return new DailyHelpBookingRequest("DH-CLEAN", "Buyer", "9876543210", "House 1", "Kurali",
                 start, BigDecimal.valueOf(2), "SLOT-1");
