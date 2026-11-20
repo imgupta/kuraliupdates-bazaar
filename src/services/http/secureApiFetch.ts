@@ -16,6 +16,7 @@ let inMemoryDeviceId: string | null = null;
 let lastSessionRefreshAt = 0;
 let lastSessionRefreshAttemptAt = 0;
 let refreshInFlight: Promise<boolean> | null = null;
+let releaseNativeRefreshLock: (() => void) | null = null;
 
 const readCookie = (name: string): string | null => {
   const prefix = name + '=';
@@ -81,6 +82,32 @@ const markSessionRefreshed = (): void => {
 };
 
 const acquireCrossTabRefreshLock = async (startedAt: number): Promise<'owner' | 'refreshed' | 'unavailable'> => {
+  const lockManager = (navigator as any).locks;
+  if (lockManager?.request) {
+    return new Promise(resolve => {
+      let settled = false;
+      lockManager.request('kuraliupdates-session-refresh', { mode: 'exclusive' }, async (lock: unknown) => {
+        if (!lock) {
+          settled = true;
+          resolve('unavailable');
+          return;
+        }
+        const sharedRefreshAt = readSharedRefreshAt();
+        if (sharedRefreshAt > startedAt && Date.now() - sharedRefreshAt < REFRESH_INTERVAL_MS) {
+          lastSessionRefreshAt = sharedRefreshAt;
+          settled = true;
+          resolve('refreshed');
+          return;
+        }
+        settled = true;
+        resolve('owner');
+        await new Promise<void>(release => { releaseNativeRefreshLock = release; });
+      }).catch(() => {
+        if (!settled) resolve('owner');
+      });
+    });
+  }
+
   try {
     const deadline = Date.now() + 20000;
     while (Date.now() < deadline) {
@@ -96,6 +123,7 @@ const acquireCrossTabRefreshLock = async (startedAt: number): Promise<'owner' | 
       if (!lock.owner || !Number.isFinite(lock.expiresAt) || Number(lock.expiresAt) <= now
           || Number(lock.expiresAt) > now + 30000) {
         localStorage.setItem(SHARED_REFRESH_LOCK_KEY, JSON.stringify({ owner: TAB_ID, expiresAt: now + 20000 }));
+        await new Promise(resolve => window.setTimeout(resolve, 100));
         let confirmed: { owner?: string } = {};
         try { confirmed = JSON.parse(localStorage.getItem(SHARED_REFRESH_LOCK_KEY) || '{}'); } catch { confirmed = {}; }
         if (confirmed.owner === TAB_ID) return 'owner';
@@ -110,6 +138,11 @@ const acquireCrossTabRefreshLock = async (startedAt: number): Promise<'owner' | 
 };
 
 const releaseCrossTabRefreshLock = (): void => {
+  if (releaseNativeRefreshLock) {
+    const release = releaseNativeRefreshLock;
+    releaseNativeRefreshLock = null;
+    release();
+  }
   try {
     const lock = JSON.parse(localStorage.getItem(SHARED_REFRESH_LOCK_KEY) || '{}');
     if (lock.owner === TAB_ID) localStorage.removeItem(SHARED_REFRESH_LOCK_KEY);
