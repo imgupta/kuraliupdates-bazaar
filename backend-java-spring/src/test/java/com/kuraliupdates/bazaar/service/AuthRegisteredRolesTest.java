@@ -47,7 +47,7 @@ class AuthRegisteredRolesTest {
                 .accountStatus("ACTIVE")
                 .build();
 
-        when(sessionRepository.findBySessionToken(token)).thenReturn(Optional.of(
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken(token))).thenReturn(Optional.of(
                 UserSessionEntity.builder().sessionToken(token).userId(userId)
                         .expiresAt(LocalDateTime.now().plusHours(1)).build()));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
@@ -69,7 +69,7 @@ class AuthRegisteredRolesTest {
                 .email("sg7508359237@gmail.com").phone("9876543210")
                 .role("SELLER").isAdmin(0).accountStatus("ACTIVE").build();
 
-        when(sessionRepository.findBySessionToken(token)).thenReturn(Optional.of(
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken(token))).thenReturn(Optional.of(
                 UserSessionEntity.builder().sessionToken(token).userId(userId)
                         .expiresAt(LocalDateTime.now().plusHours(1)).build()));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
@@ -93,7 +93,7 @@ class AuthRegisteredRolesTest {
                 .agentId("agent-victim").userId("different-user-id")
                 .email("shared@example.com").phone("9876543210").build();
 
-        when(sessionRepository.findBySessionToken(token)).thenReturn(Optional.of(
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken(token))).thenReturn(Optional.of(
                 UserSessionEntity.builder().sessionToken(token).userId(userId)
                         .expiresAt(LocalDateTime.now().plusHours(1)).build()));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
@@ -119,7 +119,7 @@ class AuthRegisteredRolesTest {
         DeliveryAgentEntity legacyProfile = DeliveryAgentEntity.builder()
                 .agentId("agent-legacy").userId(null).email("legacy@example.com").build();
 
-        when(sessionRepository.findBySessionToken(token)).thenReturn(Optional.of(
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken(token))).thenReturn(Optional.of(
                 UserSessionEntity.builder().sessionToken(token).userId(userId)
                         .expiresAt(LocalDateTime.now().plusHours(1)).build()));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
@@ -144,7 +144,7 @@ class AuthRegisteredRolesTest {
         UserEntity user = UserEntity.builder().userId(userId).email("buyer@example.com")
                 .phone("9876543210").role("BUYER").accountStatus("ACTIVE").build();
 
-        when(sessionRepository.findBySessionToken(token)).thenReturn(Optional.of(
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken(token))).thenReturn(Optional.of(
                 UserSessionEntity.builder().sessionToken(token).userId(userId)
                         .expiresAt(LocalDateTime.now().plusHours(1)).build()));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
@@ -185,7 +185,7 @@ class AuthRegisteredRolesTest {
         UserEntity user = UserEntity.builder().userId(userId).email("buyer@example.com")
                 .phone("9876543210").role("BUYER").accountStatus("ACTIVE").build();
 
-        when(sessionRepository.findBySessionToken(token)).thenReturn(Optional.of(
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken(token))).thenReturn(Optional.of(
                 UserSessionEntity.builder().sessionToken(token).userId(userId)
                         .expiresAt(LocalDateTime.now().plusHours(1)).build()));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
