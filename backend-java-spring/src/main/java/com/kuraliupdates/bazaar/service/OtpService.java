@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.util.HexFormat;
 import java.util.Optional;
 import java.util.Locale;
@@ -47,6 +48,7 @@ public class OtpService {
     private final E2eOtpCaptureService e2eOtpCaptureService;
     private final JdbcTemplate jdbcTemplate;
     private final OtpAttemptService otpAttemptService;
+    private final ApiRateLimitService apiRateLimitService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public int getResendCooldownSeconds() {
@@ -68,6 +70,8 @@ public class OtpService {
         // Only allowlisted identities in explicitly enabled staging E2E may skip cooldown.
         boolean bypassCooldown = e2eOtpCaptureService.mayBypassCooldown(identifier);
         if (!bypassCooldown) {
+            apiRateLimitService.requireAllowed("otp-send-identifier", type + ":" + identifier,
+                    5, Duration.ofHours(1));
             reserveResendCooldown(identifier, type, cooldownSeconds);
             // Retain the historical sliding-window check while the persistent
             // guard protects simultaneous requests and multiple app instances.
@@ -105,6 +109,10 @@ public class OtpService {
 
     @Transactional
     public void verify(String identifier, String type, String otp) {
+        if (!e2eOtpCaptureService.mayBypassCooldown(identifier)) {
+            apiRateLimitService.requireAllowed("otp-verify-identifier", type + ":" + identifier,
+                    20, Duration.ofHours(1));
+        }
         if (otp == null || !otp.matches("\\d{6}")) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "OTP must be 6 digits");
         }

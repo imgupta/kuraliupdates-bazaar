@@ -22,6 +22,9 @@ test.beforeEach(async ({ page }) => {
       body: JSON.stringify(body),
     });
 
+    if (request.method() === "GET" && url.pathname.endsWith("/auth/csrf")) {
+      return route.fulfill({ status: 200, contentType: "application/json", headers: { "set-cookie": "__Host-ku_csrf=local-csrf-token; Path=/; Secure; SameSite=Lax" }, body: JSON.stringify({ success: true }) });
+    }
     if (request.method() === "POST" && url.pathname.endsWith("/auth/send-otp")) {
       return json(200, { success: true, message: "Synthetic test OTP sent", resendAfterSeconds: 20 });
     }
@@ -30,9 +33,8 @@ test.beforeEach(async ({ page }) => {
       if (payload.mode !== "LOGIN" || payload.otp !== "123456") {
         return json(401, { success: false, message: "Invalid synthetic test OTP" });
       }
-      return json(200, {
+      return route.fulfill({ status: 200, contentType: "application/json", headers: { "set-cookie": "__Host-ku_session=local-synthetic-session; Path=/; Secure; HttpOnly; SameSite=Lax" }, body: JSON.stringify({
         success: true,
-        token: "local-synthetic-session",
         user: {
           userId: "local-buyer-1",
           email: "buyer@example.test",
@@ -41,7 +43,7 @@ test.beforeEach(async ({ page }) => {
           role: "BUYER",
           isAdmin: 0,
         },
-      });
+      }) });
     }
     if (request.method() === "POST" && url.pathname.endsWith("/auth/logout")) {
       return json(200, { success: true, message: "Synthetic session invalidated" });
@@ -57,9 +59,8 @@ test.beforeEach(async ({ page }) => {
       if (payload.code !== "local-synthetic-handoff") {
         return json(401, { success: false, message: "Invalid synthetic handoff" });
       }
-      return json(200, {
+      return route.fulfill({ status: 200, contentType: "application/json", headers: { "set-cookie": "__Host-ku_session=local-synthetic-seller-session; Path=/; Secure; HttpOnly; SameSite=Lax" }, body: JSON.stringify({
         success: true,
-        token: "local-synthetic-seller-session",
         role: "SELLER",
         roles: ["BUYER", "SELLER"],
         user: {
@@ -70,11 +71,11 @@ test.beforeEach(async ({ page }) => {
           role: "BUYER",
           isAdmin: 0,
         },
-      });
+      }) });
     }
     if (request.method() === "GET" && url.pathname.endsWith("/auth/me")) {
       return json(200, {
-        authenticated: url.searchParams.get("token") === "local-synthetic-session",
+        authenticated: (request.headers()["cookie"] || "").includes("__Host-ku_session=local-synthetic-session") || request.headers()["authorization"] === "Bearer local-synthetic-session",
         user: {
           userId: "local-buyer-1",
           email: "buyer@example.test",
@@ -136,7 +137,7 @@ test("synthetic OTP login stores a server-issued session and restores it after r
   let restored = false;
   page.on("request", request => {
     if (request.url().endsWith("/auth/verify-otp")) verified = true;
-    if (request.url().includes("/auth/me?token=local-synthetic-session")) restored = true;
+    if (request.url().endsWith("/auth/me")) restored = true;
   });
 
   await page.goto("/");
@@ -147,7 +148,7 @@ test("synthetic OTP login stores a server-issued session and restores it after r
   await page.getByRole("button", { name: /verify & continue/i }).click();
 
   await expect.poll(() => page.evaluate(() => localStorage.getItem("kurali_auth_token")))
-    .toBe("local-synthetic-session");
+    .toBe("__COOKIE_SESSION__");
   expect(verified).toBe(true);
 
   await page.reload();
@@ -160,7 +161,7 @@ test("logout invalidates the synthetic session and clears browser authentication
   let logoutAuthorization: string | undefined;
   page.on("request", request => {
     if (request.url().endsWith("/auth/logout")) {
-      logoutAuthorization = request.headers()["authorization"];
+      logoutAuthorization = request.headers()["cookie"];
     }
   });
 
@@ -173,7 +174,7 @@ test("logout invalidates the synthetic session and clears browser authentication
   await page.getByRole("button", { name: /local/i }).click();
   await page.getByRole("button", { name: /sign out/i }).click();
 
-  await expect.poll(() => logoutAuthorization).toBe("Bearer local-synthetic-session");
+  await expect.poll(() => logoutAuthorization).toContain("__Host-ku_session=local-synthetic-session");
   await expect.poll(() => page.evaluate(() => localStorage.getItem("kurali_auth_token")))
     .toBeNull();
   await expect.poll(() => page.evaluate(() => localStorage.getItem("kurali_auth_session")))
@@ -228,7 +229,7 @@ test("role switching requests an authenticated one-time handoff and puts its cod
   let destination = "";
   page.on("request", request => {
     if (request.url().endsWith("/auth/portal-handoff")) {
-      handoffAuthorization = request.headers()["authorization"];
+      handoffAuthorization = request.headers()["cookie"];
       handoffPayload = request.postDataJSON();
     }
     if (request.url().endsWith("/auth/portal-handoff/redeem")) {
@@ -250,7 +251,7 @@ test("role switching requests an authenticated one-time handoff and puts its cod
 
   await page.getByRole("button", { name: /seller portal/i }).click();
   await expect.poll(() => handoffPayload).toEqual({ role: "SELLER" });
-  expect(handoffAuthorization).toBe("Bearer local-synthetic-session");
+  expect(handoffAuthorization).toContain("__Host-ku_session=local-synthetic-session");
   await expect.poll(() => destination).toContain("#sso_code=local-synthetic-handoff");
   expect(destination).not.toContain("?sso_code=");
   await expect(page.getByText("Mock seller portal")).toBeVisible();
@@ -259,7 +260,7 @@ test("role switching requests an authenticated one-time handoff and puts its cod
   await page.goto("http://127.0.0.1:4173/#sso_code=local-synthetic-handoff");
   await expect.poll(() => redeemedCode).toBe("local-synthetic-handoff");
   await expect.poll(() => page.evaluate(() => localStorage.getItem("kurali_auth_token")))
-    .toBe("local-synthetic-seller-session");
+    .toBe("__COOKIE_SESSION__");
   await expect.poll(() => page.evaluate(() => localStorage.getItem("kurali_role")))
     .toBe("seller");
   await expect(page).not.toHaveURL(/sso_code=/);

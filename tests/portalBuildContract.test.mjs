@@ -41,3 +41,63 @@ test('all six Vercel ignore-build targets are supported by the repository script
 test('the combined Bazaar build remains the root Vite build', () => {
   assert.equal(packageJson.scripts.build, 'vite build');
 });
+
+test('Vercel sends API requests to the Render backend before the SPA fallback', () => {
+  const config = JSON.parse(read('vercel.json'));
+  assert.equal(config.rewrites[0].source, '/api/v1/:path*');
+  assert.equal(config.rewrites[0].destination, 'https://kuraliupdates-bazaar.onrender.com/api/v1/:path*');
+  assert.equal(config.rewrites[1].destination, '/index.html');
+});
+
+test('production browser API calls stay on the first-party origin', () => {
+  const apiConfig = read('src/services/http/apiConfig.ts');
+  assert.match(apiConfig, /export const API_BASE_URL = '\/api\/v1'/);
+  assert.match(viteConfig, /'\/api\/v1':\s*\{/);
+  assert.match(viteConfig, /VITE_DEV_API_PROXY_TARGET/);
+});
+
+
+test('cookie-session registration accepts browser responses without a JavaScript bearer token', () => {
+  const operations = read('src/context/useAuthOperations.ts');
+  assert.match(operations, /if \(!params\.serverUser\)/);
+  assert.match(operations, /persistAuthToken\(params\.token \|\| '__COOKIE_SESSION__'\)/);
+  assert.match(operations, /refreshBuyerAddresses\(params\.token \|\| '__COOKIE_SESSION__'/);
+});
+
+test('secure API transport adds CSRF and pseudonymous device headers only to first-party API requests', () => {
+  const secureFetch = read('src/services/http/secureApiFetch.ts');
+  assert.match(secureFetch, /X-KU-CSRF/);
+  assert.match(secureFetch, /X-KU-Device-ID/);
+  assert.match(secureFetch, /credentials: 'same-origin'/);
+  assert.match(secureFetch, /requestUrl\.pathname === apiPath/);
+});
+
+
+test('every standalone portal installs the first-party cookie, CSRF and device transport before mounting', () => {
+  const mountPortal = read('src/app/mountPortal.tsx');
+  assert.match(mountPortal, /installSecureApiFetch\(\)/);
+  assert.match(mountPortal, /services\/http\/secureApiFetch/);
+});
+
+test('admin workspace is wrapped by the MFA enrollment and step-up gate', () => {
+  const adminPortal = read('src/features/admin/AdminPortal.tsx');
+  const gate = read('src/features/admin/AdminMfaGate.tsx');
+  assert.match(adminPortal, /<AdminMfaGate>/);
+  assert.match(gate, /\/admin\/mfa\/status/);
+  assert.match(gate, /\/admin\/mfa\/confirm/);
+  assert.match(gate, /\/admin\/mfa\/verify/);
+});
+
+
+test('browser session refresh uses a same-origin single-flight rotation before idle expiry', () => {
+  const secureFetch = read('src/services/http/secureApiFetch.ts');
+  const authController = read('backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/AuthController.java');
+  const authService = read('backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/AuthService.java');
+  assert.match(secureFetch, /REFRESH_INTERVAL_MS = 15 \* 60 \* 1000/);
+  assert.match(secureFetch, /refreshInFlight/);
+  assert.match(secureFetch, /auth\/refresh/);
+  assert.match(authController, /@PostMapping\("\/refresh"\)/);
+  assert.match(authService, /rotateSessionToken\(/);
+  assert.match(authService, /plusMinutes\(30\)/);
+  assert.match(authService, /plusHours\(12\)/);
+});

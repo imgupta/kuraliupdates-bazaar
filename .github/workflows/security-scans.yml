@@ -1,0 +1,87 @@
+name: Security scans
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: read
+
+jobs:
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: javascript-typescript
+          - language: java-kotlin
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+      - name: Set up Java
+        if: matrix.language == 'java-kotlin'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Build Java for CodeQL
+        if: matrix.language == 'java-kotlin'
+        working-directory: backend-java-spring
+        run: mvn -B -DskipTests compile
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+
+  dependency-vulnerability-scan:
+    name: Dependency vulnerability scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Scan Maven and Bun dependency manifests and lockfiles
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
+
+  zap-baseline:
+    name: OWASP ZAP staging baseline
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require an explicitly configured staging target
+        env:
+          STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+        run: |
+          if [ -z "$STAGING_BASE_URL" ]; then
+            echo "STAGING_BASE_URL secret is not configured; refusing to scan an implicit target."
+            exit 1
+          fi
+          case "$STAGING_BASE_URL" in
+            https://*) ;;
+            *) echo "STAGING_BASE_URL must use HTTPS"; exit 1 ;;
+          esac
+          echo "ZAP_TARGET=$STAGING_BASE_URL" >> "$GITHUB_ENV"
+      - name: OWASP ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: ${{ env.ZAP_TARGET }}
+          fail_action: false
+          allow_issue_writing: false

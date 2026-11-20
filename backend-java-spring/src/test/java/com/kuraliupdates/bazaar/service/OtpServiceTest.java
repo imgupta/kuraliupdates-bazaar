@@ -30,7 +30,22 @@ class OtpServiceTest {
     @Mock private E2eOtpCaptureService e2eOtpCaptureService;
     @Mock private JdbcTemplate jdbcTemplate;
     @Mock private OtpAttemptService otpAttemptService;
+    @Mock private ApiRateLimitService apiRateLimitService;
     @InjectMocks private OtpService otpService;
+
+    @Test
+    void sendOtpIsRateLimitedPerIdentifierBeforeResendCooldownAndDelivery() {
+        doThrow(new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Too many requests"))
+                .when(apiRateLimitService).requireAllowed("otp-send-identifier", "BUYER_EMAIL:buyer@example.test", 5,
+                        java.time.Duration.ofHours(1));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> otpService.send("buyer@example.test", "BUYER_EMAIL"));
+
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, error.getStatus());
+        verifyNoInteractions(deliveryService);
+        verify(repository, never()).save(any(AuthOtpEntity.class));
+    }
 
     @Test
     void resendWithinConfiguredCooldownIsRejectedBeforeDeliveryOrPersistence() {

@@ -7,12 +7,16 @@ import com.kuraliupdates.bazaar.dto.auth.SendOtpRequest;
 import com.kuraliupdates.bazaar.dto.auth.UserResponse;
 import com.kuraliupdates.bazaar.dto.auth.VerifyOtpRequest;
 import com.kuraliupdates.bazaar.service.AuthService;
+import com.kuraliupdates.bazaar.config.SessionAuthenticationFilter;
 import com.kuraliupdates.bazaar.service.BuyerAddressService;
 import com.kuraliupdates.bazaar.entity.PortalHandoffEntity;
 import com.kuraliupdates.bazaar.service.PortalHandoffService;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -54,10 +58,35 @@ public class AuthController {
                 request.get("email"), request.get("phone"), request.get("role")));
     }
 
+    @GetMapping("/csrf")
+    public ResponseEntity<Map<String, Object>> csrfBootstrap() {
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
     @PostMapping("/verify-otp")
-    public ResponseEntity<Map<String, Object>> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
-        AuthService.AuthResult result = authService.verifyOtp(request);
-        return authResponse(result);
+    public ResponseEntity<Map<String, Object>> verifyOtp(@Valid @RequestBody VerifyOtpRequest request,
+                                                         HttpServletRequest httpRequest) {
+        AuthService.AuthResult result = authService.verifyOtp(request,
+                isFirstPartyBrowserOrigin(httpRequest.getHeader(HttpHeaders.ORIGIN)));
+        return authResponse(result, httpRequest);
+    }
+
+    /** Rotate the browser session credential before its idle window expires. */
+    @PostMapping("/refresh")
+    public ResponseEntity<Map<String, Object>> refreshSession(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            HttpServletRequest httpRequest) {
+        String nextToken = authService.refreshSession(bearerToken(authorization));
+        UserResponse user = authService.currentUser(nextToken);
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("success", true);
+        response.put("authenticated", true);
+        if (!isFirstPartyBrowserOrigin(httpRequest.getHeader(HttpHeaders.ORIGIN))) {
+            response.put("token", nextToken);
+        }
+        response.put("user", user);
+        response.put("addresses", user.addresses());
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, sessionCookie(nextToken).toString()).body(response);
     }
 
     /**
@@ -88,7 +117,8 @@ public class AuthController {
     /** Redeems a handoff code once and returns the authenticated session to the target portal. */
     @PostMapping("/portal-handoff/redeem")
     public ResponseEntity<Map<String, Object>> redeemPortalHandoff(
-            @RequestBody(required = false) Map<String, String> body) {
+            @RequestBody(required = false) Map<String, String> body,
+            HttpServletRequest httpRequest) {
         String code = body == null ? null : body.get("code");
         if (code == null || code.isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "A portal handoff code is required");
@@ -96,18 +126,20 @@ public class AuthController {
         PortalHandoffEntity handoff = portalHandoffService.consume(code)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "This profile-switch link has expired or was already used"));
 
-        String targetSession = authService.createPortalSession(handoff.getSessionToken(), handoff.getRole());
+        String targetSession = authService.createPortalSessionFromHash(handoff.getSessionToken(), handoff.getRole());
         List<String> roles = authService.registeredRoles(targetSession);
         UserResponse user = authService.currentUser(targetSession);
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "authenticated", true,
-                "token", targetSession,
-                "user", user,
-                "addresses", user.addresses(),
-                "roles", roles,
-                "role", handoff.getRole()
-        ));
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("success", true);
+        response.put("authenticated", true);
+        if (!isFirstPartyBrowserOrigin(httpRequest.getHeader(HttpHeaders.ORIGIN))) {
+            response.put("token", targetSession); // compatibility for non-browser staging clients
+        }
+        response.put("user", user);
+        response.put("addresses", user.addresses());
+        response.put("roles", roles);
+        response.put("role", handoff.getRole());
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, sessionCookie(targetSession).toString()).body(response);
     }
 
     @GetMapping("/me/roles")
@@ -134,9 +166,20 @@ public class AuthController {
 
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> currentUser(
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        UserResponse user = authService.currentUser(bearerToken(authorization));
-        return userResponse(user);
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            HttpServletRequest request) {
+        String token = bearerToken(authorization);
+        UserResponse user = authService.currentUser(token);
+        ResponseEntity.BodyBuilder response = ResponseEntity.ok();
+        if (token != null && !isFirstPartyBrowserOrigin(request.getHeader(HttpHeaders.ORIGIN))) {
+            // Legacy non-browser clients continue using bearer auth. Browser-origin
+            // calls are upgraded by OTP/handoff; never echo the token in JSON.
+            response.header(HttpHeaders.SET_COOKIE, sessionCookie(token).toString());
+        } else if (token != null) {
+            response.header(HttpHeaders.SET_COOKIE, sessionCookie(token).toString());
+        }
+        return response.body(Map.of("success", true, "authenticated", true,
+                "user", user, "addresses", user.addresses()));
     }
 
     @PutMapping("/me")
@@ -190,18 +233,41 @@ public class AuthController {
         String token = bearerToken(authorization);
         if (token == null && body != null) token = body.get("token");
         authService.logout(token);
-        return ResponseEntity.ok(Map.of("success", true, "message", "Successfully logged out"));
+        ResponseCookie cleared = ResponseCookie.from(SessionAuthenticationFilter.SESSION_COOKIE, "")
+                .httpOnly(true).secure(true).sameSite("Lax").path("/").maxAge(0).build();
+        ResponseCookie clearedAdminStepUp = ResponseCookie.from(AdminMfaController.STEP_UP_COOKIE, "")
+                .httpOnly(true).secure(true).sameSite("Lax").path("/").maxAge(0).build();
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, cleared.toString(), clearedAdminStepUp.toString())
+                .body(Map.of("success", true, "message", "Successfully logged out"));
     }
 
-    private ResponseEntity<Map<String, Object>> authResponse(AuthService.AuthResult result) {
+    private ResponseEntity<Map<String, Object>> authResponse(AuthService.AuthResult result, HttpServletRequest request) {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("success", true);
         response.put("authenticated", true);
-        response.put("token", result.token());
+        if (!isFirstPartyBrowserOrigin(request.getHeader(HttpHeaders.ORIGIN))) {
+            response.put("token", result.token()); // compatibility for non-browser staging clients
+        }
         response.put("user", result.user());
         response.put("addresses", result.user().addresses());
         response.put("message", result.message());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, sessionCookie(result.token()).toString()).body(response);
+    }
+
+    private ResponseCookie sessionCookie(String token) {
+        return ResponseCookie.from(SessionAuthenticationFilter.SESSION_COOKIE, token)
+                .httpOnly(true).secure(true).sameSite("Lax").path("/")
+                .maxAge(java.time.Duration.ofMinutes(30)).build();
+    }
+
+    private boolean isFirstPartyBrowserOrigin(String origin) {
+        return origin != null && java.util.Set.of(
+                "https://kuraliupdates.com", "https://www.kuraliupdates.com",
+                "https://bazaar.kuraliupdates.com", "https://buyer.kuraliupdates.com",
+                "https://seller.kuraliupdates.com", "https://delivery.kuraliupdates.com",
+                "https://admin.kuraliupdates.com", "https://dailyhelp.kuraliupdates.com",
+                "http://localhost:3000", "http://localhost:4200", "http://localhost:5173"
+        ).contains(origin);
     }
 
     private ResponseEntity<Map<String, Object>> userResponse(UserResponse user) {
