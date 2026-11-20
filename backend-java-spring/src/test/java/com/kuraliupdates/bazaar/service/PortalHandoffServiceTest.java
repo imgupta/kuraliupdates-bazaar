@@ -33,7 +33,8 @@ class PortalHandoffServiceTest {
         PortalHandoffEntity stored = captor.getValue();
         assertNotEquals(code, stored.getCodeHash());
         assertEquals(64, stored.getCodeHash().length());
-        assertEquals("active-session", stored.getSessionToken());
+        assertEquals(AuthService.hashSessionToken("active-session"), stored.getSessionToken());
+        assertNotEquals("active-session", stored.getSessionToken());
         assertEquals("SELLER", stored.getRole());
         assertEquals(60, java.time.Duration.between(stored.getCreatedAt(), stored.getExpiresAt()).getSeconds());
         verify(repository).deleteExpiredBefore(any(LocalDateTime.class));
