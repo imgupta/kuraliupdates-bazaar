@@ -7,6 +7,11 @@ const DEVICE_STORAGE_KEY = 'kurali_device_id';
 const DEVICE_HEADER = 'X-KU-Device-ID';
 const REFRESH_INTERVAL_MS = 15 * 60 * 1000;
 const REFRESH_RETRY_BACKOFF_MS = 60 * 1000;
+const SHARED_REFRESH_AT_KEY = 'kurali_session_refresh_at';
+const SHARED_REFRESH_LOCK_KEY = 'kurali_session_refresh_lock';
+const TAB_ID = (() => {
+  try { return window.crypto.randomUUID(); } catch { return 'tab-' + Math.random().toString(36).slice(2); }
+})();
 let inMemoryDeviceId: string | null = null;
 let lastSessionRefreshAt = 0;
 let lastSessionRefreshAttemptAt = 0;
@@ -60,6 +65,57 @@ const bootstrapCsrf = async (originalFetch: typeof fetch, apiPath: string): Prom
   return readCookie(CSRF_COOKIE);
 };
 
+const readSharedRefreshAt = (): number => {
+  try {
+    const value = Number(localStorage.getItem(SHARED_REFRESH_AT_KEY));
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const markSessionRefreshed = (): void => {
+  lastSessionRefreshAt = Date.now();
+  lastSessionRefreshAttemptAt = 0;
+  try { localStorage.setItem(SHARED_REFRESH_AT_KEY, String(lastSessionRefreshAt)); } catch { /* optional cross-tab signal */ }
+};
+
+const acquireCrossTabRefreshLock = async (startedAt: number): Promise<'owner' | 'refreshed' | 'unavailable'> => {
+  try {
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      const sharedRefreshAt = readSharedRefreshAt();
+      if (sharedRefreshAt > startedAt && Date.now() - sharedRefreshAt < REFRESH_INTERVAL_MS) {
+        lastSessionRefreshAt = sharedRefreshAt;
+        return 'refreshed';
+      }
+
+      let lock: { owner?: string; expiresAt?: number } = {};
+      try { lock = JSON.parse(localStorage.getItem(SHARED_REFRESH_LOCK_KEY) || '{}'); } catch { lock = {}; }
+      const now = Date.now();
+      if (!lock.owner || !Number.isFinite(lock.expiresAt) || Number(lock.expiresAt) <= now
+          || Number(lock.expiresAt) > now + 30000) {
+        localStorage.setItem(SHARED_REFRESH_LOCK_KEY, JSON.stringify({ owner: TAB_ID, expiresAt: now + 20000 }));
+        let confirmed: { owner?: string } = {};
+        try { confirmed = JSON.parse(localStorage.getItem(SHARED_REFRESH_LOCK_KEY) || '{}'); } catch { confirmed = {}; }
+        if (confirmed.owner === TAB_ID) return 'owner';
+      }
+      await new Promise(resolve => window.setTimeout(resolve, 120));
+    }
+    return 'unavailable';
+  } catch {
+    // Storage may be disabled; per-tab single-flight still prevents local races.
+    return 'owner';
+  }
+};
+
+const releaseCrossTabRefreshLock = (): void => {
+  try {
+    const lock = JSON.parse(localStorage.getItem(SHARED_REFRESH_LOCK_KEY) || '{}');
+    if (lock.owner === TAB_ID) localStorage.removeItem(SHARED_REFRESH_LOCK_KEY);
+  } catch { /* lock expires automatically if storage becomes unavailable */ }
+};
+
 const refreshSessionIfNeeded = async (
   originalFetch: typeof fetch,
   apiPath: string,
@@ -67,11 +123,17 @@ const refreshSessionIfNeeded = async (
 ): Promise<boolean> => {
   const now = Date.now();
   if (refreshInFlight) return refreshInFlight;
+  const sharedRefreshAt = readSharedRefreshAt();
+  if (sharedRefreshAt > lastSessionRefreshAt) lastSessionRefreshAt = sharedRefreshAt;
   if (now - lastSessionRefreshAt < REFRESH_INTERVAL_MS) return true;
   if (lastSessionRefreshAttemptAt && now - lastSessionRefreshAttemptAt < REFRESH_RETRY_BACKOFF_MS) return false;
 
   lastSessionRefreshAttemptAt = now;
   refreshInFlight = (async () => {
+    const lockResult = await acquireCrossTabRefreshLock(now);
+    if (lockResult === 'refreshed') return true;
+    if (lockResult !== 'owner') return false;
+    try {
     const headers = new Headers();
     const csrf = await bootstrapCsrf(originalFetch, apiPath);
     if (csrf) headers.set(CSRF_HEADER, csrf);
@@ -89,11 +151,13 @@ const refreshSessionIfNeeded = async (
       cache: 'no-store',
     });
     if (response.ok) {
-      lastSessionRefreshAt = Date.now();
-      lastSessionRefreshAttemptAt = 0;
+      markSessionRefreshed();
       return true;
     }
     return false;
+    } finally {
+      releaseCrossTabRefreshLock();
+    }
   })().finally(() => {
     refreshInFlight = null;
   });
@@ -154,12 +218,12 @@ export const installSecureApiFetch = (): void => {
     });
     if (response.ok && (suffix === '/auth/verify-otp' || suffix === '/auth/portal-handoff/redeem'
         || suffix === '/auth/refresh' || suffix === '/auth/me')) {
-      lastSessionRefreshAt = Date.now();
-      lastSessionRefreshAttemptAt = 0;
+      markSessionRefreshed();
     }
     if (response.ok && suffix === '/auth/logout') {
       lastSessionRefreshAt = 0;
       lastSessionRefreshAttemptAt = 0;
+      try { localStorage.removeItem(SHARED_REFRESH_AT_KEY); } catch { /* ignore */ }
     }
     if (response.status === 403) {
       const payload = await response.clone().json().catch(() => null);
