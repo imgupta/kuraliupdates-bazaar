@@ -108,6 +108,11 @@ public class SessionAuthenticationFilter extends OncePerRequestFilter {
         // service integrations. Browser-originated writes must prove same-origin
         // intent with both the allowlisted Origin and a double-submit token.
         if (origin == null && sessionCookie == null) return true;
+        // Local development commonly calls the Render API cross-origin with a
+        // bearer token; browsers do not attach this API host's Lax cookies there.
+        // Keep that explicit localhost-only workflow usable without weakening
+        // production first-party cookie requests.
+        if (sessionCookie == null && isLocalDevelopmentOrigin(origin)) return true;
         if (origin == null || !TRUSTED_ORIGINS.contains(origin)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Untrusted request origin");
             return false;
@@ -121,6 +126,11 @@ public class SessionAuthenticationFilter extends OncePerRequestFilter {
             return false;
         }
         return true;
+    }
+
+    private boolean isLocalDevelopmentOrigin(String origin) {
+        return origin != null && (origin.matches("http://localhost(:[0-9]+)?")
+                || origin.matches("http://127\\.0\\.0\\.1(:[0-9]+)?"));
     }
 
     private boolean isUnsafe(String method) {
