@@ -1,20 +1,23 @@
 package com.kuraliupdates.bazaar.config;
 
 import com.kuraliupdates.bazaar.security.AdminSecurityAuditInterceptor;
-import lombok.RequiredArgsConstructor;
+import com.kuraliupdates.bazaar.service.AdminSecurityAuditService;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
-@ConditionalOnBean(com.kuraliupdates.bazaar.service.AdminSecurityAuditService.class)
-@RequiredArgsConstructor
 public class AdminSecurityAuditWebConfig implements WebMvcConfigurer {
-    private final AdminSecurityAuditInterceptor adminSecurityAuditInterceptor;
+    private final ObjectProvider<AdminSecurityAuditService> auditServiceProvider;
+
+    public AdminSecurityAuditWebConfig(ObjectProvider<AdminSecurityAuditService> auditServiceProvider) {
+        this.auditServiceProvider = auditServiceProvider;
+    }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(adminSecurityAuditInterceptor).addPathPatterns("/admin/**");
+        auditServiceProvider.ifAvailable(service -> registry.addInterceptor(
+                new AdminSecurityAuditInterceptor(service)).addPathPatterns("/admin/**"));
     }
 }
