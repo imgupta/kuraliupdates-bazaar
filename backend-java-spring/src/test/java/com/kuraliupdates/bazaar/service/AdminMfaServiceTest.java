@@ -21,6 +21,7 @@ class AdminMfaServiceTest {
         AdminMfaFactorRepository factors = mock(AdminMfaFactorRepository.class);
         AdminMfaRecoveryCodeRepository recovery = mock(AdminMfaRecoveryCodeRepository.class);
         when(factors.save(any(AdminMfaFactorEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(factors.consumeTotpCounter(eq("admin-1"), anyLong())).thenReturn(1).thenReturn(0);
         when(recovery.deleteAllForUser("admin-1")).thenReturn(0);
         AdminMfaService service = new AdminMfaService(factors, recovery,
                 new MockEnvironment().withProperty("app.jwt.secret", ROOT_SECRET));
@@ -42,6 +43,8 @@ class AdminMfaServiceTest {
         assertEquals(1, factor.getEnabled());
         assertTrue(service.isStepUpValid("admin-1", "session-token", confirmation.stepUpToken()));
         assertFalse(service.isStepUpValid("admin-1", "different-session", confirmation.stepUpToken()));
+        assertThrows(com.kuraliupdates.bazaar.exception.ApiException.class,
+                () -> service.verifyStepUp("admin-1", "session-token", currentCode));
         verify(recovery, times(10)).save(any());
     }
 
