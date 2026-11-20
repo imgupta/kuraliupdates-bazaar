@@ -51,8 +51,9 @@ test('Vercel sends API requests to the Render backend before the SPA fallback', 
 
 test('production browser API calls stay on the first-party origin', () => {
   const apiConfig = read('src/services/http/apiConfig.ts');
-  assert.match(apiConfig, /import\.meta\.env\.DEV/);
-  assert.match(apiConfig, /:\s*'\/api\/v1'/);
+  assert.match(apiConfig, /export const API_BASE_URL = '\/api\/v1'/);
+  assert.match(viteConfig, /'\/api\/v1':\s*\{/);
+  assert.match(viteConfig, /VITE_DEV_API_PROXY_TARGET/);
 });
 
 
