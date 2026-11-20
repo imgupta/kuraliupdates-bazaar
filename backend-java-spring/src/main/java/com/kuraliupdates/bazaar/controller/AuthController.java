@@ -70,6 +70,24 @@ public class AuthController {
         return authResponse(result, httpRequest);
     }
 
+    /** Rotate the browser session credential before its idle window expires. */
+    @PostMapping("/refresh")
+    public ResponseEntity<Map<String, Object>> refreshSession(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            HttpServletRequest httpRequest) {
+        String nextToken = authService.refreshSession(bearerToken(authorization));
+        UserResponse user = authService.currentUser(nextToken);
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("success", true);
+        response.put("authenticated", true);
+        if (!isFirstPartyBrowserOrigin(httpRequest.getHeader(HttpHeaders.ORIGIN))) {
+            response.put("token", nextToken);
+        }
+        response.put("user", user);
+        response.put("addresses", user.addresses());
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, sessionCookie(nextToken).toString()).body(response);
+    }
+
     /**
      * Creates a short-lived, one-time code for moving an authenticated session
      * between the separate role portal origins. The bearer token is never placed
@@ -216,7 +234,9 @@ public class AuthController {
         authService.logout(token);
         ResponseCookie cleared = ResponseCookie.from(SessionAuthenticationFilter.SESSION_COOKIE, "")
                 .httpOnly(true).secure(true).sameSite("Lax").path("/").maxAge(0).build();
-        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, cleared.toString())
+        ResponseCookie clearedAdminStepUp = ResponseCookie.from(AdminMfaController.STEP_UP_COOKIE, "")
+                .httpOnly(true).secure(true).sameSite("Lax").path("/").maxAge(0).build();
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, cleared.toString(), clearedAdminStepUp.toString())
                 .body(Map.of("success", true, "message", "Successfully logged out"));
     }
 
@@ -236,7 +256,7 @@ public class AuthController {
     private ResponseCookie sessionCookie(String token) {
         return ResponseCookie.from(SessionAuthenticationFilter.SESSION_COOKIE, token)
                 .httpOnly(true).secure(true).sameSite("Lax").path("/")
-                .maxAge(java.time.Duration.ofHours(12)).build();
+                .maxAge(java.time.Duration.ofMinutes(30)).build();
     }
 
     private boolean isFirstPartyBrowserOrigin(String origin) {
