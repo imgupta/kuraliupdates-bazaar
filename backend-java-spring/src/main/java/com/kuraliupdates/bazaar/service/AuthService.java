@@ -177,7 +177,8 @@ public class AuthService {
     @Transactional
     public String createPortalSessionFromHash(String sourceSessionHash, String requestedRole) {
         UserSessionEntity source = sessionRepository.findBySessionToken(sourceSessionHash)
-                .filter(session -> session.getExpiresAt() != null && session.getExpiresAt().isAfter(LocalDateTime.now()))
+                .filter(session -> session.getExpiresAt() != null && session.getExpiresAt().isAfter(LocalDateTime.now())
+                        && (session.getAbsoluteExpiresAt() == null || session.getAbsoluteExpiresAt().isAfter(LocalDateTime.now())))
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Session expired or invalid"));
         UserEntity user = userRepository.findById(source.getUserId())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User not found"));
@@ -189,7 +190,7 @@ public class AuthService {
         if (!registeredRoles(user).contains(role)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "This account is not authorized for that profile");
         }
-        return createSession(user, role, source.getExpiresAt(), source.getE2eRunId());
+        return createSession(user, role, source.getAbsoluteExpiresAt() == null ? source.getExpiresAt() : source.getAbsoluteExpiresAt(), source.getE2eRunId());
     }
 
     @Transactional(readOnly = true)
@@ -222,12 +223,48 @@ public class AuthService {
         if (token != null && !token.isBlank()) sessionRepository.deleteBySessionToken(hashSessionToken(token));
     }
 
-    public UserEntity requireUser(String token) {
-        if (token == null || token.isBlank()) throw new ApiException(HttpStatus.UNAUTHORIZED, "No active token");
-        Optional<UserSessionEntity> session = sessionRepository.findBySessionToken(hashSessionToken(token));
-        if (session.isEmpty() || session.get().getExpiresAt().isBefore(LocalDateTime.now())) {
+    /**
+     * Rotates the opaque session credential atomically. A concurrent refresh
+     * using the previous token loses the compare-and-update and is rejected.
+     */
+    @Transactional
+    public String refreshSession(String token) {
+        if (token == null || token.isBlank()) throw new ApiException(HttpStatus.UNAUTHORIZED, "No active session");
+        String oldHash = hashSessionToken(token);
+        LocalDateTime now = LocalDateTime.now();
+        UserSessionEntity session = sessionRepository.findBySessionToken(oldHash)
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Session expired or invalid"));
+        LocalDateTime absoluteExpiry = session.getAbsoluteExpiresAt() == null
+                ? session.getExpiresAt() : session.getAbsoluteExpiresAt();
+        if (session.getExpiresAt() == null || !session.getExpiresAt().isAfter(now)
+                || absoluteExpiry == null || !absoluteExpiry.isAfter(now)) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
         }
+
+        String nextToken = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
+        int rotated = sessionRepository.rotateSessionToken(oldHash, hashSessionToken(nextToken),
+                now, now.plusMinutes(30));
+        if (rotated != 1) throw new ApiException(HttpStatus.UNAUTHORIZED, "Session was already refreshed or expired");
+        return nextToken;
+    }
+
+    @Transactional
+    public UserEntity requireUser(String token) {
+        if (token == null || token.isBlank()) throw new ApiException(HttpStatus.UNAUTHORIZED, "No active token");
+        String sessionHash = hashSessionToken(token);
+        LocalDateTime now = LocalDateTime.now();
+        Optional<UserSessionEntity> session = sessionRepository.findBySessionToken(sessionHash);
+        if (session.isEmpty() || session.get().getExpiresAt() == null || !session.get().getExpiresAt().isAfter(now)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
+        }
+        LocalDateTime absoluteExpiry = session.get().getAbsoluteExpiresAt() == null
+                ? session.get().getExpiresAt() : session.get().getAbsoluteExpiresAt();
+        if (!absoluteExpiry.isAfter(now)) throw new ApiException(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
+
+        // Touch at most once every five minutes. The immutable absolute expiry
+        // is never extended, and Oracle performs the update conditionally.
+        sessionRepository.touchSession(sessionHash, now, now.plusMinutes(30), now.plusMinutes(25));
+
         UserEntity user = userRepository.findById(session.get().getUserId())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User not found"));
         String status = user.getAccountStatus() == null ? "ACTIVE" : user.getAccountStatus().trim().toUpperCase();
@@ -555,28 +592,23 @@ public class AuthService {
     }
 
     private String createStagingE2eSessionToken(UserEntity user, String e2eRunId, String activeRole) {
-        String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
         LocalDateTime now = LocalDateTime.now();
-        sessionRepository.save(UserSessionEntity.builder()
-                .sessionToken(hashSessionToken(token)).userId(user.getUserId()).e2eRunId(e2eRunId).activeRole(activeRole)
-                .createdAt(now).expiresAt(now.plusHours(2)).build());
-        return token;
+        return createSession(user, activeRole, now.plusHours(2), e2eRunId);
     }
 
     private String createSession(UserEntity user, String activeRole) {
-        String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
-        LocalDateTime now = LocalDateTime.now();
-        sessionRepository.save(UserSessionEntity.builder()
-                .sessionToken(hashSessionToken(token)).userId(user.getUserId()).activeRole(activeRole)
-                .createdAt(now).expiresAt(now.plusHours(12)).build());
-        return token;
+        return createSession(user, activeRole, LocalDateTime.now().plusHours(12), null);
     }
 
-    private String createSession(UserEntity user, String activeRole, LocalDateTime expiresAt, String e2eRunId) {
+    private String createSession(UserEntity user, String activeRole, LocalDateTime absoluteExpiresAt, String e2eRunId) {
         String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime idleExpiresAt = now.plusMinutes(30).isBefore(absoluteExpiresAt)
+                ? now.plusMinutes(30) : absoluteExpiresAt;
         sessionRepository.save(UserSessionEntity.builder()
                 .sessionToken(hashSessionToken(token)).userId(user.getUserId()).activeRole(activeRole)
-                .e2eRunId(e2eRunId).createdAt(LocalDateTime.now()).expiresAt(expiresAt).build());
+                .e2eRunId(e2eRunId).createdAt(now).expiresAt(idleExpiresAt)
+                .absoluteExpiresAt(absoluteExpiresAt).build());
         return token;
     }
 
