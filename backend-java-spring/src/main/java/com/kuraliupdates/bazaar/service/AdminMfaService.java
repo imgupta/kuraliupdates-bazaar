@@ -88,9 +88,11 @@ public class AdminMfaService {
             throw new ApiException(HttpStatus.CONFLICT, "Admin MFA is already enabled");
         }
         String secret = decrypt(factor.getEncryptedSecret());
-        if (!verifyTotp(secret, code, Instant.now())) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "The authenticator code is invalid or expired");
+        Long matchedCounter = matchingTotpCounter(secret, code, Instant.now());
+        if (matchedCounter == null || factors.consumeTotpCounter(userId, matchedCounter) != 1) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "The authenticator code is invalid, expired or already used");
         }
+        factor.setLastTotpCounter(matchedCounter);
 
         factor.setEnabled(1);
         factor.setUpdatedAt(LocalDateTime.now());
@@ -115,12 +117,17 @@ public class AdminMfaService {
                 .filter(value -> Integer.valueOf(1).equals(value.getEnabled()))
                 .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "Admin MFA enrollment is required"));
         String secret = decrypt(factor.getEncryptedSecret());
-        boolean valid = verifyTotp(secret, code, Instant.now());
-        if (!valid) {
+        Long matchedCounter = matchingTotpCounter(secret, code, Instant.now());
+        boolean validTotp = matchedCounter != null
+                && factors.consumeTotpCounter(userId, matchedCounter) == 1;
+        if (validTotp) {
+            factor.setLastTotpCounter(matchedCounter);
+            factors.save(factor);
+        } else {
             String normalized = normalizeRecoveryCode(code);
             if (normalized.length() != 20
                     || recoveryCodes.consume(userId, hash(normalized), LocalDateTime.now()) != 1) {
-                throw new ApiException(HttpStatus.UNAUTHORIZED, "The authenticator or recovery code is invalid");
+                throw new ApiException(HttpStatus.UNAUTHORIZED, "The authenticator or recovery code is invalid or already used");
             }
         }
         return issueStepUp(factor, sessionToken);
@@ -191,15 +198,18 @@ public class AdminMfaService {
         }
     }
 
-    private boolean verifyTotp(String secret, String supplied, Instant now) {
-        if (supplied == null || !supplied.matches("\\d{6}")) return false;
+    private Long matchingTotpCounter(String secret, String supplied, Instant now) {
+        if (supplied == null || !supplied.matches("\\d{6}")) return null;
         byte[] expected = supplied.getBytes(StandardCharsets.US_ASCII);
-        long counter = now.getEpochSecond() / 30;
-        for (long offset = -1; offset <= 1; offset++) {
-            String candidate = totpCode(secret, counter + offset);
-            if (MessageDigest.isEqual(candidate.getBytes(StandardCharsets.US_ASCII), expected)) return true;
+        long currentCounter = now.getEpochSecond() / 30;
+        for (long offset = 0; offset <= 1; offset++) {
+            long counter = currentCounter + offset;
+            String candidate = totpCode(secret, counter);
+            if (MessageDigest.isEqual(candidate.getBytes(StandardCharsets.US_ASCII), expected)) return counter;
         }
-        return false;
+        long previousCounter = currentCounter - 1;
+        String previous = totpCode(secret, previousCounter);
+        return MessageDigest.isEqual(previous.getBytes(StandardCharsets.US_ASCII), expected) ? previousCounter : null;
     }
 
     static String totpCode(String secret, Instant instant) {
