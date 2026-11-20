@@ -50,12 +50,25 @@ public class AdminSecurityAuditInterceptor implements HandlerInterceptor {
 
         String path = requestPath(request);
         String[] segments = path.substring("/admin/".length()).split("/");
-        String targetType = segments.length == 0 ? "ADMIN" : segments[0].replace('-', '_').toUpperCase();
-        String targetId = segments.length > 1 && !NON_ID_SEGMENTS.contains(segments[1].toLowerCase())
-                ? limit(segments[1], 128) : null;
-        if ("delivery".equalsIgnoreCase(targetType)) targetType = "DELIVERY_PARTNER";
-        if ("daily_help".equalsIgnoreCase(targetType)) targetType = "DAILY_HELP";
-        if ("seller_documents".equalsIgnoreCase(targetType)) targetType = "SELLER_DOCUMENT";
+        String first = segments.length == 0 ? "admin" : segments[0].toLowerCase();
+        String second = segments.length > 1 ? segments[1].toLowerCase() : "";
+        String targetType = switch (first) {
+            case "sellers" -> "SELLER";
+            case "delivery" -> "DELIVERY_PARTNER";
+            case "accounts" -> "ACCOUNT";
+            case "daily-help" -> second.equals("services") ? "DAILY_HELP_SERVICE"
+                    : second.equals("helpers") ? "DAILY_HELP_HELPER" : "DAILY_HELP";
+            default -> first.replace('-', '_').toUpperCase();
+        };
+        int targetIndex = 1;
+        if ("sellers".equals(first) && "documents".equals(second)) {
+            targetType = "SELLER_DOCUMENT";
+            targetIndex = 2;
+        } else if (("services".equals(second) || "helpers".equals(second)) && segments.length > 2) {
+            targetIndex = 2;
+        }
+        String targetId = segments.length > targetIndex && !NON_ID_SEGMENTS.contains(segments[targetIndex].toLowerCase())
+                ? limit(segments[targetIndex], 128) : null;
 
         String action = handler instanceof HandlerMethod method
                 ? method.getMethod().getName() : request.getMethod();
