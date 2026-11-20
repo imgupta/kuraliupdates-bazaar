@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -16,6 +17,7 @@ import java.util.Set;
 
 /** Audits every successful or failed admin mutation without recording request bodies or secrets. */
 @Component
+@ConditionalOnBean(AdminSecurityAuditService.class)
 public class AdminSecurityAuditInterceptor implements HandlerInterceptor {
     private static final Logger log = LoggerFactory.getLogger(AdminSecurityAuditInterceptor.class);
     private static final Set<String> MUTATING_METHODS = Set.of("POST", "PUT", "PATCH", "DELETE");
