@@ -90,7 +90,7 @@ public class SecurityConfig {
                 ).permitAll()
 
                 // Public sign-in, registration verification and one-time portal handoff redemption.
-                .requestMatchers(HttpMethod.GET, "/privacy/notice-metadata").permitAll()
+                .requestMatchers(HttpMethod.GET, "/privacy/notice-metadata", "/auth/csrf").permitAll()
 
                 .requestMatchers(HttpMethod.POST,
                     "/auth/send-otp",
@@ -164,7 +164,8 @@ public class SecurityConfig {
             "X-Seller-Application-Token",
             "X-E2E-Run-Id",
             "X-E2E-Flow-Token",
-            "X-E2E-OTP-Token"
+            "X-E2E-OTP-Token",
+            "X-KU-CSRF"
         ));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
