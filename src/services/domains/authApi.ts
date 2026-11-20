@@ -6,6 +6,7 @@ export const authApi = {
     try {
       const query = role ? `?role=${encodeURIComponent(role)}` : '';
       const res = await fetch(`${API_BASE_URL}/auth/onboarding-status${query}`, {
+        cache: 'no-store',
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
       });
       const data = await res.json().catch(() => ({ success: false }));
@@ -18,7 +19,7 @@ export const authApi = {
 
   async getRegistrationOtpSettings(): Promise<{ success: boolean; emailOtpRequired: boolean; mobileOtpRequired: boolean; message?: string }> {
     try {
-      const res = await fetch(`${API_BASE_URL}/registration/otp-settings`, { headers: { Accept: 'application/json' } });
+      const res = await fetch(`${API_BASE_URL}/registration/otp-settings`, { cache: 'no-store', headers: { Accept: 'application/json' } });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return { success: false, emailOtpRequired: true, mobileOtpRequired: false, message: data.message || 'Unable to load registration verification settings' };
       return { success: true, emailOtpRequired: Boolean(data.emailOtpRequired), mobileOtpRequired: Boolean(data.mobileOtpRequired) };
@@ -32,6 +33,7 @@ export const authApi = {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/registration-check`, {
         method: 'POST',
+        cache: 'no-store',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ email, phone, role }),
       });
@@ -53,6 +55,7 @@ export const authApi = {
       // retrying automatically (a timed-out send may still deliver the OTP).
       const res = await fetch(`${API_BASE_URL}/auth/send-otp`, {
         method: 'POST',
+        cache: 'no-store',
         signal: controller.signal,
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ identifier, type, mode }),
@@ -114,6 +117,7 @@ export const authApi = {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
         method: 'POST',
+        cache: 'no-store',
         signal: controller.signal,
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(payload),
@@ -140,6 +144,7 @@ export const authApi = {
       body.append('file', file);
       const res = await fetch(`${API_BASE_URL}/sellers/me/documents`, {
         method: 'POST',
+        cache: 'no-store',
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
         body,
       });
@@ -154,10 +159,12 @@ export const authApi = {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
     try {
-      // Session restoration can be the first request after the Render instance
-      // has slept. Four seconds caused valid sessions to appear unauthenticated.
-      const res = await fetch(`${API_BASE_URL}/auth/me?token=${encodeURIComponent(token)}`, {
+      // Never put credentials in a URL: query strings can be retained in proxy,
+      // access and analytics logs. The explicit Authorization header is the
+      // sole credential transport in the current (pre-cookie-migration) client.
+      const res = await fetch(`${API_BASE_URL}/auth/me`, {
         signal: controller.signal,
+        cache: 'no-store',
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
       });
       if (res.ok) {
@@ -175,6 +182,7 @@ export const authApi = {
     try {
       await fetch(`${API_BASE_URL}/auth/logout`, {
         method: 'POST',
+        cache: 'no-store',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -191,6 +199,7 @@ export const authApi = {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/portal-handoff`, {
         method: 'POST',
+        cache: 'no-store',
         headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ role: role.toUpperCase() }),
       });
@@ -207,6 +216,7 @@ export const authApi = {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/portal-handoff/redeem`, {
         method: 'POST',
+        cache: 'no-store',
         headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
       });
@@ -221,6 +231,7 @@ export const authApi = {
   async getRegisteredRoles(token: string): Promise<string[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/me/roles`, {
+        cache: 'no-store',
         headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
       });
       if (!res.ok) return ['BUYER'];
