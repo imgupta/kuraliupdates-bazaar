@@ -71,3 +71,19 @@ test('secure API transport adds CSRF and pseudonymous device headers only to fir
   assert.match(secureFetch, /credentials: 'same-origin'/);
   assert.match(secureFetch, /requestUrl\.pathname === apiPath/);
 });
+
+
+test('every standalone portal installs the first-party cookie, CSRF and device transport before mounting', () => {
+  const mountPortal = read('src/app/mountPortal.tsx');
+  assert.match(mountPortal, /installSecureApiFetch\(\)/);
+  assert.match(mountPortal, /services\/http\/secureApiFetch/);
+});
+
+test('admin workspace is wrapped by the MFA enrollment and step-up gate', () => {
+  const adminPortal = read('src/features/admin/AdminPortal.tsx');
+  const gate = read('src/features/admin/AdminMfaGate.tsx');
+  assert.match(adminPortal, /<AdminMfaGate>/);
+  assert.match(gate, /\/admin\/mfa\/status/);
+  assert.match(gate, /\/admin\/mfa\/confirm/);
+  assert.match(gate, /\/admin\/mfa\/verify/);
+});
