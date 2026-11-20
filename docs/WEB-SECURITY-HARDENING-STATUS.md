@@ -26,6 +26,19 @@ The following requested P0/P1 controls are not claimed as implemented by this fo
 9. **Audit/alerts:** define immutable event schema, sensitive-field redaction, retention and alert routing; never log OTPs, bearer tokens or full personal documents.
 10. **DAST/dependencies:** CodeQL and dependency review are wired here. ZAP runs only when `STAGING_BASE_URL` is explicitly configured; review reports and add authenticated DAST after safe test-account setup.
 
+## Source-audit findings confirmed on the PR branch
+
+The following were verified against the current branch source, not inferred from the original plan:
+
+- `AuthController` still returns a bearer token from OTP verification and portal-handoff redemption. The browser auth context still initializes from `readAuthToken()`; `authSessionStorage` owns the `kurali_auth_token` storage key. The web API layer contains direct token reads in multiple domain modules, so changing only `authApi.ts` would not remove browser token exposure.
+- `UserSessionEntity` maps the raw session token to `USER_SESSIONS.SESSION_TOKEN`. Repository lookups use `findBySessionToken`; at least `AuthService` and `DeliveryTrackingService` query sessions by the raw token. Portal handoff also carries the source session token internally. All of these call sites must move together with the Oracle migration.
+- `SecurityConfig` on this branch already uses an explicit public-route allowlist and ends with `.anyRequest().authenticated()`; it does not have the broad catch-all `.permitAll()` described in some older audit notes. Keep that default-deny posture and add route-level role/ownership regressions rather than reverting it.
+- The existing custom session filter currently authenticates from the Authorization Bearer header. It does not yet read an HttpOnly cookie or validate a CSRF token.
+- The current auth response contract exposes the session token to JavaScript. Logout and portal switching still accept/use bearer tokens. Cookie migration must cover these endpoints and every web API consumer in the same change.
+- Admin endpoints have existing role gates and some privileged-action audit rows, but no complete admin MFA/step-up flow was found in the inspected source. Existing login OTP must not be described as admin MFA.
+
+These findings supersede older documentation statements where the source now differs. In particular, the allowlist/default-authenticated route policy is already present and should be preserved.
+
 ## Validation status
 
 - Repository source was inspected before changes.
