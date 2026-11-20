@@ -67,6 +67,7 @@ class SessionAuthenticationFilterTest {
         when(authService.requireSessionRole("cookie-session")).thenReturn("BUYER");
         SessionAuthenticationFilter filter = new SessionAuthenticationFilter(authService);
         MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
         request.setCookies(new MockCookie(SessionAuthenticationFilter.SESSION_COOKIE, "cookie-session"));
         java.util.concurrent.atomic.AtomicReference<jakarta.servlet.http.HttpServletRequest> captured = new java.util.concurrent.atomic.AtomicReference<>();
 
