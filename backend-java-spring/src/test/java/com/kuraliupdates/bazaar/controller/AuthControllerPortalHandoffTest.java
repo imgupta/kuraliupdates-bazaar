@@ -84,7 +84,7 @@ class AuthControllerPortalHandoffTest {
     @Test
     void rejectsUnavailableOrReplayedHandoff() {
         when(handoffService.consume("c".repeat(64))).thenReturn(Optional.empty());
-        assertThrows(RuntimeException.class, () -> controller().redeemPortalHandoff(Map.of("code", "c".repeat(64))));
+        assertThrows(RuntimeException.class, () -> controller().redeemPortalHandoff(Map.of("code", "c".repeat(64)), new org.springframework.mock.web.MockHttpServletRequest()));
         verifyNoInteractions(authService);
     }
 }
