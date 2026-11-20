@@ -63,7 +63,7 @@ public class AdminSecurityAuditInterceptor implements HandlerInterceptor {
         int targetIndex = 1;
         if ("sellers".equals(first) && "documents".equals(second)) {
             targetType = "SELLER_DOCUMENT";
-            targetIndex = 2;
+            targetIndex = segments.length > 3 ? 3 : 1;
         } else if (("services".equals(second) || "helpers".equals(second)) && segments.length > 2) {
             targetIndex = 2;
         }
