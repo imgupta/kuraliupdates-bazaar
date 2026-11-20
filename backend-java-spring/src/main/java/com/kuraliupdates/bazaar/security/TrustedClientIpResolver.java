@@ -58,9 +58,10 @@ public class TrustedClientIpResolver {
             if (value.isEmpty()) continue;
             try {
                 String[] parts = value.split("/", -1);
+                if (!parts[0].matches("[0-9A-Fa-f:.]+")) throw new IllegalArgumentException("Trusted proxy must be an IP literal");
                 byte[] address = InetAddress.getByName(parts[0]).getAddress();
                 int bits = parts.length == 1 ? address.length * 8 : Integer.parseInt(parts[1]);
-                if (parts.length > 2 || bits < 0 || bits > address.length * 8) {
+                if (parts.length > 2 || bits < 1 || bits > address.length * 8) {
                     throw new IllegalArgumentException("Invalid trusted proxy CIDR");
                 }
                 result.add(new Cidr(address, bits));
@@ -73,8 +74,10 @@ public class TrustedClientIpResolver {
 
     private String normalize(String value) {
         if (value == null || value.isBlank()) return null;
+        String candidate = value.trim();
+        if (!candidate.matches("[0-9A-Fa-f:.]+")) return null;
         try {
-            return InetAddress.getByName(value.trim()).getHostAddress();
+            return InetAddress.getByName(candidate).getHostAddress();
         } catch (UnknownHostException ex) {
             return null;
         }
