@@ -24,6 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -167,13 +171,24 @@ public class AuthService {
      */
     @Transactional
     public String createPortalSession(String sourceToken, String requestedRole) {
-        UserEntity user = requireUser(sourceToken);
+        return createPortalSessionFromHash(hashSessionToken(sourceToken), requestedRole);
+    }
+
+    @Transactional
+    public String createPortalSessionFromHash(String sourceSessionHash, String requestedRole) {
+        UserSessionEntity source = sessionRepository.findBySessionToken(sourceSessionHash)
+                .filter(session -> session.getExpiresAt() != null && session.getExpiresAt().isAfter(LocalDateTime.now()))
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Session expired or invalid"));
+        UserEntity user = userRepository.findById(source.getUserId())
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User not found"));
+        String accountStatus = user.getAccountStatus() == null ? "ACTIVE" : user.getAccountStatus().trim().toUpperCase();
+        if (!"ACTIVE".equals(accountStatus)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This account is " + accountStatus.toLowerCase() + ". Contact KuraliUpdates support.");
+        }
         String role = requestedRole == null ? "" : requestedRole.trim().toUpperCase(java.util.Locale.ROOT);
         if (!registeredRoles(user).contains(role)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "This account is not authorized for that profile");
         }
-        UserSessionEntity source = sessionRepository.findBySessionToken(sourceToken)
-                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Session expired or invalid"));
         return createSession(user, role, source.getExpiresAt(), source.getE2eRunId());
     }
 
@@ -204,12 +219,12 @@ public class AuthService {
 
     @Transactional
     public void logout(String token) {
-        if (token != null && !token.isBlank()) sessionRepository.deleteBySessionToken(token);
+        if (token != null && !token.isBlank()) sessionRepository.deleteBySessionToken(hashSessionToken(token));
     }
 
     public UserEntity requireUser(String token) {
         if (token == null || token.isBlank()) throw new ApiException(HttpStatus.UNAUTHORIZED, "No active token");
-        Optional<UserSessionEntity> session = sessionRepository.findBySessionToken(token);
+        Optional<UserSessionEntity> session = sessionRepository.findBySessionToken(hashSessionToken(token));
         if (session.isEmpty() || session.get().getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Session expired or invalid");
         }
@@ -563,6 +578,17 @@ public class AuthService {
                 .sessionToken(token).userId(user.getUserId()).activeRole(activeRole)
                 .e2eRunId(e2eRunId).createdAt(LocalDateTime.now()).expiresAt(expiresAt).build());
         return token;
+    }
+
+    /** SHA-256 digest used as the database lookup key; raw bearer values are never persisted. */
+    public static String hashSessionToken(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) return "";
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(rawToken.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        }
     }
 
     private String getUserId(String token) {
