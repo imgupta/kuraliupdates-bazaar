@@ -56,6 +56,7 @@ class AuthServicePortalSessionTest {
                 .sessionToken("source-session")
                 .userId(admin.getUserId())
                 .expiresAt(expiresAt)
+                .absoluteExpiresAt(expiresAt)
                 .e2eRunId("run-123")
                 .build();
         when(sessions.findBySessionToken(AuthService.hashSessionToken("source-session"))).thenReturn(Optional.of(source));
@@ -68,7 +69,9 @@ class AuthServicePortalSessionTest {
         verify(sessions).save(saved.capture());
         assertEquals(admin.getUserId(), saved.getValue().getUserId());
         assertEquals("ADMIN", saved.getValue().getActiveRole());
-        assertEquals(expiresAt, saved.getValue().getExpiresAt());
+        assertTrue(saved.getValue().getExpiresAt().isAfter(LocalDateTime.now().minusSeconds(2)));
+        assertTrue(saved.getValue().getExpiresAt().isBefore(LocalDateTime.now().plusMinutes(31)));
+        assertEquals(expiresAt, saved.getValue().getAbsoluteExpiresAt());
         assertEquals("run-123", saved.getValue().getE2eRunId());
         assertEquals(AuthService.hashSessionToken(targetToken), saved.getValue().getSessionToken());
     }
