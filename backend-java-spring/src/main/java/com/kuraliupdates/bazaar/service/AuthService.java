@@ -240,7 +240,7 @@ public class AuthService {
     /** Returns the role bound to this session, not the user's mutable primary role. */
     public String requireSessionRole(String token) {
         if (token == null || token.isBlank()) return null;
-        return sessionRepository.findBySessionToken(token)
+        return sessionRepository.findBySessionToken(hashSessionToken(token))
                 .map(UserSessionEntity::getActiveRole)
                 .filter(role -> role != null && !role.isBlank())
                 .orElseGet(() -> {
