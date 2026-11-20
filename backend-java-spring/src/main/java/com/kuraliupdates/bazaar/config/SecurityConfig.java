@@ -44,9 +44,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // The current web client authenticates with explicit Bearer headers.
-            // Do not enable cookie-based CSRF semantics until the coordinated
-            // HttpOnly-cookie migration and CSRF token contract are deployed.
+            // Browser cookie requests are protected by the explicit double-submit
+            // CSRF contract in SessionAuthenticationFilter. Keep Spring's default
+            // synchronizer-token filter disabled to avoid two competing token contracts;
+            // non-browser bearer integrations remain supported separately.
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .headers(headers -> headers
