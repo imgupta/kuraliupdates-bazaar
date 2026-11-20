@@ -120,7 +120,7 @@ test('authentication actions and logout are isolated from AppContext orchestrati
   for (const operation of ['loginWithGoogle', 'loginWithOtp', 'registerUserWithOtp', 'logout', 'registerBuyer']) {
     assert.ok(authOperations.includes(`const ${operation}`), `auth operations should own ${operation}`);
   }
-  assert.ok(authOperations.includes('persistAuthToken(params.token)'));
+  assert.ok(authOperations.includes("persistAuthToken(params.token || '__COOKIE_SESSION__')"));
   assert.ok(authOperations.includes('clearStoredAuthState()'));
   assert.ok(authOperations.includes('refreshBuyerAddresses(params.token, updatedUser.email)'));
   assert.ok(appContext.includes('useAuthOperations({'));
