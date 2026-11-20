@@ -87,3 +87,17 @@ test('admin workspace is wrapped by the MFA enrollment and step-up gate', () => 
   assert.match(gate, /\/admin\/mfa\/confirm/);
   assert.match(gate, /\/admin\/mfa\/verify/);
 });
+
+
+test('browser session refresh uses a same-origin single-flight rotation before idle expiry', () => {
+  const secureFetch = read('src/services/http/secureApiFetch.ts');
+  const authController = read('backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/AuthController.java');
+  const authService = read('backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/AuthService.java');
+  assert.match(secureFetch, /REFRESH_INTERVAL_MS = 15 \* 60 \* 1000/);
+  assert.match(secureFetch, /refreshInFlight/);
+  assert.match(secureFetch, /auth\/refresh/);
+  assert.match(authController, /@PostMapping\("\/refresh"\)/);
+  assert.match(authService, /rotateSessionToken\(/);
+  assert.match(authService, /plusMinutes\(30\)/);
+  assert.match(authService, /plusHours\(12\)/);
+});
