@@ -95,7 +95,7 @@ public class DeliveryTrackingService {
 
     private boolean isDeliverySessionForAgent(String agentId, String token) {
         if (token == null || token.isBlank()) return false;
-        return sessionRepository.findBySessionToken(token)
+        return sessionRepository.findBySessionToken(AuthService.hashSessionToken(token))
                 .filter(this::active)
                 .filter(session -> "DELIVERY".equals(sessionRole(session)))
                 .flatMap(session -> deliveryAgentRepository.findById(agentId)
@@ -105,7 +105,7 @@ public class DeliveryTrackingService {
 
     private boolean isAuthorizedForOrder(OrderEntity order, String token) {
         if (token == null || token.isBlank()) return false;
-        return sessionRepository.findBySessionToken(token)
+        return sessionRepository.findBySessionToken(AuthService.hashSessionToken(token))
                 .filter(this::active)
                 .map(session -> {
                     String role = sessionRole(session);
