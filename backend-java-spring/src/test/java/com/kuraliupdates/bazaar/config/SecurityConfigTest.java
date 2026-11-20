@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = HealthController.class)
-@Import({SecurityConfig.class, SessionAuthenticationFilter.class, com.kuraliupdates.bazaar.security.OtpAbuseProtectionFilter.class, SecurityConfigTest.ProbeController.class})
+@Import({SecurityConfig.class, SessionAuthenticationFilter.class, com.kuraliupdates.bazaar.security.OtpAbuseProtectionFilter.class, com.kuraliupdates.bazaar.security.AdminMfaFilter.class, SecurityConfigTest.ProbeController.class})
 class SecurityConfigTest {
 
     @Autowired
@@ -39,6 +39,9 @@ class SecurityConfigTest {
     @Autowired
     private FilterRegistrationBean<com.kuraliupdates.bazaar.security.OtpAbuseProtectionFilter> otpAbuseProtectionFilterRegistration;
 
+    @Autowired
+    private FilterRegistrationBean<com.kuraliupdates.bazaar.security.AdminMfaFilter> adminMfaFilterRegistration;
+
     @org.springframework.boot.test.mock.mockito.MockBean
     private AuthService authService;
 
@@ -47,6 +50,9 @@ class SecurityConfigTest {
 
     @org.springframework.boot.test.mock.mockito.MockBean
     private com.kuraliupdates.bazaar.security.TrustedClientIpResolver trustedClientIpResolver;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.kuraliupdates.bazaar.service.AdminMfaService adminMfaService;
 
     @org.springframework.boot.test.mock.mockito.MockBean
     private DataSource dataSource;
@@ -141,6 +147,7 @@ class SecurityConfigTest {
     void sessionFilterIsRegisteredOnlyInsideSpringSecurityChain() {
         org.junit.jupiter.api.Assertions.assertFalse(sessionAuthenticationFilterRegistration.isEnabled());
         org.junit.jupiter.api.Assertions.assertFalse(otpAbuseProtectionFilterRegistration.isEnabled());
+        org.junit.jupiter.api.Assertions.assertFalse(adminMfaFilterRegistration.isEnabled());
     }
 
     @Test
