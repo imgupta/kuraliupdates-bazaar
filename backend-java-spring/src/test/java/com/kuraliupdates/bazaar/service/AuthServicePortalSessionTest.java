@@ -58,7 +58,7 @@ class AuthServicePortalSessionTest {
                 .expiresAt(expiresAt)
                 .e2eRunId("run-123")
                 .build();
-        when(sessions.findBySessionToken("source-session")).thenReturn(Optional.of(source));
+        when(sessions.findBySessionToken(AuthService.hashSessionToken("source-session"))).thenReturn(Optional.of(source));
         when(users.findById(admin.getUserId())).thenReturn(Optional.of(admin));
 
         String targetToken = authService.createPortalSession("source-session", "ADMIN");
@@ -86,7 +86,7 @@ class AuthServicePortalSessionTest {
                 .userId(buyer.getUserId())
                 .expiresAt(expiresAt)
                 .build();
-        when(sessions.findBySessionToken("source-session")).thenReturn(Optional.of(source));
+        when(sessions.findBySessionToken(AuthService.hashSessionToken("source-session"))).thenReturn(Optional.of(source));
         when(users.findById(buyer.getUserId())).thenReturn(Optional.of(buyer));
         when(sellers.findByUserId(buyer.getUserId())).thenReturn(Optional.empty());
         when(deliveryAgents.findByUserId(buyer.getUserId())).thenReturn(Optional.empty());
