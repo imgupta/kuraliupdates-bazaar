@@ -1,6 +1,7 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
 import type { DeliveryAgent, Order, Product, Seller, UserRole } from '../types';
 import type { UserProfile } from '../entities/userProfile';
+import { API_BASE_URL } from '../services/http/apiConfig';
 import { safeStorageGet, safeStorageSet } from '../shared/storage/safeStorage';
 import { useAuthBootstrap } from './useAuthBootstrap';
 import { useBackendSync, type BackendStatus } from './useBackendSync';
@@ -34,10 +35,14 @@ export const useBackendConnection = ({
   setDeliveryAgents,
 }: BackendConnectionOptions) => {
   const [backendUrl, setBackendUrlState] = useState<string>(() => {
-    return safeStorageGet('kurali_backend_url') || 'https://kuraliupdates-bazaar.onrender.com/api/v1';
+    return import.meta.env.DEV
+      ? (safeStorageGet('kurali_backend_url') || API_BASE_URL)
+      : API_BASE_URL;
   });
 
   const setBackendUrl = (url: string) => {
+    // Production API traffic must never bypass the first-party Vercel proxy.
+    if (!import.meta.env.DEV) return;
     setBackendUrlState(url);
     safeStorageSet('kurali_backend_url', url);
   };
