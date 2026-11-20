@@ -8,6 +8,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -59,6 +60,21 @@ public class SecurityConfig {
                 )
                 .referrerPolicy(referrer -> referrer.policy(
                     org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN
+                ))
+                // Begin CSP in report-only mode. This intentionally does not block
+                // production assets until the Vite, map, image and payment-provider
+                // inventories have been verified against real browser reports.
+                .addHeaderWriter(new StaticHeadersWriter(
+                    "Content-Security-Policy-Report-Only",
+                    "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; " +
+                    "form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+                    "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; " +
+                    "font-src 'self' data: https:; connect-src 'self' https: wss:; " +
+                    "upgrade-insecure-requests"
+                ))
+                .addHeaderWriter(new StaticHeadersWriter(
+                    "Permissions-Policy",
+                    "camera=(), microphone=(), geolocation=(self), payment=(self)"
                 ))
             )
             .addFilterBefore(sessionAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
