@@ -558,7 +558,7 @@ public class AuthService {
         String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
         LocalDateTime now = LocalDateTime.now();
         sessionRepository.save(UserSessionEntity.builder()
-                .sessionToken(token).userId(user.getUserId()).e2eRunId(e2eRunId).activeRole(activeRole)
+                .sessionToken(hashSessionToken(token)).userId(user.getUserId()).e2eRunId(e2eRunId).activeRole(activeRole)
                 .createdAt(now).expiresAt(now.plusHours(2)).build());
         return token;
     }
@@ -567,7 +567,7 @@ public class AuthService {
         String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
         LocalDateTime now = LocalDateTime.now();
         sessionRepository.save(UserSessionEntity.builder()
-                .sessionToken(token).userId(user.getUserId()).activeRole(activeRole)
+                .sessionToken(hashSessionToken(token)).userId(user.getUserId()).activeRole(activeRole)
                 .createdAt(now).expiresAt(now.plusDays(30)).build());
         return token;
     }
@@ -575,7 +575,7 @@ public class AuthService {
     private String createSession(UserEntity user, String activeRole, LocalDateTime expiresAt, String e2eRunId) {
         String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
         sessionRepository.save(UserSessionEntity.builder()
-                .sessionToken(token).userId(user.getUserId()).activeRole(activeRole)
+                .sessionToken(hashSessionToken(token)).userId(user.getUserId()).activeRole(activeRole)
                 .e2eRunId(e2eRunId).createdAt(LocalDateTime.now()).expiresAt(expiresAt).build());
         return token;
     }
