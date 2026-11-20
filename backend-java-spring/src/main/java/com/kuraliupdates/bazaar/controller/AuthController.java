@@ -66,7 +66,8 @@ public class AuthController {
     @PostMapping("/verify-otp")
     public ResponseEntity<Map<String, Object>> verifyOtp(@Valid @RequestBody VerifyOtpRequest request,
                                                          HttpServletRequest httpRequest) {
-        AuthService.AuthResult result = authService.verifyOtp(request);
+        AuthService.AuthResult result = authService.verifyOtp(request,
+                isFirstPartyBrowserOrigin(httpRequest.getHeader(HttpHeaders.ORIGIN)));
         return authResponse(result, httpRequest);
     }
 
