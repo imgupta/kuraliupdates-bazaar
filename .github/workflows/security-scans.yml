@@ -44,17 +44,22 @@ jobs:
       - name: Analyze
         uses: github/codeql-action/analyze@v3
 
-  dependency-review:
-    name: Dependency review
-    if: github.event_name == 'pull_request'
+  dependency-vulnerability-scan:
+    name: Dependency vulnerability scan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Review dependency changes
-        uses: actions/dependency-review-action@v4
+      - name: Scan Maven and Bun dependency manifests and lockfiles
+        uses: aquasecurity/trivy-action@0.33.1
         with:
-          fail-on-severity: high
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
 
   zap-baseline:
     name: OWASP ZAP staging baseline
