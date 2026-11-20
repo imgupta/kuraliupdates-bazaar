@@ -2,6 +2,8 @@ package com.kuraliupdates.bazaar.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.http.HttpMethod;
@@ -23,15 +25,15 @@ import java.util.List;
 public class SecurityConfig {
 
     private final SessionAuthenticationFilter sessionAuthenticationFilter;
-    private final OtpAbuseProtectionFilter otpAbuseProtectionFilter;
-    private final AdminMfaFilter adminMfaFilter;
+    private final ObjectProvider<OtpAbuseProtectionFilter> otpAbuseProtectionFilterProvider;
+    private final ObjectProvider<AdminMfaFilter> adminMfaFilterProvider;
 
     public SecurityConfig(SessionAuthenticationFilter sessionAuthenticationFilter,
-                          OtpAbuseProtectionFilter otpAbuseProtectionFilter,
-                          AdminMfaFilter adminMfaFilter) {
+                          ObjectProvider<OtpAbuseProtectionFilter> otpAbuseProtectionFilterProvider,
+                          ObjectProvider<AdminMfaFilter> adminMfaFilterProvider) {
         this.sessionAuthenticationFilter = sessionAuthenticationFilter;
-        this.otpAbuseProtectionFilter = otpAbuseProtectionFilter;
-        this.adminMfaFilter = adminMfaFilter;
+        this.otpAbuseProtectionFilterProvider = otpAbuseProtectionFilterProvider;
+        this.adminMfaFilterProvider = adminMfaFilterProvider;
     }
 
     /**
@@ -50,16 +52,17 @@ public class SecurityConfig {
     }
 
     @Bean
-    public FilterRegistrationBean<OtpAbuseProtectionFilter> otpAbuseProtectionFilterRegistration() {
-        FilterRegistrationBean<OtpAbuseProtectionFilter> registration =
-                new FilterRegistrationBean<>(otpAbuseProtectionFilter);
+    @ConditionalOnBean(OtpAbuseProtectionFilter.class)
+    public FilterRegistrationBean<OtpAbuseProtectionFilter> otpAbuseProtectionFilterRegistration(OtpAbuseProtectionFilter filter) {
+        FilterRegistrationBean<OtpAbuseProtectionFilter> registration = new FilterRegistrationBean<>(filter);
         registration.setEnabled(false);
         return registration;
     }
 
     @Bean
-    public FilterRegistrationBean<AdminMfaFilter> adminMfaFilterRegistration() {
-        FilterRegistrationBean<AdminMfaFilter> registration = new FilterRegistrationBean<>(adminMfaFilter);
+    @ConditionalOnBean(AdminMfaFilter.class)
+    public FilterRegistrationBean<AdminMfaFilter> adminMfaFilterRegistration(AdminMfaFilter filter) {
+        FilterRegistrationBean<AdminMfaFilter> registration = new FilterRegistrationBean<>(filter);
         registration.setEnabled(false);
         return registration;
     }
@@ -102,8 +105,6 @@ public class SecurityConfig {
                 ))
             )
             .addFilterBefore(sessionAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(otpAbuseProtectionFilter, SessionAuthenticationFilter.class)
-            .addFilterAfter(adminMfaFilter, SessionAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 // Public health and API documentation endpoints.
                 .requestMatchers(HttpMethod.GET,
@@ -158,6 +159,8 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             );
 
+        otpAbuseProtectionFilterProvider.ifAvailable(filter -> http.addFilterBefore(filter, SessionAuthenticationFilter.class));
+        adminMfaFilterProvider.ifAvailable(filter -> http.addFilterAfter(filter, SessionAuthenticationFilter.class));
         return http.build();
     }
 
