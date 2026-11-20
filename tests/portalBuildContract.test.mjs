@@ -41,3 +41,19 @@ test('all six Vercel ignore-build targets are supported by the repository script
 test('the combined Bazaar build remains the root Vite build', () => {
   assert.equal(packageJson.scripts.build, 'vite build');
 });
+
+test('Vercel sends API requests to the Render backend before the SPA fallback', () => {
+  const config = JSON.parse(read('vercel.json'));
+  assert.equal(config.rewrites[0].source, '/api/v1/:path*');
+  assert.equal(
+    config.rewrites[0].destination,
+    'https://kuraliupdates-bazaar.onrender.com/api/v1/:path*',
+  );
+  assert.equal(config.rewrites[1].destination, '/index.html');
+});
+
+test('production browser API calls stay on the first-party origin', () => {
+  const apiConfig = read('src/services/http/apiConfig.ts');
+  assert.match(apiConfig, /import\.meta\.env\.DEV/);
+  assert.match(apiConfig, /:\s*'\/api\/v1'/);
+});
