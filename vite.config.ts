@@ -26,6 +26,15 @@ export default defineConfig(() => {
     resolve: { alias: { '@': path.resolve(root, '.') } },
     ...(portalHtml ? { build: { rollupOptions: { input: path.resolve(root, portalHtml) } } } : {}),
     server: {
+      // Keep local browser API calls same-origin so the HttpOnly session cookie
+      // and double-submit CSRF contract behave exactly as they do behind Vercel.
+      proxy: {
+        '/api/v1': {
+          target: process.env.VITE_DEV_API_PROXY_TARGET || 'http://localhost:8080',
+          changeOrigin: true,
+          secure: false,
+        },
+      },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
