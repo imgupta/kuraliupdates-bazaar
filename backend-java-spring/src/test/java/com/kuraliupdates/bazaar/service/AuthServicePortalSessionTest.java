@@ -69,11 +69,29 @@ class AuthServicePortalSessionTest {
         verify(sessions).save(saved.capture());
         assertEquals(admin.getUserId(), saved.getValue().getUserId());
         assertEquals("ADMIN", saved.getValue().getActiveRole());
-        assertTrue(saved.getValue().getExpiresAt().isAfter(LocalDateTime.now().minusSeconds(2)));
-        assertTrue(saved.getValue().getExpiresAt().isBefore(LocalDateTime.now().plusMinutes(31)));
+        assertEquals(expiresAt, saved.getValue().getExpiresAt());
         assertEquals(expiresAt, saved.getValue().getAbsoluteExpiresAt());
         assertEquals("run-123", saved.getValue().getE2eRunId());
         assertEquals(AuthService.hashSessionToken(targetToken), saved.getValue().getSessionToken());
+    }
+
+    @Test
+    void browserPortalHandoffPreservesSlidingIdleAndAbsoluteExpiry() {
+        LocalDateTime absoluteExpiry = LocalDateTime.now().plusHours(3);
+        LocalDateTime sourceIdleExpiry = LocalDateTime.now().plusMinutes(20);
+        UserEntity buyer = UserEntity.builder().userId("buyer-browser").email("buyer@example.test")
+                .role("BUYER").accountStatus("ACTIVE").build();
+        UserSessionEntity source = UserSessionEntity.builder().sessionToken("browser-source")
+                .userId(buyer.getUserId()).expiresAt(sourceIdleExpiry).absoluteExpiresAt(absoluteExpiry).build();
+        when(sessions.findBySessionToken(AuthService.hashSessionToken("browser-source"))).thenReturn(Optional.of(source));
+        when(users.findById(buyer.getUserId())).thenReturn(Optional.of(buyer));
+
+        authService.createPortalSession("browser-source", "BUYER");
+
+        ArgumentCaptor<UserSessionEntity> saved = ArgumentCaptor.forClass(UserSessionEntity.class);
+        verify(sessions).save(saved.capture());
+        assertTrue(saved.getValue().getExpiresAt().isBefore(LocalDateTime.now().plusMinutes(31)));
+        assertEquals(absoluteExpiry, saved.getValue().getAbsoluteExpiresAt());
     }
 
     @Test
