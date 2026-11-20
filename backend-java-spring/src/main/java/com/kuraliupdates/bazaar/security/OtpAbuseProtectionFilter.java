@@ -7,7 +7,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -16,7 +15,6 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 /** Independent device/IP abuse controls for public OTP endpoints. */
-@Component
 public class OtpAbuseProtectionFilter extends OncePerRequestFilter {
     public static final String DEVICE_HEADER = "X-KU-Device-ID";
     private static final Pattern DEVICE_ID = Pattern.compile("[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-4[A-Fa-f0-9]{3}-[89A-Ba-b][A-Fa-f0-9]{3}-[A-Fa-f0-9]{12}");
