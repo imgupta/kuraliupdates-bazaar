@@ -13,6 +13,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import com.kuraliupdates.bazaar.security.OtpAbuseProtectionFilter;
 
 import java.util.List;
 
@@ -21,9 +22,12 @@ import java.util.List;
 public class SecurityConfig {
 
     private final SessionAuthenticationFilter sessionAuthenticationFilter;
+    private final OtpAbuseProtectionFilter otpAbuseProtectionFilter;
 
-    public SecurityConfig(SessionAuthenticationFilter sessionAuthenticationFilter) {
+    public SecurityConfig(SessionAuthenticationFilter sessionAuthenticationFilter,
+                          OtpAbuseProtectionFilter otpAbuseProtectionFilter) {
         this.sessionAuthenticationFilter = sessionAuthenticationFilter;
+        this.otpAbuseProtectionFilter = otpAbuseProtectionFilter;
     }
 
     /**
@@ -37,6 +41,14 @@ public class SecurityConfig {
     public FilterRegistrationBean<SessionAuthenticationFilter> sessionAuthenticationFilterRegistration() {
         FilterRegistrationBean<SessionAuthenticationFilter> registration =
                 new FilterRegistrationBean<>(sessionAuthenticationFilter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    public FilterRegistrationBean<OtpAbuseProtectionFilter> otpAbuseProtectionFilterRegistration() {
+        FilterRegistrationBean<OtpAbuseProtectionFilter> registration =
+                new FilterRegistrationBean<>(otpAbuseProtectionFilter);
         registration.setEnabled(false);
         return registration;
     }
@@ -79,6 +91,7 @@ public class SecurityConfig {
                 ))
             )
             .addFilterBefore(sessionAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(otpAbuseProtectionFilter, SessionAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 // Public health and API documentation endpoints.
                 .requestMatchers(HttpMethod.GET,
@@ -166,7 +179,8 @@ public class SecurityConfig {
             "X-E2E-Run-Id",
             "X-E2E-Flow-Token",
             "X-E2E-OTP-Token",
-            "X-KU-CSRF"
+            "X-KU-CSRF",
+            "X-KU-Device-ID"
         ));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
