@@ -6,6 +6,9 @@ This document is the release checklist for the consolidated web-security PR. It 
 
 - Add HSTS with `includeSubDomains` and a one-year max-age to HTTPS responses.
 - Add Spring Security cache-control headers to prevent browser/proxy caching of API responses.
+- Add a conservative `Content-Security-Policy-Report-Only` header as a non-blocking CSP rollout step; enforcement remains gated on browser report review and complete third-party asset inventory.
+- Add a restrictive `Permissions-Policy` disabling camera and microphone access and limiting geolocation/payment browser features to the first-party origin.
+- Add a `SecurityConfigTest` regression asserting the report-only CSP and Permissions-Policy headers.
 - Remove the session token from the `/auth/me` query string; credentials are sent only in the Authorization header in the current compatibility flow.
 - Add CodeQL analysis for Java and TypeScript/JavaScript on PRs, main pushes and weekly schedule.
 - Add dependency review on PRs, failing on high-severity dependency changes.
@@ -38,6 +41,14 @@ The following were verified against the current branch source, not inferred from
 - Admin endpoints have existing role gates and some privileged-action audit rows, but no complete admin MFA/step-up flow was found in the inspected source. Existing login OTP must not be described as admin MFA.
 
 These findings supersede older documentation statements where the source now differs. In particular, the allowlist/default-authenticated route policy is already present and should be preserved.
+
+## Latest source audit and implementation boundary
+
+- Browser auth remains Bearer-token based. `AuthController` returns session tokens to JavaScript, `AuthSessionContext` reads the persisted token, and multiple domain modules read it directly. A cookie migration must be coordinated across the complete web fetch inventory, SSO handoff, logout, session bootstrap and CORS. This PR has not switched authentication to cookies.
+- `USER_SESSIONS.SESSION_TOKEN` remains a raw-token primary key. `AuthService`, `DeliveryTrackingService`, portal handoff and repository methods depend on that lookup. Hashing only the entity column or only the repository method would break authentication/ownership checks. No partial hash migration was applied.
+- `ApiRateLimitService` stores hashed fixed-window bucket keys and handles concurrent Oracle MERGE insert races. It does not yet provide a trusted client-IP/device policy. The backend is behind a reverse proxy; trusting arbitrary `X-Forwarded-For` would let clients spoof their source and must not be added without a verified trusted-proxy configuration.
+- SecurityConfig already has an explicit public-route allowlist, `/admin/**` ADMIN gate and `.anyRequest().authenticated()`. Keep this default-deny baseline; do not add blanket role matchers to routes that contain public discovery and role-specific endpoints.
+- Admin routes have role enforcement and some audit events, but no complete independent MFA/step-up challenge and recovery lifecycle has been implemented.
 
 ## Validation status
 
