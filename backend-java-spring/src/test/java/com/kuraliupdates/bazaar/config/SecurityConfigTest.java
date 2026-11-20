@@ -36,8 +36,14 @@ class SecurityConfigTest {
     @Autowired
     private FilterRegistrationBean<SessionAuthenticationFilter> sessionAuthenticationFilterRegistration;
 
+    @Autowired
+    private FilterRegistrationBean<com.kuraliupdates.bazaar.security.OtpAbuseProtectionFilter> otpAbuseProtectionFilterRegistration;
+
     @org.springframework.boot.test.mock.mockito.MockBean
     private AuthService authService;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.kuraliupdates.bazaar.security.OtpAbuseProtectionFilter otpAbuseProtectionFilter;
 
     @org.springframework.boot.test.mock.mockito.MockBean
     private DataSource dataSource;
@@ -72,13 +78,14 @@ class SecurityConfigTest {
         mockMvc.perform(options("/negotiations")
                 .header(HttpHeaders.ORIGIN, "https://buyer.kuraliupdates.com")
                 .header("Access-Control-Request-Method", "POST")
-                .header("Access-Control-Request-Headers", "authorization,x-active-role,x-e2e-run-id,x-e2e-flow-token"))
+                .header("Access-Control-Request-Headers", "authorization,x-active-role,x-e2e-run-id,x-e2e-flow-token,x-ku-device-id"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", "https://buyer.kuraliupdates.com"))
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
                         org.hamcrest.Matchers.allOf(
                                 org.hamcrest.Matchers.containsString("x-active-role"),
-                                org.hamcrest.Matchers.containsString("x-e2e-run-id"))));
+                                org.hamcrest.Matchers.containsString("x-e2e-run-id"),
+                                org.hamcrest.Matchers.containsString("x-ku-device-id"))));
     }
 
     @Test
@@ -130,6 +137,7 @@ class SecurityConfigTest {
     @Test
     void sessionFilterIsRegisteredOnlyInsideSpringSecurityChain() {
         org.junit.jupiter.api.Assertions.assertFalse(sessionAuthenticationFilterRegistration.isEnabled());
+        org.junit.jupiter.api.Assertions.assertFalse(otpAbuseProtectionFilterRegistration.isEnabled());
     }
 
     @Test
