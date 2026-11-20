@@ -115,6 +115,19 @@ class SecurityConfigTest {
     }
 
     @Test
+    void emitsReportOnlyCspAndRestrictiveBrowserFeaturePolicy() throws Exception {
+        mockMvc.perform(get("/health/live"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Security-Policy-Report-Only",
+                        org.hamcrest.Matchers.allOf(
+                                org.hamcrest.Matchers.containsString("default-src 'self'"),
+                                org.hamcrest.Matchers.containsString("object-src 'none'"),
+                                org.hamcrest.Matchers.containsString("frame-ancestors 'none'"))))
+                .andExpect(header().string("Permissions-Policy",
+                        org.hamcrest.Matchers.containsString("camera=()")));
+    }
+
+    @Test
     void sessionFilterIsRegisteredOnlyInsideSpringSecurityChain() {
         org.junit.jupiter.api.Assertions.assertFalse(sessionAuthenticationFilterRegistration.isEnabled());
     }
