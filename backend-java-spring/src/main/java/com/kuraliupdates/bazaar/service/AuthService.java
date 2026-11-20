@@ -111,8 +111,13 @@ public class AuthService {
 
     @Transactional
     public AuthResult verifyOtp(VerifyOtpRequest request) {
+        return verifyOtp(request, false);
+    }
+
+    public AuthResult verifyOtp(VerifyOtpRequest request, boolean firstPartyBrowserSession) {
         String mode = normalizeMode(request.mode());
-        return "REGISTER".equals(mode) ? register(request) : login(request);
+        return "REGISTER".equals(mode) ? register(request, firstPartyBrowserSession)
+                : login(request, firstPartyBrowserSession);
     }
 
     @Transactional
@@ -190,7 +195,9 @@ public class AuthService {
         if (!registeredRoles(user).contains(role)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "This account is not authorized for that profile");
         }
-        return createSession(user, role, source.getAbsoluteExpiresAt() == null ? source.getExpiresAt() : source.getAbsoluteExpiresAt(), source.getE2eRunId());
+        LocalDateTime sourceAbsoluteExpiry = source.getAbsoluteExpiresAt() == null ? source.getExpiresAt() : source.getAbsoluteExpiresAt();
+        boolean sourceUsesIdleTimeout = source.getExpiresAt().isBefore(sourceAbsoluteExpiry);
+        return createSession(user, role, sourceAbsoluteExpiry, source.getE2eRunId(), sourceUsesIdleTimeout);
     }
 
     @Transactional(readOnly = true)
@@ -286,7 +293,7 @@ public class AuthService {
                 });
     }
 
-    private AuthResult login(VerifyOtpRequest req) {
+    private AuthResult login(VerifyOtpRequest req, boolean firstPartyBrowserSession) {
         String raw = req.identifier() == null ? "" : req.identifier().trim();
         if (raw.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "Identifier and 6-digit OTP are required");
 
@@ -312,10 +319,10 @@ public class AuthService {
         if (!registeredRoles(user).contains(activeRole)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "This account is not authorized for that profile");
         }
-        return new AuthResult(createSession(user, activeRole), UserResponse.from(user, addressService.findByUserId(user.getUserId())), "Welcome, " + user.getName() + "!");
+        return new AuthResult(createSession(user, activeRole, firstPartyBrowserSession), UserResponse.from(user, addressService.findByUserId(user.getUserId())), "Welcome, " + user.getName() + "!");
     }
 
-    private AuthResult register(VerifyOtpRequest req) {
+    private AuthResult register(VerifyOtpRequest req, boolean firstPartyBrowserSession) {
         String email = normalizeIdentifier(req.email(), "EMAIL");
         String phone = normalizeIdentifier(req.phone(), "PHONE");
         validateRegistration(req, email, phone);
@@ -364,7 +371,7 @@ public class AuthService {
                 sellerOnboardingLeadService.markApplicationSubmitted(req.leadId(), email, phone, existingUser.getUserId());
             }
 
-            return new AuthResult(createSession(existingUser, role),
+            return new AuthResult(createSession(existingUser, role, firstPartyBrowserSession),
                     UserResponse.from(existingUser, addressService.findByUserId(existingUser.getUserId())),
                     "Your " + roleLabel(role) + " profile has been added to your existing account.");
         }
@@ -392,7 +399,7 @@ public class AuthService {
         if ("SELLER".equals(role)) {
             sellerOnboardingLeadService.markApplicationSubmitted(req.leadId(), email, phone, user.getUserId());
         }
-        return new AuthResult(createSession(user, role), UserResponse.from(user, addressService.findByUserId(user.getUserId())), "Welcome, " + user.getName() + "!");
+        return new AuthResult(createSession(user, role, firstPartyBrowserSession), UserResponse.from(user, addressService.findByUserId(user.getUserId())), "Welcome, " + user.getName() + "!");
     }
 
     private void validateRegistration(VerifyOtpRequest req, String email, String phone) {
@@ -593,21 +600,22 @@ public class AuthService {
 
     private String createStagingE2eSessionToken(UserEntity user, String e2eRunId, String activeRole) {
         LocalDateTime now = LocalDateTime.now();
-        return createSession(user, activeRole, now.plusHours(2), e2eRunId);
+        return createSession(user, activeRole, now.plusHours(2), e2eRunId, false);
     }
 
-    private String createSession(UserEntity user, String activeRole) {
-        return createSession(user, activeRole, LocalDateTime.now().plusHours(12), null);
+    private String createSession(UserEntity user, String activeRole, boolean idleTimeoutEnabled) {
+        return createSession(user, activeRole, LocalDateTime.now().plusHours(12), null, idleTimeoutEnabled);
     }
 
-    private String createSession(UserEntity user, String activeRole, LocalDateTime absoluteExpiresAt, String e2eRunId) {
+    private String createSession(UserEntity user, String activeRole, LocalDateTime absoluteExpiresAt,
+                                 String e2eRunId, boolean idleTimeoutEnabled) {
         String token = "kurali_sess_" + UUID.randomUUID().toString().replace("-", "");
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime idleExpiresAt = now.plusMinutes(30).isBefore(absoluteExpiresAt)
+        LocalDateTime expiresAt = idleTimeoutEnabled && now.plusMinutes(30).isBefore(absoluteExpiresAt)
                 ? now.plusMinutes(30) : absoluteExpiresAt;
         sessionRepository.save(UserSessionEntity.builder()
                 .sessionToken(hashSessionToken(token)).userId(user.getUserId()).activeRole(activeRole)
-                .e2eRunId(e2eRunId).createdAt(now).expiresAt(idleExpiresAt)
+                .e2eRunId(e2eRunId).createdAt(now).expiresAt(expiresAt)
                 .absoluteExpiresAt(absoluteExpiresAt).build());
         return token;
     }
