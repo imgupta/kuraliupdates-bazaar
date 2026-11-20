@@ -70,6 +70,16 @@ class AuthServicePortalSessionTest {
         assertEquals("ADMIN", saved.getValue().getActiveRole());
         assertEquals(expiresAt, saved.getValue().getExpiresAt());
         assertEquals("run-123", saved.getValue().getE2eRunId());
+        assertEquals(AuthService.hashSessionToken(targetToken), saved.getValue().getSessionToken());
+    }
+
+    @Test
+    void sessionTokenHashIsStableSha256HexAndDoesNotExposeTheRawToken() {
+        String raw = "high-entropy-session-secret";
+        String digest = AuthService.hashSessionToken(raw);
+        assertEquals(64, digest.length());
+        assertEquals(digest, AuthService.hashSessionToken(raw));
+        assertNotEquals(raw, digest);
     }
 
     @Test
