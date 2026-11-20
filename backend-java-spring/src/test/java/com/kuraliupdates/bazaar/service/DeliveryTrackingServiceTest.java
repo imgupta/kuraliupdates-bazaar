@@ -40,7 +40,7 @@ class DeliveryTrackingServiceTest {
 
     @Test
     void locationUpdateRejectsOutOfRangeCoordinates() {
-        when(sessionRepository.findBySessionToken("token")).thenReturn(Optional.of(session("user-1")));
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("token"))).thenReturn(Optional.of(session("user-1")));
         when(userRepository.findById("user-1")).thenReturn(Optional.of(
                 UserEntity.builder().userId("user-1").email("rider@example.com").build()));
         when(deliveryAgentRepository.findById("AGENT-1")).thenReturn(Optional.of(
@@ -55,7 +55,7 @@ class DeliveryTrackingServiceTest {
 
     @Test
     void locationUpdateRejectsDeliveryProfileThatIsNotApprovedActive() {
-        when(sessionRepository.findBySessionToken("token")).thenReturn(Optional.of(session("user-1")));
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("token"))).thenReturn(Optional.of(session("user-1")));
         when(deliveryAgentRepository.findById("AGENT-1")).thenReturn(Optional.of(
                 DeliveryAgentEntity.builder().agentId("AGENT-1").email("rider@example.com")
                         .status("PENDING").build()));
@@ -71,7 +71,7 @@ class DeliveryTrackingServiceTest {
     void orderTrackingRejectsUnrelatedSession() {
         when(orderRepository.findById("ORD-1")).thenReturn(Optional.of(
                 OrderEntity.builder().orderId("ORD-1").buyerEmail("buyer@example.com").build()));
-        when(sessionRepository.findBySessionToken("token")).thenReturn(Optional.of(session("user-2")));
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("token"))).thenReturn(Optional.of(session("user-2")));
         when(userRepository.findById("user-2")).thenReturn(Optional.of(
                 UserEntity.builder().userId("user-2").email("other@example.com").build()));
 
@@ -86,7 +86,7 @@ class DeliveryTrackingServiceTest {
         when(orderRepository.findById("ORD-2")).thenReturn(Optional.of(
                 OrderEntity.builder().orderId("ORD-2").buyerEmail("buyer@example.com")
                         .deliveryOtp("4821").status("OUT_FOR_DELIVERY").build()));
-        when(sessionRepository.findBySessionToken("buyer-token")).thenReturn(Optional.of(session("buyer-id")));
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("buyer-token"))).thenReturn(Optional.of(session("buyer-id")));
         when(userRepository.findById("buyer-id")).thenReturn(Optional.of(
                 UserEntity.builder().userId("buyer-id").email("buyer@example.com").build()));
 
@@ -102,7 +102,7 @@ class DeliveryTrackingServiceTest {
         when(orderRepository.findById("ORD-SELLER-ROLE")).thenReturn(Optional.of(
                 OrderEntity.builder().orderId("ORD-SELLER-ROLE").buyerEmail("buyer@example.com")
                         .deliveryOtp("4821").status("OUT_FOR_DELIVERY").build()));
-        when(sessionRepository.findBySessionToken("seller-token")).thenReturn(Optional.of(sellerSession));
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("seller-token"))).thenReturn(Optional.of(sellerSession));
         when(userRepository.findById("buyer-id")).thenReturn(Optional.of(
                 UserEntity.builder().userId("buyer-id").email("buyer@example.com").build()));
 
@@ -116,7 +116,7 @@ class DeliveryTrackingServiceTest {
     void buyerScopedSessionCannotUpdateOwnedDeliveryProfileLocation() {
         UserSessionEntity buyerSession = session("buyer-id");
         buyerSession.setActiveRole("BUYER");
-        when(sessionRepository.findBySessionToken("buyer-token")).thenReturn(Optional.of(buyerSession));
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("buyer-token"))).thenReturn(Optional.of(buyerSession));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> trackingService.updateLocation("AGENT-1", 30.0, 76.5, "buyer-token"));
@@ -130,7 +130,7 @@ class DeliveryTrackingServiceTest {
         when(orderRepository.findById("ORD-3")).thenReturn(Optional.of(
                 OrderEntity.builder().orderId("ORD-3").buyerEmail("buyer@example.com")
                         .deliveryOtp("4821").status("OUT_FOR_DELIVERY").build()));
-        when(sessionRepository.findBySessionToken("other-token")).thenReturn(Optional.of(session("other-id")));
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("other-token"))).thenReturn(Optional.of(session("other-id")));
         when(userRepository.findById("other-id")).thenReturn(Optional.of(
                 UserEntity.builder().userId("other-id").email("other@example.com").build()));
 
@@ -142,7 +142,7 @@ class DeliveryTrackingServiceTest {
 
     @Test
     void deliveryLocationCannotBeUpdatedThroughAnotherRidersSession() {
-        when(sessionRepository.findBySessionToken("token")).thenReturn(Optional.of(session("user-1")));
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("token"))).thenReturn(Optional.of(session("user-1")));
         when(userRepository.findById("user-1")).thenReturn(Optional.of(
                 UserEntity.builder().userId("user-1").email("other-rider@example.com").build()));
         when(deliveryAgentRepository.findById("AGENT-1")).thenReturn(Optional.of(
@@ -160,7 +160,7 @@ class DeliveryTrackingServiceTest {
     void expiredDeliverySessionCannotUpdateLocation() {
         UserSessionEntity expired = session("user-1");
         expired.setExpiresAt(LocalDateTime.now().minusSeconds(1));
-        when(sessionRepository.findBySessionToken("expired-token")).thenReturn(Optional.of(expired));
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("expired-token"))).thenReturn(Optional.of(expired));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> trackingService.updateLocation("AGENT-1", 30.0, 76.5, "expired-token"));
@@ -180,7 +180,7 @@ class DeliveryTrackingServiceTest {
                 .buyerEmail("buyer@example.com").deliveryOtp("4821")
                 .status("PICKED_UP").deliveryAgent(assigned).build();
         when(orderRepository.findById("ORD-RIDER-OWN")).thenReturn(Optional.of(order));
-        when(sessionRepository.findBySessionToken("rider-token")).thenReturn(Optional.of(session("rider-id")));
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("rider-token"))).thenReturn(Optional.of(session("rider-id")));
         when(userRepository.findById("rider-id")).thenReturn(Optional.of(
                 UserEntity.builder().userId("rider-id").email("rider@example.com").build()));
 
@@ -199,7 +199,7 @@ class DeliveryTrackingServiceTest {
         OrderEntity order = OrderEntity.builder().orderId("ORD-RIDER-OTHER")
                 .buyerEmail("buyer@example.com").deliveryAgent(assigned).status("PICKED_UP").build();
         when(orderRepository.findById("ORD-RIDER-OTHER")).thenReturn(Optional.of(order));
-        when(sessionRepository.findBySessionToken("other-rider-token"))
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("other-rider-token")))
                 .thenReturn(Optional.of(session("other-rider-id")));
         when(userRepository.findById("other-rider-id")).thenReturn(Optional.of(
                 UserEntity.builder().userId("other-rider-id").email("other-rider@example.com").build()));
@@ -219,7 +219,7 @@ class DeliveryTrackingServiceTest {
         OrderEntity order = OrderEntity.builder().orderId("ORD-LINKED-RIDER")
                 .buyerEmail("buyer@example.com").deliveryAgent(assigned).status("PICKED_UP").build();
         when(orderRepository.findById("ORD-LINKED-RIDER")).thenReturn(Optional.of(order));
-        when(sessionRepository.findBySessionToken("linked-rider-token"))
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("linked-rider-token")))
                 .thenReturn(Optional.of(session("rider-id")));
         when(userRepository.findById("rider-id")).thenReturn(Optional.of(
                 UserEntity.builder().userId("rider-id").email("new-rider@example.com").build()));
@@ -237,7 +237,7 @@ class DeliveryTrackingServiceTest {
         OrderEntity order = OrderEntity.builder().orderId("ORD-LINKED-MISMATCH")
                 .buyerEmail("buyer@example.com").deliveryAgent(assigned).status("PICKED_UP").build();
         when(orderRepository.findById("ORD-LINKED-MISMATCH")).thenReturn(Optional.of(order));
-        when(sessionRepository.findBySessionToken("spoofed-rider-token"))
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("spoofed-rider-token")))
                 .thenReturn(Optional.of(session("attacker-id")));
         when(userRepository.findById("attacker-id")).thenReturn(Optional.of(
                 UserEntity.builder().userId("attacker-id").email("shared@example.com").build()));
@@ -258,7 +258,7 @@ class DeliveryTrackingServiceTest {
                 .buyerEmail("buyer@example.com").deliveryAddress("Private buyer address")
                 .deliveryAgent(assigned).status("PICKED_UP").build();
         when(orderRepository.findById("ORD-INACTIVE-RIDER")).thenReturn(Optional.of(order));
-        when(sessionRepository.findBySessionToken("inactive-rider-token"))
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("inactive-rider-token")))
                 .thenReturn(Optional.of(session("rider-id")));
         when(userRepository.findById("rider-id")).thenReturn(Optional.of(
                 UserEntity.builder().userId("rider-id").email("rider@example.com").build()));
@@ -271,7 +271,7 @@ class DeliveryTrackingServiceTest {
 
     @Test
     void linkedRiderCanUpdateLocationWithoutDependingOnMutableEmail() {
-        when(sessionRepository.findBySessionToken("linked-token"))
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("linked-token")))
                 .thenReturn(Optional.of(session("rider-id")));
         DeliveryAgentEntity agent = DeliveryAgentEntity.builder()
                 .agentId("AGENT-LINKED").userId("rider-id").email("old@example.com")
@@ -291,7 +291,7 @@ class DeliveryTrackingServiceTest {
     void nullExpirySessionIsRejectedWithoutProfileLookup() {
         UserSessionEntity malformed = session("rider-id");
         malformed.setExpiresAt(null);
-        when(sessionRepository.findBySessionToken("malformed-token")).thenReturn(Optional.of(malformed));
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("malformed-token"))).thenReturn(Optional.of(malformed));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> trackingService.updateLocation("AGENT-1", 30.0, 76.5, "malformed-token"));
@@ -310,7 +310,7 @@ class DeliveryTrackingServiceTest {
                 .buyerEmail("buyer@example.com").deliveryOtp("7314")
                 .deliveryAgent(inactiveRider).build();
         when(orderRepository.findById("ORD-BUYER-TRACK")).thenReturn(Optional.of(order));
-        when(sessionRepository.findBySessionToken("buyer-track-token"))
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("buyer-track-token")))
                 .thenReturn(Optional.of(session("buyer-id")));
         when(userRepository.findById("buyer-id")).thenReturn(Optional.of(
                 UserEntity.builder().userId("buyer-id").email("buyer@example.com").build()));
@@ -325,7 +325,7 @@ class DeliveryTrackingServiceTest {
     void sessionWithoutUserIdIsRejectedBeforeProfileLookup() {
         UserSessionEntity malformed = session("rider-id");
         malformed.setUserId(" ");
-        when(sessionRepository.findBySessionToken("missing-user-id-token")).thenReturn(Optional.of(malformed));
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("missing-user-id-token"))).thenReturn(Optional.of(malformed));
 
         ApiException error = assertThrows(ApiException.class,
                 () -> trackingService.updateLocation("AGENT-1", 30.0, 76.5, "missing-user-id-token"));
@@ -344,7 +344,7 @@ class DeliveryTrackingServiceTest {
                 .buyerEmail("buyer@example.com").deliveryAddress("Private buyer address")
                 .status("DELIVERED").deliveryAgent(assigned).build();
         when(orderRepository.findById("ORD-DELIVERED")).thenReturn(Optional.of(order));
-        when(sessionRepository.findBySessionToken("completed-rider-token"))
+        when(sessionRepository.findBySessionToken(AuthService.hashSessionToken("completed-rider-token")))
                 .thenReturn(Optional.of(session("rider-id")));
         when(userRepository.findById("rider-id")).thenReturn(Optional.of(
                 UserEntity.builder().userId("rider-id").email("rider@example.com").build()));
