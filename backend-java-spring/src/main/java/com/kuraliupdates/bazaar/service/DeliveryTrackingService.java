@@ -73,7 +73,7 @@ public class DeliveryTrackingService {
         result.put("sellerLocality", order.getSeller() == null ? null : order.getSeller().getLocality());
 
         // Delivery verification OTP is visible only to the authenticated order owner.
-        String authenticatedEmail = sessionRepository.findBySessionToken(token)
+        String authenticatedEmail = sessionRepository.findBySessionToken(AuthService.hashSessionToken(token))
                 .filter(this::active)
                 .filter(session -> "BUYER".equals(sessionRole(session)))
                 .map(session -> userEmail(session.getUserId()))
