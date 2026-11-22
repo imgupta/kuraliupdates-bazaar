@@ -136,8 +136,7 @@ public class BuyerController {\n    private static final Logger log = LoggerFact
 
     private String safeMessage(String value) {
         if (value == null) return "";
-        return value.replaceAll("[\\r
-\\t]", " ").substring(0, Math.min(value.length(), 240));
+        return value.replaceAll("[\\r\\n\\t]", " ").substring(0, Math.min(value.length(), 240));
     }
 
     private UserEntity requireBuyer(Authentication authentication) {
