@@ -261,7 +261,7 @@ class OrderServiceTest {
         assertEquals(1, result.order().items().size());
         assertEquals(2, result.order().items().get(0).quantity());
         assertEquals(new BigDecimal("40.00"), result.order().subtotal());
-        verify(orderRepository).save(any(OrderEntity.class));
+        verify(orderRepository).saveAndFlush(any(OrderEntity.class));
     }
 
     @Test
@@ -277,7 +277,7 @@ class OrderServiceTest {
 
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
         assertEquals(1, product.getStock());
-        verify(orderRepository, never()).save(any());
+        verify(orderRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -286,7 +286,7 @@ class OrderServiceTest {
                 () -> orderService.placeOrder(request("CARD", List.of(new OrderItemRequest("P-1", 1, null))), buyer()));
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
         verify(productRepository, never()).findLockedByProductId(anyString());
-        verify(orderRepository, never()).save(any());
+        verify(orderRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -302,7 +302,7 @@ class OrderServiceTest {
                         new OrderItemRequest("P-1", 1, BigDecimal.valueOf(1), null))), buyer()));
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
-        verify(orderRepository, never()).save(any());
+        verify(orderRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -328,7 +328,7 @@ class OrderServiceTest {
         assertEquals(new BigDecimal("15.00"), result.order().items().get(0).unitPrice());
         assertEquals(new BigDecimal("20.00"), product.getSellerPrice());
         assertEquals(4, product.getStock());
-        verify(orderRepository).save(any(OrderEntity.class));
+        verify(orderRepository).saveAndFlush(any(OrderEntity.class));
     }
 
     @Test
@@ -339,7 +339,7 @@ class OrderServiceTest {
                 () -> orderService.placeOrder(request("COD", List.of(new OrderItemRequest("missing", 1, null))), buyer()));
 
         assertEquals(HttpStatus.NOT_FOUND, error.getStatus());
-        verify(orderRepository, never()).save(any());
+        verify(orderRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -354,7 +354,7 @@ class OrderServiceTest {
                 .deliveryOtp("0042")
                 .build();
         when(orderRepository.findLockedByOrderId("PICKUP-ORDER-1")).thenReturn(Optional.of(order));
-        when(orderRepository.saveAndFlush(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = orderService.confirmStorePickup("PICKUP-ORDER-1", "0042", buyer());
 
@@ -380,7 +380,7 @@ class OrderServiceTest {
                 () -> orderService.confirmStorePickup("PICKUP-ORDER-2", "0042", buyer()));
 
         assertEquals(HttpStatus.NOT_FOUND, error.getStatus());
-        verify(orderRepository, never()).save(any());
+        verify(orderRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -443,7 +443,7 @@ class OrderServiceTest {
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
         assertEquals(3, product.getStock());
         verify(productRepository, times(1)).findLockedByProductId("P-1");
-        verify(orderRepository, never()).save(any());
+        verify(orderRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -465,7 +465,7 @@ class OrderServiceTest {
         assertEquals(3, result.order().items().get(0).quantity());
         assertEquals(new BigDecimal("60.00"), result.order().subtotal());
         verify(productRepository, times(1)).findLockedByProductId("P-1");
-        verify(orderRepository).save(any(OrderEntity.class));
+        verify(orderRepository).saveAndFlush(any(OrderEntity.class));
     }
 
 
@@ -550,7 +550,7 @@ class OrderServiceTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
         verify(productRepository, times(4)).findById(anyString());
-        verify(orderRepository, never()).save(any(OrderEntity.class));
+        verify(orderRepository, never()).saveAndFlush(any(OrderEntity.class));
         verify(orderRepository, never()).saveAll(any(Iterable.class));
         verify(productRepository, never()).findLockedByProductId(anyString());
     }
@@ -570,7 +570,7 @@ class OrderServiceTest {
                 () -> orderService.placeOrder(request("COD", List.of(new OrderItemRequest("P-1", 1, null))), buyer()));
 
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
-        verify(orderRepository, never()).save(any(OrderEntity.class));
+        verify(orderRepository, never()).saveAndFlush(any(OrderEntity.class));
     }
 
     private SellerEntity sellerWithId(String id) {
