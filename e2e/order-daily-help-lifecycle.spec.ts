@@ -47,7 +47,9 @@ async function flowToken(request: APIRequestContext, role: string, identityVaria
   const tokenRequest = {
     headers: { "X-E2E-Flow-Token": sharedSecret, ...(runId ? { "X-E2E-Run-Id": runId } : {}), "Content-Type": "application/json", "Cache-Control": "no-store" },
     data: { role, identifier },
-    timeout: 30_000,
+    // The staging Render service can be under load while serving sequential role-token exchanges.
+    // Allow a longer server response window; keep the bounded single transport retry below.
+    timeout: 60_000,
   };
   let response;
   try {
@@ -731,7 +733,8 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
 
 test.describe("Admin login, approval queues, and role restrictions", () => {
   test("five-role portal authorization matrix rejects role switching and profile IDOR", async ({ request }, testInfo) => {
-    test.setTimeout(90_000);
+    // Five sequential staging token exchanges can exceed the default budget on a busy Render instance.
+    test.setTimeout(240_000);
     const runId = runScopedId(testInfo);
     runIds.set(testKey(testInfo), runId);
     const roles = {

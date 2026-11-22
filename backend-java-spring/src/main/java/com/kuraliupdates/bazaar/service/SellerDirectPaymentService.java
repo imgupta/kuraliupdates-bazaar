@@ -17,6 +17,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class SellerDirectPaymentService {
     private final JdbcTemplate jdbc;
+    private final UpiIntentLinkFactory upiIntentLinkFactory;
 
     @Transactional
     public Map<String,Object> saveSellerDestination(SellerEntity seller, String upiId, String payeeName, String actor) {
@@ -317,6 +318,9 @@ public class SellerDirectPaymentService {
         v.put("paymentId", p.get("PAYMENT_ID")); v.put("orderId", p.get("ORDER_ID"));
         v.put("checkoutGroupId", p.get("CHECKOUT_GROUP_ID")); v.put("expectedAmount", p.get("EXPECTED_AMOUNT"));
         v.put("currency", p.get("CURRENCY")); v.put("upiId", p.get("UPI_ID_SNAPSHOT"));
+        v.put("upiIntentUri", upiIntentLinkFactory.create(String.valueOf(p.get("PAYMENT_ID")),
+                String.valueOf(p.get("ORDER_ID")), p.get("EXPECTED_AMOUNT") instanceof BigDecimal amount ? amount : new BigDecimal(String.valueOf(p.get("EXPECTED_AMOUNT"))),
+                String.valueOf(p.get("UPI_ID_SNAPSHOT")), String.valueOf(p.get("PAYEE_NAME_SNAPSHOT"))));
         v.put("payeeName", p.get("PAYEE_NAME_SNAPSHOT")); v.put("paymentStatus", p.get("PAYMENT_STATUS"));
         v.put("utrReference", p.get("UTR_REFERENCE")); v.put("buyerSubmittedAt", p.get("BUYER_SUBMITTED_AT"));
         v.put("expiresAt", p.get("EXPIRES_AT")); v.put("refundStatus", p.get("REFUND_STATUS"));
