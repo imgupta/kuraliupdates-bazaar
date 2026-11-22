@@ -26,8 +26,17 @@ export const BuyerPortal: React.FC<BuyerPortalProps> = ({
   selectedCategory,
   setSelectedCategory,
 }) => {
-  const { setTrackingOrderId, addToCart, trackingOrderId } = useApp();
+  const { setTrackingOrderId, trackingOrderId } = useApp();
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [buyNowItems, setBuyNowItems] = useState<CartItem[] | null>(null);
+  const openBuyNow = (product: Product) => {
+    setBuyNowItems([{ product, quantity: 1 }]);
+    setIsCheckoutOpen(true);
+  };
+  const openBasketCheckout = () => {
+    setBuyNowItems(null);
+    setIsCheckoutOpen(true);
+  };
 
   return (
     <>
@@ -37,10 +46,7 @@ export const BuyerPortal: React.FC<BuyerPortalProps> = ({
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
         onOpenTracking={(orderId) => setTrackingOrderId(orderId)}
-        onBuyNow={(product) => {
-          addToCart(product, 1);
-          setIsCheckoutOpen(true);
-        }}
+        onBuyNow={openBuyNow}
         isCheckoutOpen={isCheckoutOpen}
       />
       <CartDrawer onProceedToCheckout={openBasketCheckout} />
