@@ -34,6 +34,7 @@ public class SellerService {
     private final SellerRepository sellerRepository;
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
+    private final SellerDirectPaymentService sellerDirectPaymentService;
     private final BillDiscountRepository billDiscountRepository;
 
     @Transactional(readOnly = true)
@@ -194,6 +195,7 @@ public class SellerService {
                             "Cannot restore inventory because the stock quantity would overflow");
                 }
             }
+            sellerDirectPaymentService.cancelUnpaidPaymentForOrder(order.getOrderId());
             order.setFulfilmentStatus("CANCELLED");
             // COD has not been collected; retain PENDING_COD. Cancellation belongs
             // to order/fulfilment state, not to the payment lifecycle.
