@@ -95,6 +95,7 @@ public class OrderService {
             saved.setFulfilmentStatus("AWAITING_SELLER_ACCEPTANCE");
             saved.setFulfilmentMode(fulfilmentMode);
             if ("STORE_PICKUP".equals(fulfilmentMode)) {
+                saved.setEstimatedDeliveryMins(null);
                 saved.setDeliveryFee(BigDecimal.ZERO);
                 saved.setIsFreeDelivery(1);
                 saved.setTotalAmount(saved.getSubtotal().subtract(
@@ -282,7 +283,7 @@ public class OrderService {
                 .status("PLACED")
                 .deliveryOtp(String.format("%04d", random.nextInt(10000)))
                 .distanceKm(request.distanceKm())
-                .estimatedDeliveryMins(null)
+                .estimatedDeliveryMins(deliveryConfigurationService.estimatedDeliveryMins())
                 .e2eRunId(e2eRunId)
                 .placedAt(now)
                 .updatedAt(now)
