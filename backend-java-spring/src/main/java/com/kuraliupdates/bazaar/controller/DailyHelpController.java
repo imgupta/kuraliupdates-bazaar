@@ -3,6 +3,7 @@ package com.kuraliupdates.bazaar.controller;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpBookingRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpBookingResponse;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpStartRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpCompleteRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpStatusRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpServiceResponse;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalAvailabilityRequest;
@@ -203,9 +204,9 @@ public class DailyHelpController {
     @PostMapping("/bookings/{bookingId}/complete")
     public ResponseEntity<DailyHelpBookingResponse> completeBooking(
             @PathVariable String bookingId,
-            @RequestParam String professionalId, Authentication authentication) {
-        requireOwnProfessional(authentication, professionalId);
-        return ResponseEntity.ok(dailyHelpService.completeBooking(bookingId, professionalId));
+            @Valid @RequestBody DailyHelpCompleteRequest request, Authentication authentication) {
+        requireOwnProfessional(authentication, request.professionalId());
+        return ResponseEntity.ok(dailyHelpService.completeBooking(bookingId, request));
     }
 
     private UserEntity requireUser(Authentication authentication) {
