@@ -92,7 +92,7 @@ public class SellerDirectPaymentService {
     }
 
     @Transactional
-    public void createForOrder(OrderEntity order) {
+    public void createForOrder(OrderEntity order, String buyerUserId) {
         if (!"UPI".equalsIgnoreCase(order.getPaymentMethod())) return;
         Map<String,Object> destination;
         try {
@@ -103,8 +103,8 @@ public class SellerDirectPaymentService {
         }
         String paymentId = "PAY-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT);
         LocalDateTime now = LocalDateTime.now();
-        jdbc.update("INSERT INTO ORDER_SELLER_PAYMENTS (PAYMENT_ID,ORDER_ID,CHECKOUT_GROUP_ID,SELLER_ID,BUYER_EMAIL,EXPECTED_AMOUNT,CURRENCY,UPI_ID_SNAPSHOT,PAYEE_NAME_SNAPSHOT,PAYMENT_STATUS,EXPIRES_AT,CREATED_AT,UPDATED_AT) VALUES (?,?,?,?,?,?,'INR',?,?,'AWAITING_PAYMENT',?,?,?)",
-                paymentId, order.getOrderId(), order.getCheckoutGroupId(), order.getSeller().getSellerId(),
+        jdbc.update("INSERT INTO ORDER_SELLER_PAYMENTS (PAYMENT_ID,ORDER_ID,CHECKOUT_GROUP_ID,SELLER_ID,BUYER_USER_ID,BUYER_EMAIL,EXPECTED_AMOUNT,CURRENCY,UPI_ID_SNAPSHOT,PAYEE_NAME_SNAPSHOT,PAYMENT_STATUS,EXPIRES_AT,CREATED_AT,UPDATED_AT) VALUES (?,?,?,?,?,?,?,'INR',?,?,'AWAITING_PAYMENT',?,?,?)",
+                paymentId, order.getOrderId(), order.getCheckoutGroupId(), order.getSeller().getSellerId(), buyerUserId,
                 order.getBuyerEmail(), order.getTotalAmount(), destination.get("UPI_ID"), destination.get("PAYEE_NAME"),
                 now.plusHours(24), now, now);
         order.setPaymentStatus("PENDING_UPI");
@@ -129,12 +129,12 @@ public class SellerDirectPaymentService {
     }
 
     @Transactional
-    public Map<String,Object> submitUtr(String orderId, String buyerEmail, String utr, String idempotencyKey) {
+    public Map<String,Object> submitUtr(String orderId, String buyerUserId, String buyerEmail, String utr, String idempotencyKey) {
         String reference = utr == null ? "" : utr.trim().toUpperCase(Locale.ROOT);
         String key = idempotencyKey == null ? "" : idempotencyKey.trim();
         if (!reference.matches("[A-Z0-9-]{6,64}") || !key.matches("[A-Za-z0-9._:-]{8,100}"))
             throw new ApiException(HttpStatus.BAD_REQUEST, "A valid UTR/reference and idempotency key are required");
-        Map<String,Object> p = lockBuyerPayment(orderId, buyerEmail);
+        Map<String,Object> p = lockBuyerPayment(orderId, buyerUserId);
         if (key.equals(p.get("IDEMPOTENCY_KEY")) && reference.equals(p.get("UTR_REFERENCE"))) return buyerView(p);
         String state = String.valueOf(p.get("PAYMENT_STATUS"));
         if (!Set.of("AWAITING_PAYMENT","PAYMENT_REJECTED").contains(state))
@@ -152,30 +152,30 @@ public class SellerDirectPaymentService {
         }
         audit(String.valueOf(p.get("PAYMENT_ID")), String.valueOf(p.get("SELLER_ID")), null, buyerEmail, "BUYER",
                 "UTR_SUBMITTED", state, "AWAITING_SELLER_CONFIRMATION", null);
-        return buyerPayment(orderId, buyerEmail);
+        return buyerPayment(orderId, buyerUserId);
     }
 
     @Transactional
-    public Map<String,Object> buyerPayment(String orderId, String buyerEmail) {
+    public Map<String,Object> buyerPayment(String orderId, String buyerUserId) {
         expirePending();
-        if (buyerEmail == null || buyerEmail.isBlank()) throw new ApiException(HttpStatus.UNAUTHORIZED, "Buyer session required");
+        if (buyerUserId == null || buyerUserId.isBlank()) throw new ApiException(HttpStatus.UNAUTHORIZED, "Buyer session required");
         try {
-            return buyerView(jdbc.queryForMap("SELECT p.* FROM ORDER_SELLER_PAYMENTS p WHERE p.ORDER_ID=? AND LOWER(p.BUYER_EMAIL)=?",
-                    orderId, buyerEmail.trim().toLowerCase(Locale.ROOT)));
+            return buyerView(jdbc.queryForMap("SELECT p.* FROM ORDER_SELLER_PAYMENTS p WHERE p.ORDER_ID=? AND p.BUYER_USER_ID=?",
+                    orderId, buyerUserId));
         } catch (org.springframework.dao.EmptyResultDataAccessException ex) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Payment record not found");
         }
     }
 
     @Transactional
-    public List<Map<String,Object>> buyerGroupPayments(String checkoutGroupId, String buyerEmail) {
+    public List<Map<String,Object>> buyerGroupPayments(String checkoutGroupId, String buyerUserId) {
         expirePending();
         if (buyerEmail == null || buyerEmail.isBlank()) throw new ApiException(HttpStatus.UNAUTHORIZED, "Buyer session required");
         List<Map<String,Object>> rows = jdbc.queryForList(
-                "SELECT ORDER_ID FROM ORDER_SELLER_PAYMENTS WHERE CHECKOUT_GROUP_ID=? AND LOWER(BUYER_EMAIL)=? ORDER BY CREATED_AT",
-                checkoutGroupId, buyerEmail.trim().toLowerCase(Locale.ROOT));
+                "SELECT ORDER_ID FROM ORDER_SELLER_PAYMENTS WHERE CHECKOUT_GROUP_ID=? AND BUYER_USER_ID=? ORDER BY CREATED_AT",
+                checkoutGroupId, buyerUserId);
         List<Map<String,Object>> result = new ArrayList<>();
-        for (Map<String,Object> row : rows) result.add(buyerPayment(String.valueOf(row.get("ORDER_ID")), buyerEmail));
+        for (Map<String,Object> row : rows) result.add(buyerPayment(String.valueOf(row.get("ORDER_ID")), buyerUserId));
         return result;
     }
 
@@ -211,7 +211,7 @@ public class SellerDirectPaymentService {
     }
 
     @Transactional
-    public Map<String,Object> requestRefund(String orderId, String buyerEmail, String reason) {
+    public Map<String,Object> requestRefund(String orderId, String buyerUserId, String buyerEmail, String reason) {
         Map<String,Object> p = lockBuyerPayment(orderId, buyerEmail);
         if (!"PAYMENT_CONFIRMED".equals(p.get("PAYMENT_STATUS")))
             throw new ApiException(HttpStatus.CONFLICT, "Only a seller-confirmed payment can enter the refund workflow");
@@ -249,9 +249,9 @@ public class SellerDirectPaymentService {
     }
 
     @Transactional
-    public Map<String,Object> createIssue(String orderId, String buyerEmail, String issueType, String description) {
-        List<Map<String,Object>> owned = jdbc.queryForList("SELECT ORDER_ID FROM ORDERS WHERE ORDER_ID=? AND LOWER(BUYER_EMAIL)=?",
-                orderId, buyerEmail.trim().toLowerCase(Locale.ROOT));
+    public Map<String,Object> createIssue(String orderId, String buyerUserId, String buyerEmail, String issueType, String description) {
+        List<Map<String,Object>> owned = jdbc.queryForList("SELECT ORDER_ID FROM ORDERS WHERE ORDER_ID=? AND BUYER_USER_ID=?",
+                orderId, buyerUserId);
         if (owned.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
         String type = issueType == null ? "" : issueType.trim().toUpperCase(Locale.ROOT);
         if (!Set.of("MISSING_ITEM","WRONG_ITEM","DAMAGED","POOR_QUALITY","NOT_DELIVERED","PAYMENT","REFUND","OTHER").contains(type))
@@ -259,16 +259,16 @@ public class SellerDirectPaymentService {
         String detail = description == null ? "" : description.trim();
         if (detail.isBlank() || detail.length() > 1000) throw new ApiException(HttpStatus.BAD_REQUEST, "Issue description is required (maximum 1000 characters)");
         String id = "ISS-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT);
-        jdbc.update("INSERT INTO ORDER_ISSUES (ISSUE_ID,ORDER_ID,BUYER_EMAIL,ISSUE_TYPE,DESCRIPTION,STATUS) VALUES (?,?,?,?,?,'OPEN')",
-                id, orderId, buyerEmail.trim().toLowerCase(Locale.ROOT), type, detail);
+        jdbc.update("INSERT INTO ORDER_ISSUES (ISSUE_ID,ORDER_ID,BUYER_USER_ID,BUYER_EMAIL,ISSUE_TYPE,DESCRIPTION,STATUS) VALUES (?,?,?,?,?,?,'OPEN')",
+                id, orderId, buyerUserId, buyerEmail, type, detail);
         return Map.of("issueId", id, "orderId", orderId, "issueType", type, "status", "OPEN");
     }
 
-    private Map<String,Object> lockBuyerPayment(String orderId, String email) {
-        if (email == null || email.isBlank()) throw new ApiException(HttpStatus.UNAUTHORIZED, "Buyer session required");
+    private Map<String,Object> lockBuyerPayment(String orderId, String buyerUserId) {
+        if (buyerUserId == null || buyerUserId.isBlank()) throw new ApiException(HttpStatus.UNAUTHORIZED, "Buyer session required");
         try {
-            return jdbc.queryForMap("SELECT p.* FROM ORDER_SELLER_PAYMENTS p WHERE p.ORDER_ID=? AND LOWER(p.BUYER_EMAIL)=? FOR UPDATE",
-                    orderId, email.trim().toLowerCase(Locale.ROOT));
+            return jdbc.queryForMap("SELECT p.* FROM ORDER_SELLER_PAYMENTS p WHERE p.ORDER_ID=? AND p.BUYER_USER_ID=? FOR UPDATE",
+                    orderId, buyerUserId);
         } catch (org.springframework.dao.EmptyResultDataAccessException ex) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Payment record not found");
         }
