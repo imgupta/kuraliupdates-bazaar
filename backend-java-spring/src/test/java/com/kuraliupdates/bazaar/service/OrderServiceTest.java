@@ -567,12 +567,12 @@ class OrderServiceTest {
                 .thenReturn(Map.of("REQUEST_HASH", hash, "ORDER_ID", "ORD-REPLAY", "CHECKOUT_GROUP_ID", ""));
         OrderEntity existing = OrderEntity.builder().orderId("ORD-REPLAY")
                 .buyerEmail("authenticated@example.test").status("PLACED").items(new java.util.ArrayList<>()).build();
-        when(orderRepository.findById("ORD-REPLAY")).thenReturn(Optional.of(existing));
+        when(orderRepository.findLockedByOrderId("ORD-REPLAY")).thenReturn(Optional.of(existing));
 
         var result = orderService.placeOrder(checkoutRequest, buyer(), null, "checkout-key-0001");
 
         assertEquals("ORD-REPLAY", result.order().orderId());
-        verify(orderRepository).findById("ORD-REPLAY");
+        verify(orderRepository).findLockedByOrderId("ORD-REPLAY");
         verifyNoInteractions(productRepository, sellerRepository);
     }
 
