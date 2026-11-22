@@ -70,8 +70,15 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
   }, [bookings]);
 
   useEffect(() => {
-    if (!bookings.some(item => item.status === 'IN_PROGRESS' && item.serviceStartedAt)) return;
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    const hasRunningTimer = () => bookings.some(item =>
+      item.status === 'IN_PROGRESS' && item.serviceStartedAt &&
+      Date.now() < new Date(item.serviceStartedAt).getTime() + Math.max(0, Number(item.requestedHours || 0)) * 3600000
+    );
+    if (!hasRunningTimer()) return;
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+      if (!hasRunningTimer()) window.clearInterval(interval);
+    }, 1000);
     return () => window.clearInterval(interval);
   }, [bookings]);
 
