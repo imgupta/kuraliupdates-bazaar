@@ -20,20 +20,20 @@ public class BuyerPaymentController {
     @GetMapping("/checkout-groups/{checkoutGroupId}/payments")
     public ResponseEntity<java.util.List<Map<String,Object>>> groupPayments(@PathVariable String checkoutGroupId, Authentication auth) {
         UserEntity buyer = requireBuyer(auth);
-        return ResponseEntity.ok(payments.buyerGroupPayments(checkoutGroupId, buyer.getEmail()));
+        return ResponseEntity.ok(payments.buyerGroupPayments(checkoutGroupId, buyer.getUserId()));
     }
 
     @GetMapping("/{orderId}/payment")
     public ResponseEntity<Map<String,Object>> payment(@PathVariable String orderId, Authentication auth) {
         UserEntity buyer = requireBuyer(auth);
-        return ResponseEntity.ok(payments.buyerPayment(orderId, buyer.getEmail()));
+        return ResponseEntity.ok(payments.buyerPayment(orderId, buyer.getUserId()));
     }
 
     @PostMapping("/{orderId}/payment/utr")
     public ResponseEntity<Map<String,Object>> submitUtr(@PathVariable String orderId,
             @RequestBody Map<String,String> body, Authentication auth) {
         UserEntity buyer = requireBuyer(auth);
-        return ResponseEntity.ok(payments.submitUtr(orderId, buyer.getEmail(),
+        return ResponseEntity.ok(payments.submitUtr(orderId, buyer.getUserId(), buyer.getEmail(),
                 body == null ? null : body.get("utrReference"), body == null ? null : body.get("idempotencyKey")));
     }
 
@@ -41,14 +41,14 @@ public class BuyerPaymentController {
     public ResponseEntity<Map<String,Object>> requestRefund(@PathVariable String orderId,
             @RequestBody Map<String,String> body, Authentication auth) {
         UserEntity buyer = requireBuyer(auth);
-        return ResponseEntity.ok(payments.requestRefund(orderId, buyer.getEmail(), body == null ? null : body.get("reason")));
+        return ResponseEntity.ok(payments.requestRefund(orderId, buyer.getUserId(), buyer.getEmail(), body == null ? null : body.get("reason")));
     }
 
     @PostMapping("/{orderId}/issues")
     public ResponseEntity<Map<String,Object>> issue(@PathVariable String orderId,
             @RequestBody Map<String,String> body, Authentication auth) {
         UserEntity buyer = requireBuyer(auth);
-        return ResponseEntity.status(HttpStatus.CREATED).body(payments.createIssue(orderId, buyer.getEmail(),
+        return ResponseEntity.status(HttpStatus.CREATED).body(payments.createIssue(orderId, buyer.getUserId(), buyer.getEmail(),
                 body == null ? null : body.get("issueType"), body == null ? null : body.get("description")));
     }
 
