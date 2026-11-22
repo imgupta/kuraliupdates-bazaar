@@ -136,7 +136,7 @@ export const useOrderDeliveryOperations = ({
     setOrders(prev => [buyerOrder, ...prev.filter(order =>
       !replacedIds.has(order.id) && (!buyerOrder.checkoutGroupId || order.checkoutGroupId !== buyerOrder.checkoutGroupId)
     )]);
-    clearCart();
+    if (!isIsolatedCheckout) clearCart();
     setTrackingOrderId(buyerOrder.id);
     showToast(confirmedOrders.length > 1
       ? `One KuraliUpdates order placed across ${confirmedOrders.length} stores!`
