@@ -26,7 +26,7 @@ test('buyer catalogue has no implicit maximum-price filter', () => {
 test('product cards use Add then quantity controls rather than Buy Now', () => {
   const source = read('../src/components/Buyer/ProductCard.tsx');
   assert.match(source, /quantity <= 0 \?/);
-  assert.match(source, /> ADD</);
+  assert.match(source, /> ADD\\s*</);
   assert.doesNotMatch(source, /Buy Now/);
   assert.doesNotMatch(source, /onBuyNow/);
 });
