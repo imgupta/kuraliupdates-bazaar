@@ -505,7 +505,7 @@ const AdminDashboardContent: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-extrabold text-slate-900">Delivery, Payout & OTP Settings</h2>
-              <p className="text-xs text-slate-500 mt-1">Changes apply to future checkouts, newly claimed deliveries, and new OTP requests. Existing payout snapshots are not recalculated.</p>
+              <p className="text-xs text-slate-500 mt-1">Changes apply to future checkouts and new OTP requests. The buyer ETA is snapshotted on new delivery orders; existing orders keep their original estimate.</p>
             </div>
             <button type="button" onClick={() => void refreshDeliveryConfiguration()} disabled={deliveryConfigLoading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 disabled:opacity-50">
               <RefreshCw className={`h-4 w-4 ${deliveryConfigLoading ? 'animate-spin' : ''}`} /> Refresh settings
@@ -524,7 +524,7 @@ const AdminDashboardContent: React.FC = () => {
                   ['maxRouteKm', 'Maximum combined route (km)', 1, 100, 0.5],
                   ['maxSellersPerBatch', 'Maximum sellers per batch', 1, 10, 1],
                   ['maxWaitMinutes', 'Maximum wait (minutes)', 0, 120, 1],
-                  ['otpResendTimeoutSeconds', 'OTP resend timeout (seconds)', 5, 300, 1],
+                  ['otpResendTimeoutSeconds', 'OTP resend timeout (seconds)', 5, 300, 1],\n                  ['estimatedDeliveryMins', 'Buyer delivery ETA (minutes; 0 disables)', 0, 360, 5],
                 ] as [string, string, number, number, number][]).map(([key, label, min, max, step]) => (
                   <label key={key} className="block rounded-xl border border-slate-200 bg-white p-4">
                     <span className="block text-xs font-bold text-slate-700 mb-2">{label}</span>
@@ -554,7 +554,7 @@ const AdminDashboardContent: React.FC = () => {
                 ))}
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl bg-slate-50 p-4">
-                <p className="text-[11px] text-slate-500">OTP resend timeout applies to login and registration. Allowed range: 5–300 seconds. OTP validity remains 10 minutes.</p>
+                <p className="text-[11px] text-slate-500">Buyer ETA is optional (0 disables it; otherwise 5–360 minutes in 5-minute steps) and is saved on new delivery orders. OTP resend timeout applies to login and registration; OTP validity remains 10 minutes.</p>
                 <button type="button" onClick={() => void saveDeliveryConfiguration()} disabled={deliveryConfigSaving || deliveryConfigLoading} className="rounded-xl bg-purple-700 px-5 py-3 text-xs font-extrabold text-white hover:bg-purple-800 disabled:opacity-50">{deliveryConfigSaving ? 'Saving…' : 'Save settings'}</button>
               </div>
             </>
