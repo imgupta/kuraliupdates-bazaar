@@ -248,6 +248,29 @@ public class SellerDirectPaymentService {
         return sellerPayments(sellerId).stream().filter(row -> paymentId.equals(row.get("paymentId"))).findFirst().orElse(Map.of());
     }
 
+    @Transactional(readOnly = true)
+    public List<Map<String,Object>> adminOrderIssues(String status) {
+        String normalized = status == null || status.isBlank() ? "OPEN" : status.trim().toUpperCase(Locale.ROOT);
+        if (!Set.of("OPEN","IN_REVIEW","RESOLVED","CLOSED","ALL").contains(normalized))
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported issue status");
+        String sql = "SELECT i.ISSUE_ID AS \"issueId\",i.ORDER_ID AS \"orderId\",i.BUYER_EMAIL AS \"buyerEmail\",i.ISSUE_TYPE AS \"issueType\",i.DESCRIPTION AS \"description\",i.STATUS AS \"status\",i.CREATED_AT AS \"createdAt\",i.UPDATED_AT AS \"updatedAt\",o.SELLER_ID AS \"sellerId\" FROM ORDER_ISSUES i JOIN ORDERS o ON o.ORDER_ID=i.ORDER_ID"
+                + ("ALL".equals(normalized) ? "" : " WHERE i.STATUS=?") + " ORDER BY i.CREATED_AT DESC";
+        return "ALL".equals(normalized) ? jdbc.queryForList(sql) : jdbc.queryForList(sql, normalized);
+    }
+
+    @Transactional
+    public Map<String,Object> updateIssueStatus(String issueId, String status, String actor) {
+        String next = status == null ? "" : status.trim().toUpperCase(Locale.ROOT);
+        if (!Set.of("OPEN","IN_REVIEW","RESOLVED","CLOSED").contains(next))
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported issue status");
+        List<Map<String,Object>> rows = jdbc.queryForList("SELECT ORDER_ID,STATUS FROM ORDER_ISSUES WHERE ISSUE_ID=? FOR UPDATE", issueId);
+        if (rows.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "Order issue not found");
+        String previous = String.valueOf(rows.get(0).get("STATUS"));
+        jdbc.update("UPDATE ORDER_ISSUES SET STATUS=?,UPDATED_AT=? WHERE ISSUE_ID=?", next, LocalDateTime.now(), issueId);
+        audit(null, null, null, actor, "ADMIN", "ORDER_ISSUE_STATUS_UPDATED", previous, next, issueId);
+        return Map.of("issueId", issueId, "status", next);
+    }
+
     @Transactional
     public Map<String,Object> createIssue(String orderId, String buyerUserId, String buyerEmail, String issueType, String description) {
         List<Map<String,Object>> owned = jdbc.queryForList("SELECT ORDER_ID FROM ORDERS WHERE ORDER_ID=? AND BUYER_USER_ID=?",
