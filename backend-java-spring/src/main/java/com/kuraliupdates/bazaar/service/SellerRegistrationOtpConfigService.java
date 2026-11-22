@@ -40,7 +40,7 @@ public class SellerRegistrationOtpConfigService {
     public Map<String, Object> update(boolean emailEnabled, boolean mobileEnabled, String actor) {
         if (!emailEnabled && !mobileEnabled) {
             throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST,
-                    "At least one seller contact verification channel must remain enabled");
+                    "At least one registration contact verification channel must remain enabled");
         }
         Map<String, Object> previous = get();
         String changedBy = actor == null || actor.isBlank() ? "ADMIN" : actor.substring(0, Math.min(actor.length(), 150));
