@@ -138,9 +138,22 @@ public class OrderService {
             BigDecimal checkoutDeliveryFee = baseFee;
             if (roadKm != null) checkoutDeliveryFee = checkoutDeliveryFee.add(roadKm.multiply(perKmFee));
             checkoutDeliveryFee = checkoutDeliveryFee.setScale(2, RoundingMode.HALF_UP);
+            BigDecimal totalSellerSubtotal = savedOrders.stream()
+                    .map(o -> o.getSubtotal() == null ? BigDecimal.ZERO : o.getSubtotal())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal allocatedSoFar = BigDecimal.ZERO;
             for (int i = 0; i < savedOrders.size(); i++) {
                 OrderEntity saved = savedOrders.get(i);
-                BigDecimal allocatedFee = i == 0 ? checkoutDeliveryFee : BigDecimal.ZERO;
+                BigDecimal allocatedFee;
+                if (i == savedOrders.size() - 1) {
+                    allocatedFee = checkoutDeliveryFee.subtract(allocatedSoFar);
+                } else if (totalSellerSubtotal.signum() > 0) {
+                    allocatedFee = checkoutDeliveryFee.multiply(saved.getSubtotal())
+                            .divide(totalSellerSubtotal, 2, RoundingMode.HALF_UP);
+                } else {
+                    allocatedFee = BigDecimal.ZERO;
+                }
+                allocatedSoFar = allocatedSoFar.add(allocatedFee);
                 saved.setDeliveryFee(allocatedFee);
                 saved.setIsFreeDelivery(allocatedFee.signum() == 0 ? 1 : 0);
                 BigDecimal discounts = (saved.getBillDiscountAmount() == null ? BigDecimal.ZERO : saved.getBillDiscountAmount())
