@@ -282,7 +282,7 @@ public class OrderService {
                 .status("PLACED")
                 .deliveryOtp(String.format("%04d", random.nextInt(10000)))
                 .distanceKm(request.distanceKm())
-                .estimatedDeliveryMins(25)
+                .estimatedDeliveryMins(null)
                 .e2eRunId(e2eRunId)
                 .placedAt(now)
                 .updatedAt(now)
