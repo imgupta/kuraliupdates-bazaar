@@ -297,3 +297,19 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
           ))}
         </div>
       )}
+
+      {selectedProduct && (
+        <ProductDetailsModal product={selectedProduct} onClose={() => setSelectedProduct(null)}
+          onAddToCart={(item) => { addToCart(item, 1); setSelectedProduct(null); }}
+          onBuyNow={(item) => { setSelectedProduct(null); onBuyNow(item); }}
+          onBargain={(item) => { setSelectedProduct(null); openChatForProduct(item); }}
+          onCompare={(item) => { setSelectedProduct(null); setComparingProduct(item); }}
+        />
+      )}
+
+      {comparingProduct && <CompareSellersModal product={comparingProduct} onClose={() => setComparingProduct(null)} />}
+    </div>
+  );
+};
+
+export const OnlineShopHome = BuyerHome;
