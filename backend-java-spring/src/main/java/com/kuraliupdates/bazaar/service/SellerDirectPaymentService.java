@@ -141,8 +141,13 @@ public class SellerDirectPaymentService {
 
     @Transactional(readOnly = true)
     public Map<String,Object> buyerPayment(String orderId, String buyerEmail) {
-        Map<String,Object> p = lockBuyerPayment(orderId, buyerEmail);
-        return buyerView(p);
+        if (buyerEmail == null || buyerEmail.isBlank()) throw new ApiException(HttpStatus.UNAUTHORIZED, "Buyer session required");
+        try {
+            return buyerView(jdbc.queryForMap("SELECT p.* FROM ORDER_SELLER_PAYMENTS p WHERE p.ORDER_ID=? AND LOWER(p.BUYER_EMAIL)=?",
+                    orderId, buyerEmail.trim().toLowerCase(Locale.ROOT)));
+        } catch (org.springframework.dao.EmptyResultDataAccessException ex) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "Payment record not found");
+        }
     }
 
     @Transactional(readOnly = true)
