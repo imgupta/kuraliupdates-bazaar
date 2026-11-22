@@ -44,6 +44,22 @@ public class SellerController {
         return ResponseEntity.ok(sellerService.getCurrentSeller(bearerToken(authorization)));
     }
 
+
+    public record SellerAddressUpdateRequest(
+            @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 500) String address,
+            @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 150) String locality,
+            @jakarta.validation.constraints.NotNull @jakarta.validation.constraints.DecimalMin("-90.0") @jakarta.validation.constraints.DecimalMax("90.0") java.math.BigDecimal latitude,
+            @jakarta.validation.constraints.NotNull @jakarta.validation.constraints.DecimalMin("-180.0") @jakarta.validation.constraints.DecimalMax("180.0") java.math.BigDecimal longitude) {}
+
+    @PutMapping("/me/address")
+    @Operation(summary = "Update the authenticated seller's shop address and map pin; resets location verification")
+    public ResponseEntity<SellerEntity> updateMyAddress(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @Valid @RequestBody SellerAddressUpdateRequest request) {
+        return ResponseEntity.ok(sellerService.updateOwnAddress(bearerToken(authorization),
+                request.address(), request.locality(), request.latitude(), request.longitude()));
+    }
+
     @PutMapping("/me/availability")
     @Operation(summary = "Open or close the authenticated seller store")
     public ResponseEntity<SellerEntity> updateStoreAvailability(
