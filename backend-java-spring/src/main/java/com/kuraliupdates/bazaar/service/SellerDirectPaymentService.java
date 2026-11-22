@@ -38,7 +38,7 @@ public class SellerDirectPaymentService {
             jdbc.update("UPDATE SELLER_PAYMENT_DESTINATIONS SET UPI_ID=?,PAYEE_NAME=?,VERIFICATION_STATUS='PENDING_VERIFICATION',ACTIVE_FLAG=0,VERIFIED_BY=NULL,VERIFIED_AT=NULL,UPDATED_BY=?,UPDATED_AT=? WHERE SELLER_ID=?",
                     upi, payee, actor, LocalDateTime.now(), seller.getSellerId());
         }
-        audit(null, seller.getSellerId(), id, actor, "SELLER", "DESTINATION_SUBMITTED", null, "PENDING_VERIFICATION", null);
+        audit(null, seller.getSellerId(), id, actor == null ? seller.getUserId() : actor, "SELLER", "DESTINATION_SUBMITTED", null, "PENDING_VERIFICATION", null);
         return destination(seller.getSellerId());
     }
 
@@ -109,7 +109,7 @@ public class SellerDirectPaymentService {
                 now.plusHours(24), now, now);
         order.setPaymentStatus("PENDING_UPI");
         jdbc.update("UPDATE ORDERS SET PAYMENT_STATUS='PENDING_UPI' WHERE ORDER_ID=?", order.getOrderId());
-        audit(paymentId, order.getSeller().getSellerId(), null, order.getBuyerEmail(), "BUYER",
+        audit(paymentId, order.getSeller().getSellerId(), null, buyerUserId, "BUYER",
                 "PAYMENT_INSTRUCTIONS_SNAPSHOTTED", null, "AWAITING_PAYMENT", null);
     }
 
@@ -150,7 +150,7 @@ public class SellerDirectPaymentService {
         } catch (org.springframework.dao.DuplicateKeyException ex) {
             throw new ApiException(HttpStatus.CONFLICT, "This UTR or submission key has already been used");
         }
-        audit(String.valueOf(p.get("PAYMENT_ID")), String.valueOf(p.get("SELLER_ID")), null, buyerEmail, "BUYER",
+        audit(String.valueOf(p.get("PAYMENT_ID")), String.valueOf(p.get("SELLER_ID")), null, buyerUserId, "BUYER",
                 "UTR_SUBMITTED", state, "AWAITING_SELLER_CONFIRMATION", null);
         return buyerPayment(orderId, buyerUserId);
     }
@@ -197,6 +197,8 @@ public class SellerDirectPaymentService {
         String previous = String.valueOf(p.get("PAYMENT_STATUS"));
         if (!"AWAITING_SELLER_CONFIRMATION".equals(previous))
             throw new ApiException(HttpStatus.CONFLICT, "Only a submitted UTR can be confirmed or rejected");
+        if (!confirm && safeReason(reason) == null)
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A rejection reason is required");
         if (asDate(p.get("EXPIRES_AT")).isBefore(LocalDateTime.now())) {
             jdbc.update("UPDATE ORDER_SELLER_PAYMENTS SET PAYMENT_STATUS='PAYMENT_EXPIRED',UPDATED_AT=? WHERE PAYMENT_ID=?", LocalDateTime.now(), paymentId);
             jdbc.update("UPDATE ORDERS SET PAYMENT_STATUS='PAYMENT_EXPIRED' WHERE ORDER_ID=?", p.get("ORDER_ID"));
@@ -222,7 +224,7 @@ public class SellerDirectPaymentService {
         if (why == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Refund reason is required");
         jdbc.update("UPDATE ORDER_SELLER_PAYMENTS SET REFUND_STATUS='REQUESTED',REFUND_REASON=?,REFUND_AMOUNT=EXPECTED_AMOUNT,REFUND_UPDATED_BY=?,REFUND_UPDATED_AT=?,UPDATED_AT=? WHERE ORDER_ID=?",
                 why, buyerEmail, LocalDateTime.now(), LocalDateTime.now(), orderId);
-        audit(String.valueOf(p.get("PAYMENT_ID")), String.valueOf(p.get("SELLER_ID")), null, buyerEmail, "BUYER",
+        audit(String.valueOf(p.get("PAYMENT_ID")), String.valueOf(p.get("SELLER_ID")), null, buyerUserId, "BUYER",
                 "REFUND_REQUESTED", current, "REQUESTED", why);
         return buyerPayment(orderId, buyerUserId);
     }
@@ -284,6 +286,7 @@ public class SellerDirectPaymentService {
         String id = "ISS-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT);
         jdbc.update("INSERT INTO ORDER_ISSUES (ISSUE_ID,ORDER_ID,BUYER_USER_ID,BUYER_EMAIL,ISSUE_TYPE,DESCRIPTION,STATUS) VALUES (?,?,?,?,?,?,'OPEN')",
                 id, orderId, buyerUserId, buyerEmail, type, detail);
+        audit(null, null, null, buyerUserId, "BUYER", "ORDER_ISSUE_CREATED", null, "OPEN", id + ": " + type);
         return Map.of("issueId", id, "orderId", orderId, "issueType", type, "status", "OPEN");
     }
 
