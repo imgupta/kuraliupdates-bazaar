@@ -742,7 +742,6 @@ test.describe("Admin login, approval queues, and role restrictions", () => {
       { path: "/sellers/me/documents", allowed: "seller" as const },
       { path: "/delivery/jobs/available", allowed: "delivery" as const },
       { path: "/daily-help/professionals/" + encodeURIComponent(fixture.professionalId) + "/jobs/available", allowed: "professional" as const },
-      { path: "/admin/sellers/" + encodeURIComponent(fixture.sellerId) + "/documents", allowed: "admin" as const },
     ];
     for (const check of checks) {
       for (const [role, token] of Object.entries(roles) as [keyof typeof roles, string][]) {
@@ -754,6 +753,15 @@ test.describe("Admin login, approval queues, and role restrictions", () => {
         }
       }
     }
+
+    // Admin role alone is intentionally insufficient for sensitive seller
+    // document reads. The endpoint requires the session-bound MFA step-up
+    // cookie; this API-token fixture has not completed that browser challenge.
+    const adminWithoutStepUp = await request.get(
+      apiBase + "/admin/sellers/" + encodeURIComponent(fixture.sellerId) + "/documents",
+      { headers: auth(roles.admin), timeout: 20_000 },
+    );
+    expect(adminWithoutStepUp.status(), "admin without MFA step-up must not read seller documents").toBe(403);
 
     for (const role of ["BUYER", "SELLER"] as const) {
       const token = role === "BUYER" ? roles.buyer : roles.seller;

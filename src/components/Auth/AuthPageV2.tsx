@@ -252,7 +252,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
         const approval = await bazaarApi.getOnboardingStatus(sessionToken, requestedProfileRole);
         if (approval.success && approval.status !== 'APPROVED') {
           setOnboardingStatus(approval.status || 'PENDING');
-          setPendingToken(response.token);
+          setPendingToken(sessionToken);
           setApplicationSubmitted(true);
           return;
         }
