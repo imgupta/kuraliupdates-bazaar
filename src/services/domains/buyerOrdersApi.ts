@@ -80,7 +80,8 @@ export const buyerOrdersApi = {
       const idempotencyKey = sessionStorage.getItem(storageKey)
         || `ku-${globalThis.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2)}`;
       sessionStorage.setItem(storageKey, idempotencyKey);
-      const correlationId = createCheckoutCorrelationId();\n      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const correlationId = createCheckoutCorrelationId();
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'Idempotency-Key': idempotencyKey, 'X-Correlation-ID': correlationId, ...(localStorage.getItem('kurali_auth_token') ? { Authorization: `Bearer ${localStorage.getItem('kurali_auth_token')}` } : {}) },
         body: requestBody,
