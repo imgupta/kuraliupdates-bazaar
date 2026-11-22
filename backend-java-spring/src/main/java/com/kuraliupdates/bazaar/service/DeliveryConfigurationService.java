@@ -24,6 +24,14 @@ public class DeliveryConfigurationService {
                 "SELECT ESTIMATED_DELIVERY_MINS FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
     }
 
+    public BigDecimal nearbyRadiusKm() {
+        return decimalSetting("NEARBY_RADIUS_KM", BigDecimal.valueOf(2));
+    }
+
+    public BigDecimal maxRouteKm() {
+        return decimalSetting("MAX_ROUTE_KM", BigDecimal.valueOf(8));
+    }
+
     public int maxSellersPerBatch() {
         Integer configured = jdbc.queryForObject(
                 "SELECT MAX_SELLERS_PER_BATCH FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
