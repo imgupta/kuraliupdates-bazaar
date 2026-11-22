@@ -16,5 +16,5 @@ test('buyer catalogue search expands common Hindi and Punjabi grocery terms', ()
 test('buyer search normalizes Unicode and whitespace before matching', () => {
   assert.match(source, /normalize\('NFKC'\)/);
   assert.match(source, /replace\(\/\\s\+\/g, ' '\)/);
-  assert.match(source, /terms\.some\(term => haystack\.includes\(term\)\)/);
+  assert.match(source, /groups\.every\(alternatives => alternatives\.some\(term => haystack\.includes\(term\)\)\)/);
 });
