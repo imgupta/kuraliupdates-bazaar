@@ -8,7 +8,6 @@ interface ProductCardProps {
   onBargain: (product: Product) => void;
   onAddToCart: (product: Product) => void;
   onRemoveFromCart: (product: Product) => void;
-  onBuyNow: (product: Product) => void;
   onViewDetails: (product: Product) => void;
 }
 
@@ -16,7 +15,7 @@ const getEffectivePrice = (product: Product) =>
   Math.round(product.sellerPrice * (1 - product.additionalDiscountPercent / 100));
 
 export const ProductCard: React.FC<ProductCardProps> = ({
-  product, quantity, onBargain, onAddToCart, onRemoveFromCart, onBuyNow, onViewDetails,
+  product, quantity, onBargain, onAddToCart, onRemoveFromCart, onViewDetails,
 }) => {
   const effectivePrice = getEffectivePrice(product);
   const savings = Math.max(0, product.mrp - effectivePrice);
@@ -62,7 +61,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-1.5 py-1">
             <button type="button" onClick={() => onRemoveFromCart(product)} disabled={quantity <= 0}
               aria-label={`Remove one ${product.title} from cart`}
@@ -76,10 +75,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <Plus className="h-4 w-4" />
             </button>
           </div>
-          <button onClick={() => onBuyNow(product)} disabled={product.stock <= 0}
-            className="rounded-xl bg-slate-900 py-2.5 text-[11px] font-extrabold text-white transition-colors hover:bg-slate-800 disabled:bg-slate-300">
-            Buy Now
-          </button>
+
         </div>
 
         <div className="border-t border-slate-100 pt-2">
