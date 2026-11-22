@@ -140,6 +140,10 @@ public class AdminMfaService {
     }
 
     private boolean isStepUpValid(AdminMfaFactorEntity factor, String sessionToken, String stepUpToken) {
+        // A missing step-up cookie is the normal state immediately after a
+        // portal handoff. Report that MFA is required; never hash a null token.
+        if (stepUpToken == null || stepUpToken.isBlank()
+                || sessionToken == null || sessionToken.isBlank()) return false;
         if (!Integer.valueOf(1).equals(factor.getEnabled()) || factor.getStepUpExpiresAt() == null
                 || !factor.getStepUpExpiresAt().isAfter(LocalDateTime.now())) return false;
         return constantTimeEquals(factor.getStepUpTokenHash(), hash(stepUpToken))
