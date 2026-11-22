@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { API_BASE_URL } from '../../services/http/apiConfig';
 
 type MfaStatus = { enabled: boolean; stepUpValid: boolean };
+type MfaRequestError = Error & { status?: number; code?: string; correlationId?: string };
 type Enrollment = { secret: string; otpauthUri: string };
 
 type Props = { children: React.ReactNode };
@@ -16,17 +17,26 @@ export const AdminMfaGate: React.FC<Props> = ({ children }) => {
   const [error, setError] = useState('');
 
   const request = useCallback(async (path: string, method = 'GET', payload?: unknown) => {
+    const correlationId = 'admin-mfa-' + (window.crypto?.randomUUID?.() || (Date.now() + '-' + Math.random().toString(36).slice(2, 10)));
     const response = await fetch(API_BASE_URL + path, {
       method,
+      credentials: 'same-origin',
       cache: 'no-store',
       headers: {
         Accept: 'application/json',
+        'X-Correlation-ID': correlationId,
         ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }),
       },
       ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.message || 'Administrator verification request failed.');
+    if (!response.ok) {
+      const failure = new Error(data.message || ('Administrator verification failed (HTTP ' + response.status + ').')) as MfaRequestError;
+      failure.status = response.status;
+      failure.code = data.code || data.errorCode;
+      failure.correlationId = response.headers.get('X-Correlation-ID') || correlationId;
+      throw failure;
+    }
     return data;
   }, []);
 
@@ -37,7 +47,9 @@ export const AdminMfaGate: React.FC<Props> = ({ children }) => {
       setStatus({ enabled: Boolean(next.enabled), stepUpValid: Boolean(next.stepUpValid) });
       setError('');
     } catch (cause: any) {
-      setError(cause?.message || 'Unable to verify administrator security status.');
+      const statusText = Number.isInteger(cause?.status) ? ' (HTTP ' + cause.status + (cause.code ? ' · ' + cause.code : '') + ')' : '';
+      const reference = cause?.correlationId ? ' Reference: ' + cause.correlationId : '';
+      setError((cause?.message || 'Unable to verify administrator security status.') + statusText + reference);
       setStatus(null);
     } finally {
       if (showLoading) setLoading(false);

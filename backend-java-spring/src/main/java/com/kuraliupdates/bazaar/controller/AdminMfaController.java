@@ -13,12 +13,16 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/admin/mfa")
 @RequiredArgsConstructor
 public class AdminMfaController {
+    private static final Logger log = LoggerFactory.getLogger(AdminMfaController.class);
     public static final String STEP_UP_COOKIE = "__Host-ku_admin_stepup";
     private static final Duration STEP_UP_TTL = Duration.ofMinutes(10);
 
@@ -28,10 +32,21 @@ public class AdminMfaController {
     public ResponseEntity<Map<String, Object>> status(
             @AuthenticationPrincipal UserEntity user,
             Authentication authentication,
-            @CookieValue(name = STEP_UP_COOKIE, required = false) String stepUpToken) {
-        AdminMfaService.Status status = adminMfaService.status(
-                user.getUserId(), sessionToken(authentication), stepUpToken);
-        return ResponseEntity.ok(Map.of("enabled", status.enabled(), "stepUpValid", status.stepUpValid()));
+            @CookieValue(name = STEP_UP_COOKIE, required = false) String stepUpToken,
+            @RequestHeader(value = "X-Correlation-ID", required = false) String suppliedCorrelationId) {
+        String correlationId = safeCorrelationId(suppliedCorrelationId);
+        if (user == null) {
+            log.warn("admin_mfa_status rejected correlationId={} reason=missing_authenticated_principal", correlationId);
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.UNAUTHORIZED, "Administrator session is not authenticated");
+        }
+        String sessionToken = sessionToken(authentication);
+        AdminMfaService.Status status = adminMfaService.status(user.getUserId(), sessionToken, stepUpToken);
+        log.info("admin_mfa_status correlationId={} authenticated=true role=ADMIN mfaEnabled={} stepUpValid={}",
+                correlationId, status.enabled(), status.stepUpValid());
+        return ResponseEntity.ok()
+                .header("X-Correlation-ID", correlationId)
+                .body(Map.of("enabled", status.enabled(), "stepUpValid", status.stepUpValid()));
     }
 
     @PostMapping("/enroll")
@@ -60,6 +75,12 @@ public class AdminMfaController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, stepUpCookie(token).toString())
                 .body(Map.of("success", true, "message", "Administrator verification complete"));
+    }
+
+
+    private String safeCorrelationId(String supplied) {
+        if (supplied != null && supplied.matches("[A-Za-z0-9._-]{8,100}")) return supplied;
+        return "admin-mfa-" + UUID.randomUUID();
     }
 
     private ResponseCookie stepUpCookie(String token) {
