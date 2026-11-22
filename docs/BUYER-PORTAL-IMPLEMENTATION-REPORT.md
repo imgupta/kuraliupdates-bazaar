@@ -49,7 +49,8 @@ No aggregator, wallet, escrow, pooled account or platform-held funds have been i
 | Check | Result |
 |---|---|
 | Implementation source changes | Present on branch |
-| Regression tests added | Present; execution pending |\n| Admin-configurable buyer ETA | Implemented in UI/API/backend with migration V22; execution pending |
+| Regression tests added | Present; execution pending |
+| Admin-configurable buyer ETA | Implemented in UI/API/backend with migration V22; execution pending |
 | Frontend lint/typecheck | Not run in this environment |
 | Frontend production build | Not run in this environment |
 | Backend test suite | Not run in this environment |
