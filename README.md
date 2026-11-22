@@ -36,6 +36,7 @@ KuraliUpdates is a Kurali, Punjab hyperlocal marketplace with two customer journ
 - `DEPLOYMENT.md` — shared-environment release and rollback gates
 - `docs/CURRENT-STATE.md` — historical implementation evidence and remaining work
 - `docs/IMPLEMENTATION-BASELINE-2026-11.md` — consolidated November 2026 product, security, privacy, deployment and verification baseline
+- `docs/BUYER-PORTAL-IMPLEMENTATION-PLAN.md` — approved Buyer Online Shop simplification, seller-direct multi-seller checkout, bargain auto-add behavior and implementation acceptance checklist
 - `docs/SELLER-ONBOARDING.md` — seller registration, CRM, documents and review lifecycle
 
 ## Local quality gates
