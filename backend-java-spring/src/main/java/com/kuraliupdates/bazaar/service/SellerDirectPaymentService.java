@@ -45,7 +45,7 @@ public class SellerDirectPaymentService {
     @Transactional(readOnly = true)
     public Map<String,Object> destination(String sellerId) {
         List<Map<String,Object>> rows = jdbc.queryForList(
-                "SELECT DESTINATION_ID destinationId,SELLER_ID sellerId,UPI_ID upiId,PAYEE_NAME payeeName,VERIFICATION_STATUS verificationStatus,ACTIVE_FLAG active,VERIFIED_AT verifiedAt,UPDATED_AT updatedAt FROM SELLER_PAYMENT_DESTINATIONS WHERE SELLER_ID=?",
+                "SELECT DESTINATION_ID AS "destinationId",SELLER_ID AS "sellerId",UPI_ID AS "upiId",PAYEE_NAME AS "payeeName",VERIFICATION_STATUS AS "verificationStatus",ACTIVE_FLAG AS "active",VERIFIED_AT AS "verifiedAt",UPDATED_AT AS "updatedAt" FROM SELLER_PAYMENT_DESTINATIONS WHERE SELLER_ID=?",
                 sellerId);
         return rows.isEmpty() ? Map.of("configured", false) : rows.get(0);
     }
@@ -55,7 +55,7 @@ public class SellerDirectPaymentService {
         String filter = status == null || status.isBlank() ? "PENDING_VERIFICATION" : status.trim().toUpperCase(Locale.ROOT);
         if (!Set.of("PENDING_VERIFICATION","VERIFIED","REJECTED","ALL").contains(filter))
             throw new ApiException(HttpStatus.BAD_REQUEST, "Unsupported destination status");
-        String sql = "SELECT d.DESTINATION_ID destinationId,d.SELLER_ID sellerId,s.STORE_NAME storeName,s.OWNER_NAME ownerName,d.UPI_ID upiId,d.PAYEE_NAME payeeName,d.VERIFICATION_STATUS verificationStatus,d.ACTIVE_FLAG active,d.UPDATED_AT updatedAt FROM SELLER_PAYMENT_DESTINATIONS d JOIN SELLERS s ON s.SELLER_ID=d.SELLER_ID"
+        String sql = "SELECT d.DESTINATION_ID AS "destinationId",d.SELLER_ID AS "sellerId",s.STORE_NAME AS "storeName",s.OWNER_NAME AS "ownerName",d.UPI_ID AS "upiId",d.PAYEE_NAME AS "payeeName",d.VERIFICATION_STATUS AS "verificationStatus",d.ACTIVE_FLAG AS "active",d.UPDATED_AT AS "updatedAt" FROM SELLER_PAYMENT_DESTINATIONS d JOIN SELLERS s ON s.SELLER_ID=d.SELLER_ID"
                 + ("ALL".equals(filter) ? "" : " WHERE d.VERIFICATION_STATUS=?") + " ORDER BY d.UPDATED_AT";
         return "ALL".equals(filter) ? jdbc.queryForList(sql) : jdbc.queryForList(sql, filter);
     }
@@ -148,7 +148,7 @@ public class SellerDirectPaymentService {
     @Transactional
     public List<Map<String,Object>> sellerPayments(String sellerId) {
         expirePending();
-        return jdbc.queryForList("SELECT p.PAYMENT_ID paymentId,p.ORDER_ID orderId,p.CHECKOUT_GROUP_ID checkoutGroupId,p.BUYER_EMAIL buyerEmail,p.EXPECTED_AMOUNT expectedAmount,p.UPI_ID_SNAPSHOT upiId,p.PAYEE_NAME_SNAPSHOT payeeName,p.PAYMENT_STATUS paymentStatus,p.UTR_REFERENCE utrReference,p.BUYER_SUBMITTED_AT buyerSubmittedAt,p.EXPIRES_AT expiresAt,p.REFUND_STATUS refundStatus,p.REFUND_REASON refundReason,p.REFUND_AMOUNT refundAmount,p.REFUND_REFERENCE refundReference FROM ORDER_SELLER_PAYMENTS p WHERE p.SELLER_ID=? ORDER BY p.CREATED_AT DESC",
+        return jdbc.queryForList("SELECT p.PAYMENT_ID AS "paymentId",p.ORDER_ID AS "orderId",p.CHECKOUT_GROUP_ID AS "checkoutGroupId",p.BUYER_EMAIL AS "buyerEmail",p.EXPECTED_AMOUNT AS "expectedAmount",p.UPI_ID_SNAPSHOT AS "upiId",p.PAYEE_NAME_SNAPSHOT AS "payeeName",p.PAYMENT_STATUS AS "paymentStatus",p.UTR_REFERENCE AS "utrReference",p.BUYER_SUBMITTED_AT AS "buyerSubmittedAt",p.EXPIRES_AT AS "expiresAt",p.REFUND_STATUS AS "refundStatus",p.REFUND_REASON AS "refundReason",p.REFUND_AMOUNT AS "refundAmount",p.REFUND_REFERENCE AS "refundReference" FROM ORDER_SELLER_PAYMENTS p WHERE p.SELLER_ID=? ORDER BY p.CREATED_AT DESC",
                 sellerId);
     }
 
