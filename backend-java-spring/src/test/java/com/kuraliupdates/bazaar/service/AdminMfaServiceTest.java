@@ -72,4 +72,41 @@ class AdminMfaServiceTest {
         assertTrue(service.isStepUpValid("admin-1", "session-token", token));
     }
 
+    @Test
+    void statusWithoutStepUpCookieReportsMfaRequiredInsteadOfThrowing() {
+        AdminMfaFactorRepository factors = mock(AdminMfaFactorRepository.class);
+        AdminMfaRecoveryCodeRepository recovery = mock(AdminMfaRecoveryCodeRepository.class);
+        AdminMfaService service = new AdminMfaService(factors, recovery,
+                new MockEnvironment().withProperty("app.jwt.secret", ROOT_SECRET));
+        AdminMfaFactorEntity enabledFactor = AdminMfaFactorEntity.builder()
+                .userId("admin-1")
+                .enabled(1)
+                .createdAt(java.time.LocalDateTime.now())
+                .updatedAt(java.time.LocalDateTime.now())
+                .build();
+        when(factors.findById("admin-1")).thenReturn(Optional.of(enabledFactor));
+
+        AdminMfaService.Status status = service.status("admin-1", "active-session", null);
+
+        assertTrue(status.enabled());
+        assertFalse(status.stepUpValid());
+    }
+
+    @Test
+    void statusWithoutSessionOrStepUpTokenIsSafeAndRequiresReauthentication() {
+        AdminMfaFactorRepository factors = mock(AdminMfaFactorRepository.class);
+        AdminMfaRecoveryCodeRepository recovery = mock(AdminMfaRecoveryCodeRepository.class);
+        AdminMfaService service = new AdminMfaService(factors, recovery,
+                new MockEnvironment().withProperty("app.jwt.secret", ROOT_SECRET));
+        AdminMfaFactorEntity enabledFactor = AdminMfaFactorEntity.builder()
+                .userId("admin-1")
+                .enabled(1)
+                .createdAt(java.time.LocalDateTime.now())
+                .updatedAt(java.time.LocalDateTime.now())
+                .build();
+        when(factors.findById("admin-1")).thenReturn(Optional.of(enabledFactor));
+
+        assertFalse(service.status("admin-1", null, null).stepUpValid());
+    }
+
 }
