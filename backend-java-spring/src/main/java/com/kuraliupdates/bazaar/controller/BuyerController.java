@@ -140,7 +140,6 @@ public class BuyerController {
     private String safeMessage(String value) {
         if (value == null) return "";
         return value.replaceAll("[\\r\\n\\t]", " ").substring(0, Math.min(value.length(), 240));
-\\t]", " ").substring(0, Math.min(value.length(), 240));
     }
 
     private UserEntity requireBuyer(Authentication authentication) {
