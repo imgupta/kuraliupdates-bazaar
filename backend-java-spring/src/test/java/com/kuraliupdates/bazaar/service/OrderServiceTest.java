@@ -547,9 +547,28 @@ class OrderServiceTest {
         verify(productRepository, never()).findLockedByProductId(anyString());
     }
 
+    @Test
+    void rejectsDeliveryWhenSellerLocationIsNotVerified() {
+        SellerEntity unverifiedSeller = SellerEntity.builder().sellerId("SELLER-1")
+                .storeName("Synthetic Store").status("APPROVED").codEnabled(true)
+                .locationVerified(false).build();
+        ProductEntity product = ProductEntity.builder().productId("P-1").seller(unverifiedSeller)
+                .title("Synthetic Test Product").sellerPrice(BigDecimal.valueOf(20))
+                .additionalDiscountPercent(BigDecimal.ZERO).stock(5).build();
+        when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
+        when(sellerRepository.findById("SELLER-1")).thenReturn(Optional.of(unverifiedSeller));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.placeOrder(request("COD", List.of(new OrderItemRequest("P-1", 1, null))), buyer()));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        verify(orderRepository, never()).save(any(OrderEntity.class));
+    }
+
     private SellerEntity sellerWithId(String id) {
         return SellerEntity.builder().sellerId(id).storeName("Synthetic " + id)
-                .status("APPROVED").storeOpen(true)
+                .status("APPROVED").storeOpen(true).codEnabled(true).locationVerified(true)
+                .latitude(new BigDecimal("30.0000000")).longitude(new BigDecimal("76.5000000"))
                 .minOrderForFreeDelivery(BigDecimal.valueOf(499))
                 .baseDeliveryFee(BigDecimal.valueOf(35)).build();
     }
@@ -567,7 +586,9 @@ class OrderServiceTest {
 
     private SellerEntity seller() {
         return SellerEntity.builder().sellerId("SELLER-1").storeName("Synthetic Store")
-                .status("APPROVED").minOrderForFreeDelivery(BigDecimal.valueOf(499))
+                .status("APPROVED").codEnabled(true).locationVerified(true)
+                .latitude(new BigDecimal("30.0000000")).longitude(new BigDecimal("76.5000000"))
+                .minOrderForFreeDelivery(BigDecimal.valueOf(499))
                 .baseDeliveryFee(BigDecimal.valueOf(35)).build();
     }
 
