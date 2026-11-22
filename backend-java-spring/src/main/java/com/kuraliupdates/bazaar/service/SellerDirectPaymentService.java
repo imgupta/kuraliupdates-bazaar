@@ -325,10 +325,40 @@ public class SellerDirectPaymentService {
         v.put("notice", "Pay the seller directly. Returning from a UPI app or submitting a UTR does not confirm payment.");
         return v;
     }
-    private void expirePending() {
+    /**
+     * Distributed-safe expiry sweep. Oracle row locks with SKIP LOCKED let multiple
+     * application instances run the same scheduled sweep without double-processing rows.
+     */
+    @Transactional
+    public int expirePendingPaymentsBatch() {
         LocalDateTime now = LocalDateTime.now();
-        jdbc.update("UPDATE ORDER_SELLER_PAYMENTS SET PAYMENT_STATUS='PAYMENT_EXPIRED',UPDATED_AT=? WHERE PAYMENT_STATUS IN ('AWAITING_PAYMENT','AWAITING_SELLER_CONFIRMATION') AND EXPIRES_AT<?", now, now);
-        jdbc.update("UPDATE ORDERS SET PAYMENT_STATUS='PAYMENT_EXPIRED' WHERE ORDER_ID IN (SELECT ORDER_ID FROM ORDER_SELLER_PAYMENTS WHERE PAYMENT_STATUS='PAYMENT_EXPIRED') AND PAYMENT_STATUS='PENDING_UPI'");
+        List<Map<String,Object>> expired = jdbc.queryForList(
+                "SELECT PAYMENT_ID,ORDER_ID,SELLER_ID,PAYMENT_STATUS FROM ORDER_SELLER_PAYMENTS "
+                        + "WHERE PAYMENT_STATUS IN ('AWAITING_PAYMENT','AWAITING_SELLER_CONFIRMATION') "
+                        + "AND EXPIRES_AT<? FOR UPDATE SKIP LOCKED", now);
+        int count = 0;
+        for (Map<String,Object> row : expired) {
+            String paymentId = String.valueOf(row.get("PAYMENT_ID"));
+            String orderId = String.valueOf(row.get("ORDER_ID"));
+            String sellerId = String.valueOf(row.get("SELLER_ID"));
+            String previous = String.valueOf(row.get("PAYMENT_STATUS"));
+            int updated = jdbc.update(
+                    "UPDATE ORDER_SELLER_PAYMENTS SET PAYMENT_STATUS='PAYMENT_EXPIRED',UPDATED_AT=? "
+                            + "WHERE PAYMENT_ID=? AND PAYMENT_STATUS IN ('AWAITING_PAYMENT','AWAITING_SELLER_CONFIRMATION')",
+                    now, paymentId);
+            if (updated == 1) {
+                jdbc.update("UPDATE ORDERS SET PAYMENT_STATUS='PAYMENT_EXPIRED' WHERE ORDER_ID=? AND PAYMENT_STATUS='PENDING_UPI'",
+                        orderId);
+                audit(paymentId, sellerId, null, "system", "SYSTEM", "PAYMENT_EXPIRED",
+                        previous, "PAYMENT_EXPIRED", "24-hour seller payment window elapsed");
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private void expirePending() {
+        expirePendingPaymentsBatch();
     }
     private LocalDateTime asDate(Object value) {
         if (value instanceof java.sql.Timestamp t) return t.toLocalDateTime();
