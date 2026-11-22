@@ -276,8 +276,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
                   )}
                 </div>
                 <div>
-                  <p className="font-bold text-xs text-slate-900">UPI (Coming soon)</p>
-                  <p className="text-[11px] text-slate-500">Online payments are not enabled yet</p>
+                  <p className="font-bold text-xs text-slate-900">UPI to each seller</p>
+                  <p className="text-[11px] text-slate-500">Pay verified stores directly</p>
                 </div>
               </button>
 
