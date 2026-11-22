@@ -477,6 +477,9 @@ public class OrderService {
                 continue;
             }
             sellerDirectPaymentService.cancelUnpaidPaymentForOrder(order.getOrderId());
+            if ("UPI".equalsIgnoreCase(order.getPaymentMethod()) && !"PAID".equalsIgnoreCase(order.getPaymentStatus())) {
+                order.setPaymentStatus("CANCELLED");
+            }
             order.setStatus("CANCELLED");
             order.setFulfilmentStatus("CANCELLED");
             // COD has not been collected; retain PENDING_COD. Order and fulfilment
