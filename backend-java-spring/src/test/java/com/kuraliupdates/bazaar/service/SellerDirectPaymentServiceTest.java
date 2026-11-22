@@ -22,6 +22,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class SellerDirectPaymentServiceTest {
     @Mock private JdbcTemplate jdbc;
+    @Mock private UpiIntentLinkFactory upiIntentLinkFactory;
     @InjectMocks private SellerDirectPaymentService service;
 
     @Test
