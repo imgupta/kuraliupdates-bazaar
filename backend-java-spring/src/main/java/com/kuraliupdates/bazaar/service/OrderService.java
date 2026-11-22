@@ -315,6 +315,7 @@ public class OrderService {
                 .buyerName(buyer.getName())
                 .buyerPhone(buyer.getPhone())
                 .buyerEmail(buyer.getEmail() == null ? null : buyer.getEmail().trim().toLowerCase())
+                .buyerUserId(buyer.getUserId())
                 .deliveryAddress(request.deliveryAddress().trim())
                 .deliveryLocality(request.deliveryLocality().trim())
                 .deliveryLatitude(request.deliveryLatitude() == null ? null : BigDecimal.valueOf(request.deliveryLatitude()))
