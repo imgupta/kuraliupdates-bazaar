@@ -17,6 +17,12 @@ import java.util.Map;
 public class BuyerPaymentController {
     private final SellerDirectPaymentService payments;
 
+    @GetMapping("/sellers/{sellerId}/payment-options")
+    public ResponseEntity<Map<String,Object>> paymentOptions(@PathVariable String sellerId, Authentication auth) {
+        requireBuyer(auth);
+        return ResponseEntity.ok(payments.buyerPaymentOptions(sellerId));
+    }
+
     @GetMapping("/checkout-groups/{checkoutGroupId}/payments")
     public ResponseEntity<java.util.List<Map<String,Object>>> groupPayments(@PathVariable String checkoutGroupId, Authentication auth) {
         UserEntity buyer = requireBuyer(auth);
