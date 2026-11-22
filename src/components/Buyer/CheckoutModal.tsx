@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   X,
   ShieldCheck,
-  CreditCard,
   QrCode,
   Banknote,
   MapPin,
@@ -66,26 +65,27 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
     }
     if (user.locality && KURALI_LOCALITIES.includes(user.locality)) setDeliveryLocality(user.locality);
   }, [user.name, user.phone, user.locality, user.addressLine1, user.address, defaultAddress?.id, defaultAddress?.addressLine1]);
-  const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Card' | 'COD' | 'NetBanking'>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'COD'>('COD');
   const [paymentOptions, setPaymentOptions] = useState<Record<string,{codEnabled:boolean;upiEnabled:boolean}>>({});
   const [paymentOptionsLoading, setPaymentOptionsLoading] = useState(false);
   const [paymentOptionsError, setPaymentOptionsError] = useState('');
   const sellerIdsKey = Array.from(new Set(checkoutItems.map(item => item.product.sellerId))).sort().join('|');
   const checkoutSellerIds = sellerIdsKey.split('|').filter(Boolean);
   useEffect(() => {
-    if (!checkoutSellerIds.length) return;
+    const sellerIds = sellerIdsKey.split('|').filter(Boolean);
+    if (!sellerIds.length) return;
     let active = true;
     setPaymentOptionsLoading(true);
     setPaymentOptionsError('');
-    void Promise.all(checkoutSellerIds.map(async sellerId => ({
+    void Promise.all(sellerIds.map(async sellerId => ({
       sellerId, options: await buyerPaymentsApi.getPaymentOptions(sellerId),
     }))).then(results => {
       if (!active) return;
       const next: Record<string,{codEnabled:boolean;upiEnabled:boolean}> = {};
       results.forEach(({sellerId,options}) => { next[sellerId] = { codEnabled: options.codEnabled === true, upiEnabled: options.upiEnabled === true }; });
       setPaymentOptions(next);
-      const codAvailable = checkoutSellerIds.every(id => next[id]?.codEnabled);
-      const upiAvailable = checkoutSellerIds.every(id => next[id]?.upiEnabled);
+      const codAvailable = sellerIds.every(id => next[id]?.codEnabled);
+      const upiAvailable = sellerIds.every(id => next[id]?.upiEnabled);
       setPaymentMethod(current => current === 'COD' && codAvailable ? current : current === 'UPI' && upiAvailable ? current : codAvailable ? 'COD' : upiAvailable ? 'UPI' : 'COD');
     }).catch((error:any) => {
       if (active) setPaymentOptionsError(error?.message || 'Unable to verify seller payment options.');
