@@ -20,6 +20,8 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
 
   const [authMode, setAuthMode] = useState<AuthMode>(roleRegistration ? 'register' : 'signin');
   const [contactMethod, setContactMethod] = useState<ContactMethod>('email');
+  const [emailValue, setEmailValue] = useState('');
+  const [phoneValue, setPhoneValue] = useState('');
   const [step, setStep] = useState<'form' | 'otp'>('form');
   const [otp, setOtp] = useState('');
   const [emailOtp, setEmailOtp] = useState('');
@@ -413,9 +415,9 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
                 <div>
                   <label className="block mb-1 text-xs font-bold text-slate-700">{authMode === 'register' || contactMethod === 'email' ? 'Email address' : 'Mobile number'} <span className="text-rose-500">*</span></label>
                   {authMode === 'register' || contactMethod === 'email' ? (
-                    <div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input ref={emailRef} type="email" autoComplete="email" placeholder="name@example.com" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-amber-500 focus:bg-white" /></div>
+                    <div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input ref={emailRef} type="email" autoComplete="email" value={emailValue} onChange={e => setEmailValue(e.target.value)} placeholder="name@example.com" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-amber-500 focus:bg-white" /></div>
                   ) : (
-                    <div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input ref={phoneRef} type="tel" inputMode="numeric" maxLength={10} placeholder="10-digit mobile number" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-amber-500 focus:bg-white" /></div>
+                    <div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input ref={phoneRef} type="tel" inputMode="numeric" maxLength={10} value={phoneValue} onChange={e => setPhoneValue(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="10-digit mobile number" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-amber-500 focus:bg-white" /></div>
                   )}
                 </div>
 
@@ -423,7 +425,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
                   <>
                     <div>
                       <label className="block mb-1 text-xs font-bold text-slate-700">Mobile number <span className="text-rose-500">*</span></label>
-                      <div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input ref={phoneRef} type="tel" inputMode="numeric" maxLength={10} placeholder="10-digit mobile number" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-amber-500 focus:bg-white" /></div>
+                      <div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input ref={phoneRef} type="tel" inputMode="numeric" maxLength={10} value={phoneValue} onChange={e => setPhoneValue(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="10-digit mobile number" className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-amber-500 focus:bg-white" /></div>
                       <p className="mt-1 text-[10px] text-slate-400">Used for your account and future mobile OTP sign-in.</p>
                     </div>
                     {registrationRole !== 'delivery' && registrationRole !== 'professional' && <div>
@@ -500,7 +502,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
                 {loading ? 'Verifying...' : 'Verify & Continue'}
               </button>
               <div className="mt-4 flex items-center justify-between text-[11px]">
-                <button type="button" onClick={() => { setStep('form'); setOtp(''); setError(''); }} className="font-bold text-slate-600 hover:text-slate-900">Edit details</button>
+                <button type="button" onClick={() => { setLoading(false); setStep('form'); setOtp(''); setEmailOtp(''); setPhoneOtp(''); setPendingIdentifier(''); setError(''); }} className="font-bold text-slate-600 hover:text-slate-900">Edit details</button>
                 {countdown ? <span className="text-slate-400">Resend in {countdown}s</span> : <button type="button" onClick={handleSendOtp} className="font-bold text-amber-700 hover:underline">Resend code</button>}
               </div>
             </div>
