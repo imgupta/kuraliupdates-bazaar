@@ -85,6 +85,34 @@ public class AdminController {
         return ResponseEntity.ok(sellerRepository.findAll().stream().map(AdminSellerResponse::from).toList());
     }
 
+    @PatchMapping("/sellers/{sellerId}")
+    @Transactional
+    @Operation(summary = "Update editable seller profile fields from the root admin desk")
+    public ResponseEntity<AdminSellerResponse> updateSellerProfile(@PathVariable String sellerId, @RequestBody Map<String,String> request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication == null ? null : authentication.getPrincipal();
+        com.kuraliupdates.bazaar.entity.UserEntity actor = principal instanceof com.kuraliupdates.bazaar.entity.UserEntity u ? u : null;
+        if (actor == null || !Integer.valueOf(1).equals(actor.getIsAdmin()))
+            throw new com.kuraliupdates.bazaar.exception.ApiException(org.springframework.http.HttpStatus.FORBIDDEN, "Root administrator access is required" );
+        SellerEntity seller = sellerRepository.findById(sellerId).orElseThrow(() -> new com.kuraliupdates.bazaar.exception.ApiException(org.springframework.http.HttpStatus.NOT_FOUND, "Seller not found"));
+        String storeName = request.getOrDefault("storeName", seller.getStoreName()).trim();
+        String ownerName = request.getOrDefault("ownerName", seller.getOwnerName()).trim();
+        String phone = request.getOrDefault("phone", seller.getPhone()).replaceAll("\\\\D", "");
+        String category = request.getOrDefault("category", seller.getCategory()).trim();
+        String address = request.getOrDefault("address", seller.getAddress()).trim();
+        String locality = request.getOrDefault("locality", seller.getLocality()).trim();
+        String description = request.getOrDefault("description", seller.getDescription() == null ? "" : seller.getDescription()).trim();
+        if (storeName.isBlank() || storeName.length() > 255 || ownerName.isBlank() || ownerName.length() > 150 || category.isBlank() || category.length() > 100 || phone.length() < 10 || phone.length() > 15 || address.isBlank() || address.length() > 500 || locality.isBlank() || locality.length() > 150 || description.length() > 4000)
+            throw new com.kuraliupdates.bazaar.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "Check required seller fields and maximum lengths");
+        Map<String,String> before = new LinkedHashMap<>();
+        before.put("storeName", seller.getStoreName()); before.put("ownerName", seller.getOwnerName()); before.put("phone", seller.getPhone()); before.put("category", seller.getCategory()); before.put("address", seller.getAddress()); before.put("locality", seller.getLocality()); before.put("description", seller.getDescription() == null ? "" : seller.getDescription());
+        seller.setStoreName(storeName); seller.setOwnerName(ownerName); seller.setPhone(phone); seller.setCategory(category); seller.setAddress(address); seller.setLocality(locality); seller.setDescription(description);
+        SellerEntity saved = sellerRepository.save(seller);
+        jdbcTemplate.update("INSERT INTO ADMIN_ACCOUNT_AUDIT (AUDIT_ID,ACTOR_USER_ID,ACTOR_EMAIL,TARGET_USER_ID,TARGET_EMAIL,ACTION,PREVIOUS_STATUS,NEW_STATUS,REASON,OCCURRED_AT) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                UUID.randomUUID().toString(), actor.getUserId(), actor.getEmail(), seller.getUserId(), seller.getEmail(), "SELLER_PROFILE_UPDATE", seller.getStatus(), seller.getStatus(), "Seller profile fields updated: " + before.keySet().stream().filter(k -> !java.util.Objects.equals(before.get(k), switch(k) { case "storeName" -> storeName; case "ownerName" -> ownerName; case "phone" -> phone; case "category" -> category; case "address" -> address; case "locality" -> locality; default -> description; })).collect(java.util.stream.Collectors.joining(", ")), LocalDateTime.now());
+        return ResponseEntity.ok(AdminSellerResponse.from(saved));
+    }
+
     @GetMapping("/delivery")
     @Operation(summary = "Get all delivery partners from the database")
     public ResponseEntity<List<AdminDeliveryAgentResponse>> getAllDeliveryAgents() {
