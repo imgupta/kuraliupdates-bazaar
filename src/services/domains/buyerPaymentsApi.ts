@@ -14,7 +14,7 @@ const request = async (path: string, init?: RequestInit) => {
 };
 
 export const buyerPaymentsApi = {
-  getPaymentOptions: (sellerId: string) => request(`/buyers/sellers/${encodeURIComponent(sellerId)}/payment-options`),
+  getPaymentOptions: (sellerId: string) => request(`/buyers/orders/sellers/${encodeURIComponent(sellerId)}/payment-options`),
   getOrderPayment: (orderId: string) => request(`/buyers/orders/${encodeURIComponent(orderId)}/payment`),
   getCheckoutPayments: (groupId: string) => request(`/buyers/orders/checkout-groups/${encodeURIComponent(groupId)}/payments`),
   submitUtr: async (orderId: string, utrReference: string) => {
