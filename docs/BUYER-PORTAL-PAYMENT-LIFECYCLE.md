@@ -69,7 +69,7 @@ All buyer payment/support operations use the authenticated buyer's stable user I
 - Checkout uses a buyer-scoped `Idempotency-Key` and SHA-256 request hash. Reuse with a different payload conflicts; a matching key replays the created order/group.
 - UTR submission has its own idempotency key and globally unique UTR reference.
 - Multi-seller delivery fee is allocated proportionally to each seller suborder's subtotal (last suborder receives rounding remainder); seller payment amounts are updated after the final allocation.
-- Existing admin-configured maximum seller count is enforced. Per-seller delivery radius is checked against verified seller coordinates and buyer coordinates. Combined route uses Google road distance when available; otherwise a nearest-neighbour verified-coordinate estimate with a road-detour factor is used. If the required coordinates are absent/unverified, the coordinate-based check cannot establish a radius.
+- Existing admin-configured maximum seller count is enforced. Delivery checkout fails closed unless buyer coordinates and verified seller coordinates are present and valid; every seller must be within the configured radius. Combined route uses Google road distance when available; otherwise a nearest-neighbour verified-coordinate estimate with a road-detour factor is used. Multi-seller delivery is rejected when no combined route estimate can be established. The available route estimate also drives per-kilometre delivery fee.
 - Combined route limit uses `MAX_ROUTE_KM`. Store pickup skips delivery-radius/route checks.
 - UPI seller orders cannot enter `READY_FOR_PICKUP` until seller confirmation. Delivery claim APIs accept only ready orders.
 - Buyer and seller cancellation closes unpaid payment obligations. Paid orders cannot be cancelled through the unpaid-cancellation path.
@@ -92,6 +92,37 @@ Buyer issues are linked to the authenticated buyer and exact seller suborder. Ad
 - Checkout keys are retained for replay protection. UTR references are unique across payment records.
 - Do not log payment instructions, UTR values, buyer secrets or authentication tokens unnecessarily.
 
+
+## Buyer UI map
+
+| Buyer task | Component(s) | Primary actions and states |
+|---|---|---|
+| Discover/search catalogue | `BuyerHome`, `OnlineShopHome` | Shop/Daily Help switch; category/search; optional price/stock/sort filters; curated multilingual synonym matching |
+| Product actions | `ProductCard`, `ProductDetailsModal` | ADD then quantity controls; favourite toggle; bargain; details; Buy Now isolated from saved basket |
+| Favourites and lists | `BuyerSavedListsPanel` | Device-local favourites; create/delete named lists; add/remove products; add available items to cart |
+| Checkout | `CheckoutModal`, buyer order API | Server revalidation; seller-grouped suborders; COD or verified seller-direct UPI; ETA only from admin configuration |
+| Per-seller payment | `BuyerSellerPaymentPanel` | UPI instructions/payee snapshot; UTR submit; awaiting seller confirmation; confirmed/rejected/expired; seller-funded refund request |
+| Support and status | `BuyerOrderIssuePanel`, `OrderTrackingModal` | Issue category/details; seller suborder status; delivery milestones; Buy Again at current catalogue price/stock |
+
+## Bargain and checkout sequence
+
+```mermaid
+flowchart TD
+  A[Buyer makes offer] --> B{Seller response}
+  B -->|Reject or pending| C[Basket unchanged]
+  B -->|Accept| D[Accepted offer snapshot]
+  D --> E[Add agreed price to basket once]
+  E --> F{Buyer checkout}
+  F --> G[Server revalidates stock price offer and seller eligibility]
+  G --> H[Create seller-owned suborders]
+  H --> I{Payment method}
+  I -->|COD enabled| J[Pending COD per seller]
+  I -->|Verified seller UPI| K[Separate UPI obligation per seller]
+  K --> L[Buyer submits UTR]
+  L --> M[Seller confirms or rejects]
+  M --> N[Only confirmed seller suborder becomes paid]
+```
+
 ## Migrations and rollback
 
 - V48: re-versions the ETA column migration. This removes the duplicate V22 version collision with the existing bargain lifecycle migration.
@@ -104,7 +135,8 @@ Buyer issues are linked to the authenticated buyer and exact seller suborder. Ad
 
 - No UPI bank API/PSP verification; admin attestation and seller confirmation are operational controls, not bank verification.
 - No external refund execution or independent refund verification; seller records the actual refund reference.
-- 24-hour expiry is applied when payment APIs are read/reviewed; no scheduled expiry worker.
-- Coordinate radius checks require verified seller and buyer coordinates. Unverified/missing coordinates cannot prove the radius.
-- Smart multilingual catalogue synonym/transliteration expansion, Buy Again/favourites/lists and full accessibility review remain separate buyer-experience work.
+- No UPI bank API/PSP ownership or independent refund verification is integrated; admin attestation and seller-entered refund reference remain operational controls.
+- Delivery checkout is rejected when verified seller or buyer coordinates are missing/invalid; store pickup remains available where enabled.
+- Search synonym coverage is a curated English/Roman Hindi/Devanagari/Gurmukhi grocery MVP, not a general Indic transliteration engine. Favourites and saved lists persist in the current browser/device and are not synchronized across devices.
+- Full accessibility review and staging mobile/desktop usability acceptance remain to be recorded.
 - CI, Oracle migration execution, staging buyer/seller/admin E2E, concurrency/idempotency rehearsal and production deployment have not been claimed until GitHub/staging evidence is available.
