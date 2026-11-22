@@ -1,17 +1,31 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Sparkles,
   ShoppingBag,
   SlidersHorizontal,
   Store,
+  Heart,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
 import { matchesBuyerSearch } from '../../utils/buyerSearch';
 import { CompareSellersModal } from './CompareSellersModal';
 import { ProductCard } from './ProductCard';
+import { BuyerSavedListsPanel, type BuyerSavedList } from './BuyerSavedListsPanel';
 import { ProductDetailsModal } from './ProductDetailsModal';
+
+const SAVED_ITEMS_KEY = 'kurali_buyer_saved_items_v1';
+type SavedItemsState = { favoriteIds: string[]; lists: BuyerSavedList[] };
+const loadSavedItems = (): SavedItemsState => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SAVED_ITEMS_KEY) || '{}');
+    return {
+      favoriteIds: Array.isArray(parsed.favoriteIds) ? parsed.favoriteIds.filter((id: unknown) => typeof id === 'string') : [],
+      lists: Array.isArray(parsed.lists) ? parsed.lists.filter((list: any) => list && typeof list.id === 'string' && typeof list.name === 'string' && Array.isArray(list.productIds)) : [],
+    };
+  } catch { return { favoriteIds: [], lists: [] }; }
+};
 
 interface BuyerHomeProps {
   searchQuery: string;
@@ -44,6 +58,32 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
   const [onlyInStock, setOnlyInStock] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [savedItems, setSavedItems] = useState<SavedItemsState>(() => loadSavedItems());
+  const [showSavedItems, setShowSavedItems] = useState(false);
+  useEffect(() => {
+    try { localStorage.setItem(SAVED_ITEMS_KEY, JSON.stringify(savedItems)); } catch { /* Storage may be disabled; current session still works. */ }
+  }, [savedItems]);
+  const toggleFavorite = (product: Product) => setSavedItems(current => ({
+    ...current,
+    favoriteIds: current.favoriteIds.includes(product.id)
+      ? current.favoriteIds.filter(id => id !== product.id)
+      : [...current.favoriteIds, product.id],
+  }));
+  const createSavedList = (name: string) => setSavedItems(current => ({
+    ...current,
+    lists: [...current.lists, { id: globalThis.crypto?.randomUUID?.() || `list-${Date.now()}`, name, productIds: [] }],
+  }));
+  const deleteSavedList = (listId: string) => setSavedItems(current => ({
+    ...current, lists: current.lists.filter(list => list.id !== listId),
+  }));
+  const addProductToList = (listId: string, productId: string) => setSavedItems(current => ({
+    ...current, lists: current.lists.map(list => list.id === listId && !list.productIds.includes(productId)
+      ? { ...list, productIds: [...list.productIds, productId] } : list),
+  }));
+  const removeProductFromList = (listId: string, productId: string) => setSavedItems(current => ({
+    ...current, lists: current.lists.map(list => list.id === listId
+      ? { ...list, productIds: list.productIds.filter(id => id !== productId) } : list),
+  }));
 
   // Categories list
   const categories = useMemo(() => {
@@ -152,11 +192,19 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
           <span className="sm:hidden">Filter</span>
         </button>
       </div>
-      <div className="flex justify-end">
-        <span className="text-xs text-slate-500">
-          <strong className="text-slate-800">{filteredProducts.length}</strong> products
-        </span>
+      <div className="flex items-center justify-between gap-2">
+        <button type="button" onClick={() => setShowSavedItems(open => !open)} aria-expanded={showSavedItems}
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50">
+          <Heart className="h-3.5 w-3.5" /> Saved ({savedItems.favoriteIds.length})
+        </button>
+        <span className="text-xs text-slate-500"><strong className="text-slate-800">{filteredProducts.length}</strong> products</span>
       </div>
+      {showSavedItems && (
+        <BuyerSavedListsPanel products={products} favoriteIds={savedItems.favoriteIds} lists={savedItems.lists}
+          onToggleFavorite={toggleFavorite} onCreateList={createSavedList} onDeleteList={deleteSavedList}
+          onAddToList={addProductToList} onRemoveFromList={removeProductFromList}
+          onAddToCart={product => addToCart(product, 1)} onClose={() => setShowSavedItems(false)} />
+      )}
 
       {/* Expanded Filter Panel */}
       {showFilters && (
@@ -243,6 +291,8 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
                 updateCartQuantity(item.id, quantity - 1);
               }}
               onViewDetails={setSelectedProduct}
+              isFavorite={savedItems.favoriteIds.includes(product.id)}
+              onToggleFavorite={toggleFavorite}
             />
           ))}
         </div>
