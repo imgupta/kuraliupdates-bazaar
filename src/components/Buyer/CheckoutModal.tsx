@@ -113,7 +113,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
                 ? 'FREE Delivery Qualified (Order > Min Threshold)'
                 : `Standard Delivery Fee: ₹${cartCalculations.deliveryFee}`}
             </span>
-            <span className="text-emerald-700 font-extrabold">25 Mins ETA</span>
+            <span className="text-slate-600 font-semibold">Delivery timing confirmed after seller acceptance</span>
           </div>
 
           {multiSellerCart && (
