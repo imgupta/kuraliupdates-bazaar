@@ -5,6 +5,7 @@ import { API_BASE_URL } from '../../services/http/apiConfig';
 export const AdminSellerPaymentReview: React.FC = () => {
   const [records,setRecords]=useState<any[]>([]);
   const [codSettings,setCodSettings]=useState<any[]>([]);
+  const [issues,setIssues]=useState<any[]>([]);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const load=async()=>{
@@ -18,7 +19,11 @@ export const AdminSellerPaymentReview: React.FC = () => {
       const codResponse=await fetch(`${API_BASE_URL}/admin/payment-destinations/cod-settings`,{headers:{Accept:'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},cache:'no-store'});
       const codData=await codResponse.json().catch(()=>[]);
       if(!codResponse.ok) throw new Error(codData?.message||`Unable to load COD settings (HTTP ${codResponse.status})`);
-      setCodSettings(Array.isArray(codData)?codData:[]);setError('');
+      setCodSettings(Array.isArray(codData)?codData:[]);
+      const issueResponse=await fetch(`${API_BASE_URL}/admin/payment-destinations/order-issues?status=OPEN`,{headers:{Accept:'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},cache:'no-store'});
+      const issueData=await issueResponse.json().catch(()=>[]);
+      if(!issueResponse.ok) throw new Error(issueData?.message||`Unable to load order issues (HTTP ${issueResponse.status})`);
+      setIssues(Array.isArray(issueData)?issueData:[]);setError('');
     } catch(e:any){setError(e?.message||'Unable to load seller payment destinations.');}
     finally{setBusy(false);}
   };
@@ -35,6 +40,20 @@ export const AdminSellerPaymentReview: React.FC = () => {
       if(!response.ok)throw new Error(data?.message||`COD update failed (HTTP ${response.status})`);
       setCodSettings(prev=>prev.map(item=>item.sellerId===sellerId?{...item,codEnabled:enabled?1:0}:item));
     }catch(e:any){setError(e?.message||'Unable to update COD availability.');}
+    finally{setBusy(false);}
+  };
+  const updateIssue=async(issueId:string,status:string)=>{
+    setBusy(true);
+    try{
+      const token=localStorage.getItem('kurali_auth_token');
+      const response=await fetch(`${API_BASE_URL}/admin/payment-destinations/order-issues/${encodeURIComponent(issueId)}`,{
+        method:'PATCH',headers:{'Content-Type':'application/json',Accept:'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},
+        body:JSON.stringify({status}),
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(data?.message||`Issue update failed (HTTP ${response.status})`);
+      setIssues(prev=>prev.filter(issue=>issue.issueId!==issueId));
+    }catch(e:any){setError(e?.message||'Unable to update issue.');}
     finally{setBusy(false);}
   };
   const review=async(sellerId:string,approve:boolean)=>{
@@ -58,6 +77,14 @@ export const AdminSellerPaymentReview: React.FC = () => {
       <h3 className="text-sm font-extrabold">Cash on Delivery availability</h3>
       <p className="text-[11px] text-slate-500">COD is enabled by default for existing sellers. Disable it per seller when COD is not supported.</p>
       {codSettings.map(s=><div key={s.sellerId} className="flex items-center justify-between gap-3 border-t py-2"><span className="text-xs font-semibold">{s.storeName}</span><button type="button" disabled={busy} onClick={()=>void updateCod(s.sellerId,Number(s.codEnabled)!==1)} className={`rounded-lg px-3 py-2 text-xs font-bold ${Number(s.codEnabled)===1?'bg-emerald-50 text-emerald-800':'bg-slate-100 text-slate-700'}`}>{Number(s.codEnabled)===1?'COD enabled · Disable':'COD disabled · Enable'}</button></div>)}
+    </section>
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+      <div><h3 className="text-sm font-extrabold">Buyer order issues</h3><p className="text-[11px] text-slate-500">Open missing, wrong, damaged, delivery, payment and refund reports.</p></div>
+      {issues.length===0?<p className="text-xs text-slate-500">No open buyer issues.</p>:issues.map(issue=><article key={issue.issueId} className="rounded-xl border p-3 space-y-2">
+        <div className="flex items-start justify-between gap-2"><p className="text-xs font-extrabold">{issue.issueType?.replaceAll('_',' ')} · Order #{issue.orderId}</p><span className="text-[10px] text-slate-500">{issue.sellerId}</span></div>
+        <p className="text-xs text-slate-700">{issue.description}</p><p className="text-[10px] text-slate-500">{issue.buyerEmail||'Buyer'} · {issue.issueId}</p>
+        <div className="flex flex-wrap gap-2"><button type="button" disabled={busy} onClick={()=>void updateIssue(issue.issueId,'IN_REVIEW')} className="rounded-lg border px-3 py-2 text-[11px] font-bold">Mark in review</button><button type="button" disabled={busy} onClick={()=>void updateIssue(issue.issueId,'RESOLVED')} className="rounded-lg bg-emerald-700 px-3 py-2 text-[11px] font-bold text-white">Resolve</button></div>
+      </article>)}
     </section>
     {records.length===0?<p className="rounded-xl border bg-white p-5 text-xs text-slate-500">No seller UPI destinations are awaiting review.</p>:records.map(r=><article key={r.destinationId} className="rounded-2xl border bg-white p-4">
       <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-extrabold">{r.storeName}</p><p className="text-xs text-slate-500">{r.ownerName} · {r.sellerId}</p></div><span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800">{r.verificationStatus}</span></div>
