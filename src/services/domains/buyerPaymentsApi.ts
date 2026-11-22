@@ -16,10 +16,20 @@ const request = async (path: string, init?: RequestInit) => {
 export const buyerPaymentsApi = {
   getOrderPayment: (orderId: string) => request(`/buyers/orders/${encodeURIComponent(orderId)}/payment`),
   getCheckoutPayments: (groupId: string) => request(`/buyers/orders/checkout-groups/${encodeURIComponent(groupId)}/payments`),
-  submitUtr: (orderId: string, utrReference: string) => request(`/buyers/orders/${encodeURIComponent(orderId)}/payment/utr`, {
-    method: 'POST',
-    body: JSON.stringify({ utrReference, idempotencyKey: `utr-${orderId}-${globalThis.crypto?.randomUUID?.() || Date.now().toString(36)}` }),
-  }),
+  submitUtr: async (orderId: string, utrReference: string) => {
+    const scope = `${orderId}|${utrReference.trim().toUpperCase()}`;
+    let hash = 2166136261;
+    for (let i = 0; i < scope.length; i++) hash = Math.imul(hash ^ scope.charCodeAt(i), 16777619);
+    const storageKey = `ku-utr-idem:${(hash >>> 0).toString(16)}`;
+    const idempotencyKey = sessionStorage.getItem(storageKey)
+      || `utr-${globalThis.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2)}`;
+    sessionStorage.setItem(storageKey, idempotencyKey);
+    const result = await request(`/buyers/orders/${encodeURIComponent(orderId)}/payment/utr`, {
+      method: 'POST', body: JSON.stringify({ utrReference, idempotencyKey }),
+    });
+    sessionStorage.removeItem(storageKey);
+    return result;
+  },
   requestRefund: (orderId: string, reason: string) => request(`/buyers/orders/${encodeURIComponent(orderId)}/payment/refund`, {
     method: 'POST', body: JSON.stringify({ reason }),
   }),
