@@ -20,6 +20,7 @@ import { useApp } from '../../context/AppContext';
 import { bazaarApi } from '../../services/api';
 import { buyerPaymentsApi } from '../../services/domains/buyerPaymentsApi';
 import type { CartItem } from '../../types';
+import { getCheckoutDeliveryLocation } from '../../entities/checkoutDeliveryLocation';
 
 interface CheckoutModalProps {
   onClose: () => void;
@@ -107,6 +108,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
       const fullAddress = fulfilmentMode === 'STORE_PICKUP'
         ? `Store pickup, ${deliveryLocality}, Kurali (Punjab)`
         : [selectedAddress?.addressLine1, selectedAddress?.landmark, selectedAddress?.formattedAddress, deliveryLocality, 'Kurali (Punjab)'].filter((value, index, values) => value && values.indexOf(value) === index).join(', ');
+      const deliveryLocation = getCheckoutDeliveryLocation(selectedAddress, fulfilmentMode);
       const created = await createOrder({
         buyerName,
         buyerPhone,
@@ -114,6 +116,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
         deliveryLocality,
         paymentMethod,
         fulfilmentMode,
+        ...(deliveryLocation || {}),
         ...(isolatedBuyNow ? { items: checkoutItems } : {}),
       });
 
