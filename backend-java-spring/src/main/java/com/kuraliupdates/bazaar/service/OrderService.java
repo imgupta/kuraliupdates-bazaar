@@ -255,6 +255,9 @@ public class OrderService {
 
         SellerEntity seller = sellerRepository.findById(sellerId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Seller not found"));
+        if ("COD".equalsIgnoreCase(request.paymentMethod()) && !Boolean.TRUE.equals(seller.getCodEnabled())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Cash on Delivery is not enabled by this seller. Choose seller-direct UPI.");
+        }
         BigDecimal freeDeliveryThreshold = seller.getMinOrderForFreeDelivery() == null
                 ? BigDecimal.valueOf(499) : seller.getMinOrderForFreeDelivery();
         BigDecimal deliveryFee = itemSubtotal.compareTo(freeDeliveryThreshold) >= 0
