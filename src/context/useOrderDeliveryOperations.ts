@@ -39,9 +39,16 @@ export const useOrderDeliveryOperations = ({
     customerNotes?: string;
     paymentMethod: 'COD' | 'UPI' | 'StorePay' | 'Card' | 'NetBanking';
     fulfilmentMode?: 'DELIVERY' | 'STORE_PICKUP';
+    items?: CartItem[];
   }): Promise<Order | null> => {
-    if (cart.length === 0) return null;
-    const sellerIds = Array.from(new Set(cart.map(item => item.product.sellerId)));
+    const checkoutItems = orderData.items ?? cart;
+    if (checkoutItems.length === 0) return null;
+    const isIsolatedCheckout = orderData.items !== undefined;
+    const sellerIds = Array.from(new Set(checkoutItems.map(item => item.product.sellerId)));
+    const checkoutSubtotal = checkoutItems.reduce((sum, item) => {
+      const unitPrice = item.negotiatedPrice ?? Number((item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100)).toFixed(2));
+      return sum + unitPrice * item.quantity;
+    }, 0);
 
     const newOrder: Order = {
       id: '',
@@ -51,27 +58,27 @@ export const useOrderDeliveryOperations = ({
       deliveryAddress: orderData.deliveryAddress,
       deliveryLocality: orderData.deliveryLocality || user.locality || 'Main Bazaar',
       sellerId: sellerIds[0],
-      sellerName: cart[0].product.sellerName,
-      sellerLocality: cart[0].product.sellerLocality,
+      sellerName: checkoutItems[0].product.sellerName,
+      sellerLocality: checkoutItems[0].product.sellerLocality,
       sellerIds,
-      sellerNames: [cart[0].product.sellerName],
-      items: cart.map(item => ({ ...item })),
-      subtotal: cartCalculations.itemSubtotal,
-      itemSubtotal: cartCalculations.itemSubtotal,
-      billDiscountAmount: cartCalculations.totalBillDiscount,
-      billDiscount: cartCalculations.totalBillDiscount,
-      couponDiscountAmount: cartCalculations.couponDiscount,
-      couponDiscount: cartCalculations.couponDiscount,
-      deliveryFee: cartCalculations.deliveryFee,
-      isFreeDelivery: cartCalculations.isFreeDelivery,
-      totalAmount: cartCalculations.finalTotal,
+      sellerNames: Array.from(new Set(checkoutItems.map(item => item.product.sellerName))),
+      items: checkoutItems.map(item => ({ ...item })),
+      subtotal: isIsolatedCheckout ? checkoutSubtotal : cartCalculations.itemSubtotal,
+      itemSubtotal: isIsolatedCheckout ? checkoutSubtotal : cartCalculations.itemSubtotal,
+      billDiscountAmount: isIsolatedCheckout ? 0 : cartCalculations.totalBillDiscount,
+      billDiscount: isIsolatedCheckout ? 0 : cartCalculations.totalBillDiscount,
+      couponDiscountAmount: isIsolatedCheckout ? 0 : cartCalculations.couponDiscount,
+      couponDiscount: isIsolatedCheckout ? 0 : cartCalculations.couponDiscount,
+      deliveryFee: isIsolatedCheckout ? 0 : cartCalculations.deliveryFee,
+      isFreeDelivery: isIsolatedCheckout ? false : cartCalculations.isFreeDelivery,
+      totalAmount: isIsolatedCheckout ? checkoutSubtotal : cartCalculations.finalTotal,
       paymentMethod: orderData.paymentMethod,
       fulfilmentMode: orderData.fulfilmentMode || 'DELIVERY',
       paymentStatus: 'pending',
       status: 'placed',
       deliveryOtp: '',
       placedAt: new Date().toISOString(),
-      estimatedDeliveryTime: '30-45 mins (Local Express)',
+      estimatedDeliveryTime: undefined,
       distanceKm: 1.4,
       deliveryLatitude: user.latitude,
       deliveryLongitude: user.longitude,
