@@ -63,11 +63,11 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
   useEffect(() => {
     try { localStorage.setItem(SAVED_ITEMS_KEY, JSON.stringify(savedItems)); } catch { /* Storage may be disabled; current session still works. */ }
   }, [savedItems]);
-  const toggleFavorite = (product: Product) => setSavedItems(current => ({
+  const toggleFavorite = (productId: string) => setSavedItems(current => ({
     ...current,
-    favoriteIds: current.favoriteIds.includes(product.id)
-      ? current.favoriteIds.filter(id => id !== product.id)
-      : [...current.favoriteIds, product.id],
+    favoriteIds: current.favoriteIds.includes(productId)
+      ? current.favoriteIds.filter(id => id !== productId)
+      : [...current.favoriteIds, productId],
   }));
   const createSavedList = (name: string) => setSavedItems(current => ({
     ...current,
@@ -292,24 +292,8 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
               }}
               onViewDetails={setSelectedProduct}
               isFavorite={savedItems.favoriteIds.includes(product.id)}
-              onToggleFavorite={toggleFavorite}
+              onToggleFavorite={product => toggleFavorite(product.id)}
             />
           ))}
         </div>
       )}
-
-      {selectedProduct && (
-        <ProductDetailsModal product={selectedProduct} onClose={() => setSelectedProduct(null)}
-          onAddToCart={(item) => { addToCart(item, 1); setSelectedProduct(null); }}
-          onBuyNow={(item) => { setSelectedProduct(null); onBuyNow(item); }}
-          onBargain={(item) => { setSelectedProduct(null); openChatForProduct(item); }}
-          onCompare={(item) => { setSelectedProduct(null); setComparingProduct(item); }}
-        />
-      )}
-
-      {comparingProduct && <CompareSellersModal product={comparingProduct} onClose={() => setComparingProduct(null)} />}
-    </div>
-  );
-};
-
-export const OnlineShopHome = BuyerHome;
