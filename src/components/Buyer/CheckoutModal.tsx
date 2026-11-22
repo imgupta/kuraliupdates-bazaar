@@ -336,10 +336,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-bold text-slate-800">{item.product.title}</p>
                     <p className="text-slate-500">{item.product.sellerName} · ₹{unitPrice.toFixed(2)} each</p>
-                    <div className="mt-2 inline-flex items-center rounded-lg border border-slate-200 bg-slate-50">
-                      <button type="button" aria-label={`Decrease quantity of ${item.product.title}`} disabled={item.quantity <= 1} onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)} className="p-2 text-slate-700 disabled:opacity-30"><Minus className="h-3 w-3" /></button>
-                      <span className="min-w-7 text-center font-bold">{item.quantity}</span>
-                      <button type="button" aria-label={`Increase quantity of ${item.product.title}`} disabled={item.quantity >= maxQuantity} onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)} className="p-2 text-slate-700 disabled:opacity-30"><Plus className="h-3 w-3" /></button>
+                    <div className="mt-2">
+                      {isolatedBuyNow ? <span className="text-slate-600 font-semibold">Qty {item.quantity}</span> : <div className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50">
+                        <button type="button" aria-label={`Decrease quantity of ${item.product.title}`} disabled={item.quantity <= 1} onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)} className="p-2 text-slate-700 disabled:opacity-30"><Minus className="h-3 w-3" /></button>
+                        <span className="min-w-7 text-center font-bold">{item.quantity}</span>
+                        <button type="button" aria-label={`Increase quantity of ${item.product.title}`} disabled={item.quantity >= maxQuantity} onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)} className="p-2 text-slate-700 disabled:opacity-30"><Plus className="h-3 w-3" /></button>
+                      </div>}
                     </div>
                   </div>
                   <span className="shrink-0 font-extrabold text-slate-900">₹{(unitPrice * item.quantity).toFixed(2)}</span>
@@ -352,7 +354,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
             <h4 className="font-bold text-slate-800">Payment Breakdown</h4>
             <div className="flex justify-between text-slate-600">
-              <span>Items Total ({cart.length} items)</span>
+              <span>Items Total ({checkoutItems.length} items)</span>
               <span>₹{displayedSubtotal.toFixed(2)}</span>
             </div>
             {!isolatedBuyNow && cartCalculations.billDiscount > 0 && (
