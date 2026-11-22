@@ -52,6 +52,16 @@ public class AdminSellerPaymentController {
         return ResponseEntity.ok(payments.updateCodEnabled(sellerId, enabled, admin.getEmail()));
     }
 
+    @PutMapping("/{sellerId}/activation")
+    public ResponseEntity<Map<String,Object>> setActivation(@PathVariable String sellerId,
+            @RequestBody Map<String,Object> body, Authentication auth) {
+        if (auth == null || !(auth.getPrincipal() instanceof UserEntity admin)
+                || auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).noneMatch(a -> "ROLE_ADMIN".equalsIgnoreCase(a)))
+            throw new ApiException(HttpStatus.FORBIDDEN, "An active admin session is required");
+        boolean active = body != null && Boolean.TRUE.equals(body.get("active"));
+        return ResponseEntity.ok(payments.setDestinationActive(sellerId, active, admin.getEmail()));
+    }
+
     @PostMapping("/{sellerId}/review")
     public ResponseEntity<Map<String,Object>> review(@PathVariable String sellerId,
             @RequestBody Map<String,Object> body, Authentication auth) {

@@ -106,6 +106,17 @@ public class SellerDirectPaymentService {
     }
 
     @Transactional
+    public Map<String,Object> setDestinationActive(String sellerId, boolean active, String actor) {
+        Map<String,Object> before = destination(sellerId);
+        if (Boolean.FALSE.equals(before.get("configured"))) throw new ApiException(HttpStatus.NOT_FOUND, "Seller payment destination not found");
+        if (active && !"VERIFIED".equalsIgnoreCase(String.valueOf(before.get("verificationStatus"))))
+            throw new ApiException(HttpStatus.CONFLICT, "Only a verified UPI destination can be activated");
+        jdbc.update("UPDATE SELLER_PAYMENT_DESTINATIONS SET ACTIVE_FLAG=?,UPDATED_BY=?,UPDATED_AT=? WHERE SELLER_ID=?", active ? 1 : 0, actor, LocalDateTime.now(), sellerId);
+        audit(null, sellerId, String.valueOf(before.get("destinationId")), actor, "ADMIN", active ? "DESTINATION_ACTIVATED" : "DESTINATION_DEACTIVATED", String.valueOf(before.get("active")), active ? "1" : "0", "Admin changed UPI destination availability");
+        return destination(sellerId);
+    }
+
+    @Transactional
     public void createForOrder(OrderEntity order, String buyerUserId) {
         if (!"UPI".equalsIgnoreCase(order.getPaymentMethod())) return;
         Map<String,Object> destination;
