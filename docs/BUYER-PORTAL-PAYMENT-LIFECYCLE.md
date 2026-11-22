@@ -73,7 +73,7 @@ All buyer payment/support operations use the authenticated buyer's stable user I
 - Combined route limit uses `MAX_ROUTE_KM`. Store pickup skips delivery-radius/route checks.
 - UPI seller orders cannot enter `READY_FOR_PICKUP` until seller confirmation. Delivery claim APIs accept only ready orders.
 - Buyer and seller cancellation closes unpaid payment obligations. Paid orders cannot be cancelled through the unpaid-cancellation path.
-- A payment request expires after 24 hours. Expiry is applied on buyer/seller payment reads and seller review; no external bank callback or background settlement is used.
+- A payment request expires after 24 hours. A scheduled one-minute sweep selects expired rows with Oracle `FOR UPDATE SKIP LOCKED`, atomically updates the seller payment and order summary, and appends an expiry audit event. Buyer/seller reads also invoke the same expiry sweep as a defensive fallback. No external bank callback or background settlement is used.
 
 ## Refund and issue handling
 
