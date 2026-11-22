@@ -60,6 +60,22 @@ public class SellerDirectPaymentService {
         return "ALL".equals(filter) ? jdbc.queryForList(sql) : jdbc.queryForList(sql, filter);
     }
 
+    @Transactional(readOnly = true)
+    public List<Map<String,Object>> codSettings() {
+        return jdbc.queryForList("SELECT SELLER_ID AS \"sellerId\",STORE_NAME AS \"storeName\",COD_ENABLED AS \"codEnabled\" FROM SELLERS ORDER BY STORE_NAME");
+    }
+
+    @Transactional
+    public Map<String,Object> updateCodEnabled(String sellerId, boolean enabled, String actor) {
+        List<Map<String,Object>> rows = jdbc.queryForList("SELECT COD_ENABLED FROM SELLERS WHERE SELLER_ID=?", sellerId);
+        if (rows.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "Seller not found");
+        int previous = ((Number) rows.get(0).get("COD_ENABLED")).intValue();
+        jdbc.update("UPDATE SELLERS SET COD_ENABLED=? WHERE SELLER_ID=?", enabled ? 1 : 0, sellerId);
+        audit(null, sellerId, null, actor, "ADMIN", "COD_CONFIG_UPDATED", String.valueOf(previous),
+                enabled ? "1" : "0", "Admin updated seller COD availability");
+        return Map.of("sellerId", sellerId, "codEnabled", enabled);
+    }
+
     @Transactional
     public Map<String,Object> reviewDestination(String sellerId, boolean approve, boolean activate, String reason, String actor) {
         Map<String,Object> before = destination(sellerId);
