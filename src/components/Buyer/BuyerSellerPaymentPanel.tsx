@@ -4,7 +4,7 @@ import { buyerPaymentsApi } from '../../services/domains/buyerPaymentsApi';
 
 type SellerPayment = {
   paymentId: string; orderId: string; expectedAmount: number; upiId: string; payeeName: string;
-  paymentStatus: string; utrReference?: string; expiresAt?: string; refundStatus?: string;
+  paymentStatus: string; upiIntentUri?: string | null; utrReference?: string; expiresAt?: string; refundStatus?: string;
   refundReason?: string; refundReference?: string;
 };
 
@@ -66,6 +66,14 @@ export const BuyerSellerPaymentPanel: React.FC<{ orderId: string; checkoutGroupI
         <p className="text-lg font-black">₹{Number(payment.expectedAmount || 0).toFixed(2)}</p></div>
         <div className="text-right"><p className="text-[10px] text-slate-500">Verified seller UPI ID</p><p className="text-xs font-bold">{payment.upiId}</p>
           <button type="button" onClick={() => void navigator.clipboard?.writeText(payment.upiId)} className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-blue-700"><Copy className="h-3 w-3"/>Copy UPI ID</button></div></div>
+      {payment.upiIntentUri && ['AWAITING_PAYMENT','PAYMENT_REJECTED'].includes(payment.paymentStatus) && <div className="space-y-1">
+        <button type="button" onClick={() => {
+          if (payment.upiIntentUri?.startsWith('upi://pay?')) window.location.assign(payment.upiIntentUri);
+        }} className="w-full rounded-lg bg-emerald-600 px-3 py-3 text-xs font-extrabold text-white">
+          Pay ₹{Number(payment.expectedAmount || 0).toFixed(2)} using UPI app
+        </button>
+        <p className="text-[10px] text-slate-500">Opens an installed UPI app with seller and amount prefilled. Return here and submit the UTR; payment is not confirmed until the seller verifies receipt.</p>
+      </div>}
       {['AWAITING_PAYMENT','PAYMENT_REJECTED'].includes(payment.paymentStatus) && <div className="space-y-2">
         <label className="block text-[11px] font-semibold">After paying the seller in your UPI app, enter the UTR/reference</label>
         <input value={utr[payment.orderId] || ''} onChange={e => setUtr(prev => ({...prev,[payment.orderId]:e.target.value}))}
