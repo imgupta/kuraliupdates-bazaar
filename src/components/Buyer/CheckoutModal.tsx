@@ -18,14 +18,14 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useApp } from '../../context/AppContext';
-import { KURALI_LOCALITIES } from '../../data/initialData';
+import { KURALI_LOCALITIES } from '../../data/initialData';\nimport type { CartItem } from '../../types';
 
 interface CheckoutModalProps {
   onClose: () => void;
 }
 
-export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
-  const { cart, cartCalculations, createOrder, user, updateCartQuantity } = useApp();
+export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) => {
+  const { cart, cartCalculations, createOrder, user, updateCartQuantity } = useApp();\n  const checkoutItems = items ?? cart;\n  const isolatedBuyNow = items !== undefined;\n  const checkoutItemSubtotal = checkoutItems.reduce((sum, item) => sum + (item.negotiatedPrice ?? item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100)) * item.quantity, 0);\n  const displayedSubtotal = isolatedBuyNow ? checkoutItemSubtotal : cartCalculations.subtotal;\n  const displayedTotal = isolatedBuyNow ? checkoutItemSubtotal : cartCalculations.finalTotal;
   const defaultAddress = user.savedAddresses?.find(address => address.isDefault) || user.savedAddresses?.[0];
   const [selectedAddressId, setSelectedAddressId] = useState(defaultAddress?.id || '');
   const selectedAddress = user.savedAddresses?.find(address => address.id === selectedAddressId) || defaultAddress;
@@ -52,12 +52,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'review' | 'payment'>('review');
   const [fulfilmentMode, setFulfilmentMode] = useState<'DELIVERY' | 'STORE_PICKUP'>('DELIVERY');
-  const multiSellerCart = new Set(cart.map(item => item.product.sellerId)).size > 1;
+  const multiSellerCart = new Set(checkoutItems.map(item => item.product.sellerId)).size > 1;
   const pickupTotal = Math.max(0, cartCalculations.subtotal - cartCalculations.billDiscount - cartCalculations.couponDiscount);
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (cart.length === 0 || isProcessing) return;
+    if (checkoutItems.length === 0 || isProcessing) return;
     if (checkoutStep === 'review') { setCheckoutStep('payment'); return; }
 
     setIsProcessing(true);
@@ -327,8 +327,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
 
           {/* Review the exact items before proceeding to payment. */}
           <section className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Order review · {cart.reduce((total, item) => total + item.quantity, 0)} units across {cart.length} products</h3>
-            {cart.map(item => {
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Order review · {checkoutItems.reduce((total, item) => total + item.quantity, 0)} units across {checkoutItems.length} products</h3>
+            {checkoutItems.map(item => {
               const unitPrice = item.negotiatedPrice ?? Number((item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100)).toFixed(2));
               const maxQuantity = Math.max(0, Number(item.product.stock) || 0);
               return (
@@ -353,15 +353,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
             <h4 className="font-bold text-slate-800">Payment Breakdown</h4>
             <div className="flex justify-between text-slate-600">
               <span>Items Total ({cart.length} items)</span>
-              <span>₹{cartCalculations.subtotal}</span>
+              <span>₹{displayedSubtotal.toFixed(2)}</span>
             </div>
-            {cartCalculations.billDiscount > 0 && (
+            {!isolatedBuyNow && cartCalculations.billDiscount > 0 && (
               <div className="flex justify-between text-emerald-600 font-medium">
                 <span>Store Bill Discount</span>
                 <span>-₹{cartCalculations.billDiscount}</span>
               </div>
             )}
-            {cartCalculations.couponDiscount > 0 && (
+            {!isolatedBuyNow && cartCalculations.couponDiscount > 0 && (
               <div className="flex justify-between text-emerald-600 font-medium">
                 <span>Coupon Discount</span>
                 <span>-₹{cartCalculations.couponDiscount}</span>
@@ -369,12 +369,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
             )}
             <div className="flex justify-between text-slate-600">
               <span>{fulfilmentMode === 'STORE_PICKUP' ? 'Store Pickup' : 'Delivery Fee'}</span>
-              <span>{fulfilmentMode === 'STORE_PICKUP' || cartCalculations.isFreeDelivery ? 'FREE' : `₹${cartCalculations.deliveryFee}`}</span>
+              <span>{isolatedBuyNow ? 'Confirmed after seller acceptance' : fulfilmentMode === 'STORE_PICKUP' || cartCalculations.isFreeDelivery ? 'FREE' : `₹${cartCalculations.deliveryFee}`}</span>
             </div>
             <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline font-extrabold text-sm text-slate-900">
               <span>Final Total</span>
               <span className="text-base text-amber-600 font-black">
-                ₹{fulfilmentMode === 'STORE_PICKUP' ? pickupTotal : cartCalculations.finalTotal}
+                ₹{(fulfilmentMode === 'STORE_PICKUP' && !isolatedBuyNow ? pickupTotal : displayedTotal).toFixed(2)}
               </span>
             </div>
           </div>
@@ -387,7 +387,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
             {isProcessing ? (
               <span>Confirming Order with Kurali Store...</span>
             ) : checkoutStep === 'review' ? (
-              <span>Continue to Payment &bull; ₹{fulfilmentMode === 'STORE_PICKUP' ? pickupTotal : cartCalculations.finalTotal}</span>
+              <span>Continue to Payment &bull; ₹{(fulfilmentMode === 'STORE_PICKUP' && !isolatedBuyNow ? pickupTotal : displayedTotal).toFixed(2)}</span>
             ) : (
               <span>
                 {paymentMethod === 'COD' ? (fulfilmentMode === 'STORE_PICKUP' ? 'Place Store Pickup Order' : 'Place COD Order') : 'Online payment unavailable'} &bull; ₹{fulfilmentMode === 'STORE_PICKUP' ? pickupTotal : cartCalculations.finalTotal}
