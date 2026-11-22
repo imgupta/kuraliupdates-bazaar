@@ -87,12 +87,22 @@ export const useOrderDeliveryOperations = ({
       customerNotes: orderData.customerNotes,
     };
 
-    const response = await bazaarApi.placeOrder(newOrder);
+    let response: any;
+    try {
+      response = await bazaarApi.placeOrder(newOrder);
+    } catch (error) {
+      const checkoutError = error as Error & { correlationId?: string; status?: number | null };
+      const reference = checkoutError.correlationId && checkoutError.correlationId !== 'network'
+        ? ` (Ref: ${checkoutError.correlationId})`
+        : '';
+      showToast(`${checkoutError.message || 'Unable to place order. Please check Order History before retrying.'}${reference}`, 'error');
+      return null;
+    }
     const serverOrderEntries = Array.isArray(response?.orders) ? response.orders.filter((entry: any) => entry?.order) : [];
     const serverOrders = serverOrderEntries.map((entry: any) => entry.order);
     const serverOrder = response?.order || serverOrders[0];
     if (!serverOrder?.orderId) {
-      showToast('Order was not confirmed by the server. Your cart has been kept; please retry after checking order history.', 'error');
+      showToast('The server response did not confirm an order. Your cart has been kept; check Order History before retrying.', 'error');
       return null;
     }
 
