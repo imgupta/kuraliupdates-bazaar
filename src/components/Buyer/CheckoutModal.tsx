@@ -19,6 +19,7 @@ import {
 import confetti from 'canvas-confetti';
 import { useApp } from '../../context/AppContext';
 import { bazaarApi } from '../../services/api';
+import { buyerPaymentsApi } from '../../services/domains/buyerPaymentsApi';
 import { KURALI_LOCALITIES } from '../../data/initialData';
 import type { CartItem } from '../../types';
 
@@ -66,6 +67,33 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
     if (user.locality && KURALI_LOCALITIES.includes(user.locality)) setDeliveryLocality(user.locality);
   }, [user.name, user.phone, user.locality, user.addressLine1, user.address, defaultAddress?.id, defaultAddress?.addressLine1]);
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Card' | 'COD' | 'NetBanking'>('COD');
+  const [paymentOptions, setPaymentOptions] = useState<Record<string,{codEnabled:boolean;upiEnabled:boolean}>>({});
+  const [paymentOptionsLoading, setPaymentOptionsLoading] = useState(false);
+  const [paymentOptionsError, setPaymentOptionsError] = useState('');
+  const sellerIdsKey = Array.from(new Set(checkoutItems.map(item => item.product.sellerId))).sort().join('|');
+  const checkoutSellerIds = sellerIdsKey.split('|').filter(Boolean);
+  useEffect(() => {
+    if (!checkoutSellerIds.length) return;
+    let active = true;
+    setPaymentOptionsLoading(true);
+    setPaymentOptionsError('');
+    void Promise.all(checkoutSellerIds.map(async sellerId => ({
+      sellerId, options: await buyerPaymentsApi.getPaymentOptions(sellerId),
+    }))).then(results => {
+      if (!active) return;
+      const next: Record<string,{codEnabled:boolean;upiEnabled:boolean}> = {};
+      results.forEach(({sellerId,options}) => { next[sellerId] = { codEnabled: options.codEnabled === true, upiEnabled: options.upiEnabled === true }; });
+      setPaymentOptions(next);
+      const codAvailable = checkoutSellerIds.every(id => next[id]?.codEnabled);
+      const upiAvailable = checkoutSellerIds.every(id => next[id]?.upiEnabled);
+      setPaymentMethod(current => current === 'COD' && codAvailable ? current : current === 'UPI' && upiAvailable ? current : codAvailable ? 'COD' : upiAvailable ? 'UPI' : 'COD');
+    }).catch((error:any) => {
+      if (active) setPaymentOptionsError(error?.message || 'Unable to verify seller payment options.');
+    }).finally(() => { if (active) setPaymentOptionsLoading(false); });
+    return () => { active = false; };
+  }, [sellerIdsKey]);
+  const codAvailable = checkoutSellerIds.length > 0 && !paymentOptionsLoading && checkoutSellerIds.every(id => paymentOptions[id]?.codEnabled);
+  const upiAvailable = checkoutSellerIds.length > 0 && !paymentOptionsLoading && checkoutSellerIds.every(id => paymentOptions[id]?.upiEnabled);
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'review' | 'payment'>('review');
   const [fulfilmentMode, setFulfilmentMode] = useState<'DELIVERY' | 'STORE_PICKUP'>('DELIVERY');
@@ -259,71 +287,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
               2. Select Payment Method
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('UPI')}
-                className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
-                  paymentMethod === 'UPI'
-                    ? 'border-amber-500 bg-amber-50/50 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <QrCode className="w-5 h-5 text-amber-600" />
-                  {paymentMethod === 'UPI' && (
-                    <CheckCircle2 className="w-4 h-4 text-amber-600" />
-                  )}
-                </div>
-                <div>
-                  <p className="font-bold text-xs text-slate-900">UPI to each seller</p>
-                  <p className="text-[11px] text-slate-500">Pay verified stores directly</p>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('Card')}
-                disabled
-                className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
-                  paymentMethod === 'Card'
-                    ? 'border-amber-500 bg-amber-50/50 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <CreditCard className="w-5 h-5 text-blue-600" />
-                  {paymentMethod === 'Card' && (
-                    <CheckCircle2 className="w-4 h-4 text-amber-600" />
-                  )}
-                </div>
-                <div>
-                  <p className="font-bold text-xs text-slate-900">Cards (Coming soon)</p>
-                  <p className="text-[11px] text-slate-500">Online payments are not enabled yet</p>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('COD')}
-                className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
-                  paymentMethod === 'COD'
-                    ? 'border-amber-500 bg-amber-50/50 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <Banknote className="w-5 h-5 text-emerald-600" />
-                  {paymentMethod === 'COD' && (
-                    <CheckCircle2 className="w-4 h-4 text-amber-600" />
-                  )}
-                </div>
-                <div>
-                  <p className="font-bold text-xs text-slate-900">Cash on Delivery</p>
-                  <p className="text-[11px] text-slate-500">Pay when delivered</p>
-                </div>
-              </button>
+            {paymentOptionsLoading && <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">Checking payment methods enabled by each seller…</p>}
+            {paymentOptionsError && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-xs text-rose-700">{paymentOptionsError}</p>}
+            <div className={`grid grid-cols-1 gap-3 ${codAvailable && upiAvailable ? 'sm:grid-cols-2' : 'sm:grid-cols-1'}`}>
+              {upiAvailable && <button type="button" onClick={() => setPaymentMethod('UPI')}
+                className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${paymentMethod === 'UPI' ? 'border-amber-500 bg-amber-50/50 shadow-xs' : 'border-slate-200 hover:border-slate-300'}`}>
+                <div className="flex items-center justify-between mb-2"><QrCode className="w-5 h-5 text-amber-600"/>{paymentMethod === 'UPI' && <CheckCircle2 className="w-4 h-4 text-amber-600"/>}</div>
+                <div><p className="font-bold text-xs text-slate-900">UPI to each seller</p><p className="text-[11px] text-slate-500">Pay verified stores directly</p></div>
+              </button>}
+              {codAvailable && <button type="button" onClick={() => setPaymentMethod('COD')}
+                className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${paymentMethod === 'COD' ? 'border-amber-500 bg-amber-50/50 shadow-xs' : 'border-slate-200 hover:border-slate-300'}`}>
+                <div className="flex items-center justify-between mb-2"><Banknote className="w-5 h-5 text-emerald-600"/>{paymentMethod === 'COD' && <CheckCircle2 className="w-4 h-4 text-amber-600"/>}</div>
+                <div><p className="font-bold text-xs text-slate-900">Cash on Delivery</p><p className="text-[11px] text-slate-500">Pay when delivered</p></div>
+              </button>}
             </div>
+            {!paymentOptionsLoading && !paymentOptionsError && !codAvailable && !upiAvailable && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-xs text-rose-700">None of the stores in this basket currently has an available payment method. Contact the sellers before checkout.</p>}
 
             {paymentMethod === 'UPI' && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs">
@@ -398,7 +376,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
 
           <button
             type="submit"
-            disabled={isProcessing}
+            disabled={isProcessing || paymentOptionsLoading || Boolean(paymentOptionsError) || (!codAvailable && !upiAvailable) || (paymentMethod === 'COD' && !codAvailable) || (paymentMethod === 'UPI' && !upiAvailable)}
             className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 text-white rounded-xl font-extrabold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             {isProcessing ? (
