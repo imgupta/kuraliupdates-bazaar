@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useApp } from '../../context/AppContext';
+import { bazaarApi } from '../../services/api';
 import { KURALI_LOCALITIES } from '../../data/initialData';
 import type { CartItem } from '../../types';
 
@@ -41,6 +42,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
   const [buyerPhone, setBuyerPhone] = useState(user.phone || '');
   const [deliveryLocality, setDeliveryLocality] = useState(user.locality || KURALI_LOCALITIES.find(l => !l.startsWith('All')) || 'Main Bazaar');
   const [streetAddress, setStreetAddress] = useState(selectedAddress?.addressLine1 || user.addressLine1 || user.address || '');
+  const [configuredDeliveryEta, setConfiguredDeliveryEta] = useState<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void bazaarApi.getBuyerDeliveryEstimate()
+      .then(minutes => { if (active) setConfiguredDeliveryEta(minutes); })
+      .catch(() => { if (active) setConfiguredDeliveryEta(null); });
+    return () => { active = false; };
+  }, []);
 
   // Checkout can remain mounted while profile/address data finishes hydrating.
   // Reconcile only when the buyer has not explicitly selected another address.
@@ -121,7 +131,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
                 ? 'FREE Delivery Qualified (Order > Min Threshold)'
                 : `Standard Delivery Fee: ₹${cartCalculations.deliveryFee}`}
             </span>
-            <span className="text-slate-600 font-semibold">Delivery timing confirmed after seller acceptance</span>
+            <span className="text-slate-600 font-semibold">{fulfilmentMode === 'STORE_PICKUP' ? 'Pickup timing confirmed by seller' : configuredDeliveryEta ? `Estimated delivery: ${configuredDeliveryEta} minutes` : 'Delivery timing confirmed after seller acceptance'}</span>
           </div>
 
           {multiSellerCart && (
