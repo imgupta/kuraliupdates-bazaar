@@ -383,11 +383,11 @@ export const adminApi = {
     return data;
   },
 
-  async verifySellerLocation(sellerId: string, latitude: number, longitude: number, verified: boolean): Promise<any> {
+  async verifySellerLocation(sellerId: string, latitude: number, longitude: number, verified: boolean, reason = ''): Promise<any> {
     const res = await fetch(`${API_BASE_URL}/admin/sellers/${encodeURIComponent(sellerId)}/location`, {
       method: 'POST',
       headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ latitude, longitude, verified }),
+      body: JSON.stringify({ latitude, longitude, verified, reason }),
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) throw new Error(data?.message || `Unable to save seller location (HTTP ${res.status})`);
