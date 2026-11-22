@@ -44,9 +44,9 @@ class OrderServiceTest {
 
     @BeforeEach
     void configureDeliveryPolicyDefaults() {
-        when(deliveryConfigurationService.nearbyRadiusKm()).thenReturn(BigDecimal.valueOf(5));
-        when(deliveryConfigurationService.maxRouteKm()).thenReturn(BigDecimal.valueOf(8));
-        when(deliveryConfigurationService.estimatedDeliveryMins()).thenReturn(0);
+        lenient().when(deliveryConfigurationService.nearbyRadiusKm()).thenReturn(BigDecimal.valueOf(5));
+        lenient().when(deliveryConfigurationService.maxRouteKm()).thenReturn(BigDecimal.valueOf(8));
+        lenient().when(deliveryConfigurationService.estimatedDeliveryMins()).thenReturn(0);
     }
 
     @Test
@@ -247,7 +247,7 @@ class OrderServiceTest {
                 .additionalDiscountPercent(BigDecimal.ZERO).stock(5).build();
         when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
         when(sellerRepository.findById("SELLER-1")).thenReturn(Optional.of(seller));
-        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.saveAndFlush(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var result = orderService.placeOrder(request("COD", List.of(new OrderItemRequest("P-1", 2, null))), buyer());
 
@@ -313,7 +313,7 @@ class OrderServiceTest {
                 .additionalDiscountPercent(BigDecimal.ZERO).stock(5).build();
         when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
         when(sellerRepository.findById("SELLER-1")).thenReturn(Optional.of(seller));
-        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.saveAndFlush(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(jdbc.query(
                 contains("SELECT m.OFFER_PRICE"),
                 ArgumentMatchers.<ResultSetExtractor<BigDecimal>>any(),
@@ -354,7 +354,7 @@ class OrderServiceTest {
                 .deliveryOtp("0042")
                 .build();
         when(orderRepository.findLockedByOrderId("PICKUP-ORDER-1")).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.saveAndFlush(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = orderService.confirmStorePickup("PICKUP-ORDER-1", "0042", buyer());
 
@@ -454,7 +454,7 @@ class OrderServiceTest {
                 .additionalDiscountPercent(BigDecimal.ZERO).stock(5).build();
         when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
         when(sellerRepository.findById("SELLER-1")).thenReturn(Optional.of(seller));
-        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.saveAndFlush(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var result = orderService.placeOrder(request("COD", List.of(
                 new OrderItemRequest("P-1", 2, null),
