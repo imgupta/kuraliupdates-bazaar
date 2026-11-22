@@ -143,7 +143,7 @@ public class OrderService {
                 throw new ApiException(HttpStatus.CONFLICT, "Combined seller pickup route exceeds the configured delivery route limit");
             }
             BigDecimal checkoutDeliveryFee = baseFee;
-            if (roadKm != null) checkoutDeliveryFee = checkoutDeliveryFee.add(roadKm.multiply(perKmFee));
+            if (routeForLimit != null) checkoutDeliveryFee = checkoutDeliveryFee.add(routeForLimit.multiply(perKmFee));
             checkoutDeliveryFee = checkoutDeliveryFee.setScale(2, RoundingMode.HALF_UP);
             BigDecimal totalSellerSubtotal = savedOrders.stream()
                     .map(o -> o.getSubtotal() == null ? BigDecimal.ZERO : o.getSubtotal())
