@@ -62,8 +62,15 @@ export const useDailyHelpProviderOperations = () => {
   }, [professional?.professionalId]);
 
   useEffect(() => {
-    if (!jobs.some(j => j.status === 'IN_PROGRESS' && j.serviceStartedAt)) return;
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    const hasRunningTimer = () => jobs.some(j =>
+      j.status === 'IN_PROGRESS' && j.serviceStartedAt &&
+      Date.now() < new Date(j.serviceStartedAt).getTime() + Math.max(0, Number(j.requestedHours || 0)) * 3600000
+    );
+    if (!hasRunningTimer()) return;
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+      if (!hasRunningTimer()) window.clearInterval(interval);
+    }, 1000);
     return () => window.clearInterval(interval);
   }, [jobs]);
 
