@@ -128,6 +128,8 @@ interface AppContextType {
     customerNotes?: string;
     paymentMethod: 'COD' | 'UPI' | 'StorePay' | 'Card' | 'NetBanking';
     fulfilmentMode?: 'DELIVERY' | 'STORE_PICKUP';
+    /** Optional isolated item set for Buy Now; omitted for the normal basket checkout. */
+    items?: CartItem[];
   }) => Promise<Order | null>;
   updateOrderStatus: (orderId: string, status: OrderStatus, note?: string) => void;
 
