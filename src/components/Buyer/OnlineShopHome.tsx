@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
+import { matchesBuyerSearch } from '../../utils/buyerSearch';
 import { CompareSellersModal } from './CompareSellersModal';
 import { ProductCard } from './ProductCard';
 import { ProductDetailsModal } from './ProductDetailsModal';
@@ -73,15 +74,8 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
 
         // Search query
         if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase();
-          const matchTitle = p.title.toLowerCase().includes(q);
-          const matchSeller = p.sellerName.toLowerCase().includes(q);
-          const matchLocality = p.sellerLocality.toLowerCase().includes(q);
-          const matchCategory = p.category.toLowerCase().includes(q);
-          const matchTags = p.tags.some(t => t.toLowerCase().includes(q));
-          if (!matchTitle && !matchSeller && !matchLocality && !matchCategory && !matchTags) {
-            return false;
-          }
+          const searchableValues = [p.title, p.sellerName, p.sellerLocality, p.category, ...p.tags];
+          if (!matchesBuyerSearch(searchQuery, searchableValues)) return false;
         }
 
         // Stock filter
