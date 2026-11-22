@@ -16,7 +16,9 @@ import org.springframework.security.core.GrantedAuthority;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;\nimport org.slf4j.Logger;\nimport org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,7 +28,8 @@ import java.util.List;
 @RequestMapping("/buyers")
 @RequiredArgsConstructor
 @Tag(name = "Buyer API", description = "Product search, checkout and order tracking")
-public class BuyerController {\n    private static final Logger log = LoggerFactory.getLogger(BuyerController.class);
+public class BuyerController {
+    private static final Logger log = LoggerFactory.getLogger(BuyerController.class);
     private final ProductService productService;
     private final OrderService orderService;
     private final AuthService authService;
@@ -136,7 +139,8 @@ public class BuyerController {\n    private static final Logger log = LoggerFact
 
     private String safeMessage(String value) {
         if (value == null) return "";
-        return value.replaceAll("[\\r\\n\\t]", " ").substring(0, Math.min(value.length(), 240));
+        return value.replaceAll("[\\r\
+\\t]", " ").substring(0, Math.min(value.length(), 240));
     }
 
     private UserEntity requireBuyer(Authentication authentication) {
