@@ -97,6 +97,14 @@ app:
     secret: ${JWT_SECRET}
     expiration-ms: 86400000
 
+
+kurali:
+  payments:
+    upi-intent:
+      # Disabled by default. Enable only after confirming seller VPA onboarding and mobile app behavior.
+      enabled: ${KU_UPI_INTENT_ENABLED:false}
+      scheme: ${KU_UPI_INTENT_SCHEME:upi}
+
 springdoc:
   api-docs:
     path: /v3/api-docs
