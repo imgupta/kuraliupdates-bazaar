@@ -73,6 +73,20 @@ test('delivery and Daily Help registration honor admin-configured email and mobi
   assert.match(legacy, /mode: 'REGISTER'/);
 });
 
+test('backend applies the same global email/mobile registration OTP policy to non-seller roles', () => {
+  const service = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/AuthService.java');
+  const policyStart = service.indexOf('// Registration OTP policy is global');
+  const policyEnd = service.indexOf('if (existingUser != null)', policyStart);
+  const policy = service.slice(policyStart, policyEnd);
+
+  assert.ok(policyStart >= 0 && policyEnd > policyStart);
+  assert.match(policy, /if \(!"SELLER"\.equals\(role\)\)/);
+  assert.match(policy, /registrationOtpConfig\.get\(\)/);
+  assert.match(policy, /if \(emailRequired\) otpService\.verify\(email, "EMAIL", req\.emailOtp\(\)\)/);
+  assert.match(policy, /if \(mobileRequired\) otpService\.verify\(phone, "PHONE", req\.phoneOtp\(\)\)/);
+  assert.match(policy, /if \(!emailRequired && !mobileRequired\)/);
+});
+
 test('admin portal delegates refresh, seller document review and configuration lifecycles to focused hooks', () => {
   const portal = read('../src/features/admin/AdminPortal.tsx');
   const refreshHook = read('../src/features/admin/useAdminDashboardRefresh.ts');
