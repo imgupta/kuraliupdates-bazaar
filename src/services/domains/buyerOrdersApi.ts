@@ -34,66 +34,104 @@ export const buyerOrdersApi = {
   },
 
   async placeOrder(order: Partial<Order>): Promise<any> {
+    const sellerCount = new Set((order.items || []).map(item => item.product.sellerId)).size;
+    const endpoint = sellerCount > 1 ? '/buyers/orders/checkout' : '/buyers/orders';
+    const items = (order.items || []).map(item => ({
+      productId: item.product.id,
+      quantity: item.quantity,
+      negotiatedPrice: item.negotiatedPrice,
+      acceptedOfferId: item.acceptedOfferId,
+    }));
+    const multiSellerPayload = {
+      deliveryAddress: order.deliveryAddress,
+      deliveryLocality: order.deliveryLocality,
+      paymentMethod: order.paymentMethod,
+      fulfilmentMode: (order as any).fulfilmentMode || 'DELIVERY',
+      deliveryLatitude: (order as any).deliveryLatitude,
+      deliveryLongitude: (order as any).deliveryLongitude,
+      deliveryPlaceId: (order as any).deliveryPlaceId,
+      items,
+    };
+    const singleSellerPayload = {
+      buyerName: order.buyerName,
+      buyerEmail: order.buyerEmail,
+      buyerPhone: order.buyerPhone,
+      deliveryAddress: order.deliveryAddress,
+      deliveryLocality: order.deliveryLocality,
+      sellerId: order.sellerId,
+      subtotal: order.itemSubtotal || order.subtotal || order.totalAmount,
+      totalAmount: order.totalAmount,
+      discountAmount: (order.billDiscountAmount || 0) + (order.couponDiscountAmount || 0),
+      deliveryFee: order.deliveryFee,
+      finalPayable: order.totalAmount,
+      paymentMethod: order.paymentMethod,
+      distanceKm: Number(order.distanceKm ?? 0),
+      deliveryLatitude: (order as any).deliveryLatitude,
+      deliveryLongitude: (order as any).deliveryLongitude,
+      deliveryPlaceId: (order as any).deliveryPlaceId,
+      items,
+    };
+    const requestBody = JSON.stringify(sellerCount > 1 ? multiSellerPayload : singleSellerPayload);
+    const fingerprintSource = `${endpoint}|${requestBody}`;
+    let fingerprint = 2166136261;
+    for (let i = 0; i < fingerprintSource.length; i++) fingerprint = Math.imul(fingerprint ^ fingerprintSource.charCodeAt(i), 16777619);
+    const storageKey = `ku-checkout-idem:${(fingerprint >>> 0).toString(16)}`;
+    const idempotencyKey = sessionStorage.getItem(storageKey)
+      || `ku-${globalThis.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2)}`;
+    sessionStorage.setItem(storageKey, idempotencyKey);
+    const correlationId = createCheckoutCorrelationId();
+
+    let res: Response;
     try {
-      const sellerCount = new Set((order.items || []).map(item => item.product.sellerId)).size;
-      const endpoint = sellerCount > 1 ? '/buyers/orders/checkout' : '/buyers/orders';
-      const items = (order.items || []).map(item => ({
-        productId: item.product.id,
-        quantity: item.quantity,
-        negotiatedPrice: item.negotiatedPrice,
-        acceptedOfferId: item.acceptedOfferId,
-      }));
-      const multiSellerPayload = {
-        deliveryAddress: order.deliveryAddress,
-        deliveryLocality: order.deliveryLocality,
-        paymentMethod: order.paymentMethod,
-        fulfilmentMode: (order as any).fulfilmentMode || 'DELIVERY',
-        deliveryLatitude: (order as any).deliveryLatitude,
-        deliveryLongitude: (order as any).deliveryLongitude,
-        deliveryPlaceId: (order as any).deliveryPlaceId,
-        items,
-      };
-      const singleSellerPayload = {
-        buyerName: order.buyerName,
-        buyerEmail: order.buyerEmail,
-        buyerPhone: order.buyerPhone,
-        deliveryAddress: order.deliveryAddress,
-        deliveryLocality: order.deliveryLocality,
-        sellerId: order.sellerId,
-        subtotal: order.itemSubtotal || order.subtotal || order.totalAmount,
-        totalAmount: order.totalAmount,
-        discountAmount: (order.billDiscountAmount || 0) + (order.couponDiscountAmount || 0),
-        deliveryFee: order.deliveryFee,
-        finalPayable: order.totalAmount,
-        paymentMethod: order.paymentMethod,
-        distanceKm: Number(order.distanceKm ?? 0),
-        deliveryLatitude: (order as any).deliveryLatitude,
-        deliveryLongitude: (order as any).deliveryLongitude,
-        deliveryPlaceId: (order as any).deliveryPlaceId,
-        items,
-      };
-      const requestBody = JSON.stringify(sellerCount > 1 ? multiSellerPayload : singleSellerPayload);
-      const fingerprintSource = `${endpoint}|${requestBody}`;
-      let fingerprint = 2166136261;
-      for (let i = 0; i < fingerprintSource.length; i++) fingerprint = Math.imul(fingerprint ^ fingerprintSource.charCodeAt(i), 16777619);
-      const storageKey = `ku-checkout-idem:${(fingerprint >>> 0).toString(16)}`;
-      const idempotencyKey = sessionStorage.getItem(storageKey)
-        || `ku-${globalThis.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2)}`;
-      sessionStorage.setItem(storageKey, idempotencyKey);
-      const correlationId = createCheckoutCorrelationId();
-      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'Idempotency-Key': idempotencyKey, 'X-Correlation-ID': correlationId, ...(localStorage.getItem('kurali_auth_token') ? { Authorization: `Bearer ${localStorage.getItem('kurali_auth_token')}` } : {}) },
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'Idempotency-Key': idempotencyKey,
+          'X-Correlation-ID': correlationId,
+          ...(localStorage.getItem('kurali_auth_token')
+            ? { Authorization: `Bearer ${localStorage.getItem('kurali_auth_token')}` }
+            : {}),
+        },
         body: requestBody,
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const result = await res.json();
-      sessionStorage.removeItem(storageKey);
-      return result;
-    } catch (err) {
-      console.warn('Backend placeOrder failed:', err);
-      return null;
+    } catch {
+      throw new OrderPlacementApiError(
+        'Could not reach KuraliUpdates. Check your connection and Order History before retrying.',
+        null,
+        'network',
+      );
     }
+
+    const body = await res.json().catch(() => ({} as any));
+    const responseCorrelationId = res.headers.get('X-Correlation-ID') || correlationId;
+    if (!res.ok) {
+      const message = typeof body?.message === 'string' ? body.message
+        : typeof body?.error === 'string' ? body.error
+        : `Order could not be placed (HTTP ${res.status}).`;
+      throw new OrderPlacementApiError(
+        message,
+        res.status,
+        responseCorrelationId,
+        typeof body?.code === 'string' ? body.code
+          : typeof body?.errorCode === 'string' ? body.errorCode : undefined,
+      );
+    }
+
+    const hasConfirmedOrder = Boolean(body?.order?.orderId)
+      || (Array.isArray(body?.orders) && body.orders.some((entry: any) => Boolean(entry?.order?.orderId)));
+    if (!hasConfirmedOrder) {
+      throw new OrderPlacementApiError(
+        'The server response did not include a confirmed order ID. Your cart has been kept; check Order History before retrying.',
+        res.status,
+        responseCorrelationId,
+        'ORDER_CONFIRMATION_MISSING',
+      );
+    }
+
+    sessionStorage.removeItem(storageKey);
+    return body;
   },
 
   async getMyOrders(): Promise<Order[] | null> {
