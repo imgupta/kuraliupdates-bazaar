@@ -56,10 +56,11 @@ public class BuyerController {
             @Valid @RequestBody PlaceOrderRequest request,
             @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
             @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             Authentication authentication) {
         UserEntity user = requireBuyer(authentication);
         String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
-        return ResponseEntity.ok(orderService.placeOrder(request, user, e2eRunId));
+        return ResponseEntity.ok(orderService.placeOrder(request, user, e2eRunId, idempotencyKey));
     }
 
     @PostMapping("/orders/checkout")
@@ -68,10 +69,11 @@ public class BuyerController {
             @Valid @RequestBody MultiSellerCheckoutRequest request,
             @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
             @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             Authentication authentication) {
         UserEntity user = requireBuyer(authentication);
         String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
-        return ResponseEntity.ok(orderService.placeMultiSellerOrder(request, user, e2eRunId));
+        return ResponseEntity.ok(orderService.placeMultiSellerOrder(request, user, e2eRunId, idempotencyKey));
     }
 
     @PostMapping("/orders/{orderId}/cancel")
