@@ -395,7 +395,7 @@ class SellerServiceTest {
         assertEquals(new BigDecimal("30.8310000"), updated.getLatitude());
         assertEquals(false, updated.getLocationVerified());
         verify(sellerRepository).save(seller);
-        verify(jdbcTemplate).update(contains("SELLER_ADDRESS_CHANGE"), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(jdbcTemplate).update(startsWith("INSERT INTO ADMIN_ACCOUNT_AUDIT"), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
