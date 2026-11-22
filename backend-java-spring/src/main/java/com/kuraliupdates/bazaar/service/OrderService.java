@@ -384,7 +384,7 @@ public class OrderService {
     /** Cancels every seller order in the buyer's checkout group as one inventory transaction. */
     @Transactional
     public OrderResponse cancelOrderForBuyer(String orderId, UserEntity buyer) {
-        if (buyer == null || buyer.getEmail() == null || buyer.getEmail().isBlank()) {
+        if (buyer == null || (buyer.getUserId() == null && (buyer.getEmail() == null || buyer.getEmail().isBlank()))) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
         }
         // Read only to discover the group key. For a checkout group, acquire all
@@ -406,12 +406,11 @@ public class OrderService {
                 throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
             }
         }
-        String buyerEmail = buyer.getEmail().trim().toLowerCase(Locale.ROOT);
-        if (!OrderBuyerAccessPolicy.owns(requested, buyerEmail)) {
+        if (!OrderBuyerAccessPolicy.owns(requested, buyer)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
         }
         if (group == null || group.isEmpty()
-                || group.stream().anyMatch(order -> !OrderBuyerAccessPolicy.owns(order, buyerEmail))) {
+                || group.stream().anyMatch(order -> !OrderBuyerAccessPolicy.owns(order, buyer))) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
         }
         if (group.stream().allMatch(order -> "CANCELLED".equalsIgnoreCase(order.getStatus()))) {
@@ -494,7 +493,7 @@ public class OrderService {
 
     @Transactional
     public OrderResponse confirmStorePickup(String orderId, String otp, UserEntity buyer) {
-        if (buyer == null || buyer.getEmail() == null) {
+        if (buyer == null || (buyer.getUserId() == null && buyer.getEmail() == null)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only the owning buyer can confirm store pickup");
         }
         if (otp == null || !otp.matches("\\d{4}")) {
@@ -502,7 +501,7 @@ public class OrderService {
         }
         OrderEntity order = orderRepository.findLockedByOrderId(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
-        if (!OrderBuyerAccessPolicy.owns(order, buyer.getEmail())) {
+        if (!OrderBuyerAccessPolicy.owns(order, buyer)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
         }
         if (!"STORE_PICKUP".equalsIgnoreCase(order.getFulfilmentMode())) {
@@ -524,6 +523,10 @@ public class OrderService {
     @Transactional(readOnly = true)
     public List<OrderResponse> history(UserEntity buyer) {
         requireBuyer(buyer);
+        if (buyer.getUserId() != null && !buyer.getUserId().isBlank()) {
+            return orderRepository.findByBuyerUserIdOrderByPlacedAtDesc(buyer.getUserId())
+                    .stream().map(OrderResponse::from).toList();
+        }
         if (buyer.getEmail() == null || buyer.getEmail().isBlank()) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
         }
@@ -533,11 +536,11 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public OrderResponse trackForBuyer(String orderId, UserEntity buyer) {
-        if (buyer == null || buyer.getEmail() == null || buyer.getEmail().isBlank()) {
+        if (buyer == null || (buyer.getUserId() == null && (buyer.getEmail() == null || buyer.getEmail().isBlank()))) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only the owning buyer can track this order");
         }
         OrderEntity order = orderRepository.findById(orderId)
-                .filter(candidate -> OrderBuyerAccessPolicy.owns(candidate, buyer.getEmail()))
+                .filter(candidate -> OrderBuyerAccessPolicy.owns(candidate, buyer))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
         return OrderResponse.from(order);
     }
