@@ -17,26 +17,21 @@ const SYNONYMS: Record<string, string[]> = {
 };
 
 const normalize = (value: string) => value.normalize('NFKC').toLocaleLowerCase('en-IN')
-  .replace(/[.,/#!$%^&*;:{}=\-_\u2013\u2014?~()]/g, ' ')
-  .replace(/\s+/g, ' ').trim();
+  .replace(/[.,/#!$%^&*;:{}=\\-_\\u2013\\u2014?~()]/g, ' ')
+  .replace(/\\s+/g, ' ').trim();
 
-export function expandBuyerSearchQuery(query: string): string[] {
-  const normalized = normalize(query);
-  if (!normalized) return [];
-  const terms = new Set<string>([normalized]);
-  const tokens = normalized.split(' ').filter(Boolean);
-  for (const [canonical, aliases] of Object.entries(SYNONYMS)) {
-    if (aliases.some(alias => normalize(alias) === normalized || tokens.includes(normalize(alias)))) {
-      terms.add(canonical);
-      for (const alias of aliases) terms.add(normalize(alias));
-    }
-  }
-  return Array.from(terms);
+export function expandBuyerSearchQuery(query: string): string[][] {
+  return normalize(query).split(' ').filter(Boolean).map(token => {
+    const match = Object.entries(SYNONYMS).find(([canonical, aliases]) =>
+      canonical === token || aliases.some(alias => normalize(alias) === token));
+    return match ? Array.from(new Set([match[0], ...match[1]].map(normalize))) : [token];
+  });
 }
 
 export function matchesBuyerSearch(query: string, values: Array<string | null | undefined>): boolean {
-  const terms = expandBuyerSearchQuery(query);
-  if (!terms.length) return true;
+  const groups = expandBuyerSearchQuery(query);
+  if (!groups.length) return true;
   const haystack = normalize(values.filter(Boolean).join(' '));
-  return terms.some(term => haystack.includes(term));
+  // Every query token must match; synonyms expand alternatives only within that token.
+  return groups.every(alternatives => alternatives.some(term => haystack.includes(term)));
 }
