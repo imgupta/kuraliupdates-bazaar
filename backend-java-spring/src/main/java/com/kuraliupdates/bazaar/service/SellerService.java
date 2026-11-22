@@ -196,6 +196,9 @@ public class SellerService {
                 }
             }
             sellerDirectPaymentService.cancelUnpaidPaymentForOrder(order.getOrderId());
+            if ("UPI".equalsIgnoreCase(order.getPaymentMethod()) && !"PAID".equalsIgnoreCase(order.getPaymentStatus())) {
+                order.setPaymentStatus("CANCELLED");
+            }
             order.setFulfilmentStatus("CANCELLED");
             // COD has not been collected; retain PENDING_COD. Cancellation belongs
             // to order/fulfilment state, not to the payment lifecycle.
