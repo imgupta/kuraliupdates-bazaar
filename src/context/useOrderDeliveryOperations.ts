@@ -109,6 +109,8 @@ export const useOrderDeliveryOperations = ({
       paymentStatus: String(serverOrder.paymentStatus || 'PENDING_COD').toLowerCase() as Order['paymentStatus'],
       status: String(serverOrder.status || 'PLACED').toLowerCase() as OrderStatus,
       fulfilmentMode: serverOrder.fulfilmentMode || orderData.fulfilmentMode || 'DELIVERY',
+      estimatedDeliveryMins: serverOrder.estimatedDeliveryMins,
+      estimatedDeliveryTime: serverOrder.estimatedDeliveryMins ? `${serverOrder.estimatedDeliveryMins} mins` : undefined,
       checkoutGroupId: serverOrder.checkoutGroupId,
       deliveryOtp: response?.deliveryOtp || serverOrder.deliveryOtp || '',
     };
