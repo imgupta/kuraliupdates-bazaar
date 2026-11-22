@@ -226,16 +226,16 @@ Set overall status to **Complete** only when mandatory requirements in sections 
 |---|---|
 | Implementation PR | [#390](https://github.com/imgupta/kuraliupdates-bazaar/pull/390) |
 | Merge commit | TBD |
-| Exact tested head SHA | Pending final CI run |
-| Backend tests | Pending |
-| Frontend lint/type/build | Pending |
-| Buyer Playwright tests | Pending |
-| Payment/partial-payment tests | Pending |
-| Authorization/idempotency/concurrency tests | Pending |
-| Staging verification | Pending / not run |
+| Exact tested head SHA | `59c7e090d0f007e82e220b130937cbb64ddfc916` (code HEAD; report-only commit follows) |
+| Backend tests | Passed on exact tested code HEAD; full Maven verification suite |
+| Frontend lint/type/build | Passed on exact tested code HEAD |
+| Buyer Playwright tests | Browser E2E and read-only API smoke passed on exact tested code HEAD |
+| Payment/partial-payment tests | Service-level payment tests passed; Oracle partial-payment integration rehearsal pending |
+| Authorization/idempotency/concurrency tests | Service/controller tests and checkout replay/payload-conflict tests passed; Oracle multi-session concurrency pending |
+| Staging verification | Read-only role/fixture preflight and browser E2E passed; mutating transactional staging rehearsal not run |
 | Flyway migration versions (if any) | V48 and V49; isolated Oracle execution pending |
 | Known limitations/deferred items | TBD |
-| Final disposition | **IMPLEMENTED IN SOURCE — VERIFICATION PENDING** |
+| Final disposition | **SOURCE COMPLETE; CI PASSED; ORACLE/STAGING VALIDATION PENDING** |
 
 ## 10. Related documentation
 
