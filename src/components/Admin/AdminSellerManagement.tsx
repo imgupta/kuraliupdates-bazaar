@@ -83,10 +83,18 @@ export const AdminSellerManagement: React.FC = () => {
       setError('This seller has no valid map coordinates. Ask the seller to update the address and map pin before approval.');
       return;
     }
-    if (!approve && !window.confirm(`Reject the updated location for ${seller.storeName || 'this seller'}? The location will remain unverified and delivery/checkout eligibility will stay blocked.`)) return;
+    let reason = '';
+    if (!approve) {
+      const supplied = window.prompt(`Reason for rejecting the updated location for ${seller.storeName || 'this seller'}:`);
+      if (supplied === null) return;
+      reason = supplied.trim();
+      if (!reason) { setError('A rejection reason is required.'); return; }
+      if (reason.length > 500) { setError('Rejection reason must be 500 characters or fewer.'); return; }
+      if (!window.confirm(`Reject this location? It will remain unverified and delivery/checkout eligibility will stay blocked.`)) return;
+    }
     setSaving(true); setError('');
     try {
-      await adminApi.verifySellerLocation(seller.sellerId, latitude, longitude, approve);
+      await adminApi.verifySellerLocation(seller.sellerId, latitude, longitude, approve, reason);
       await load();
     } catch (e: any) {
       setError(e?.message || 'Unable to update seller location verification.');
