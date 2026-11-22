@@ -101,3 +101,20 @@ test('browser session refresh uses a same-origin single-flight rotation before i
   assert.match(authService, /plusMinutes\(30\)/);
   assert.match(authService, /plusHours\(12\)/);
 });
+
+
+test('Vercel edge responses include baseline browser security headers and avoid caching HTML entry points', () => {
+  const config = JSON.parse(read('vercel.json'));
+  const globalHeaders = config.headers.find((entry) => entry.source === '/(.*)')?.headers || [];
+  const headerMap = Object.fromEntries(globalHeaders.map(({ key, value }) => [key.toLowerCase(), value]));
+  assert.equal(headerMap['x-content-type-options'], 'nosniff');
+  assert.equal(headerMap['x-frame-options'], 'DENY');
+  assert.equal(headerMap['referrer-policy'], 'strict-origin-when-cross-origin');
+  assert.match(headerMap['strict-transport-security'], /max-age=31536000/);
+  assert.ok(headerMap['content-security-policy-report-only']);
+  assert.ok(headerMap['permissions-policy']);
+  for (const source of ['/', '/index.html']) {
+    const cacheHeaders = config.headers.find((entry) => entry.source === source)?.headers || [];
+    assert.ok(cacheHeaders.some(({ key, value }) => key.toLowerCase() === 'cache-control' && /no-store/.test(value)));
+  }
+});
