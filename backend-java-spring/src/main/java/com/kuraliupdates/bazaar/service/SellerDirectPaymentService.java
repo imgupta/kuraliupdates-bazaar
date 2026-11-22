@@ -145,6 +145,17 @@ public class SellerDirectPaymentService {
         return buyerView(p);
     }
 
+    @Transactional(readOnly = true)
+    public List<Map<String,Object>> buyerGroupPayments(String checkoutGroupId, String buyerEmail) {
+        if (buyerEmail == null || buyerEmail.isBlank()) throw new ApiException(HttpStatus.UNAUTHORIZED, "Buyer session required");
+        List<Map<String,Object>> rows = jdbc.queryForList(
+                "SELECT ORDER_ID FROM ORDER_SELLER_PAYMENTS WHERE CHECKOUT_GROUP_ID=? AND LOWER(BUYER_EMAIL)=? ORDER BY CREATED_AT",
+                checkoutGroupId, buyerEmail.trim().toLowerCase(Locale.ROOT));
+        List<Map<String,Object>> result = new ArrayList<>();
+        for (Map<String,Object> row : rows) result.add(buyerPayment(String.valueOf(row.get("ORDER_ID")), buyerEmail));
+        return result;
+    }
+
     @Transactional
     public List<Map<String,Object>> sellerPayments(String sellerId) {
         expirePending();
