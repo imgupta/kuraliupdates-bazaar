@@ -78,52 +78,59 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
       </div>
       {mode === 'shop' ? <OnlineShopHome {...props} /> : <DailyHelpHome searchQuery={props.searchQuery} />}
 
-      {mode === 'shop' && cart.length > 0 && !props.isCheckoutOpen && (
-        <section className={`fixed inset-x-0 ${activeOrders.length > 0 ? 'bottom-24' : 'bottom-2'} z-50 px-3 pb-[env(safe-area-inset-bottom)]`} aria-label="Shopping cart shortcut">
-          <div className="mx-auto max-w-screen-xl">
-            <button type="button" onClick={() => setIsCartOpen(true)}
-              className="flex w-full items-center justify-between gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-left text-white shadow-[0_8px_30px_rgba(15,23,42,0.28)] transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2">
-              <span className="flex min-w-0 items-center gap-3">
-                <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10"><ShoppingBag className="h-5 w-5" /><span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-black text-slate-950">{cart.reduce((sum, item) => sum + item.quantity, 0)}</span></span>
-                <span className="min-w-0"><span className="block text-xs font-extrabold">View cart</span><span className="block truncate text-[10px] text-slate-300">{cart.length} products · ₹{cartCalculations.finalTotal} total</span></span>
-              </span>
-              <span className="flex shrink-0 items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-2 text-xs font-extrabold text-slate-950">Checkout <ArrowRight className="h-4 w-4" /></span>
-            </button>
-          </div>
-        </section>
-      )}
-
-      {activeOrders.length > 0 && !props.isCheckoutOpen && (
-        <section className="fixed inset-x-0 bottom-0 z-40 border-t border-emerald-200 bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.10)] backdrop-blur-md pb-[env(safe-area-inset-bottom)]" aria-label="Your current orders">
-          <div className="mx-auto max-w-screen-xl px-3 py-2 sm:px-6">
-            <div className="mb-1.5 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-xs font-extrabold text-slate-900">Your orders</h2>
-                <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">{activeOrders.length} active</span>
-              </div>
-              {activeOrders.length > 1 && (
-                <button type="button" onClick={() => setShowAllActiveOrders(value => !value)}
-                  className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800">
-                  {showAllActiveOrders ? 'Show latest' : `View all (${activeOrders.length})`}
-                </button>
-              )}
-            </div>
-            <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 scrollbar-none" aria-label="Active orders, swipe left and right">
-              {activeOrders.slice(0, showAllActiveOrders ? activeOrders.length : 1).map(order => {
-                const status = String(order.status || 'placed').replace(/_/g, ' ').toLowerCase();
-                return (
-                  <button key={order.id} type="button" onClick={() => props.onOpenTracking(order.id)}
-                    className="flex min-w-[min(100%,280px)] max-w-[340px] snap-start items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Truck className="h-4 w-4" /></span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[10px] font-extrabold text-slate-800">Order #{order.id}</span>
-                      <span className="mt-0.5 block truncate text-[10px] capitalize text-slate-500">{status}</span>
+      {((mode === 'shop' && cart.length > 0) || activeOrders.length > 0) && !props.isCheckoutOpen && (
+        <section className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)]" aria-label="Cart and current orders">
+          <div className="mx-auto flex max-w-screen-xl items-stretch gap-2 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-[0_-8px_28px_rgba(15,23,42,0.18)] backdrop-blur-md">
+            {activeOrders.length > 0 && (
+              <div className="flex min-w-0 flex-[1.7] items-center gap-2 rounded-xl bg-slate-50 px-2.5 py-2" aria-label="Your current orders">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Truck className="h-4 w-4" /></span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-extrabold text-slate-900">Your orders</span>
+                    <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">{activeOrders.length}</span>
+                    {activeOrders.length > 1 && (
+                      <button type="button" onClick={() => setShowAllActiveOrders(value => !value)}
+                        className="ml-auto shrink-0 text-[9px] font-bold text-emerald-700">
+                        {showAllActiveOrders ? 'Latest' : 'All'}
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-0.5 flex min-w-0 items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-[10px] text-slate-600">
+                      {showAllActiveOrders ? `${activeOrders.length} active orders` : `#${activeOrders[0].id} · ${String(activeOrders[0].status || 'placed').replace(/_/g, ' ').toLowerCase()}`}
                     </span>
-                    <span className="shrink-0 text-[10px] font-bold text-emerald-700">Track ›</span>
-                  </button>
-                );
-              })}
-            </div>
+                    <button type="button" onClick={() => props.onOpenTracking(activeOrders[0].id)}
+                      className="shrink-0 text-[10px] font-extrabold text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                      Track ›
+                    </button>
+                  </div>
+                  {showAllActiveOrders && activeOrders.length > 1 && (
+                    <div className="mt-1 flex gap-1 overflow-x-auto scrollbar-none">
+                      {activeOrders.slice(1).map(order => (
+                        <button key={order.id} type="button" onClick={() => props.onOpenTracking(order.id)}
+                          className="shrink-0 rounded-md border border-emerald-100 bg-white px-1.5 py-0.5 text-[9px] font-bold text-emerald-800">
+                          #{order.id} · Track
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {mode === 'shop' && cart.length > 0 && (
+              <button type="button" onClick={() => setIsCartOpen(true)}
+                aria-label={`Open cart, ${cart.reduce((sum, item) => sum + item.quantity, 0)} items, total ₹${cartCalculations.finalTotal}`}
+                className="flex min-w-0 flex-1 items-center justify-between gap-1.5 rounded-xl bg-slate-900 px-2.5 py-2 text-left text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                  <ShoppingBag className="h-5 w-5" />
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-400 px-1 text-[9px] font-black text-slate-950">{cart.reduce((sum, item) => sum + item.quantity, 0)}</span>
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[10px] font-extrabold">Cart · ₹{cartCalculations.finalTotal}</span>
+                  <span className="block truncate text-[9px] text-slate-300">Checkout ›</span>
+                </span>
+              </button>
+            )}
           </div>
         </section>
       )}
