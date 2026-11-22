@@ -23,12 +23,21 @@ test('buyer catalogue has no implicit maximum-price filter', () => {
   assert.match(source, /maxPrice !== null && effectivePrice > maxPrice/);
 });
 
-test('product cards use Add then quantity controls rather than Buy Now', () => {
+test('product cards offer Add, Buy Now and quantity controls as separate actions', () => {
   const source = read('../src/components/Buyer/ProductCard.tsx');
   assert.match(source, /quantity <= 0 \?/);
   assert.match(source, /> ADD\s*</);
-  assert.doesNotMatch(source, /Buy Now/);
-  assert.doesNotMatch(source, /onBuyNow/);
+  assert.match(source, /Buy Now/);
+  assert.match(source, /onBuyNow/);
+  assert.match(source, /onClick=\{\(\) => onBuyNow\(product\)\}/);
+});
+
+test('buyer has a persistent cart shortcut that opens the cart drawer without scrolling', () => {
+  const source = read('../src/components/Buyer/BuyerHome.tsx');
+  assert.match(source, /Shopping cart shortcut/);
+  assert.match(source, /onClick=\{\(\) => setIsCartOpen\(true\)\}/);
+  assert.match(source, /cartCalculations\.finalTotal/);
+  assert.match(source, /fixed inset-x-0/);
 });
 
 test('checkout does not promise a fixed delivery ETA', () => {

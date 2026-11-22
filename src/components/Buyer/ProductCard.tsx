@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, ShoppingBag, Star, Store, Plus, Minus, Heart } from 'lucide-react';
+import { MessageSquare, ShoppingBag, Star, Store, Plus, Minus, Heart, CheckCircle2 } from 'lucide-react';
 import { Product } from '../../types';
 
 interface ProductCardProps {
@@ -8,6 +8,7 @@ interface ProductCardProps {
   onBargain: (product: Product) => void;
   onAddToCart: (product: Product) => void;
   onRemoveFromCart: (product: Product) => void;
+  onBuyNow: (product: Product) => void;
   onViewDetails: (product: Product) => void;
   isFavorite?: boolean;
   onToggleFavorite?: (product: Product) => void;
@@ -17,7 +18,7 @@ const getEffectivePrice = (product: Product) =>
   Math.round(product.sellerPrice * (1 - product.additionalDiscountPercent / 100));
 
 export const ProductCard: React.FC<ProductCardProps> = ({
-  product, quantity, onBargain, onAddToCart, onRemoveFromCart, onViewDetails, isFavorite = false, onToggleFavorite,
+  product, quantity, onBargain, onAddToCart, onRemoveFromCart, onBuyNow, onViewDetails, isFavorite = false, onToggleFavorite,
 }) => {
   const effectivePrice = getEffectivePrice(product);
   const savings = Math.max(0, product.mrp - effectivePrice);
@@ -93,6 +94,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </div>
           )}
         </div>
+
+        <button type="button" onClick={() => onBuyNow(product)} disabled={product.stock <= 0}
+          className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-extrabold text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:border-slate-300">
+          <CheckCircle2 className="h-4 w-4" /> Buy Now
+        </button>
 
         <div className="border-t border-slate-100 pt-2">
           <button onClick={() => onBargain(product)} disabled={product.stock <= 0}
