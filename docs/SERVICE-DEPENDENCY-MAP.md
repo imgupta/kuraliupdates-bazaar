@@ -161,3 +161,8 @@ Delivery profiles are authorized only through DELIVERY_AGENTS.USER_ID matching t
 ## Seller cancellation and inventory transaction contract — 7 November 2026
 
 Seller order status mutations use `OrderRepository.findLockedByOrderId` within the service transaction. Cancellation is allowed only from `PLACED` or `ACCEPTED_BY_SELLER`; `READY_FOR_PICKUP` and later states cannot be cancelled. A repeated `CANCELLED` request is idempotent. The service aggregates item quantities by product ID, locks product rows in ascending ID order, restores stock once, and sets order/fulfilment/payment status to `CANCELLED`. If a product row is missing or stock arithmetic overflows, the transaction aborts. Already-paid orders are rejected until a refund workflow exists. Buyer cancellation remains a separate unimplemented flow; Oracle independent-transaction race validation remains outstanding.
+
+
+## Daily Help completion OTP and helper override
+
+Every booking receives a separate completion OTP at creation. The buyer-only booking response exposes it only while the booking is IN_PROGRESS; professional responses never contain it. The professional completion endpoint requires either this 4-digit customer OTP or a reasoned exception of at least 10 characters. The exception records the assigned professional ID, reason and timestamp on the booking row. Invalid OTP attempts are persisted under the row lock and capped at five. Completion clears the outstanding OTP and remains a single terminal transition. The client timer is display-only, server-start anchored and capped at the booked duration; reaching the cap never marks a booking completed or creates earnings. Flyway V47 adds the completion proof and override audit columns.

@@ -361,7 +361,7 @@ Source: `src/services/api.ts` at main baseline `ddb67904e14b8d75840389581d4a6c0b
 | `getDailyHelpProfessionalEarnings` | `GET` | `/daily-help/professionals/{professionalId}/earnings` | Read (verify exceptions) |
 | `updateDailyHelpBookingStatus` | `POST` | `/daily-help/bookings/{bookingId}/status` | Mutating/side-effect |
 | `startDailyHelpBooking` | `POST` | `/daily-help/bookings/{bookingId}/start` | Mutating/side-effect |
-| `completeDailyHelpBooking` | `POST` | `/daily-help/bookings/{bookingId}/complete?professionalId={professionalId}` | Mutating/side-effect |
+| `completeDailyHelpBooking` | `POST` | `/daily-help/bookings/{bookingId}/complete` (JSON body includes professionalId and either customer OTP or override reason) | Mutating/side-effect |
 
 ### API contract trace still required
 

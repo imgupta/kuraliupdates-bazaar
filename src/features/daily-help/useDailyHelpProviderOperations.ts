@@ -14,6 +14,8 @@ export const useDailyHelpProviderOperations = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
+  const [completionOtpInputs, setCompletionOtpInputs] = useState<Record<string, string>>({});
+  const [overrideReasons, setOverrideReasons] = useState<Record<string, string>>({});
   const [now, setNow] = useState(Date.now());
   const [slotDate, setSlotDate] = useState(new Date().toISOString().slice(0, 10));
   const [slotStart, setSlotStart] = useState('09:00');
@@ -60,8 +62,15 @@ export const useDailyHelpProviderOperations = () => {
   }, [professional?.professionalId]);
 
   useEffect(() => {
-    if (!jobs.some(j => j.status === 'IN_PROGRESS' && j.serviceStartedAt)) return;
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    const hasRunningTimer = () => jobs.some(j =>
+      j.status === 'IN_PROGRESS' && j.serviceStartedAt &&
+      Date.now() < new Date(j.serviceStartedAt).getTime() + Math.max(0, Number(j.requestedHours || 0)) * 3600000
+    );
+    if (!hasRunningTimer()) return;
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+      if (!hasRunningTimer()) window.clearInterval(interval);
+    }, 1000);
     return () => window.clearInterval(interval);
   }, [jobs]);
 
@@ -155,14 +164,29 @@ export const useDailyHelpProviderOperations = () => {
     await load(true);
   };
 
-  const complete = async (booking: DailyHelpBooking) => {
+  const complete = async (booking: DailyHelpBooking, useOverride = false) => {
     if (!professional) return;
-    const result = await dailyHelpProviderApi.completeDailyHelpBooking(booking.id, professional.professionalId);
-    if (!result) {
-      showToast('Unable to complete the service.', 'error');
+    const otp = (completionOtpInputs[booking.id] || '').replace(/\D/g, '');
+    const overrideReason = (overrideReasons[booking.id] || '').trim();
+    if (!useOverride && otp.length !== 4) {
+      showToast('Enter the 4-digit customer completion OTP.', 'error');
       return;
     }
-    showToast('Service completed successfully.', 'success');
+    if (useOverride && overrideReason.length < 10) {
+      showToast('Enter at least 10 characters explaining why the customer OTP is unavailable.', 'error');
+      return;
+    }
+    const result = await dailyHelpProviderApi.completeDailyHelpBooking(
+      booking.id, professional.professionalId,
+      useOverride ? { overrideReason } : { otp }
+    );
+    if (!result) {
+      showToast('Completion failed. Verify the customer OTP or review the override reason.', 'error');
+      return;
+    }
+    setCompletionOtpInputs(prev => ({ ...prev, [booking.id]: '' }));
+    setOverrideReasons(prev => ({ ...prev, [booking.id]: '' }));
+    showToast(useOverride ? 'Service completed with audited OTP override.' : 'Customer OTP verified. Service completed.', 'success');
     await load(true);
   };
 
@@ -198,7 +222,7 @@ export const useDailyHelpProviderOperations = () => {
   };
 
   return {
-    professional, earnings, availableJobs, jobs, loading, refreshing, setRefreshing, otpInputs, setOtpInputs, now,
+    professional, earnings, availableJobs, jobs, loading, refreshing, setRefreshing, otpInputs, setOtpInputs, completionOtpInputs, setCompletionOtpInputs, overrideReasons, setOverrideReasons, now,
     slotDate, setSlotDate, slotStart, setSlotStart, slotEnd, setSlotEnd, mySlots,
     registrationName, setRegistrationName,
     registrationWardNumber, setRegistrationWardNumber, registering, activeJobs,

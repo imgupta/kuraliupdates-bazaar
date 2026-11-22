@@ -23,7 +23,10 @@ public record DailyHelpBookingResponse(
         String startOtp,
         LocalDateTime otpVerifiedAt,
         LocalDateTime serviceStartedAt,
-        LocalDateTime serviceCompletedAt
+        LocalDateTime serviceCompletedAt,
+        String completionOtp,
+        String completionOverrideReason,
+        LocalDateTime completionOverrideAt
 ) {
     public static DailyHelpBookingResponse from(DailyHelpBookingEntity b, boolean exposeOtp) {
         return new DailyHelpBookingResponse(
@@ -35,7 +38,9 @@ public record DailyHelpBookingResponse(
                 b.getProfessional() == null ? null : b.getProfessional().getFullName(),
                 b.getProfessional() == null ? null : b.getProfessional().getPhone(),
                 exposeOtp ? b.getStartOtp() : null,
-                b.getOtpVerifiedAt(), b.getServiceStartedAt(), b.getServiceCompletedAt()
+                b.getOtpVerifiedAt(), b.getServiceStartedAt(), b.getServiceCompletedAt(),
+                exposeOtp && "IN_PROGRESS".equals(b.getStatus()) ? b.getCompletionOtp() : null,
+                b.getCompletionOverrideReason(), b.getCompletionOverrideAt()
         );
     }
 }

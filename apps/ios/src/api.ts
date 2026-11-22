@@ -136,7 +136,7 @@ export const mobileApi = {
   dailyAccept: (t: string, id: string, bookingId: string) => authed<MobileRecord>(`/daily-help/professionals/${encodeURIComponent(id)}/jobs/${encodeURIComponent(bookingId)}/accept`, t, { method: 'POST' }),
   dailyAvailability: (t: string, id: string, available: boolean) => authed<MobileRecord>(`/daily-help/professionals/${encodeURIComponent(id)}/availability`, t, { method: 'POST', body: JSON.stringify({ status: available ? 'AVAILABLE' : 'UNAVAILABLE' }) }),
   dailyStart: (t: string, bookingId: string, professionalId: string, otp: string) => authed<MobileRecord>(`/daily-help/bookings/${encodeURIComponent(bookingId)}/start`, t, { method: 'POST', body: JSON.stringify({ professionalId, otp }) }),
-  dailyComplete: (t: string, bookingId: string, professionalId: string) => authed<MobileRecord>(`/daily-help/bookings/${encodeURIComponent(bookingId)}/complete?professionalId=${encodeURIComponent(professionalId)}`, t, { method: 'POST' }),
+  dailyComplete: (t: string, bookingId: string, professionalId: string, payload: { otp?: string; overrideReason?: string }) => authed<MobileRecord>(`/daily-help/bookings/${encodeURIComponent(bookingId)}/complete`, t, { method: 'POST', body: JSON.stringify({ professionalId, ...payload }) }),
 
   // Buyer checkout and lifecycle; server validates stock, accepted offers and configured constraints.
   buyerCheckout: (t: string, payload: MobileRecord) => authed<MobileRecord>('/buyers/orders/checkout', t, { method: 'POST', body: JSON.stringify(payload) }),

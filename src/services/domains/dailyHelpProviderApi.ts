@@ -186,12 +186,13 @@ export const dailyHelpProviderApi = {
       }
     },
 
-  async completeDailyHelpBooking(bookingId: string, professionalId: string): Promise<DailyHelpBooking | null> {
+  async completeDailyHelpBooking(bookingId: string, professionalId: string, payload: { otp?: string; overrideReason?: string }): Promise<DailyHelpBooking | null> {
       try {
         const token = localStorage.getItem('kurali_auth_token');
-        const res = await fetch(`${API_BASE_URL}/daily-help/bookings/${encodeURIComponent(bookingId)}/complete?professionalId=${encodeURIComponent(professionalId)}`, {
+        const res = await fetch(`${API_BASE_URL}/daily-help/bookings/${encodeURIComponent(bookingId)}/complete`, {
           method: 'POST',
-          headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ professionalId, ...payload }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return await res.json();

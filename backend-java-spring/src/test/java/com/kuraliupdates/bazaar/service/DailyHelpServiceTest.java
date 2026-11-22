@@ -2,6 +2,7 @@ package com.kuraliupdates.bazaar.service;
 
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpBookingRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpStartRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpCompleteRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpSlotRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalRegistrationRequest;
 import com.kuraliupdates.bazaar.entity.DailyHelpBookingEntity;
@@ -227,6 +228,7 @@ class DailyHelpServiceTest {
                 .startOtp("1234")
                 .otpExpiresAt(now.plusMinutes(10))
                 .otpAttempts(0)
+                .completionOtpAttempts(0)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -442,11 +444,13 @@ class DailyHelpServiceTest {
     @Test
     void completionTimestampIsNormalizedToOracleMicrosecondPrecision() {
         DailyHelpBookingEntity booking = booking("BOOK-COMPLETE-PRECISION", "IN_PROGRESS");
+        booking.setCompletionOtp("5678");
+        booking.setCompletionOtpAttempts(0);
         when(bookingRepository.findLockedByBookingId("BOOK-COMPLETE-PRECISION")).thenReturn(Optional.of(booking));
         when(bookingRepository.save(any(DailyHelpBookingEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        var response = dailyHelpService.completeBooking("BOOK-COMPLETE-PRECISION", "DHP-1");
+        var response = dailyHelpService.completeBooking("BOOK-COMPLETE-PRECISION", new DailyHelpCompleteRequest("DHP-1", "5678", null));
 
         assertEquals("COMPLETED", response.status());
         assertNotNull(response.serviceCompletedAt());
@@ -457,12 +461,48 @@ class DailyHelpServiceTest {
     }
 
     @Test
+    void completionRequiresCustomerOtpOrReasonedOverride() {
+        DailyHelpBookingEntity booking = booking("BOOK-END-OTP", "IN_PROGRESS");
+        booking.setCompletionOtp("5678");
+        when(bookingRepository.findLockedByBookingId("BOOK-END-OTP")).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any(DailyHelpBookingEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApiException missing = assertThrows(ApiException.class,
+                () -> dailyHelpService.completeBooking("BOOK-END-OTP", new DailyHelpCompleteRequest("DHP-1", null, null)));
+        assertEquals(HttpStatus.BAD_REQUEST, missing.getStatus());
+        assertEquals("IN_PROGRESS", booking.getStatus());
+
+        ApiException wrong = assertThrows(ApiException.class,
+                () -> dailyHelpService.completeBooking("BOOK-END-OTP", new DailyHelpCompleteRequest("DHP-1", "0000", null)));
+        assertEquals(HttpStatus.BAD_REQUEST, wrong.getStatus());
+        assertEquals(1, booking.getCompletionOtpAttempts());
+        assertEquals("IN_PROGRESS", booking.getStatus());
+    }
+
+    @Test
+    void helperOverrideRequiresReasonAndPersistsActorAndTimestamp() {
+        DailyHelpBookingEntity booking = booking("BOOK-END-OVERRIDE", "IN_PROGRESS");
+        booking.setCompletionOtp("5678");
+        when(bookingRepository.findLockedByBookingId("BOOK-END-OVERRIDE")).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any(DailyHelpBookingEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = dailyHelpService.completeBooking("BOOK-END-OVERRIDE",
+                new DailyHelpCompleteRequest("DHP-1", null, "Customer phone unavailable"));
+
+        assertEquals("COMPLETED", response.status());
+        assertEquals("Customer phone unavailable", booking.getCompletionOverrideReason());
+        assertEquals("DHP-1", booking.getCompletionOverrideBy());
+        assertNotNull(booking.getCompletionOverrideAt());
+        assertNull(booking.getCompletionOtp());
+    }
+
+    @Test
     void unassignedProfessionalCannotCompleteBooking() {
         DailyHelpBookingEntity booking = booking("BOOK-COMPLETE-OWNER", "IN_PROGRESS");
         when(bookingRepository.findLockedByBookingId("BOOK-COMPLETE-OWNER")).thenReturn(Optional.of(booking));
 
         ApiException error = assertThrows(ApiException.class,
-                () -> dailyHelpService.completeBooking("BOOK-COMPLETE-OWNER", "DHP-OTHER"));
+                () -> dailyHelpService.completeBooking("BOOK-COMPLETE-OWNER", new DailyHelpCompleteRequest("DHP-OTHER", "5678", null)));
 
         assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
         verify(bookingRepository, never()).save(any());

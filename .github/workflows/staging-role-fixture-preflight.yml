@@ -215,8 +215,27 @@ jobs:
                   : ' session issued; a profile/configuration mismatch was recorded.'));
             }
 
-            const adminQueue = await getJson('/admin/sellers/pending', tokens.ADMIN);
-            if (!Array.isArray(adminQueue)) throw new Error('ADMIN role did not return the expected seller approval queue.');
+            // Admin APIs intentionally require a fresh MFA step-up. The staging
+            // E2E token is a role-scoped session, not an MFA credential; verify the
+            // exempt status endpoint and assert the protected API rejects it until
+            // the real administrator completes step-up verification.
+            const mfaStatus = await getJson('/admin/mfa/status', tokens.ADMIN);
+            if (typeof mfaStatus.enabled !== 'boolean' || typeof mfaStatus.stepUpValid !== 'boolean') {
+              throw new Error('ADMIN MFA status endpoint returned an invalid contract.');
+            }
+            if (mfaStatus.stepUpValid) {
+              throw new Error('Staging E2E ADMIN session unexpectedly has an MFA step-up token.');
+            }
+            const adminQueueResponse = await fetch(apiBase + '/admin/sellers/pending', {
+              headers: { 'Authorization': 'Bearer ' + tokens.ADMIN, 'Cache-Control': 'no-store', 'Accept': 'application/json' },
+              signal: AbortSignal.timeout(60000)
+            });
+            let adminQueueBody = {};
+            try { adminQueueBody = await adminQueueResponse.json(); } catch { /* handled by contract assertion below */ }
+            if (adminQueueResponse.status !== 403 || adminQueueBody.code !== 'ADMIN_MFA_REQUIRED') {
+              throw new Error('ADMIN approval queue did not enforce the expected MFA step-up boundary (HTTP ' +
+                adminQueueResponse.status + ').');
+            }
             for (const role of ['BUYER','SELLER']) {
               const denied = await fetch(apiBase + '/admin/sellers/pending', {
                 headers: { 'Authorization': 'Bearer ' + tokens[role], 'Cache-Control': 'no-store', 'Accept': 'application/json' },
@@ -224,7 +243,7 @@ jobs:
               });
               if (![401,403].includes(denied.status)) throw new Error(role + ' session unexpectedly accessed the admin approval queue.');
             }
-            console.log('PASS: ADMIN can read approval queue; BUYER and SELLER sessions are denied.');
+            console.log('PASS: ADMIN MFA step-up is enforced; BUYER and SELLER sessions are denied.');
             if (transactionalFixturesEnabled) {
               console.log('PASS: all three pre-existing profiles are linked to the shared account and ready. Synthetic product, service and slot fixtures are provisioned per transaction run.');
             } else {

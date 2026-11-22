@@ -5,6 +5,7 @@ import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalAvailabilityR
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpSlotRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpStatusRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpStartRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpCompleteRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalResponse;
 import com.kuraliupdates.bazaar.entity.UserEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
@@ -93,10 +94,10 @@ class DailyHelpControllerTest {
         assertEquals(HttpStatus.FORBIDDEN, assertThrows(ApiException.class,
                 () -> controller.acceptJob("DHP-OTHER", "BOOK-1", authentication)).getStatus());
         assertEquals(HttpStatus.FORBIDDEN, assertThrows(ApiException.class,
-                () -> controller.completeBooking("BOOK-1", "DHP-OTHER", authentication)).getStatus());
+                () -> controller.completeBooking("BOOK-1", new DailyHelpCompleteRequest("DHP-OTHER", "1234", null), authentication)).getStatus());
 
         verify(dailyHelpService, never()).acceptJob(anyString(), anyString());
-        verify(dailyHelpService, never()).completeBooking(anyString(), anyString());
+        verify(dailyHelpService, never()).completeBooking(anyString(), any(DailyHelpCompleteRequest.class));
     }
 
     @Test
@@ -230,7 +231,7 @@ class DailyHelpControllerTest {
                 () -> controller.startBooking("BOOK-1",
                         new DailyHelpStartRequest("DHP-1", "123456"), malformed)).getStatus());
         assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
-                () -> controller.completeBooking("BOOK-1", "DHP-1", malformed)).getStatus());
+                () -> controller.completeBooking("BOOK-1", new DailyHelpCompleteRequest("DHP-1", "1234", null), malformed)).getStatus());
 
         verifyNoInteractions(dailyHelpService, e2eRunTagging);
     }
