@@ -348,7 +348,7 @@ public class OrderService {
             product.setStock(product.getStock() - quantity);
         }
         orderItems.forEach(item -> item.setOrder(order));
-        OrderEntity saved = orderRepository.save(order);
+        OrderEntity saved = orderRepository.saveAndFlush(order);
         storeCheckoutRequest(idempotencyKey, buyer.getUserId(), requestHash(request), saved.getOrderId(), null);
         // UPI instructions are snapshotted only from an admin-verified active seller destination.
         // The payment record is seller-specific; no funds pass through KuraliUpdates.
