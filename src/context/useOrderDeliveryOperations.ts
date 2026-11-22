@@ -39,6 +39,9 @@ export const useOrderDeliveryOperations = ({
     customerNotes?: string;
     paymentMethod: 'COD' | 'UPI' | 'StorePay' | 'Card' | 'NetBanking';
     fulfilmentMode?: 'DELIVERY' | 'STORE_PICKUP';
+    deliveryLatitude?: number;
+    deliveryLongitude?: number;
+    deliveryPlaceId?: string;
     items?: CartItem[];
   }): Promise<Order | null> => {
     const checkoutItems = orderData.items ?? cart;
@@ -80,9 +83,9 @@ export const useOrderDeliveryOperations = ({
       placedAt: new Date().toISOString(),
       estimatedDeliveryTime: undefined,
       distanceKm: 1.4,
-      deliveryLatitude: user.latitude,
-      deliveryLongitude: user.longitude,
-      deliveryPlaceId: user.placeId,
+      deliveryLatitude: orderData.deliveryLatitude,
+      deliveryLongitude: orderData.deliveryLongitude,
+      deliveryPlaceId: orderData.deliveryPlaceId,
       statusUpdates: [{ status: 'placed', timestamp: new Date().toISOString(), note: 'Order placed by buyer.' }],
       customerNotes: orderData.customerNotes,
     };
