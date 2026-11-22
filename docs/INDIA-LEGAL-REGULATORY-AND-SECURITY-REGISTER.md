@@ -1,5 +1,18 @@
 # India Legal, Regulatory and Security Register — Phase 0
 
+## 22 November 2026 — security implementation update (not legal sign-off)
+
+PR #382 is merged and deployed to the owner-designated shared staging environment. Six Vercel web projects are READY and the Render backend is LIVE on merge SHA `65918519b5a17c51299e80545a77351216a5fdce`. Render logs confirm Flyway V43–V46 applied to Oracle schema ADMIN (v46).
+
+The release added same-origin browser API proxying, HttpOnly Secure cookies, double-submit CSRF, session-token hashing at rest, browser idle/absolute expiry and rotation, OTP abuse limits, admin TOTP MFA/step-up, admin mutation audit events and security headers with CSP report-only. These are engineering controls, not proof of legal compliance.
+
+**Current failed evidence:** main CI #45007469777 has two admin authorization E2E failures (expected 200, received 403) and six skipped tests; Oracle recovery run #45007469765 timed out before cleanup/rollback verification. Main-push ZAP was skipped; the pre-merge scan had 11 warnings and did not validate the new deployed edge headers.
+
+**Superseding clarification for historical wallet/credential notes:** the current documented Oracle runtime path is walletless JDBC Thin TCPS (see README and deployment runbooks); do not describe wallet files as a current runtime dependency. The owner previously reported that credentials were rotated. Retain independently verifiable rotation/revocation and secret-only runtime evidence in the release pack, and separately review historical repository exposure; do not state that rotation is unperformed or proven solely from this register.
+
+Open engineering/security gates include complete endpoint ownership tests, trusted proxy CIDR verification, complete DTO inventory, sensitive-read/auth-denial audit coverage, CSP review, authenticated DAST, privacy-request fulfilment, retention/deletion, backup/restore and provider/data-region evidence. Legal, tax, labour, payment and marketplace compliance still require qualified Indian professional review against actual contracts and funds flow. See [Security release checkpoint](SECURITY-RELEASE-2026-11-22.md).
+
+
 **Status:** Preliminary source-backed issue register; not legal sign-off.  **Review date:** 3 November 2026.
 **Scope:** KuraliUpdates marketplace (goods), seller onboarding, Daily Help, delivery partners, admin/CRM, payments/refunds, communications and hosting.
 **Related standards:** Engineering Operating Standard and India Compliance, Data Governance and Product Excellence.

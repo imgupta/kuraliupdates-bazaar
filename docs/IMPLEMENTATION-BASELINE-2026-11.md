@@ -1,5 +1,17 @@
 # Implementation baseline — 17 November 2026
 
+## 22 November 2026 — security release superseding checkpoint
+
+The baseline below records the 17 November state and is retained as historical context. The latest release is PR #382, merged as `65918519b5a17c51299e80545a77351216a5fdce`.
+
+- Six Vercel web projects (Bazaar, Buyer, Seller, Delivery, Admin, Daily Help) report READY on the merge SHA; Render backend is LIVE on that SHA. The owner-designated environment remains shared staging.
+- Render logs confirm Flyway V43–V46 applied to Oracle schema ADMIN; Flyway reports schema version v46.
+- Main CI #45007469777 failed at browser E2E: admin access to seller documents and approval queue returned 403 instead of expected 200; four passed, two failed, six skipped. Transactional lifecycle tests were disabled.
+- Oracle recovery #45007469765 failed at synthetic seller-session issuance timeout after 30 seconds; cleanup/replay and checkout rollback checks remain unverified.
+- PR #382 implemented same-origin API proxying, HttpOnly cookie auth/CSRF, hashed session references, OTP throttling, admin TOTP MFA/step-up, admin mutation audit, browser idle/absolute expiry and rotation, and edge/backend security headers with CSP report-only.
+- Do not treat this deployment as production-ready or fully security-validated. Use [Security release checkpoint](SECURITY-RELEASE-2026-11-22.md) as the authoritative pending register.
+
+
 > This page is the consolidated handoff for the recent November 2026 product, onboarding, security, privacy, operations and CI changes. It records source/PR facts separately from staging evidence. It is not a legal compliance certificate or production-readiness sign-off.
 
 ## Environment and evidence boundary

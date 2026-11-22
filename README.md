@@ -1,5 +1,9 @@
 # KuraliUpdates Bazaar
 
+## Latest release checkpoint — 22 November 2026
+
+PR #382 is merged as `65918519b5a17c51299e80545a77351216a5fdce`. Six Vercel web projects and Render backend are deployed on that SHA in the owner-designated shared staging environment; Oracle Flyway V43–V46 are confirmed applied. Main browser E2E and Oracle recovery workflows have failures, so this is not a production-readiness or security certification. See [Security release checkpoint](docs/SECURITY-RELEASE-2026-11-22.md) for exact evidence and all pending work.
+
 KuraliUpdates is a Kurali, Punjab hyperlocal marketplace with two customer journeys: **Online Shop** (multi-seller grocery/retail) and **Daily Help** (local service bookings).
 
 > **Environment note:** The owner-designated shared environment is staging. The public custom domains are currently part of that same environment; do not assume a separate production environment exists.

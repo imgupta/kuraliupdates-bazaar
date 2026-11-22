@@ -49,9 +49,15 @@ Oracle connectivity is configured for walletless JDBC Thin TCPS. Runtime configu
 - PR #365 adds privacy request tracking, versioned notice acknowledgement, admin compliance settings and security audit events. The request API tracks requests but does not itself fulfil export/correction/erasure/withdrawal. Operational fulfilment and evidence remain required.
 - GST/FSSAI applicability is configuration-driven; configuration and format validation are not government verification or legal sign-off.
 - Age/minor policy is metadata only; minors must remain disabled until age assurance and verifiable parental-consent controls are implemented and approved.
-- Existing bearer session tokens remain stored in the session table; do not claim session-token hashing is implemented.
+- PR #382 / Flyway V43 hashes opaque session-token references at rest in the session store; browser auth uses Secure HttpOnly host-only cookies with double-submit CSRF. This does not complete endpoint-level IDOR certification or all session lifecycle runtime testing.
 - Retention/deletion, OTP expiry purge, provider-region verification, India log/backup location, processor contracts and legal review remain open release gates.
 - Oracle encryption at rest/TLS do not equal application-layer document encryption. Do not collect sensitive identity data without documented lawful basis.
+
+## Web security release checkpoint (22 November 2026)
+
+PR #382 merged as `65918519b5a17c51299e80545a77351216a5fdce`. Browser API traffic uses the same-origin Vercel/Vite `/api/v1` proxy. Browser sessions use Secure HttpOnly host-only cookies and double-submit CSRF; V43 hashes session token references at rest; browser idle timeout is 30 minutes with 12-hour absolute expiry and active-use rotation. Admin TOTP MFA/step-up, OTP rate limits, append-only admin mutation audit, and backend/edge security headers were added. CSP remains report-only. Trusted proxy CIDRs remain unset until the real proxy chain is verified.
+
+Render logs confirm V43–V46 applied to Oracle schema ADMIN (v46). Six Vercel web projects and Render backend are deployed on the merge SHA in shared staging. Main CI has two admin-positive E2E 403 failures and six skipped tests; Oracle recovery timed out before cleanup/rollback checks. Full IDOR, audit, DTO, authenticated DAST, backup/restore and data-residency evidence remain open. See [Security release checkpoint](docs/SECURITY-RELEASE-2026-11-22.md).
 
 ## Quality gates
 

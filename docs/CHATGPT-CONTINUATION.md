@@ -1,5 +1,18 @@
 # Engineering handoff — KuraliUpdates
 
+## Latest handoff — 22 November 2026
+
+The current execution checkpoint is PR #382 merge SHA `65918519b5a17c51299e80545a77351216a5fdce`. Read [Security release checkpoint](SECURITY-RELEASE-2026-11-22.md) first; it supersedes the historical execution checkpoints later in this file where they conflict.
+
+- Six Vercel web projects are READY and Render backend is LIVE on the merge SHA; owner-designated environment remains shared staging.
+- Oracle logs confirm Flyway V43–V46 applied to schema ADMIN, now at v46.
+- Main CI #45007469777 failed: admin document and approval-queue E2E requests expected 200 but received 403; 4 passed, 2 failed, 6 skipped. Transactional lifecycle suite disabled.
+- Oracle recovery #45007469765 failed before cleanup/rollback checks because synthetic seller-session issuance timed out after 30 seconds.
+- Work scope is WEB ONLY. Do not inspect or modify iOS unless explicitly asked.
+- User preference: group related work into one comprehensive PR; do not claim a test, migration, deployment or compliance gate passed without direct evidence.
+- Next priority: diagnose admin 403, fix Oracle recovery timeout, then rerun exact-SHA role E2E and isolated transactional Oracle recovery. Keep trusted proxy CIDRs unset until the actual proxy chain is verified.
+
+
 Keep this file concise and current. Durable architecture, risks and detailed discovery live in linked documents.
 
 ## Mandatory operating standard
