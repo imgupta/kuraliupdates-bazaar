@@ -20,8 +20,14 @@ public final class OrderBuyerAccessPolicy {
 
     public static boolean owns(OrderEntity order, UserEntity buyer) {
         if (order == null || buyer == null) return false;
-        if (buyer.getUserId() != null && order.getBuyerUserId() != null
-                && buyer.getUserId().equals(order.getBuyerUserId())) return true;
+        // Stable user IDs are authoritative whenever an order has one. Do not
+        // fall back to a matching email after an ID mismatch: email reuse or
+        // account changes must never transfer ownership of an existing order.
+        if (order.getBuyerUserId() != null && !order.getBuyerUserId().isBlank()) {
+            return buyer.getUserId() != null && order.getBuyerUserId().equals(buyer.getUserId());
+        }
+        // Legacy orders without a stable owner ID retain the historical
+        // normalized-email compatibility path.
         return owns(order, buyer.getEmail());
     }
 }
