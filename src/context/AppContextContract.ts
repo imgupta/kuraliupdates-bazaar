@@ -128,6 +128,9 @@ interface AppContextType {
     customerNotes?: string;
     paymentMethod: 'COD' | 'UPI' | 'StorePay' | 'Card' | 'NetBanking';
     fulfilmentMode?: 'DELIVERY' | 'STORE_PICKUP';
+    deliveryLatitude?: number;
+    deliveryLongitude?: number;
+    deliveryPlaceId?: string;
     /** Optional isolated item set for Buy Now; omitted for the normal basket checkout. */
     items?: CartItem[];
   }) => Promise<Order | null>;
