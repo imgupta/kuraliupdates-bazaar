@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -36,6 +37,7 @@ public class SellerService {
     private final OrderRepository orderRepository;
     private final SellerDirectPaymentService sellerDirectPaymentService;
     private final BillDiscountRepository billDiscountRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     @Transactional(readOnly = true)
     public SellerEntity getCurrentSeller(String token) {
@@ -55,6 +57,39 @@ public class SellerService {
         SellerEntity seller = requireApprovedSeller(token);
         seller.setStoreOpen(open);
         return sellerRepository.save(seller);
+    }
+
+
+    @Transactional
+    public SellerEntity updateOwnAddress(String token, String address, String locality,
+            BigDecimal latitude, BigDecimal longitude) {
+        requireSellerSession(token);
+        if (address == null || address.isBlank() || address.trim().length() > 500
+                || locality == null || locality.isBlank() || locality.trim().length() > 150
+                || latitude == null || longitude == null
+                || latitude.compareTo(BigDecimal.valueOf(-90)) < 0 || latitude.compareTo(BigDecimal.valueOf(90)) > 0
+                || longitude.compareTo(BigDecimal.valueOf(-180)) < 0 || longitude.compareTo(BigDecimal.valueOf(180)) > 0
+                || (latitude.compareTo(BigDecimal.ZERO) == 0 && longitude.compareTo(BigDecimal.ZERO) == 0)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Enter a valid shop address, locality and map location");
+        }
+        SellerEntity seller = getCurrentSeller(token);
+        boolean changed = !address.trim().equals(seller.getAddress())
+                || !locality.trim().equals(seller.getLocality())
+                || seller.getLatitude() == null || seller.getLongitude() == null
+                || seller.getLatitude().compareTo(latitude) != 0 || seller.getLongitude().compareTo(longitude) != 0;
+        if (!changed) return seller;
+        seller.setAddress(address.trim());
+        seller.setLocality(locality.trim());
+        seller.setLatitude(latitude);
+        seller.setLongitude(longitude);
+        seller.setLocationVerified(false);
+        SellerEntity saved = sellerRepository.save(seller);
+        var actor = authService.requireUser(token);
+        jdbcTemplate.update("INSERT INTO ADMIN_ACCOUNT_AUDIT (AUDIT_ID,ACTOR_USER_ID,ACTOR_EMAIL,TARGET_USER_ID,TARGET_EMAIL,ACTION,PREVIOUS_STATUS,NEW_STATUS,REASON,OCCURRED_AT) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                UUID.randomUUID().toString(), actor.getUserId(), actor.getEmail(), seller.getUserId(), seller.getEmail(),
+                "SELLER_ADDRESS_CHANGE", seller.getStatus(), seller.getStatus(),
+                "Seller changed shop address/locality/map coordinates; location verification reset", LocalDateTime.now());
+        return saved;
     }
 
     @Transactional(readOnly = true)
