@@ -151,9 +151,12 @@ Before changing APIs/schema, inspect existing checkout grouping, order/suborder 
 
 ### Buyer experience
 - [ ] Home/search/category/product cards responsive and accessible.
-- [ ] No implicit ₹3,000 max-price filter.
+- [x] No implicit ₹3,000 max-price filter (source implemented; final CI verification pending).
 - [ ] Add and decrement/quantity/increment remain synchronized across card, detail, basket and checkout.
-- [ ] Buy Now checks out only selected product and preserves existing basket.
+- [x] Buy Now checks out only selected product and preserves existing basket (source implemented; final CI verification pending).
+- [x] Delivered orders provide Buy Again using current catalogue prices and stock checks (source implemented; final CI verification pending).
+- [x] Favourites and named saved lists are available with browser/device-local persistence.
+- [x] Common English/Roman Hindi/Devanagari/Gurmukhi grocery synonyms are expanded per search token; all query tokens must match.
 - [ ] No hard-coded ETA or disabled payment method shown as available.
 
 ### Bargaining
@@ -221,18 +224,18 @@ Set overall status to **Complete** only when mandatory requirements in sections 
 
 | Evidence | Record |
 |---|---|
-| Implementation PR | TBD |
+| Implementation PR | [#390](https://github.com/imgupta/kuraliupdates-bazaar/pull/390) |
 | Merge commit | TBD |
-| Exact tested head SHA | TBD |
+| Exact tested head SHA | Pending final CI run |
 | Backend tests | Pending |
 | Frontend lint/type/build | Pending |
 | Buyer Playwright tests | Pending |
 | Payment/partial-payment tests | Pending |
 | Authorization/idempotency/concurrency tests | Pending |
 | Staging verification | Pending / not run |
-| Flyway migration versions (if any) | TBD |
+| Flyway migration versions (if any) | V48 and V49; isolated Oracle execution pending |
 | Known limitations/deferred items | TBD |
-| Final disposition | **PLANNED — NOT IMPLEMENTED** |
+| Final disposition | **IMPLEMENTED IN SOURCE — VERIFICATION PENDING** |
 
 ## 10. Related documentation
 
@@ -246,6 +249,6 @@ Set overall status to **Complete** only when mandatory requirements in sections 
 
 ## 10. Current implementation evidence (PR #390)
 
-The same consolidated PR now contains seller UPI destination submission and admin verification/activation; per-seller payment snapshots and payment records; buyer UTR submission; seller confirmation/rejection; seller-specific payment progress; seller-funded refund request/recording; per-seller COD configuration; unpaid UPI dispatch guard; buyer issue reporting and admin issue triage; buyer-user-scoped checkout idempotency; delivery radius/route checks when verified coordinates are available; and migration V48/V49.
+The same consolidated PR now contains seller UPI destination submission and admin verification/activation; per-seller payment snapshots and payment records; buyer UTR submission; seller confirmation/rejection; seller-specific payment progress; seller-funded refund request/recording; per-seller COD configuration; unpaid UPI dispatch guard; buyer issue reporting and admin issue triage; buyer-user-scoped checkout idempotency; fail-closed verified-coordinate delivery-radius checks; combined route limit and route-based per-kilometre fee fallback; scheduled payment expiry with Oracle `FOR UPDATE SKIP LOCKED` and audit; admin-configurable ETA; multilingual grocery search expansion; browser-local favourites and saved lists; Buy Again; and migrations V48/V49.
 
-These source changes are not accepted as complete until the merge gate in the [implementation report](BUYER-PORTAL-IMPLEMENTATION-REPORT.md) is met. In particular, the current implementation does not provide bank/PSP UPI verification, independent proof of seller payment/refund, scheduled payment expiry, or radius proof when required coordinates are unavailable. Smart multilingual synonym/transliteration search and secondary retention features remain outstanding.
+Remaining boundaries are operational: no bank/PSP ownership or settlement verification, no independent bank proof for seller refunds, browser-local saved items are not synchronized across devices, and search synonyms are curated rather than a general Indic transliteration engine. Source changes are not accepted as production-ready until the exact-head CI and staging/Oracle merge gates in the [implementation report](BUYER-PORTAL-IMPLEMENTATION-REPORT.md) are met.
