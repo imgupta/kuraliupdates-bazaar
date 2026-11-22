@@ -4,7 +4,7 @@ import { BuyerHome } from '../../components/Buyer/BuyerHome';
 import { CartDrawer } from '../../components/Buyer/CartDrawer';
 import { CheckoutModal } from '../../components/Buyer/CheckoutModal';
 import { OrderTrackingModal } from '../../components/Buyer/OrderTrackingModal';
-import { NegotiationChatModal } from '../../components/Buyer/NegotiationChatModal';
+import { NegotiationChatModal } from '../../components/Buyer/NegotiationChatModal';\nimport type { CartItem, Product } from '../../types';
 
 export type BuyerPortalProps = {
   searchQuery: string;
@@ -42,9 +42,9 @@ export const BuyerPortal: React.FC<BuyerPortalProps> = ({
         }}
         isCheckoutOpen={isCheckoutOpen}
       />
-      <CartDrawer onProceedToCheckout={() => setIsCheckoutOpen(true)} />
+      <CartDrawer onProceedToCheckout={openBasketCheckout} />
       {isCheckoutOpen && (
-        <CheckoutModal onClose={() => setIsCheckoutOpen(false)} />
+        <CheckoutModal items={buyNowItems ?? undefined} onClose={() => { setIsCheckoutOpen(false); setBuyNowItems(null); }} />
       )}
       {trackingOrderId && (
         <OrderTrackingModal
