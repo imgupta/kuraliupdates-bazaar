@@ -122,7 +122,7 @@ test('authentication actions and logout are isolated from AppContext orchestrati
   }
   assert.ok(authOperations.includes("persistAuthToken(params.token || '__COOKIE_SESSION__')"));
   assert.ok(authOperations.includes('clearStoredAuthState()'));
-  assert.ok(authOperations.includes('refreshBuyerAddresses(params.token, updatedUser.email)'));
+  assert.ok(authOperations.includes("refreshBuyerAddresses(params.token || '__COOKIE_SESSION__', updatedUser.email)"));
   assert.ok(appContext.includes('useAuthOperations({'));
   assert.doesNotMatch(appContext, /const loginWithOtp =|const registerUserWithOtp =|const logout =|const registerBuyer =/);
 });
