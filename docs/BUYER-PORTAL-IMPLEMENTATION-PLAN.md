@@ -1,6 +1,6 @@
 # Buyer Portal Simplification and Checkout Implementation Plan
 
-**Status:** Implementation in progress — see [implementation report](BUYER-PORTAL-IMPLEMENTATION-REPORT.md); mandatory payment lifecycle remains outstanding  
+**Status:** Consolidated implementation committed on PR #390; CI, Oracle migration and staging verification pending — see [implementation report](BUYER-PORTAL-IMPLEMENTATION-REPORT.md)  
 **Scope:** Online Shop buyer journey, bargaining, seller-direct payments, grouped orders and buyer support  
 **Delivery target:** One consolidated implementation PR  
 **Last updated:** 22 November 2026
@@ -242,3 +242,10 @@ Set overall status to **Complete** only when mandatory requirements in sections 
 - [Mandatory India PR governance](INDIA-PR-GOVERNANCE.md)
 - [Codebase documentation standard](CODEBASE-DOCUMENTATION-STANDARD.md)
 - [Deployment and release runbook](../DEPLOYMENT.md)
+
+
+## 10. Current implementation evidence (PR #390)
+
+The same consolidated PR now contains seller UPI destination submission and admin verification/activation; per-seller payment snapshots and payment records; buyer UTR submission; seller confirmation/rejection; seller-specific payment progress; seller-funded refund request/recording; per-seller COD configuration; unpaid UPI dispatch guard; buyer issue reporting and admin issue triage; buyer-user-scoped checkout idempotency; delivery radius/route checks when verified coordinates are available; and migration V48/V49.
+
+These source changes are not accepted as complete until the merge gate in the [implementation report](BUYER-PORTAL-IMPLEMENTATION-REPORT.md) is met. In particular, the current implementation does not provide bank/PSP UPI verification, independent proof of seller payment/refund, scheduled payment expiry, or radius proof when required coordinates are unavailable. Smart multilingual synonym/transliteration search and secondary retention features remain outstanding.
