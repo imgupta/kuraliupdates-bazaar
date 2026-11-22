@@ -18,14 +18,20 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useApp } from '../../context/AppContext';
-import { KURALI_LOCALITIES } from '../../data/initialData';\nimport type { CartItem } from '../../types';
+import { KURALI_LOCALITIES } from '../../data/initialData';
+import type { CartItem } from '../../types';
 
 interface CheckoutModalProps {
   onClose: () => void;
 }
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) => {
-  const { cart, cartCalculations, createOrder, user, updateCartQuantity } = useApp();\n  const checkoutItems = items ?? cart;\n  const isolatedBuyNow = items !== undefined;\n  const checkoutItemSubtotal = checkoutItems.reduce((sum, item) => sum + (item.negotiatedPrice ?? item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100)) * item.quantity, 0);\n  const displayedSubtotal = isolatedBuyNow ? checkoutItemSubtotal : cartCalculations.subtotal;\n  const displayedTotal = isolatedBuyNow ? checkoutItemSubtotal : cartCalculations.finalTotal;
+  const { cart, cartCalculations, createOrder, user, updateCartQuantity } = useApp();
+  const checkoutItems = items ?? cart;
+  const isolatedBuyNow = items !== undefined;
+  const checkoutItemSubtotal = checkoutItems.reduce((sum, item) => sum + (item.negotiatedPrice ?? item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100)) * item.quantity, 0);
+  const displayedSubtotal = isolatedBuyNow ? checkoutItemSubtotal : cartCalculations.subtotal;
+  const displayedTotal = isolatedBuyNow ? checkoutItemSubtotal : cartCalculations.finalTotal;
   const defaultAddress = user.savedAddresses?.find(address => address.isDefault) || user.savedAddresses?.[0];
   const [selectedAddressId, setSelectedAddressId] = useState(defaultAddress?.id || '');
   const selectedAddress = user.savedAddresses?.find(address => address.id === selectedAddressId) || defaultAddress;
