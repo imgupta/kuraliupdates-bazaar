@@ -6,13 +6,13 @@ type NegotiationUser = { name?: string; email?: string; phone?: string };
 type NegotiationChatOptions = {
   role: UserRole;
   products: Product[];
-  updateExistingBargainCartItem: (product: Product, bargainId: string, status: 'PENDING_SELLER' | 'PENDING_BUYER' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CLOSED_PURCHASED', offerPrice?: number, negotiatedPrice?: number, acceptedOfferId?: string) => void;
+  updateExistingBargainCartItem: (product: Product, bargainId: string, status: 'PENDING_SELLER' | 'PENDING_BUYER' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CLOSED_PURCHASED', offerPrice?: number, negotiatedPrice?: number, acceptedOfferId?: string) => void;\n  upsertBargainCartItem: (product: Product, bargainId: string, status: 'PENDING_SELLER' | 'PENDING_BUYER' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CLOSED_PURCHASED', offerPrice?: number, negotiatedPrice?: number, acceptedOfferId?: string) => void;
   user: NegotiationUser;
   currentSeller?: Pick<Seller, 'name'>;
   showToast: (message: string, type?: 'success' | 'info' | 'error') => void;
 };
 
-export const useNegotiationChatState = ({ role, user, products, updateExistingBargainCartItem, showToast }: NegotiationChatOptions) => {
+export const useNegotiationChatState = ({ role, user, products, updateExistingBargainCartItem, upsertBargainCartItem, showToast }: NegotiationChatOptions) => {
   const [chats, setChats] = useState<NegotiationChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const showToastRef = useRef(showToast);
@@ -65,20 +65,27 @@ export const useNegotiationChatState = ({ role, user, products, updateExistingBa
       const previous = lastSeenStatusRef.current.get(chat.id);
       const product = products.find(item => item.id === chat.productId);
       const pendingOffer = [...chat.messages].reverse().find(message => message.offer?.status === 'pending')?.offer;
-      // Acceptance never adds an item automatically. The buyer explicitly adds
-      // the accepted deal from the chat; historical accepted chats remain history.
-      if (product && status !== 'ACCEPTED' && status !== 'CLOSED_PURCHASED') {
+      // Only a live transition into ACCEPTED adds the product. Initial hydration of
+      // historical accepted chats is deliberately ignored, and the transition map
+      // prevents polling/reconnects from re-adding an item the buyer later removed.
+      if (product && previous && previous !== 'ACCEPTED' && status === 'ACCEPTED') {
+        const acceptedMessage = [...chat.messages].reverse().find(message => message.offer?.status === 'accepted');
+        const agreedPrice = chat.currentAgreedPrice ?? acceptedMessage?.offer?.offeredPrice;
+        if (agreedPrice != null && Number.isFinite(agreedPrice) && agreedPrice > 0) {
+          upsertBargainCartItem(product, chat.id, 'ACCEPTED', agreedPrice, agreedPrice, acceptedMessage?.offer?.id);
+        }
+      } else if (product && status !== 'ACCEPTED' && status !== 'CLOSED_PURCHASED') {
         updateExistingBargainCartItem(product, chat.id, status as 'PENDING_SELLER' | 'PENDING_BUYER' | 'REJECTED' | 'EXPIRED',
           pendingOffer?.offeredPrice);
       }
       if (previous && previous !== status) {
-        if (status === 'ACCEPTED') showToastRef.current('Seller accepted your offer. Add the item to your cart when you are ready.', 'success');
+        if (status === 'ACCEPTED') showToastRef.current('Offer accepted. The agreed item and price have been added to your cart.', 'success');
         if (status === 'REJECTED') showToastRef.current('Your bargain was declined. You can still order at the catalogue price.', 'info');
         if (status === 'EXPIRED') showToastRef.current('Your bargain expired. The catalogue price remains available.', 'info');
       }
       lastSeenStatusRef.current.set(chat.id, status);
     });
-  }, [chats, products, role, updateExistingBargainCartItem]);
+  }, [chats, products, role, updateExistingBargainCartItem, upsertBargainCartItem]);
   const openChatForProduct = (product: Product, startingOfferPrice?: number): string => {
     if (role !== 'buyer') {
       showToast('Only a signed-in buyer can start a bargaining conversation.', 'error');
