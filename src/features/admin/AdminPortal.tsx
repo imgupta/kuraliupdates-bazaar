@@ -41,6 +41,7 @@ import { useAdminDashboardRefresh } from './useAdminDashboardRefresh';
 import { useSellerDocumentReview } from './useSellerDocumentReview';
 import { useAdminConfiguration } from './useAdminConfiguration';
 import { AdminMfaGate } from './AdminMfaGate';
+import { AdminSellerPaymentReview } from '../../components/Admin/AdminSellerPaymentReview';
 
 const AdminDashboardContent: React.FC = () => {
   const {
@@ -58,7 +59,7 @@ const AdminDashboardContent: React.FC = () => {
     showToast,
   } = useApp();
 
-  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'orders' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory' | 'accounts' | 'delivery-config' | 'seller-area-config' | 'seller-documents' | 'seller-leads' | 'registration-otp-config' | 'india-compliance'>('trends');
+  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'orders' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory' | 'accounts' | 'delivery-config' | 'seller-area-config' | 'seller-documents' | 'seller-leads' | 'registration-otp-config' | 'india-compliance' | 'seller-payment-review'>('trends');
   const [buyers, setBuyers] = useState<any[]>([]);
   const [adminAccounts, setAdminAccounts] = useState<any[]>([]);
   const [accountSearch, setAccountSearch] = useState('');
@@ -382,6 +383,7 @@ const AdminDashboardContent: React.FC = () => {
             <button onClick={() => setActiveAdminTab('seller-leads')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-leads' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Merchant onboarding CRM</button>
             <button onClick={() => setActiveAdminTab('registration-otp-config')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'registration-otp-config' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Customer & seller OTP controls</button>
             <button onClick={() => setActiveAdminTab('india-compliance')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'india-compliance' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>India privacy & compliance</button>
+            <button onClick={() => setActiveAdminTab('seller-payment-review')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-payment-review' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Seller UPI verification</button>
           </div>
         </details>
 
@@ -475,6 +477,7 @@ const AdminDashboardContent: React.FC = () => {
       {activeAdminTab === 'seller-leads' && <SellerOnboardingCRM />}
       {activeAdminTab === 'registration-otp-config' && <SellerRegistrationOtpConfig />}
       {activeAdminTab === 'india-compliance' && <IndiaComplianceSettings />}
+      {activeAdminTab === 'seller-payment-review' && <AdminSellerPaymentReview />}
       {activeAdminTab === 'seller-area-config' && (
         <div className="space-y-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
