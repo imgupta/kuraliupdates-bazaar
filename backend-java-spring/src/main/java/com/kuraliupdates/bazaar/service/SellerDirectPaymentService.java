@@ -98,6 +98,14 @@ public class SellerDirectPaymentService {
     }
 
     @Transactional
+    public void cancelUnpaidPaymentForOrder(String orderId) {
+        jdbc.update("UPDATE ORDER_SELLER_PAYMENTS SET PAYMENT_STATUS='CANCELLED',UPDATED_AT=? WHERE ORDER_ID=? AND PAYMENT_STATUS IN ('AWAITING_PAYMENT','AWAITING_SELLER_CONFIRMATION','PAYMENT_REJECTED')",
+                LocalDateTime.now(), orderId);
+        jdbc.update("UPDATE ORDERS SET PAYMENT_STATUS='CANCELLED' WHERE ORDER_ID=? AND PAYMENT_STATUS IN ('PENDING_UPI','PAYMENT_EXPIRED')",
+                orderId);
+    }
+
+    @Transactional
     public void updateOrderAmount(OrderEntity order) {
         if (!"UPI".equalsIgnoreCase(order.getPaymentMethod())) return;
         jdbc.update("UPDATE ORDER_SELLER_PAYMENTS SET EXPECTED_AMOUNT=?,CHECKOUT_GROUP_ID=?,UPDATED_AT=? WHERE ORDER_ID=?",
