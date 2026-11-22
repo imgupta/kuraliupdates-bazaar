@@ -225,8 +225,8 @@ public class OrderService {
             String productId = item.productId().trim();
             quantities.merge(productId, item.quantity(), Math::addExact);
             if (item.acceptedOfferId() != null && !item.acceptedOfferId().isBlank()) {
-                String previous = acceptedOffers.putIfAbsent(productId, item.acceptedOfferId().trim());
-                if (previous != null && !previous.equals(item.acceptedOfferId().trim())) {
+                String previousAcceptedOfferId = acceptedOffers.putIfAbsent(productId, item.acceptedOfferId().trim());
+                if (previousAcceptedOfferId != null && !previousAcceptedOfferId.equals(item.acceptedOfferId().trim())) {
                     throw new ApiException(HttpStatus.BAD_REQUEST, "A cart item cannot use multiple accepted bargain offers");
                 }
             }
