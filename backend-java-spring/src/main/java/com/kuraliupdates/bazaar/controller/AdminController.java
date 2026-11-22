@@ -611,10 +611,40 @@ public class AdminController {
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.BAD_REQUEST, "Coordinates must be saved before verification");
         }
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication == null ? null : authentication.getPrincipal();
+        com.kuraliupdates.bazaar.entity.UserEntity actor =
+                principal instanceof com.kuraliupdates.bazaar.entity.UserEntity user ? user : null;
+        if (actor == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "Authenticated admin identity is required");
+        }
+        String reason = String.valueOf(payload.getOrDefault("reason", "")).trim();
+        if (!verified && reason.isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "A reason is required when rejecting a seller location");
+        }
+        if (reason.length() > 500) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Review reason must be at most 500 characters");
+        }
+        boolean wasVerified = Boolean.TRUE.equals(seller.getLocationVerified());
         seller.setLocationVerified(verified);
         sellerRepository.save(seller);
+        jdbcTemplate.update("""
+                INSERT INTO ADMIN_ACCOUNT_AUDIT
+                  (AUDIT_ID, ACTOR_USER_ID, ACTOR_EMAIL, TARGET_USER_ID, TARGET_EMAIL,
+                   ACTION, PREVIOUS_STATUS, NEW_STATUS, REASON, OCCURRED_AT)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, UUID.randomUUID().toString(), actor.getUserId(), actor.getEmail(),
+                seller.getUserId(), seller.getEmail(),
+                verified ? "SELLER_LOCATION_APPROVED" : "SELLER_LOCATION_REJECTED",
+                wasVerified ? "VERIFIED" : "PENDING", verified ? "VERIFIED" : "REJECTED",
+                reason.isBlank() ? "Admin verified the seller's submitted store coordinates" : reason,
+                LocalDateTime.now());
         return ResponseEntity.ok(Map.of("sellerId", sellerId, "latitude", seller.getLatitude() == null ? "" : seller.getLatitude(),
-                "longitude", seller.getLongitude() == null ? "" : seller.getLongitude(), "locationVerified", verified));
+                "longitude", seller.getLongitude() == null ? "" : seller.getLongitude(), "locationVerified", verified,
+                "reviewStatus", verified ? "APPROVED" : "REJECTED"));
     }
 
     private BigDecimal configDecimal(Map<String, Object> payload, String key, BigDecimal min, BigDecimal max) {
