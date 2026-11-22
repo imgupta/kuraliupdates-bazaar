@@ -20,7 +20,7 @@ export const AdminSellerPaymentReview: React.FC = () => {
       const codData=await codResponse.json().catch(()=>[]);
       if(!codResponse.ok) throw new Error(codData?.message||`Unable to load COD settings (HTTP ${codResponse.status})`);
       setCodSettings(Array.isArray(codData)?codData:[]);
-      const issueResponse=await fetch(`${API_BASE_URL}/admin/payment-destinations/order-issues?status=OPEN`,{headers:{Accept:'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},cache:'no-store'});
+      const issueResponse=await fetch(`${API_BASE_URL}/admin/payment-destinations/order-issues?status=ALL`,{headers:{Accept:'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},cache:'no-store'});
       const issueData=await issueResponse.json().catch(()=>[]);
       if(!issueResponse.ok) throw new Error(issueData?.message||`Unable to load order issues (HTTP ${issueResponse.status})`);
       setIssues(Array.isArray(issueData)?issueData:[]);setError('');
@@ -83,7 +83,7 @@ export const AdminSellerPaymentReview: React.FC = () => {
       {issues.length===0?<p className="text-xs text-slate-500">No open buyer issues.</p>:issues.map(issue=><article key={issue.issueId} className="rounded-xl border p-3 space-y-2">
         <div className="flex items-start justify-between gap-2"><p className="text-xs font-extrabold">{issue.issueType?.replaceAll('_',' ')} · Order #{issue.orderId}</p><span className="text-[10px] text-slate-500">{issue.sellerId}</span></div>
         <p className="text-xs text-slate-700">{issue.description}</p><p className="text-[10px] text-slate-500">{issue.buyerEmail||'Buyer'} · {issue.issueId}</p>
-        <div className="flex flex-wrap gap-2"><button type="button" disabled={busy} onClick={()=>void updateIssue(issue.issueId,'IN_REVIEW')} className="rounded-lg border px-3 py-2 text-[11px] font-bold">Mark in review</button><button type="button" disabled={busy} onClick={()=>void updateIssue(issue.issueId,'RESOLVED')} className="rounded-lg bg-emerald-700 px-3 py-2 text-[11px] font-bold text-white">Resolve</button></div>
+        <div className="flex flex-wrap gap-2">{issue.status==='OPEN'&&<button type="button" disabled={busy} onClick={()=>void updateIssue(issue.issueId,'IN_REVIEW')} className="rounded-lg border px-3 py-2 text-[11px] font-bold">Mark in review</button>}{issue.status!=='RESOLVED'&&issue.status!=='CLOSED'&&<button type="button" disabled={busy} onClick={()=>void updateIssue(issue.issueId,'RESOLVED')} className="rounded-lg bg-emerald-700 px-3 py-2 text-[11px] font-bold text-white">Resolve</button>}</div>
       </article>)}
     </section>
     {records.length===0?<p className="rounded-xl border bg-white p-5 text-xs text-slate-500">No seller UPI destinations are awaiting review.</p>:records.map(r=><article key={r.destinationId} className="rounded-2xl border bg-white p-4">
