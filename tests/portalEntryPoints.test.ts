@@ -54,15 +54,37 @@ test('legacy auth keeps seller registration in the dedicated wizard', () => {
   assert.match(auth, /if \(props\.registrationRole === 'seller'\) return <SellerRegistrationWizard \/>;/);
 });
 
-test('legacy auth retains delivery and Daily Help email OTP registration', () => {
+test('delivery and Daily Help registration honor admin-configured email and mobile OTP channels', () => {
   const auth = read('../src/components/Auth/AuthPageV2.tsx');
   const legacyStart = auth.indexOf('const AuthPageV2Legacy');
   const legacyEnd = auth.indexOf('const RoleRegistrationCard', legacyStart);
   const legacy = auth.slice(legacyStart, legacyEnd);
 
   assert.match(legacy, /registrationRole === 'delivery' \|\| registrationRole === 'professional'/);
+  assert.match(legacy, /bazaarApi\.getRegistrationOtpSettings\(\)/);
+  assert.match(legacy, /if \(settings\.emailOtpRequired\)/);
   assert.match(legacy, /bazaarApi\.sendOtp\(email, 'EMAIL', 'REGISTER'\)/);
+  assert.match(legacy, /if \(settings\.mobileOtpRequired\)/);
+  assert.match(legacy, /bazaarApi\.sendOtp\(phone, 'PHONE', 'REGISTER'\)/);
+  assert.match(legacy, /Email verification code/);
+  assert.match(legacy, /Mobile verification code/);
+  assert.match(legacy, /emailOtp: emailOtpRequired \? emailCode : ''/);
+  assert.match(legacy, /phoneOtp: mobileOtpRequired \? phoneCode : ''/);
   assert.match(legacy, /mode: 'REGISTER'/);
+});
+
+test('backend applies the same global email/mobile registration OTP policy to non-seller roles', () => {
+  const service = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/AuthService.java');
+  const policyStart = service.indexOf('// Registration OTP policy is global');
+  const policyEnd = service.indexOf('if (existingUser != null)', policyStart);
+  const policy = service.slice(policyStart, policyEnd);
+
+  assert.ok(policyStart >= 0 && policyEnd > policyStart);
+  assert.match(policy, /if \(!"SELLER"\.equals\(role\)\)/);
+  assert.match(policy, /registrationOtpConfig\.get\(\)/);
+  assert.match(policy, /if \(emailRequired\) otpService\.verify\(email, "EMAIL", req\.emailOtp\(\)\)/);
+  assert.match(policy, /if \(mobileRequired\) otpService\.verify\(phone, "PHONE", req\.phoneOtp\(\)\)/);
+  assert.match(policy, /if \(!emailRequired && !mobileRequired\)/);
 });
 
 test('admin portal delegates refresh, seller document review and configuration lifecycles to focused hooks', () => {

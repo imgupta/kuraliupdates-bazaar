@@ -337,12 +337,20 @@ public class AuthService {
         }
 
         String role = normalizeRole(req.role());
-        if ("BUYER".equals(role)) {
+        // Registration OTP policy is global across Buyer, Delivery and Daily Help.
+        // Seller contact verification is performed by the seller lead workflow, which
+        // snapshots the same policy when the lead is created and verifies both proofs
+        // before the seller application can be submitted.
+        if (!"SELLER".equals(role)) {
             java.util.Map<String, Object> otpSettings = registrationOtpConfig.get();
-            if (Boolean.TRUE.equals(otpSettings.get("emailOtpEnabled"))) otpService.verify(email, "EMAIL", req.emailOtp());
-            if (Boolean.TRUE.equals(otpSettings.get("mobileOtpEnabled"))) otpService.verify(phone, "PHONE", req.phoneOtp());
-        } else if (!"SELLER".equals(role)) {
-            otpService.verify(email, "EMAIL", req.emailOtp());
+            boolean emailRequired = Boolean.TRUE.equals(otpSettings.get("emailOtpEnabled"));
+            boolean mobileRequired = Boolean.TRUE.equals(otpSettings.get("mobileOtpEnabled"));
+            if (!emailRequired && !mobileRequired) {
+                throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "Registration is temporarily unavailable until an email or mobile verification channel is enabled");
+            }
+            if (emailRequired) otpService.verify(email, "EMAIL", req.emailOtp());
+            if (mobileRequired) otpService.verify(phone, "PHONE", req.phoneOtp());
         }
 
         if (existingUser != null) {
