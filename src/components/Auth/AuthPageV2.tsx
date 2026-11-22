@@ -350,7 +350,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
     ? 'Sign in securely with a one-time verification code.'
     : registrationRole === 'delivery'
       ? 'Register as a delivery partner. Your fleet profile will be reviewed before activation.'
-      : 'Start your Daily Help professional registration with the contact verification methods configured by KuraliUpdates.';
+      : 'Register with the email and/or mobile verification methods currently enabled by KuraliUpdates.';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 flex items-center justify-center p-4 sm:p-6">
@@ -363,7 +363,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
             <h1 className="mt-6 text-3xl font-black leading-tight">Kurali<span className="text-amber-200">Updates</span><br />Bazaar • ਕੁਰਾਲੀ</h1>
             <p className="mt-4 text-sm text-amber-100/90 leading-relaxed">A simple local marketplace for Kurali shoppers, merchants and delivery partners.</p>
             <div className="mt-8 space-y-3 text-xs font-semibold">
-              <div className="flex gap-3 rounded-2xl bg-white/10 p-3"><ShieldCheck className="w-5 h-5 shrink-0" /><span>Secure email OTP registration</span></div>
+              <div className="flex gap-3 rounded-2xl bg-white/10 p-3"><ShieldCheck className="w-5 h-5 shrink-0" /><span>Secure contact OTP verification</span></div>
               <div className="flex gap-3 rounded-2xl bg-white/10 p-3"><Store className="w-5 h-5 shrink-0" /><span>Verified local merchants</span></div>
               <div className="flex gap-3 rounded-2xl bg-white/10 p-3"><Truck className="w-5 h-5 shrink-0" /><span>Fast local delivery</span></div>
             </div>
@@ -464,7 +464,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
 
               <button type="button" onClick={handleSendOtp} disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-xs font-black text-white shadow-md disabled:opacity-50 flex items-center justify-center gap-2">
                 {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                {loading ? 'Sending verification code...' : authMode === 'signin' ? 'Send 6-Digit OTP' : 'Register with Email OTP'}
+                {loading ? 'Sending verification code...' : authMode === 'signin' ? 'Send 6-Digit OTP' : 'Register & verify contacts'}
               </button>
 
               {authMode === 'register' && registrationRole === 'buyer' && (
