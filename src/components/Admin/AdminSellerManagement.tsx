@@ -15,6 +15,8 @@ export const AdminSellerManagement: React.FC = () => {
   const [error, setError] = useState('');
   const [tab, setTab] = useState<Tab>('manage');
   const [query, setQuery] = useState('');
+  const [sellerSearch, setSellerSearch] = useState('');
+  const [showSellerMatches, setShowSellerMatches] = useState(false);
   const [selectedId, setSelectedId] = useState('');
   const [editing, setEditing] = useState<Seller | null>(null);
 
@@ -30,7 +32,7 @@ export const AdminSellerManagement: React.FC = () => {
       if (!response.ok) throw new Error(data?.message || `Unable to load sellers (HTTP ${response.status})`);
       const sellers = Array.isArray(data) ? data : [];
       setRows(sellers);
-      setSelectedId(current => sellers.some((seller: Seller) => seller.sellerId === current) ? current : (sellers[0]?.sellerId || ''));
+      setSelectedId(current => sellers.some((seller: Seller) => seller.sellerId === current) ? current : '');
     } catch (e: any) {
       setError(e?.message || 'Unable to load seller records.');
     } finally {
@@ -41,7 +43,14 @@ export const AdminSellerManagement: React.FC = () => {
   useEffect(() => { void load(); }, []);
 
   const selected = rows.find(seller => seller.sellerId === selectedId) || null;
+  const sellerMatches = useMemo(() => {
+    const normalized = sellerSearch.trim().toLowerCase();
+    if (!normalized) return rows;
+    return rows.filter(seller => [seller.storeName, seller.ownerName, seller.email, seller.phone, seller.sellerId, seller.locality, seller.status]
+      .some(field => value(field).toLowerCase().includes(normalized)));
+  }, [rows, sellerSearch]);
   useEffect(() => { setEditing(selected ? { ...selected } : null); }, [selected]);
+  useEffect(() => { if (selected) setSellerSearch(value(selected.storeName)); }, [selected]);
 
   const pendingLocations = useMemo(() => rows.filter(seller =>
     String(seller.status || '').toUpperCase() === 'APPROVED' && seller.locationVerified !== true
@@ -112,12 +121,34 @@ export const AdminSellerManagement: React.FC = () => {
     </div>
     {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-xs text-rose-800">{error}</p>}
     {tab === 'manage' ? <div className="space-y-4 rounded-2xl border bg-white p-4">
-      <label className="block text-xs font-bold text-slate-700">Select seller
-        <select value={selectedId} onChange={event => setSelectedId(event.target.value)} disabled={loading || !rows.length} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm">
-          {rows.length === 0 && <option value="">No sellers available</option>}
-          {rows.map(seller => <option key={seller.sellerId} value={seller.sellerId}>{seller.storeName || 'Unnamed store'} · {seller.ownerName || seller.email} · {seller.status}</option>)}
-        </select>
-      </label>
+      <div className="relative">
+        <label htmlFor="admin-seller-search" className="block text-xs font-bold text-slate-700">Search sellers</label>
+        <div className="relative mt-2">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/>
+          <input id="admin-seller-search" type="search" role="combobox" aria-autocomplete="list"
+            aria-expanded={showSellerMatches && sellerMatches.length > 0} aria-controls="admin-seller-search-results"
+            value={sellerSearch} onFocus={() => setShowSellerMatches(true)}
+            onChange={event => { setSellerSearch(event.target.value); setSelectedId(''); setShowSellerMatches(true); }}
+            onKeyDown={event => { if (event.key === 'Escape') setShowSellerMatches(false); if (event.key === 'Enter' && sellerMatches.length === 1) { setSelectedId(value(sellerMatches[0].sellerId)); setSellerSearch(value(sellerMatches[0].storeName)); setShowSellerMatches(false); } }}
+            placeholder="Search by store, owner, phone or email" disabled={loading || !rows.length}
+            className="min-h-11 w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-sm"/>
+        </div>
+        {showSellerMatches && sellerSearch.trim() && !selected && (
+          <div id="admin-seller-search-results" role="listbox" className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
+            {sellerMatches.length ? sellerMatches.slice(0, 30).map(seller => (
+              <button key={seller.sellerId} type="button" role="option" aria-selected={false}
+                onClick={() => { setSelectedId(value(seller.sellerId)); setSellerSearch(value(seller.storeName)); setShowSellerMatches(false); }}
+                className="flex w-full items-start justify-between gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-slate-50 focus:bg-slate-50">
+                <span className="min-w-0"><span className="block truncate text-xs font-bold text-slate-900">{seller.storeName || 'Unnamed store'}</span><span className="block truncate text-[11px] text-slate-500">{seller.ownerName || seller.email} · {seller.phone || 'No phone'}</span></span>
+                <span className="shrink-0 text-[10px] font-semibold text-slate-500">{seller.status}</span>
+              </button>
+            )) : <p className="px-3 py-3 text-xs text-slate-500">No sellers match that search.</p>}
+          </div>
+        )}
+        {!sellerSearch.trim() && <p className="mt-1 text-[11px] text-slate-500">{rows.length} sellers available. Start typing to find a seller.</p>}
+        {selected && <button type="button" onClick={() => { setSelectedId(''); setSellerSearch(''); setShowSellerMatches(true); }}
+          className="mt-1 text-[11px] font-semibold text-teal-700 underline">Clear selected seller</button>}
+      </div>
       {editing && <><div className="flex items-center gap-2 rounded-xl bg-slate-50 p-3"><Store className="h-5 w-5 text-teal-700"/><div className="min-w-0"><p className="truncate text-sm font-extrabold">{editing.storeName}</p><p className="truncate text-[11px] text-slate-500">{editing.email} · {editing.sellerId}</p></div><span className="ml-auto rounded-full bg-white px-2 py-1 text-[10px] font-bold">{editing.status}</span></div>
         <div className="grid gap-3 sm:grid-cols-2">{([
           ['storeName','Store name'],['ownerName','Owner name'],['phone','Phone'],['category','Category'],['address','Address'],['locality','Locality']
