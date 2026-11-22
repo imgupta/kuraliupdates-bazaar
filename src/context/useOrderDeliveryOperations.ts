@@ -126,7 +126,7 @@ export const useOrderDeliveryOperations = ({
           itemSubtotal: Number(placement.order.subtotal ?? 0),
           deliveryFee: Number(placement.order.deliveryFee ?? 0),
           totalAmount: Number(placement.order.totalAmount ?? 0),
-          fulfilmentMode: placement.order.fulfilmentMode || orderData.fulfilmentMode || 'DELIVERY',
+          fulfilmentMode: placement.order.fulfilmentMode || orderData.fulfilmentMode || 'DELIVERY',\n          estimatedDeliveryMins: placement.order.estimatedDeliveryMins,\n          estimatedDeliveryTime: placement.order.estimatedDeliveryMins ? `${placement.order.estimatedDeliveryMins} mins` : undefined,
           checkoutGroupId: placement.order.checkoutGroupId,
           items: (placement.order.items || []).map((line: any) => ({ ...line })),
         }))
