@@ -419,7 +419,7 @@ const AdminDashboardContent: React.FC = () => {
           </div>
         </details>
 
-        <details open={['accounts', 'directory', 'diagnostics'].includes(activeAdminTab)} className="group rounded-2xl border border-slate-200 bg-white shadow-sm sm:col-span-2 xl:col-span-1">
+        <details open={['accounts', 'directory', 'diagnostics', 'seller-payment-review'].includes(activeAdminTab)} className="group rounded-2xl border border-slate-200 bg-white shadow-sm sm:col-span-2 xl:col-span-1">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3.5 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
             <span className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><ShieldCheck className="h-5 w-5" /></span><span><span className="block text-sm font-extrabold text-slate-900">Administration & System</span><span className="mt-0.5 block text-[11px] text-slate-500">Access control, identity and health</span></span></span>
             <span className="text-slate-400 transition-transform group-open:rotate-180">⌄</span>
