@@ -128,7 +128,7 @@ public class SellerDirectPaymentService {
                 order.getTotalAmount(), order.getCheckoutGroupId(), LocalDateTime.now(), order.getOrderId());
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ApiException.class)
     public Map<String,Object> submitUtr(String orderId, String buyerUserId, String buyerEmail, String utr, String idempotencyKey) {
         String reference = utr == null ? "" : utr.trim().toUpperCase(Locale.ROOT);
         String key = idempotencyKey == null ? "" : idempotencyKey.trim();
@@ -186,7 +186,7 @@ public class SellerDirectPaymentService {
                 sellerId);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ApiException.class)
     public Map<String,Object> sellerDecision(String sellerId, String paymentId, boolean confirm, String reason, String actor) {
         Map<String,Object> p;
         try {
