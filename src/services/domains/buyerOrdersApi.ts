@@ -5,6 +5,19 @@ import { API_BASE_URL } from '../http/apiConfig';
 import { groupCheckoutOrders } from '../../entities/orderGrouping';
 
 export const buyerOrdersApi = {
+  async getBuyerDeliveryEstimate(): Promise<number | null> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) return null;
+    const response = await fetch(`${API_BASE_URL}/buyers/delivery-estimate`, {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    if (!response.ok) throw new Error(`Unable to load delivery estimate (HTTP ${response.status})`);
+    const data = await response.json();
+    const minutes = Number(data?.estimatedDeliveryMins ?? 0);
+    return Number.isInteger(minutes) && minutes > 0 ? minutes : null;
+  },
+
   async placeOrder(order: Partial<Order>): Promise<any> {
     try {
       const sellerCount = new Set((order.items || []).map(item => item.product.sellerId)).size;
