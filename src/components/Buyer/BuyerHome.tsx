@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ShoppingBag, Home, Search, X, Truck } from 'lucide-react';
+import { ShoppingBag, Home, Search, X, Truck, ArrowRight } from 'lucide-react';
 import { OnlineShopHome } from './OnlineShopHome';
 import { DailyHelpHome } from './DailyHelpHome';
 import { Product } from '../../types';
@@ -18,7 +18,7 @@ interface BuyerHomeProps {
 export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
   const [mode, setMode] = useState<'shop' | 'daily-help'>('shop');
   const [showAllActiveOrders, setShowAllActiveOrders] = useState(false);
-  const { orders, user } = useApp();
+  const { orders, user, cart, cartCalculations, setIsCartOpen } = useApp();
   const activeOrders = useMemo(() => {
     const email = user.email?.trim().toLowerCase();
     const phone = user.phone?.replace(/\D/g, '');
@@ -77,6 +77,21 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
         </div>
       </div>
       {mode === 'shop' ? <OnlineShopHome {...props} /> : <DailyHelpHome searchQuery={props.searchQuery} />}
+
+      {mode === 'shop' && cart.length > 0 && !props.isCheckoutOpen && (
+        <section className={`fixed inset-x-0 ${activeOrders.length > 0 ? 'bottom-24' : 'bottom-2'} z-50 px-3 pb-[env(safe-area-inset-bottom)]`} aria-label="Shopping cart shortcut">
+          <div className="mx-auto max-w-screen-xl">
+            <button type="button" onClick={() => setIsCartOpen(true)}
+              className="flex w-full items-center justify-between gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-left text-white shadow-[0_8px_30px_rgba(15,23,42,0.28)] transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2">
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10"><ShoppingBag className="h-5 w-5" /><span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-black text-slate-950">{cart.reduce((sum, item) => sum + item.quantity, 0)}</span></span>
+                <span className="min-w-0"><span className="block text-xs font-extrabold">View cart</span><span className="block truncate text-[10px] text-slate-300">{cart.length} products · ₹{cartCalculations.finalTotal} total</span></span>
+              </span>
+              <span className="flex shrink-0 items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-2 text-xs font-extrabold text-slate-950">Checkout <ArrowRight className="h-4 w-4" /></span>
+            </button>
+          </div>
+        </section>
+      )}
 
       {activeOrders.length > 0 && !props.isCheckoutOpen && (
         <section className="fixed inset-x-0 bottom-0 z-40 border-t border-emerald-200 bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.10)] backdrop-blur-md pb-[env(safe-area-inset-bottom)]" aria-label="Your current orders">
