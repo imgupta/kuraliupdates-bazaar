@@ -9,7 +9,7 @@ Open Admin Portal → Marketplace & Merchants → Global registration OTP contro
 - Email OTP verification: independently ON/OFF.
 - Mobile OTP verification: independently ON/OFF.
 - Save persists the settings in Oracle.
-- Both OFF: rejected by the backend. At least one channel must remain enabled so registration cannot silently become unverified.
+- Both OFF: rejected by the backend. V28 seeds a fresh database with both flags OFF, so an administrator must enable at least one channel before opening registration; the admin UI displays this initial setup warning.
 - Email ON / Mobile OFF: only email receives a code and is required across all four registration roles.
 - Email OFF / Mobile ON: only mobile receives a code and is required across all four registration roles.
 - Both ON: both codes are sent and both are required across all four registration roles.
@@ -24,7 +24,7 @@ Open Admin Portal → Marketplace & Merchants → Global registration OTP contro
 - Callback requests still require explicit consent. CRM call/email links remain unavailable unless consent is recorded and the relevant channel is verified or OTP-not-required.
 
 ## Database
-Flyway V28 creates `SELLER_REGISTRATION_OTP_CONFIG` with both switches defaulted OFF and adds per-lead requirement/skip snapshot columns. The defaults are deliberately OFF for the current regulatory constraint described by the business owner.
+Flyway V28 creates `SELLER_REGISTRATION_OTP_CONFIG` with both switches defaulted OFF and adds per-lead requirement/skip snapshot columns. A fresh deployment therefore starts with registration blocked until an administrator enables at least one channel. Do not enable SMS until the applicable provider and regulatory prerequisites are confirmed.
 
 ## Rollout checklist
 1. Apply the existing OTP configuration migrations through the normal Render backend deployment and confirm Flyway reaches the expected version.
