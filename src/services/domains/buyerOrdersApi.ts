@@ -4,6 +4,21 @@ import { mapBackendOrder, type BackendOrder } from '../../entities/orderMapping'
 import { API_BASE_URL } from '../http/apiConfig';
 import { groupCheckoutOrders } from '../../entities/orderGrouping';
 
+export class OrderPlacementApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number | null,
+    readonly correlationId: string,
+    readonly code?: string,
+  ) {
+    super(message);
+    this.name = 'OrderPlacementApiError';
+  }
+}
+
+const createCheckoutCorrelationId = (): string =>
+  globalThis.crypto?.randomUUID?.() || `ku-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
 export const buyerOrdersApi = {
   async getBuyerDeliveryEstimate(): Promise<number | null> {
     const token = localStorage.getItem('kurali_auth_token');
@@ -65,9 +80,10 @@ export const buyerOrdersApi = {
       const idempotencyKey = sessionStorage.getItem(storageKey)
         || `ku-${globalThis.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2)}`;
       sessionStorage.setItem(storageKey, idempotencyKey);
+      const correlationId = createCheckoutCorrelationId();
       const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'Idempotency-Key': idempotencyKey, ...(localStorage.getItem('kurali_auth_token') ? { Authorization: `Bearer ${localStorage.getItem('kurali_auth_token')}` } : {}) },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'Idempotency-Key': idempotencyKey, 'X-Correlation-ID': correlationId, ...(localStorage.getItem('kurali_auth_token') ? { Authorization: `Bearer ${localStorage.getItem('kurali_auth_token')}` } : {}) },
         body: requestBody,
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

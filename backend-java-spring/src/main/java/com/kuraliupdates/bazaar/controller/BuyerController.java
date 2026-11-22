@@ -17,6 +17,8 @@ import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,6 +29,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(name = "Buyer API", description = "Product search, checkout and order tracking")
 public class BuyerController {
+    private static final Logger log = LoggerFactory.getLogger(BuyerController.class);
     private final ProductService productService;
     private final OrderService orderService;
     private final AuthService authService;
@@ -57,10 +60,20 @@ public class BuyerController {
             @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
             @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId,
             Authentication authentication) {
         UserEntity user = requireBuyer(authentication);
+        String traceId = safeCorrelationId(correlationId);
         String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
-        return ResponseEntity.ok(orderService.placeOrder(request, user, e2eRunId, idempotencyKey));
+        log.info("Buyer single-seller checkout started correlationId={} itemCount={}",
+                traceId, request == null || request.items() == null ? 0 : request.items().size());
+        try {
+            return ResponseEntity.ok(orderService.placeOrder(request, user, e2eRunId, idempotencyKey));
+        } catch (RuntimeException ex) {
+            log.warn("Buyer single-seller checkout failed correlationId={} exceptionType={} message={}",
+                    traceId, ex.getClass().getSimpleName(), safeMessage(ex.getMessage()));
+            throw ex;
+        }
     }
 
     @PostMapping("/orders/checkout")
@@ -70,10 +83,20 @@ public class BuyerController {
             @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
             @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId,
             Authentication authentication) {
         UserEntity user = requireBuyer(authentication);
+        String traceId = safeCorrelationId(correlationId);
         String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
-        return ResponseEntity.ok(orderService.placeMultiSellerOrder(request, user, e2eRunId, idempotencyKey));
+        log.info("Buyer multi-seller checkout started correlationId={} itemCount={}",
+                traceId, request == null || request.items() == null ? 0 : request.items().size());
+        try {
+            return ResponseEntity.ok(orderService.placeMultiSellerOrder(request, user, e2eRunId, idempotencyKey));
+        } catch (RuntimeException ex) {
+            log.warn("Buyer multi-seller checkout failed correlationId={} exceptionType={} message={}",
+                    traceId, ex.getClass().getSimpleName(), safeMessage(ex.getMessage()));
+            throw ex;
+        }
     }
 
     @PostMapping("/orders/{orderId}/cancel")
@@ -108,6 +131,15 @@ public class BuyerController {
     public ResponseEntity<OrderResponse> trackOrder(@PathVariable String orderId, Authentication authentication) {
         UserEntity user = requireBuyer(authentication);
         return ResponseEntity.ok(orderService.trackForBuyer(orderId, user));
+    }
+
+    private String safeCorrelationId(String value) {
+        return value != null && value.matches("[A-Za-z0-9._:-]{8,100}") ? value : "not-provided";
+    }
+
+    private String safeMessage(String value) {
+        if (value == null) return "";
+        return value.replaceAll("[\\r\\n\\t]", " ").substring(0, Math.min(value.length(), 240));
     }
 
     private UserEntity requireBuyer(Authentication authentication) {
