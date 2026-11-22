@@ -62,20 +62,26 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-1.5 py-1">
-            <button type="button" onClick={() => onRemoveFromCart(product)} disabled={quantity <= 0}
-              aria-label={`Remove one ${product.title} from cart`}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-30">
-              <Minus className="h-4 w-4" />
+          {quantity <= 0 ? (
+            <button type="button" onClick={() => onAddToCart(product)} disabled={product.stock <= 0}
+              className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-xs font-extrabold text-white transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-slate-300">
+              <ShoppingBag className="h-4 w-4" /> ADD
             </button>
-            <span aria-live="polite" className="min-w-5 text-center text-sm font-extrabold tabular-nums text-slate-900">{quantity}</span>
-            <button type="button" onClick={() => onAddToCart(product)} disabled={product.stock <= 0 || quantity >= product.stock}
-              aria-label={`Add one ${product.title} to cart`}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-slate-300">
-              <Plus className="h-4 w-4" />
-            </button>
-          </div>
-
+          ) : (
+            <div className="flex w-full items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-1.5 py-1">
+              <button type="button" onClick={() => onRemoveFromCart(product)}
+                aria-label={`Remove one ${product.title} from cart`}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-amber-800 hover:bg-amber-100">
+                <Minus className="h-4 w-4" />
+              </button>
+              <span aria-live="polite" className="min-w-5 text-center text-sm font-extrabold tabular-nums text-slate-900">{quantity}</span>
+              <button type="button" onClick={() => onAddToCart(product)} disabled={product.stock <= 0 || quantity >= product.stock}
+                aria-label={`Add one ${product.title} to cart`}
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-slate-300">
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="border-t border-slate-100 pt-2">
