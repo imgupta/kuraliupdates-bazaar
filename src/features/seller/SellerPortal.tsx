@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Store, PlusCircle, Package, ShoppingBag, Percent, Trash2, Pencil, RefreshCw, MessageSquare } from 'lucide-react';
+import { Store, PlusCircle, Package, ShoppingBag, Percent, Trash2, Pencil, RefreshCw, MessageSquare, Wallet } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { PRODUCT_CATEGORIES } from '../../data/initialData';
 import { Product, Seller } from '../../types';
 import { sellerApi } from '../../services/domains/sellerApi';
 import { mapSellerProduct } from '../../entities/sellerProduct';
 import { NegotiationChatModal } from '../../components/Buyer/NegotiationChatModal';
+import { SellerPaymentWorkspace } from '../../components/Seller/SellerPaymentWorkspace';
 
 
 export const SellerDashboard: React.FC = () => {
@@ -24,7 +25,7 @@ export const SellerDashboard: React.FC = () => {
   const [discountType, setDiscountType] = useState<'percentage' | 'flat'>('percentage');
   const [discountValue, setDiscountValue] = useState('5');
   const [discountDescription, setDiscountDescription] = useState('');
-  const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'add' | 'discounts' | 'chats'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'add' | 'discounts' | 'chats' | 'payments'>('inventory');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -267,6 +268,7 @@ export const SellerDashboard: React.FC = () => {
           ['chats', MessageSquare, `Bargaining Chats (${sellerChats.length})${pendingOffers ? ` • ${pendingOffers} pending` : ''}`],
           ['add', PlusCircle, editingId ? 'Edit Product' : 'Upload New Product'],
           ['discounts', Percent, 'Bill Discounts'],
+          ['payments', Wallet, 'Payments & UPI'],
         ].map(([tab, Icon, label]: any) => (
           <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 whitespace-nowrap border-b-2 ${activeTab === tab ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500'}`}><Icon className="w-4 h-4" />{label}</button>
         ))}
@@ -335,6 +337,8 @@ export const SellerDashboard: React.FC = () => {
           </form>
         </div>
       )}
+
+      {activeTab === 'payments' && <SellerPaymentWorkspace />}
 
       {activeTab === 'orders' && (
         <div className="space-y-6">
