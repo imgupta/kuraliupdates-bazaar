@@ -3,6 +3,7 @@ package com.kuraliupdates.bazaar.service;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpBookingRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpBookingResponse;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpStartRequest;
+import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpCompleteRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalAvailabilityRequest;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalEarningsResponse;
 import com.kuraliupdates.bazaar.dto.dailyhelp.DailyHelpProfessionalRegistrationRequest;
@@ -186,6 +187,8 @@ public class DailyHelpService {
                 .estimatedTotal(service.getPricePerHour().multiply(request.requestedHours()))
                 .status("PROFESSIONAL_ASSIGNED")
                 .startOtp(otpGenerator.generate())
+                .completionOtp(otpGenerator.generate())
+                .completionOtpAttempts(0)
                 .otpExpiresAt(now.plusMinutes(15))
                 .otpAttempts(0)
                 .e2eRunId(e2eRunId)
@@ -453,25 +456,55 @@ public class DailyHelpService {
         return DailyHelpBookingResponse.from(saved, false);
     }
 
-    @Transactional
-    public DailyHelpBookingResponse completeBooking(String bookingId, String professionalId) {
+    @Transactional(noRollbackFor = ApiException.class)
+    public DailyHelpBookingResponse completeBooking(String bookingId, DailyHelpCompleteRequest request) {
+        if (request == null || request.professionalId() == null || request.professionalId().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Professional identity is required");
+        }
         DailyHelpBookingEntity booking = bookingRepository.findLockedByBookingId(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help booking not found"));
-        if (booking.getProfessional() == null || !booking.getProfessional().getProfessionalId().equals(professionalId)) {
+        if (booking.getProfessional() == null || !booking.getProfessional().getProfessionalId().equals(request.professionalId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Professional is not assigned to this booking");
         }
         if (!"IN_PROGRESS".equals(booking.getStatus())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Booking is not in progress");
         }
-        // Oracle TIMESTAMP(6) stores microseconds; normalize before returning the
-        // response so immediate reads and idempotent reconciliation match exactly.
         LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+        String otp = request.otp() == null ? "" : request.otp().trim();
+        String reason = request.overrideReason() == null ? "" : request.overrideReason().trim();
+        if (!otp.isBlank()) {
+            if (!otp.matches("\\d{4}")) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Completion OTP must be 4 digits");
+            }
+            int attempts = booking.getCompletionOtpAttempts() == null ? 0 : booking.getCompletionOtpAttempts();
+            if (attempts >= 5) {
+                throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Too many invalid completion OTP attempts");
+            }
+            if (booking.getCompletionOtp() == null || !otp.equals(booking.getCompletionOtp())) {
+                booking.setCompletionOtpAttempts(attempts + 1);
+                booking.setUpdatedAt(now);
+                bookingRepository.save(booking);
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid customer completion OTP");
+            }
+            booking.setCompletionOtpVerifiedAt(now);
+            booking.setCompletionOtp(null);
+        } else {
+            if (reason.length() < 10) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Enter a reason of at least 10 characters when overriding the customer OTP");
+            }
+            if (reason.length() > 1000) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Override reason cannot exceed 1000 characters");
+            }
+            booking.setCompletionOverrideReason(reason);
+            booking.setCompletionOverrideBy(request.professionalId());
+            booking.setCompletionOverrideAt(now);
+            booking.setCompletionOtp(null);
+        }
         booking.setServiceCompletedAt(now);
         booking.setStatus("COMPLETED");
         booking.setUpdatedAt(now);
         return DailyHelpBookingResponse.from(bookingRepository.save(booking), false);
     }
-
     @Transactional
     public DailyHelpProfessionalResponse registerProfessional(DailyHelpProfessionalRegistrationRequest request) {
         String phone = request.phone().trim().replaceAll("\\D", "");
@@ -606,7 +639,7 @@ public class DailyHelpService {
     }
 
     private boolean shouldExposeOtp(DailyHelpBookingEntity booking) {
-        return "ARRIVING".equals(booking.getStatus()) || "READY_TO_START".equals(booking.getStatus());
+        return "ARRIVING".equals(booking.getStatus()) || "READY_TO_START".equals(booking.getStatus()) || "IN_PROGRESS".equals(booking.getStatus());
     }
 
 
