@@ -37,6 +37,7 @@ class SellerServiceTest {
     @Mock private SellerRepository sellerRepository;
     @Mock private ProductRepository productRepository;
     @Mock private OrderRepository orderRepository;
+    @Mock private SellerDirectPaymentService sellerDirectPaymentService;
     @Mock private BillDiscountRepository billDiscountRepository;
     @InjectMocks private SellerService sellerService;
 
