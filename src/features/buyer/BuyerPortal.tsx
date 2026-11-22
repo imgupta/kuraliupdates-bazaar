@@ -4,7 +4,8 @@ import { BuyerHome } from '../../components/Buyer/BuyerHome';
 import { CartDrawer } from '../../components/Buyer/CartDrawer';
 import { CheckoutModal } from '../../components/Buyer/CheckoutModal';
 import { OrderTrackingModal } from '../../components/Buyer/OrderTrackingModal';
-import { NegotiationChatModal } from '../../components/Buyer/NegotiationChatModal';\nimport type { CartItem, Product } from '../../types';
+import { NegotiationChatModal } from '../../components/Buyer/NegotiationChatModal';
+import type { CartItem, Product } from '../../types';
 
 export type BuyerPortalProps = {
   searchQuery: string;
