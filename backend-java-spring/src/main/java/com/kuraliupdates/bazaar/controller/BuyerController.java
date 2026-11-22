@@ -29,7 +29,8 @@ import java.util.List;
 public class BuyerController {
     private final ProductService productService;
     private final OrderService orderService;
-    private final AuthService authService;\n    private final com.kuraliupdates.bazaar.service.DeliveryConfigurationService deliveryConfigurationService;
+    private final AuthService authService;
+    private final com.kuraliupdates.bazaar.service.DeliveryConfigurationService deliveryConfigurationService;
     private final com.kuraliupdates.bazaar.service.E2eRunTagging e2eRunTagging;
 
     @GetMapping("/delivery-estimate")
