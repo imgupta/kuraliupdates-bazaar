@@ -51,7 +51,7 @@ This is a single consolidated implementation on PR #390. It does not create a ne
 - Admin verification is an operational attestation after checking seller ownership evidence; no bank/PSP UPI ownership verification API is integrated.
 - Buyer UTR remains an unverified claim until seller confirmation. Seller confirmation is operational evidence, not independent bank settlement verification.
 - Seller refund completion is a seller-entered external refund reference, not bank-verified.
-- Expiry is applied when buyer/seller payment APIs are read/reviewed; no scheduled background expiry worker.
+- A scheduled one-minute expiry sweep uses Oracle `FOR UPDATE SKIP LOCKED`, updates the per-seller payment/order state and records an audit event; payment reads also run a defensive sweep.
 - Coordinate radius checks require verified seller coordinates and buyer coordinates. When required coordinates are missing/unverified, the system cannot prove that the seller is within the configured radius.
 - Search synonym coverage is a curated MVP, not a general-purpose Indic-language transliteration engine; new product terms need dictionary additions. Favourites and saved lists are browser/device-local (not cross-device account sync).
 - No staging DB, production data, seller UPI destination or real payment was modified.
