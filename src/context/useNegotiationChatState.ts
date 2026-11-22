@@ -73,8 +73,8 @@ export const useNegotiationChatState = ({ role, user, products, updateExistingBa
       if (product && newlyAccepted && chat.currentAgreedPrice != null) {
         const acceptedMessage = [...chat.messages].reverse().find(message => message.offer?.status === 'accepted');
         const agreedPrice = chat.currentAgreedPrice;
-        if (Number.isFinite(agreedPrice) && agreedPrice > 0) {
-          upsertBargainCartItem(product, chat.id, 'ACCEPTED', agreedPrice, agreedPrice, acceptedMessage?.offer?.id);
+        if (acceptedMessage?.offer?.id && Number.isFinite(agreedPrice) && agreedPrice > 0) {
+          upsertBargainCartItem(product, chat.id, 'ACCEPTED', agreedPrice, agreedPrice, acceptedMessage.offer.id);
         }
       } else if (product && status !== 'ACCEPTED' && status !== 'CLOSED_PURCHASED') {
         updateExistingBargainCartItem(product, chat.id, status as 'PENDING_SELLER' | 'PENDING_BUYER' | 'REJECTED' | 'EXPIRED',
