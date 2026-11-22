@@ -3,7 +3,8 @@ import { RefreshCw, ShieldCheck } from 'lucide-react';
 import { API_BASE_URL } from '../../services/http/apiConfig';
 
 export const AdminSellerPaymentReview: React.FC = () => {
-  const [records,setRecords]=useState<any[]>([]);\n  const [codSettings,setCodSettings]=useState<any[]>([]);
+  const [records,setRecords]=useState<any[]>([]);
+  const [codSettings,setCodSettings]=useState<any[]>([]);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const load=async()=>{
