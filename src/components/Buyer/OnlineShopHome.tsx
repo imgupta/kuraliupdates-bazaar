@@ -290,6 +290,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
                 const quantity = cart.find(line => line.product.id === item.id)?.quantity || 0;
                 updateCartQuantity(item.id, quantity - 1);
               }}
+              onBuyNow={onBuyNow}
               onViewDetails={setSelectedProduct}
               isFavorite={savedItems.favoriteIds.includes(product.id)}
               onToggleFavorite={product => toggleFavorite(product.id)}
