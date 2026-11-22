@@ -29,8 +29,16 @@ import java.util.List;
 public class BuyerController {
     private final ProductService productService;
     private final OrderService orderService;
-    private final AuthService authService;
+    private final AuthService authService;\n    private final com.kuraliupdates.bazaar.service.DeliveryConfigurationService deliveryConfigurationService;
     private final com.kuraliupdates.bazaar.service.E2eRunTagging e2eRunTagging;
+
+    @GetMapping("/delivery-estimate")
+    @Operation(summary = "Get the configured buyer delivery estimate; null means no ETA promise is configured")
+    public ResponseEntity<java.util.Map<String, Object>> getBuyerDeliveryEstimate(Authentication authentication) {
+        requireBuyer(authentication);
+        return ResponseEntity.ok(java.util.Map.of("estimatedDeliveryMins",
+                java.util.Optional.ofNullable(deliveryConfigurationService.estimatedDeliveryMins()).orElse(0)));
+    }
 
     @GetMapping("/products/search")
     @Operation(summary = "Search products across approved Kurali sellers")
