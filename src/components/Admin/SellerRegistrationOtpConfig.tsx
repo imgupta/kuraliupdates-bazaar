@@ -54,7 +54,7 @@ export const SellerRegistrationOtpConfig: React.FC = () => {
   const changed = !saved || settings.emailOtpEnabled !== saved.emailOtpEnabled || settings.mobileOtpEnabled !== saved.mobileOtpEnabled;
   return <section className="space-y-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><h2 className="text-base font-extrabold text-slate-900">Customer & seller registration OTP controls</h2><p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-500">These are global registration controls for Buyer, Seller, Delivery Partner and Daily Help registrations. Enabled channels are required and shown as separate OTP inputs; disabled channels are skipped. Login OTP, payment verification and existing accounts are not changed.</p></div>
+      <div><h2 className="text-base font-extrabold text-slate-900">Global registration OTP controls</h2><p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-500">These are global registration controls for Buyer, Seller, Delivery Partner and Daily Help registrations. Enabled channels are required and shown as separate OTP inputs; disabled channels are skipped. Login OTP, payment verification and existing accounts are not changed.</p></div>
       <button type="button" onClick={() => void load()} disabled={loading || saving} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}/>Refresh</button>
     </div>
     {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
