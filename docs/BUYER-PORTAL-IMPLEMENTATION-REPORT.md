@@ -1,65 +1,75 @@
 # Buyer Portal Implementation Report
 
 **Branch:** `feat/buyer-portal-complete-seller-direct-checkout`  
-**Status:** Partial implementation — not complete  
+**Status:** Expanded implementation committed to this branch; final verification pending  
 **Date:** 22 November 2026
 
-This report records only changes present in this branch. It does not mark the approved implementation plan complete.
+This is a single consolidated implementation on PR #390. It does not create a new PR and does not claim production readiness before CI, migration and staging evidence.
 
-## Implemented in this branch
+## Implemented
 
-- Removed the default ₹3,000 catalogue maximum-price filter. A maximum price applies only after the buyer explicitly selects one.
-- Simplified product cards to show a single **ADD** action before an item is in the basket, then quantity decrement/increment controls. Removed the competing Buy Now action from each product card; Buy Now remains available from product details.
-- Implemented accepted-bargain auto-add for a newly observed transition from a non-accepted state to `ACCEPTED`. It uses the agreed price and accepted message ID. The transition is processed once per observed conversation state; historical accepted chats loaded on initial hydration do not repopulate a basket, and subsequent polling does not recreate an item after the buyer removes it.
-- Added an isolated Buy Now item set. Buy Now submits only the selected item and does not clear or mutate the buyer's existing basket. Normal basket checkout continues to use and clear the basket only after server confirmation.
-- Replaced hardcoded delivery promises with an admin-configurable buyer ETA in Delivery & Fulfilment settings (0 disables the estimate; 5–360 minutes can be configured). The backend snapshots the configured value on new delivery orders; store-pickup orders have no delivery ETA. Existing orders retain their original snapshot. Checkout/tracking show only the server-provided configured estimate.
-- Added source-level regression tests for the above behaviours.
+### Buyer shopping and checkout
+- Removed the implicit ₹3,000 catalogue maximum; a maximum price applies only when explicitly selected.
+- Product cards use one primary ADD action followed by quantity controls.
+- Newly accepted bargain offers auto-add/update at the agreed price, retain accepted offer identity, and are not recreated by historical chat hydration or polling after buyer removal.
+- Buy Now uses an isolated item set and preserves the existing basket on success/failure.
+- Multi-seller checkout remains one buyer group with seller-owned suborders. Delivery fee is allocated proportionally across seller suborders with a rounding remainder assigned to the last suborder.
+- Checkout request carries a buyer-scoped idempotency key and request hash; the backend replays matching existing order/group and rejects reuse with a different payload.
+- Existing max-seller setting is enforced. Delivery radius uses verified seller coordinates and buyer coordinates. Combined route uses Google road distance when available and a verified-coordinate nearest-neighbour fallback estimate otherwise; the configured route maximum is enforced when a route estimate is available.
+- COD is controlled per seller by an admin-configurable flag. Existing sellers default to COD enabled.
+- Admin-configurable buyer delivery ETA remains in place; V48 resolves the earlier duplicate V22 migration-version collision.
 
-## Existing backend behavior retained
+### Seller-direct UPI payment lifecycle
+- Seller can submit/change its UPI ID and payee name. Any change resets verification and disables the destination.
+- Admin can review, verify/activate or reject a seller destination. Only verified and active destinations are eligible for new UPI checkouts.
+- Each UPI seller suborder receives its own payment record, exact amount, seller UPI/payee snapshot and 24-hour expiry.
+- Buyer can view per-seller instructions, copy the UPI ID, submit a UTR/reference, see seller confirmation/rejection/expiry and request a seller-funded refund.
+- Buyer payment actions are scoped by authenticated stable user ID; seller payment reads and decisions are scoped by the authenticated seller profile; admin configuration/review requires active admin authority.
+- UTR submission uses a retry-stable idempotency key and a unique UTR constraint. UTR submission and UPI app return are never treated as proof of payment.
+- Seller can explicitly confirm/reject submitted UTR. Confirmed payment updates only that seller suborder to PAID.
+- UPI orders cannot transition to READY_FOR_PICKUP before seller confirmation. Buyer/seller cancellation closes unpaid payment obligations; paid orders cannot use the unpaid cancellation path.
+- Multi-seller checkout shows separate seller payment obligations, so one seller's confirmation does not mark another seller paid.
+- Seller refund workflow supports buyer request, seller initiation, seller rejection and seller completion with an actual external refund reference. KuraliUpdates does not initiate or fund the transfer.
 
-- Multi-seller COD checkout already creates seller-owned suborders under one checkout group in a transaction.
-- Server-side product, stock, seller, bargain and amount validation remains authoritative.
-- Online payments are not enabled in the backend. `OrderService.placeOrder` and `placeMultiSellerOrder` currently reject payment methods other than COD. The buyer UI must not imply that UPI/card payment is available.
+### Buyer support and admin operations
+- Buyer can report missing item, wrong item, damaged item, poor quality, not delivered, payment, refund or other issues against a specific seller suborder.
+- Admin can view, mark in review and resolve buyer issues; issue status changes are audited.
+- Admin can enable/disable COD per seller.
+- Seller portal includes payment destination setup, payment review and refund workflow.
 
-## Mandatory work still outstanding — do not mark complete
+### Database and documentation
+- V48: buyer ETA migration (re-versioned from duplicate V22).
+- V49: order buyer-user ownership, per-seller COD setting, seller UPI destination, seller payment records, payment audit, order issues and buyer checkout idempotency.
+- Added [seller-direct payment lifecycle design](BUYER-PORTAL-PAYMENT-LIFECYCLE.md), including API contract, state diagram, data model, security boundaries, migration and operational limitations.
 
-### Direct seller UPI payments
-The current repository does not contain the required verified seller payment-destination model or a complete payment lifecycle. The following are not implemented by this branch:
+## Critical boundaries and known limitations
 
-- Seller UPI ID/QR configuration, admin verification and activation controls.
-- Immutable verified destination snapshot on each seller suborder.
-- Seller-specific payment records and exact per-seller payment instructions.
-- Buyer UTR/reference submission and seller-only confirmation/rejection endpoints.
-- Payment state machine, partial-payment group state, expiry and resume flow.
-- Dispatch/fulfilment enforcement for unpaid seller suborders.
-- Seller-funded refund lifecycle and buyer-visible refund evidence.
-- Audit records and buyer/seller/admin authorization tests for these actions.
-
-No aggregator, wallet, escrow, pooled account or platform-held funds have been introduced. Do not work around the missing payment lifecycle by deriving UPI IDs from seller phone numbers, trusting a buyer screenshot/UTR as proof, or marking a payment paid when the buyer returns from a UPI app.
-
-### Remaining buyer experience
-- Seller-by-seller payable breakdown and payment progress UI for grouped orders.
-- Smart English/Hindi/Hinglish search and spelling normalization.
-- Buyer issue reporting and support workflow.
-- Buy Again, favourites and saved shopping lists.
-- Full accessibility/responsive and buyer order-history regression coverage.
+- No payment aggregator, platform wallet, escrow, pooled funds or seller payout automation.
+- Admin verification is an operational attestation after checking seller ownership evidence; no bank/PSP UPI ownership verification API is integrated.
+- Buyer UTR remains an unverified claim until seller confirmation. Seller confirmation is operational evidence, not independent bank settlement verification.
+- Seller refund completion is a seller-entered external refund reference, not bank-verified.
+- Expiry is applied when buyer/seller payment APIs are read/reviewed; no scheduled background expiry worker.
+- Coordinate radius checks require verified seller coordinates and buyer coordinates. When required coordinates are missing/unverified, the system cannot prove that the seller is within the configured radius.
+- Smart English/Hindi/Hinglish synonym/transliteration expansion, Buy Again, favourites and saved lists remain secondary buyer-experience work.
+- No staging DB, production data, seller UPI destination or real payment was modified.
 
 ## Verification record
 
 | Check | Result |
 |---|---|
-| Implementation source changes | Present on branch |
-| Regression tests added | Present; execution pending |
-| Admin-configurable buyer ETA | Implemented in UI/API/backend with migration V22; execution pending |
-| Frontend lint/typecheck | Not run in this environment |
-| Frontend production build | Not run in this environment |
-| Backend test suite | Not run in this environment |
-| Playwright buyer flows | Not run |
-| Direct seller UPI lifecycle | Not implemented |
-| Partial payment / seller confirmation | Not implemented |
-| Staging verification | Not run |
-| Final status | **PARTIAL — NOT COMPLETE** |
+| Source changes | Committed to PR #390 branch |
+| Seller-direct payment service tests | Added; CI execution pending |
+| Existing order/seller service test injection | Updated for new service dependency |
+| Frontend TypeScript/build | Pending latest-head CI |
+| Backend tests | Pending latest-head CI |
+| Security scans / Docker gate | Pending latest-head CI |
+| Browser E2E and read-only API smoke | Pending latest-head CI |
+| Oracle V48/V49 migration execution | Not yet verified against staging Oracle |
+| Multi-seller UPI partial-payment rehearsal | Not run |
+| UTR duplicate/idempotency concurrency rehearsal | Not run |
+| Seller/admin/buyer live staging E2E | Not run |
+| Final status | **IMPLEMENTED IN SOURCE — VERIFICATION PENDING** |
 
-## Completion gate
+## Merge gate
 
-The approved plan in [BUYER-PORTAL-IMPLEMENTATION-PLAN.md](BUYER-PORTAL-IMPLEMENTATION-PLAN.md) remains authoritative. Overall completion requires the direct-seller payment lifecycle and all mandatory acceptance criteria to be implemented and verified in the same consolidated feature PR. This report must be updated with exact CI head SHA, test evidence, migration details and staging results before the plan is marked complete.
+Keep PR #390 draft until the exact final HEAD passes all required CI jobs, Flyway V48/V49 are verified against an isolated staging schema, and the synthetic buyer/seller/admin payment lifecycle plus concurrency/idempotency scenarios pass. No live customer payment or production rollout is authorized by these source changes alone.
