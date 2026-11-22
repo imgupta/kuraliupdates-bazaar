@@ -17,8 +17,8 @@ const SYNONYMS: Record<string, string[]> = {
 };
 
 const normalize = (value: string) => value.normalize('NFKC').toLocaleLowerCase('en-IN')
-  .replace(/[.,\\/#!$%^&*;:{}=_–—?~()-]/g, ' ')
-  .replace(/\\s+/g, ' ').trim();
+  .replace(/[.,\/#!$%^&*;:{}=_–—?~()-]/g, ' ')
+  .replace(/\s+/g, ' ').trim();
 
 export function expandBuyerSearchQuery(query: string): string[][] {
   return normalize(query).split(' ').filter(Boolean).map(token => {
