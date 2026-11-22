@@ -10,9 +10,12 @@ This is a single consolidated implementation on PR #390. It does not create a ne
 
 ### Buyer shopping and checkout
 - Removed the implicit ₹3,000 catalogue maximum; a maximum price applies only when explicitly selected.
-- Product cards use one primary ADD action followed by quantity controls.
+- Product cards use one primary ADD action followed by quantity controls and an accessible favourite toggle.
+- Catalogue search expands a curated set of common grocery terms across English, Roman Hindi, Devanagari and Gurmukhi (for example milk/doodh/दूध/ਦੁੱਧ and rice/chawal/चावल/ਚਾਵਲ), with Unicode normalization.
+- Buyers can maintain favourites and named shopping lists; these preferences are stored locally in the current browser/device and are not yet synchronized across devices.
 - Newly accepted bargain offers auto-add/update at the agreed price, retain accepted offer identity, and are not recreated by historical chat hydration or polling after buyer removal.
 - Buy Now uses an isolated item set and preserves the existing basket on success/failure.
+- Delivered orders offer Buy Again; the client re-resolves each product from the current catalogue, uses current prices, caps quantity to current stock and skips unavailable products. Historical negotiated prices are not reused.
 - Multi-seller checkout remains one buyer group with seller-owned suborders. Delivery fee is allocated proportionally across seller suborders with a rounding remainder assigned to the last suborder.
 - Checkout request carries a buyer-scoped idempotency key and request hash; the backend replays matching existing order/group and rejects reuse with a different payload.
 - Existing max-seller setting is enforced. Delivery radius uses verified seller coordinates and buyer coordinates. Combined route uses Google road distance when available and a verified-coordinate nearest-neighbour fallback estimate otherwise; the configured route maximum is enforced when a route estimate is available.
@@ -50,7 +53,7 @@ This is a single consolidated implementation on PR #390. It does not create a ne
 - Seller refund completion is a seller-entered external refund reference, not bank-verified.
 - Expiry is applied when buyer/seller payment APIs are read/reviewed; no scheduled background expiry worker.
 - Coordinate radius checks require verified seller coordinates and buyer coordinates. When required coordinates are missing/unverified, the system cannot prove that the seller is within the configured radius.
-- Smart English/Hindi/Hinglish synonym/transliteration expansion, Buy Again, favourites and saved lists remain secondary buyer-experience work.
+- Search synonym coverage is a curated MVP, not a general-purpose Indic-language transliteration engine; new product terms need dictionary additions. Favourites and saved lists are browser/device-local (not cross-device account sync).
 - No staging DB, production data, seller UPI destination or real payment was modified.
 
 ## Verification record
@@ -59,6 +62,7 @@ This is a single consolidated implementation on PR #390. It does not create a ne
 |---|---|
 | Source changes | Committed to PR #390 branch |
 | Seller-direct payment service tests | Added; CI execution pending |
+| Buyer search, favourites, saved lists and Buy Again regressions | Added; CI execution pending |
 | Existing order/seller service test injection | Updated for new service dependency |
 | Frontend TypeScript/build | Pending latest-head CI |
 | Backend tests | Pending latest-head CI |
