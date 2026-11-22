@@ -245,6 +245,9 @@ export interface DailyHelpBooking {
   otpVerifiedAt?: string;
   serviceStartedAt?: string;
   serviceCompletedAt?: string;
+  completionOtp?: string;
+  completionOverrideReason?: string;
+  completionOverrideAt?: string;
 }
 
 
