@@ -138,7 +138,8 @@ public class OrderService {
             BigDecimal baseFee = deliveryConfigurationService.customerBaseFee();
             BigDecimal perKmFee = deliveryConfigurationService.customerPerKmFee();
             BigDecimal roadKm = googleRoutesService.calculateCombinedRouteKm(savedOrders);
-            if (roadKm != null && roadKm.compareTo(deliveryConfigurationService.maxRouteKm()) > 0) {
+            BigDecimal routeForLimit = roadKm != null ? roadKm : approximateCombinedRouteKm(savedOrders);
+            if (routeForLimit != null && routeForLimit.compareTo(deliveryConfigurationService.maxRouteKm()) > 0) {
                 throw new ApiException(HttpStatus.CONFLICT, "Combined seller pickup route exceeds the configured delivery route limit");
             }
             BigDecimal checkoutDeliveryFee = baseFee;
@@ -536,6 +537,47 @@ public class OrderService {
                 .filter(candidate -> OrderBuyerAccessPolicy.owns(candidate, buyer.getEmail()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
         return OrderResponse.from(order);
+    }
+
+    private BigDecimal approximateCombinedRouteKm(List<OrderEntity> orders) {
+        if (orders == null || orders.isEmpty()) return null;
+        OrderEntity first = orders.get(0);
+        if (first.getDeliveryLatitude() == null || first.getDeliveryLongitude() == null) return null;
+        List<SellerEntity> remaining = new ArrayList<>();
+        for (OrderEntity order : orders) {
+            SellerEntity seller = order.getSeller();
+            if (seller == null || !Boolean.TRUE.equals(seller.getLocationVerified())
+                    || seller.getLatitude() == null || seller.getLongitude() == null) return null;
+            remaining.add(seller);
+        }
+        double latitude = remaining.remove(0).getLatitude().doubleValue();
+        double longitude = orders.get(0).getSeller().getLongitude().doubleValue();
+        double total = 0;
+        while (!remaining.isEmpty()) {
+            int nearestIndex = 0;
+            double nearestDistance = Double.MAX_VALUE;
+            for (int i = 0; i < remaining.size(); i++) {
+                SellerEntity candidate = remaining.get(i);
+                double distance = haversineKm(latitude, longitude, candidate.getLatitude().doubleValue(), candidate.getLongitude().doubleValue());
+                if (distance < nearestDistance) { nearestDistance = distance; nearestIndex = i; }
+            }
+            SellerEntity next = remaining.remove(nearestIndex);
+            total += nearestDistance;
+            latitude = next.getLatitude().doubleValue();
+            longitude = next.getLongitude().doubleValue();
+        }
+        total += haversineKm(latitude, longitude, first.getDeliveryLatitude().doubleValue(), first.getDeliveryLongitude().doubleValue());
+        // Straight-line segments understate road distance; apply a conservative road detour factor.
+        return BigDecimal.valueOf(total * 1.25).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return 6371.0088 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     private void validateSellerDeliveryRadius(SellerEntity seller, Double buyerLatitude, Double buyerLongitude) {
