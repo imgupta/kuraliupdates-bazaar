@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
@@ -25,8 +26,9 @@ public class AdminSellerPaymentController {
     @PostMapping("/{sellerId}/review")
     public ResponseEntity<Map<String,Object>> review(@PathVariable String sellerId,
             @RequestBody Map<String,Object> body, Authentication auth) {
-        if (auth == null || !(auth.getPrincipal() instanceof UserEntity admin) || admin.getIsAdmin() == null || admin.getIsAdmin() != 1)
-            throw new ApiException(HttpStatus.FORBIDDEN, "Root admin authorization is required");
+        if (auth == null || !(auth.getPrincipal() instanceof UserEntity admin)
+                || auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).noneMatch(a -> "ROLE_ADMIN".equalsIgnoreCase(a)))
+            throw new ApiException(HttpStatus.FORBIDDEN, "An active admin session is required");
         boolean approve = body != null && Boolean.TRUE.equals(body.get("approve"));
         boolean activate = body != null && Boolean.TRUE.equals(body.get("activate"));
         String reason = body == null ? null : String.valueOf(body.getOrDefault("reason", ""));
