@@ -170,7 +170,7 @@ public class SellerDirectPaymentService {
     @Transactional
     public List<Map<String,Object>> buyerGroupPayments(String checkoutGroupId, String buyerUserId) {
         expirePending();
-        if (buyerEmail == null || buyerEmail.isBlank()) throw new ApiException(HttpStatus.UNAUTHORIZED, "Buyer session required");
+        if (buyerUserId == null || buyerUserId.isBlank()) throw new ApiException(HttpStatus.UNAUTHORIZED, "Buyer session required");
         List<Map<String,Object>> rows = jdbc.queryForList(
                 "SELECT ORDER_ID FROM ORDER_SELLER_PAYMENTS WHERE CHECKOUT_GROUP_ID=? AND BUYER_USER_ID=? ORDER BY CREATED_AT",
                 checkoutGroupId, buyerUserId);
@@ -212,7 +212,7 @@ public class SellerDirectPaymentService {
 
     @Transactional
     public Map<String,Object> requestRefund(String orderId, String buyerUserId, String buyerEmail, String reason) {
-        Map<String,Object> p = lockBuyerPayment(orderId, buyerEmail);
+        Map<String,Object> p = lockBuyerPayment(orderId, buyerUserId);
         if (!"PAYMENT_CONFIRMED".equals(p.get("PAYMENT_STATUS")))
             throw new ApiException(HttpStatus.CONFLICT, "Only a seller-confirmed payment can enter the refund workflow");
         String current = String.valueOf(p.get("REFUND_STATUS"));
@@ -224,7 +224,7 @@ public class SellerDirectPaymentService {
                 why, buyerEmail, LocalDateTime.now(), LocalDateTime.now(), orderId);
         audit(String.valueOf(p.get("PAYMENT_ID")), String.valueOf(p.get("SELLER_ID")), null, buyerEmail, "BUYER",
                 "REFUND_REQUESTED", current, "REQUESTED", why);
-        return buyerPayment(orderId, buyerEmail);
+        return buyerPayment(orderId, buyerUserId);
     }
 
     @Transactional
