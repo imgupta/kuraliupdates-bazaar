@@ -12,7 +12,7 @@ This report records only changes present in this branch. It does not mark the ap
 - Simplified product cards to show a single **ADD** action before an item is in the basket, then quantity decrement/increment controls. Removed the competing Buy Now action from each product card; Buy Now remains available from product details.
 - Implemented accepted-bargain auto-add for a newly observed transition from a non-accepted state to `ACCEPTED`. It uses the agreed price and accepted message ID. The transition is processed once per observed conversation state; historical accepted chats loaded on initial hydration do not repopulate a basket, and subsequent polling does not recreate an item after the buyer removes it.
 - Added an isolated Buy Now item set. Buy Now submits only the selected item and does not clear or mutate the buyer's existing basket. Normal basket checkout continues to use and clear the basket only after server confirmation.
-- Removed the fixed 25-minute checkout promise and the fabricated 30–45 minute local ETA. The backend no longer writes a fixed 25-minute estimate for newly created orders.
+- Replaced hardcoded delivery promises with an admin-configurable buyer ETA in Delivery & Fulfilment settings (0 disables the estimate; 5–360 minutes can be configured). The backend snapshots the configured value on new delivery orders; store-pickup orders have no delivery ETA. Existing orders retain their original snapshot. Checkout/tracking show only the server-provided configured estimate.
 - Added source-level regression tests for the above behaviours.
 
 ## Existing backend behavior retained
@@ -49,7 +49,7 @@ No aggregator, wallet, escrow, pooled account or platform-held funds have been i
 | Check | Result |
 |---|---|
 | Implementation source changes | Present on branch |
-| Regression tests added | Present; execution pending |
+| Regression tests added | Present; execution pending |\n| Admin-configurable buyer ETA | Implemented in UI/API/backend with migration V22; execution pending |
 | Frontend lint/typecheck | Not run in this environment |
 | Frontend production build | Not run in this environment |
 | Backend test suite | Not run in this environment |
