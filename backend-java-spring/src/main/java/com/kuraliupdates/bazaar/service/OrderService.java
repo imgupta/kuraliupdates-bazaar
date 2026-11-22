@@ -538,14 +538,14 @@ public class OrderService {
         return OrderResponse.from(order);
     }
 
-    private void validateSellerDeliveryRadius(SellerEntity seller, BigDecimal buyerLatitude, BigDecimal buyerLongitude) {
+    private void validateSellerDeliveryRadius(SellerEntity seller, Double buyerLatitude, Double buyerLongitude) {
         if (seller == null || !Boolean.TRUE.equals(seller.getLocationVerified())
                 || seller.getLatitude() == null || seller.getLongitude() == null
                 || buyerLatitude == null || buyerLongitude == null) return;
         double lat1 = Math.toRadians(seller.getLatitude().doubleValue());
-        double lat2 = Math.toRadians(buyerLatitude.doubleValue());
-        double deltaLat = Math.toRadians(buyerLatitude.subtract(seller.getLatitude()).doubleValue());
-        double deltaLon = Math.toRadians(buyerLongitude.subtract(seller.getLongitude()).doubleValue());
+        double lat2 = Math.toRadians(buyerLatitude);
+        double deltaLat = Math.toRadians(buyerLatitude - seller.getLatitude().doubleValue());
+        double deltaLon = Math.toRadians(buyerLongitude - seller.getLongitude().doubleValue());
         double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
                 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
         double distanceKm = 6371.0088 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
