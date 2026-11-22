@@ -1,6 +1,6 @@
 # Buyer Portal Simplification and Checkout Implementation Plan
 
-**Status:** Approved plan — implementation not yet verified  
+**Status:** Implementation in progress — see [implementation report](BUYER-PORTAL-IMPLEMENTATION-REPORT.md); mandatory payment lifecycle remains outstanding  
 **Scope:** Online Shop buyer journey, bargaining, seller-direct payments, grouped orders and buyer support  
 **Delivery target:** One consolidated implementation PR  
 **Last updated:** 22 November 2026
