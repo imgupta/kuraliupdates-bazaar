@@ -12,6 +12,7 @@ import com.kuraliupdates.bazaar.repository.OrderRepository;
 import com.kuraliupdates.bazaar.repository.ProductRepository;
 import com.kuraliupdates.bazaar.repository.SellerRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -41,6 +42,13 @@ class OrderServiceTest {
     @Mock private SellerDirectPaymentService sellerDirectPaymentService;
     @InjectMocks private OrderService orderService;
 
+    @BeforeEach
+    void configureDeliveryPolicyDefaults() {
+        when(deliveryConfigurationService.nearbyRadiusKm()).thenReturn(BigDecimal.valueOf(5));
+        when(deliveryConfigurationService.maxRouteKm()).thenReturn(BigDecimal.valueOf(8));
+        when(deliveryConfigurationService.estimatedDeliveryMins()).thenReturn(0);
+    }
+
     @Test
     void missingBuyerIdentityCannotPlaceSingleSellerOrderBeforeRepositoryAccess() {
         ApiException error = assertThrows(ApiException.class,
@@ -69,13 +77,13 @@ class OrderServiceTest {
     }
 
     @Test
-    void buyerOrderHistoryUsesAuthenticatedBuyerEmail() {
-        when(orderRepository.findByBuyerEmail("authenticated@example.test")).thenReturn(List.of());
+    void buyerOrderHistoryUsesAuthenticatedStableUserId() {
+        when(orderRepository.findByBuyerUserIdOrderByPlacedAtDesc("USER-1")).thenReturn(List.of());
 
         var history = orderService.history(buyer());
 
         assertTrue(history.isEmpty());
-        verify(orderRepository).findByBuyerEmail("authenticated@example.test");
+        verify(orderRepository).findByBuyerUserIdOrderByPlacedAtDesc("USER-1");
         verifyNoMoreInteractions(orderRepository);
     }
 
@@ -273,9 +281,9 @@ class OrderServiceTest {
     }
 
     @Test
-    void rejectsOnlinePaymentUntilGatewayIsConfigured() {
+    void rejectsUnsupportedPaymentMethodBeforeCatalogAccess() {
         ApiException error = assertThrows(ApiException.class,
-                () -> orderService.placeOrder(request("UPI", List.of(new OrderItemRequest("P-1", 1, null))), buyer()));
+                () -> orderService.placeOrder(request("CARD", List.of(new OrderItemRequest("P-1", 1, null))), buyer()));
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
         verify(productRepository, never()).findLockedByProductId(anyString());
         verify(orderRepository, never()).save(any());
@@ -472,7 +480,7 @@ class OrderServiceTest {
 
     @Test
     void multiSellerCheckoutRejectsOnlinePaymentBeforeCatalogAccess() {
-        MultiSellerCheckoutRequest request = multiSellerRequest("UPI", "DELIVERY",
+        MultiSellerCheckoutRequest request = multiSellerRequest("CARD", "DELIVERY",
                 List.of(new OrderItemRequest("P-1", 1, null)));
 
         ApiException error = assertThrows(ApiException.class,
