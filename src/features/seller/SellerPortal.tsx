@@ -7,6 +7,7 @@ import { sellerApi } from '../../services/domains/sellerApi';
 import { mapSellerProduct } from '../../entities/sellerProduct';
 import { NegotiationChatModal } from '../../components/Buyer/NegotiationChatModal';
 import { SellerPaymentWorkspace } from '../../components/Seller/SellerPaymentWorkspace';
+import { SellerAddressEditor } from '../../components/Seller/SellerAddressEditor';
 
 
 export const SellerDashboard: React.FC = () => {
@@ -30,6 +31,8 @@ export const SellerDashboard: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
+  const [addressEditorOpen, setAddressEditorOpen] = useState(false);
+  const [addressSaving, setAddressSaving] = useState(false);
   const knownOrderIds = useRef<Set<string> | null>(null);
 
   const emptyForm = { title: '', category: PRODUCT_CATEGORIES[0], mrp: '', sellerPrice: '', additionalDiscount: '0', stock: '25', unit: '1 kg', image: '', description: '' };
@@ -93,6 +96,19 @@ export const SellerDashboard: React.FC = () => {
     } catch (error: any) {
       showToast(error?.message || 'Unable to upload replacement document.', 'error');
     } finally { setDocumentUploadBusy(false); }
+  };
+
+  const saveShopAddress = async (payload: { address: string; locality: string; latitude: number; longitude: number; placeId: string }) => {
+    if (addressSaving) return;
+    setAddressSaving(true);
+    try {
+      const updated = await sellerApi.updateMyAddress(payload);
+      setSeller(updated);
+      setAddressEditorOpen(false);
+      showToast('Shop address saved. Admin re-verification is required before delivery resumes from the new location.', 'success');
+    } catch (error: any) {
+      showToast(error?.message || 'Unable to update shop address.', 'error');
+    } finally { setAddressSaving(false); }
   };
 
   const toggleStoreAvailability = async () => {
@@ -250,7 +266,7 @@ export const SellerDashboard: React.FC = () => {
           <div className="flex gap-2">
             <button onClick={load} className="px-3 py-2.5 bg-blue-800/60 rounded-xl text-xs font-bold flex items-center gap-1.5"><RefreshCw className="w-4 h-4" />Refresh</button>
             <button onClick={() => { setEditingId(null); setForm(emptyForm); setActiveTab('add'); }} disabled={!isApproved} className="px-4 py-2.5 bg-white text-blue-800 font-bold rounded-xl text-xs disabled:opacity-50 flex items-center gap-1.5"><PlusCircle className="w-4 h-4" />Add Inventory</button>
-            <button onClick={() => setIsSellerRegisterOpen(true)} className="px-3 py-2.5 bg-blue-800/60 rounded-xl text-xs font-bold">Update Store</button>
+            <button onClick={() => setAddressEditorOpen(true)} className="px-3 py-2.5 bg-blue-800/60 rounded-xl text-xs font-bold">Update Shop Address</button>
           </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-white/10">
@@ -355,7 +371,7 @@ export const SellerDashboard: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'discounts' && (
+      {addressEditorOpen && <SellerAddressEditor seller={seller} saving={addressSaving} onClose={() => setAddressEditorOpen(false)} onSave={saveShopAddress} />}\n\n      {activeTab === 'discounts' && (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 max-w-xl space-y-5">
           <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-amber-50 flex items-center justify-center"><Percent className="w-5 h-5 text-amber-600" /></div><div><h3 className="font-extrabold text-sm">Bill Discount Configuration</h3><p className="text-xs text-slate-500">These rules are stored against your seller account.</p></div></div>
           <form onSubmit={addDiscount} className="grid grid-cols-1 sm:grid-cols-2 gap-3">

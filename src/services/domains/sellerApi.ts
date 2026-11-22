@@ -127,6 +127,20 @@ export const sellerApi = {
       } catch (err) { console.warn('Backend getCurrentSeller failed:', err); return null; }
     },
 
+
+  async updateMyAddress(payload: { address: string; locality: string; latitude: number; longitude: number }): Promise<any> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) throw new Error('Your seller session has expired. Please sign in again.');
+    const res = await fetch(`${API_BASE_URL}/sellers/me/address`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to update shop address (HTTP ${res.status})`);
+    return data;
+  },
+
   async setStoreAvailability(open: boolean): Promise<any> {
       const token = localStorage.getItem('kurali_auth_token');
       if (!token) throw new Error('Your seller session has expired. Please sign in again.');
