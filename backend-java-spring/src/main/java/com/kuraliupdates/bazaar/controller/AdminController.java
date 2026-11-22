@@ -97,7 +97,7 @@ public class AdminController {
         SellerEntity seller = sellerRepository.findById(sellerId).orElseThrow(() -> new com.kuraliupdates.bazaar.exception.ApiException(org.springframework.http.HttpStatus.NOT_FOUND, "Seller not found"));
         String storeName = request.getOrDefault("storeName", seller.getStoreName()).trim();
         String ownerName = request.getOrDefault("ownerName", seller.getOwnerName()).trim();
-        String phone = request.getOrDefault("phone", seller.getPhone()).replaceAll("\\\\D", "");
+        String phone = request.getOrDefault("phone", seller.getPhone()).replaceAll("\\D", "");
         String category = request.getOrDefault("category", seller.getCategory()).trim();
         String address = request.getOrDefault("address", seller.getAddress()).trim();
         String locality = request.getOrDefault("locality", seller.getLocality()).trim();
