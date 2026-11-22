@@ -79,3 +79,16 @@ test('admin portal delegates refresh, seller document review and configuration l
   assert.match(configurationHook, /updateDeliveryConfiguration/);
   assert.match(configurationHook, /updateSellerServiceArea/);
 });
+
+
+test('browser OTP login accepts HttpOnly-cookie sessions without a JSON bearer token', () => {
+  const auth = read('../src/components/Auth/AuthPageV2.tsx');
+  const legacyStart = auth.indexOf('const AuthPageV2Legacy');
+  const legacyEnd = auth.indexOf('const RoleRegistrationCard', legacyStart);
+  const legacy = auth.slice(legacyStart, legacyEnd);
+
+  assert.match(legacy, /if \(!response\.success \|\| !response\.user\)/);
+  assert.match(legacy, /const sessionToken = response\.token \|\| '__COOKIE_SESSION__'/);
+  assert.doesNotMatch(legacy, /!response\.token \|\| !response\.user/);
+  assert.match(legacy, /token: sessionToken/);
+});
