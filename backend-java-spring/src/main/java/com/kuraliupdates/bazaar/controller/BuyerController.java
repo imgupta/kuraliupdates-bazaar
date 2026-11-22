@@ -16,7 +16,7 @@ import org.springframework.security.core.GrantedAuthority;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
+import lombok.RequiredArgsConstructor;\nimport org.slf4j.Logger;\nimport org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,7 +26,7 @@ import java.util.List;
 @RequestMapping("/buyers")
 @RequiredArgsConstructor
 @Tag(name = "Buyer API", description = "Product search, checkout and order tracking")
-public class BuyerController {
+public class BuyerController {\n    private static final Logger log = LoggerFactory.getLogger(BuyerController.class);
     private final ProductService productService;
     private final OrderService orderService;
     private final AuthService authService;
@@ -108,6 +108,15 @@ public class BuyerController {
     public ResponseEntity<OrderResponse> trackOrder(@PathVariable String orderId, Authentication authentication) {
         UserEntity user = requireBuyer(authentication);
         return ResponseEntity.ok(orderService.trackForBuyer(orderId, user));
+    }
+
+    private String safeCorrelationId(String value) {
+        return value != null && value.matches("[A-Za-z0-9._:-]{8,100}") ? value : "not-provided";
+    }
+
+    private String safeMessage(String value) {
+        if (value == null) return "";
+        return value.replaceAll("[\\r\\n\\t]", " ").substring(0, Math.min(value.length(), 240));
     }
 
     private UserEntity requireBuyer(Authentication authentication) {
