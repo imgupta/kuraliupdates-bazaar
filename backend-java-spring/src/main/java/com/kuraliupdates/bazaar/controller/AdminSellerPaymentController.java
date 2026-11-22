@@ -23,6 +23,20 @@ public class AdminSellerPaymentController {
         return ResponseEntity.ok(payments.adminDestinations(status));
     }
 
+    @GetMapping("/order-issues")
+    public ResponseEntity<List<Map<String,Object>>> orderIssues(@RequestParam(required=false) String status) {
+        return ResponseEntity.ok(payments.adminOrderIssues(status));
+    }
+
+    @PatchMapping("/order-issues/{issueId}")
+    public ResponseEntity<Map<String,Object>> updateIssue(@PathVariable String issueId,
+            @RequestBody Map<String,String> body, Authentication auth) {
+        if (auth == null || !(auth.getPrincipal() instanceof UserEntity admin)
+                || auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).noneMatch(a -> "ROLE_ADMIN".equalsIgnoreCase(a)))
+            throw new ApiException(HttpStatus.FORBIDDEN, "An active admin session is required");
+        return ResponseEntity.ok(payments.updateIssueStatus(issueId, body == null ? null : body.get("status"), admin.getEmail()));
+    }
+
     @GetMapping("/cod-settings")
     public ResponseEntity<List<Map<String,Object>>> codSettings() {
         return ResponseEntity.ok(payments.codSettings());
