@@ -22,6 +22,10 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
   const [contactMethod, setContactMethod] = useState<ContactMethod>('email');
   const [step, setStep] = useState<'form' | 'otp'>('form');
   const [otp, setOtp] = useState('');
+  const [emailOtp, setEmailOtp] = useState('');
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [emailOtpRequired, setEmailOtpRequired] = useState(true);
+  const [mobileOtpRequired, setMobileOtpRequired] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -113,11 +117,23 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
           throw new Error(identityCheck.message);
         }
 
-        const response = await bazaarApi.sendOtp(email, 'EMAIL', 'REGISTER');
-        if (!response.success) {
-          throw new Error(response.message);
+        const settings = await bazaarApi.getRegistrationOtpSettings();
+        if (!settings.success) throw new Error(settings.message || 'Unable to load registration verification settings');
+        if (!settings.emailOtpRequired && !settings.mobileOtpRequired) throw new Error('Registration is temporarily unavailable because contact verification is disabled. Please contact support.');
+        const cooldowns: number[] = [];
+        if (settings.emailOtpRequired) {
+          const sent = await bazaarApi.sendOtp(email, 'EMAIL', 'REGISTER');
+          if (!sent.success) throw new Error(`Email OTP: ${sent.message}`);
+          cooldowns.push(Number(sent.resendAfterSeconds) || 20);
         }
-        resendAfterSeconds = Number(response.resendAfterSeconds) || 20;
+        if (settings.mobileOtpRequired) {
+          const sent = await bazaarApi.sendOtp(phone, 'PHONE', 'REGISTER');
+          if (!sent.success) throw new Error(`Mobile OTP: ${sent.message}`);
+          cooldowns.push(Number(sent.resendAfterSeconds) || 20);
+        }
+        setEmailOtpRequired(settings.emailOtpRequired);
+        setMobileOtpRequired(settings.mobileOtpRequired);
+        resendAfterSeconds = Math.max(...cooldowns);
         setPendingRegistration({
           name,
           email,
@@ -132,8 +148,11 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
         setPendingIdentifier(email);
         setCountdown(resendAfterSeconds);
         setOtp('');
+        setEmailOtp('');
+        setPhoneOtp('');
         setStep('otp');
-        showToast('Verification code sent to your email', 'info');
+        const channels = [settings.emailOtpRequired ? 'email' : '', settings.mobileOtpRequired ? 'mobile' : ''].filter(Boolean).join(' and ');
+        showToast(`Verification codes sent to your ${channels}`, 'info');
         return;
       }
 
@@ -165,7 +184,12 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
 
   const handleVerify = async () => {
     const code = otp.replace(/\D/g, '');
-    if (code.length !== 6) {
+    const emailCode = emailOtp.replace(/\D/g, '');
+    const phoneCode = phoneOtp.replace(/\D/g, '');
+    if (authMode === 'register') {
+      if (emailOtpRequired && emailCode.length !== 6) { setError('Enter the complete 6-digit email verification code.'); return; }
+      if (mobileOtpRequired && phoneCode.length !== 6) { setError('Enter the complete 6-digit mobile verification code.'); return; }
+    } else if (code.length !== 6) {
       setError('Please enter the complete 6-digit verification code');
       return;
     }
@@ -191,7 +215,8 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
           licenseNumber,
           email,
           phone,
-          emailOtp: code,
+          emailOtp: emailOtpRequired ? emailCode : '',
+          phoneOtp: mobileOtpRequired ? phoneCode : '',
         });
 
         if (!response.success || !response.user) {
@@ -325,7 +350,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
     ? 'Sign in securely with a one-time verification code.'
     : registrationRole === 'delivery'
       ? 'Register as a delivery partner. Your fleet profile will be reviewed before activation.'
-      : 'Start your Daily Help professional registration with email verification.';
+      : 'Start your Daily Help professional registration with the contact verification methods configured by KuraliUpdates.';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 flex items-center justify-center p-4 sm:p-6">
@@ -457,12 +482,18 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
                 <p className="text-xs font-black text-amber-900">Verification code sent</p>
                 <p className="mt-1 text-[11px] text-amber-700">
-                  {authMode === 'register' ? `Enter the 6-digit code sent to ${emailRef.current?.value || 'your email'}.` : `Enter the 6-digit code sent to your registered ${contactMethod}.`}
+                  {authMode === 'register' ? `Enter each 6-digit code sent to the contact details you provided.` : `Enter the 6-digit code sent to your registered ${contactMethod}.`}
                 </p>
               </div>
               <div className="mt-6">
-                <label className="block mb-2 text-xs font-bold text-slate-700">6-digit verification code</label>
-                <input ref={otpRef} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} onKeyDown={e => { if (e.key === 'Enter') handleVerify(); }} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="••••••" className="w-full rounded-2xl border-2 border-slate-300 bg-slate-50 py-4 text-center font-mono text-2xl font-black tracking-[0.5em] outline-none focus:border-amber-500 focus:bg-white" />
+                {authMode === 'register' ? (
+                  <div className="space-y-4">
+                    {emailOtpRequired && <label className="block text-xs font-bold text-slate-700">Email verification code <span className="font-normal text-slate-500">({pendingRegistration?.email})</span><input value={emailOtp} onChange={e => setEmailOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="Email OTP · 6 digits" className="mt-2 w-full rounded-2xl border-2 border-slate-300 bg-slate-50 py-4 text-center font-mono text-2xl font-black tracking-[0.5em] outline-none focus:border-amber-500 focus:bg-white" /></label>}
+                    {mobileOtpRequired && <label className="block text-xs font-bold text-slate-700">Mobile verification code <span className="font-normal text-slate-500">({pendingRegistration?.phone})</span><input value={phoneOtp} onChange={e => setPhoneOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="Mobile OTP · 6 digits" className="mt-2 w-full rounded-2xl border-2 border-slate-300 bg-slate-50 px-3 py-4 text-center font-mono text-2xl font-black tracking-[0.5em] outline-none focus:border-amber-500 focus:bg-white" /></label>}
+                  </div>
+                ) : (
+                  <><label className="block mb-2 text-xs font-bold text-slate-700">6-digit verification code</label><input ref={otpRef} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} onKeyDown={e => { if (e.key === 'Enter') handleVerify(); }} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="••••••" className="w-full rounded-2xl border-2 border-slate-300 bg-slate-50 py-4 text-center font-mono text-2xl font-black tracking-[0.5em] outline-none focus:border-amber-500 focus:bg-white" /></>
+                )}
               </div>
               <button type="button" onClick={handleVerify} disabled={loading} className="mt-5 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3.5 text-xs font-black text-white shadow-md disabled:opacity-50 flex items-center justify-center gap-2">
                 {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
