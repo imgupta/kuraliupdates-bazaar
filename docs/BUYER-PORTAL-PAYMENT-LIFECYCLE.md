@@ -140,3 +140,21 @@ flowchart TD
 - Search synonym coverage is a curated English/Roman Hindi/Devanagari/Gurmukhi grocery MVP, not a general Indic transliteration engine. Favourites and saved lists persist in the current browser/device and are not synchronized across devices.
 - Full accessibility review and staging mobile/desktop usability acceptance remain to be recorded.
 - CI, Oracle migration execution, staging buyer/seller/admin E2E, concurrency/idempotency rehearsal and production deployment have not been claimed until GitHub/staging evidence is available.
+
+
+## Seller-direct UPI Intent launch (initial integration)
+
+The first UPI Intent phase adds a standard `upi://pay` deep link for each seller-owned payment snapshot. The link is generated server-side from the immutable seller VPA/payee snapshot, exact seller payable, payment ID and order ID. It is returned as `upiIntentUri` only when the server-side feature flag is enabled.
+
+Configuration:
+
+- `kurali.payments.upi-intent.enabled` is controlled by `KU_UPI_INTENT_ENABLED` and defaults to `false`.
+- `kurali.payments.upi-intent.scheme` is controlled by `KU_UPI_INTENT_SCHEME` and defaults to `upi`.
+- The buyer UI opens the link only when it begins with `upi://pay?`.
+- Each seller suborder receives its own intent link and payment amount. A multi-seller checkout therefore requires one payment per seller.
+
+This is an app-switch/intent launch only. It is **not** an NPCI UPI Plug-in SDK, bank acquiring integration, payment gateway, server-side payment verification, or automatic settlement confirmation. The app return URL, UPI app result, screenshot and UTR are not trusted as proof. Existing seller confirmation remains authoritative until an acquiring bank provides a documented server-to-server status API and webhook contract.
+
+No bank credentials are required to create a standard seller-VPA intent link. When SBI or another acquiring bank is selected, its merchant ID, API key, signing secret and webhook secret must be configured only as backend runtime secrets (prefer Render environment variables or secret files). GitHub Actions Secrets should be used only for CI jobs that genuinely need those values; never put bank secrets in Vite variables, mobile app bundles, source control, logs or API responses. Live bank verification remains disabled until the bank's sandbox, signature scheme, status API, refund contract and production approval are available.
+
+Operational enablement is deliberately opt-in: set `KU_UPI_INTENT_ENABLED=true` on the backend only after confirming that the seller destinations are verified and active, and after validating the UPI app-switch experience on supported Android/iOS devices. This flag does not enable automated payment confirmation.
