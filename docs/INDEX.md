@@ -7,6 +7,7 @@ Start with these maintained sources:
 | [README](../README.md) | Product, stack, repository map and local setup |
 | [Architecture](../ARCHITECTURE.md) | Runtime, boundaries, invariants and security principles |
 | [Security release checkpoint — 22 Nov 2026](SECURITY-RELEASE-2026-11-22.md) | PR #382 deployment/migration evidence, CI failures, release gates and overall pending register |
+| [Admin MFA future hardening](ADMIN-MFA-FUTURE-HARDENING.md) | Deferred MFA security improvements, priorities, implementation sequence and acceptance criteria |
 | [Current state](CURRENT-STATE.md) | Latest implementation status, release caveats and prioritized backlog |
 | [Seller registration redesign](SELLER-REGISTRATION-REDESIGN.md) | Approved target UX, radius, multilingual, compliance, APIs, backlog and release gates |
 | [Seller onboarding](SELLER-ONBOARDING.md) | Current seller registration, document storage, admin approval and compliance workflow |
