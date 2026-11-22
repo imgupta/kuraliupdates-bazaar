@@ -86,7 +86,11 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
     return () => { cancelled = true; };
   }, [selected, bookingDate, hours, user.locality]);
 
-  const elapsedSeconds = (startedAt?: string) => startedAt ? Math.floor((now - new Date(startedAt).getTime()) / 1000) : 0;
+  const elapsedSeconds = (startedAt?: string, requestedHours?: number) => {
+    if (!startedAt) return 0;
+    const raw = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1000));
+    return Math.min(raw, Math.max(0, Math.round(Number(requestedHours || 0) * 3600)));
+  };
 
   const selectedTimeValid = useMemo(() => {
     if (!selectedSlot || !/^\d{2}:\d{2}$/.test(selectedStartTime)) return false;
@@ -188,8 +192,9 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
           {booking.status === 'IN_PROGRESS' && booking.serviceStartedAt && (
             <div className="mt-4 rounded-xl bg-slate-900 text-white p-5 text-center">
               <div className="flex items-center justify-center gap-2 text-emerald-300 text-xs font-bold"><Timer className="w-4 h-4" /> SERVICE TIMER</div>
-              <div className="text-4xl font-black font-mono mt-2">{formatDuration(elapsedSeconds(booking.serviceStartedAt))}</div>
-              <p className="text-[11px] text-slate-400 mt-2">Started {new Date(booking.serviceStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+              <div className="text-4xl font-black font-mono mt-2">{formatDuration(elapsedSeconds(booking.serviceStartedAt, booking.requestedHours))}</div>
+              <p className="text-[11px] text-slate-400 mt-2">Started {new Date(booking.serviceStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Booked duration: {booking.requestedHours} hours</p>
+              {booking.completionOtp && <div className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-emerald-900"><p className="text-[10px] font-black uppercase">Customer completion OTP</p><p className="mt-1 text-3xl font-black tracking-[0.35em]">{booking.completionOtp}</p><p className="mt-1 text-[10px]">Share this code with the helper only when the service is finished.</p></div>}
             </div>
           )}
           {booking.status === 'COMPLETED' && (
