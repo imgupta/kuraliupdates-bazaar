@@ -231,7 +231,7 @@ class DailyHelpControllerTest {
                 () -> controller.startBooking("BOOK-1",
                         new DailyHelpStartRequest("DHP-1", "123456"), malformed)).getStatus());
         assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ApiException.class,
-                () -> controller.completeBooking("BOOK-1", "DHP-1", malformed)).getStatus());
+                () -> controller.completeBooking("BOOK-1", new DailyHelpCompleteRequest("DHP-1", "1234", null), malformed)).getStatus());
 
         verifyNoInteractions(dailyHelpService, e2eRunTagging);
     }
