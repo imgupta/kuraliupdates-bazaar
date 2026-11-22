@@ -543,7 +543,7 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     });
     expect(startedBuyerRead.status()).toBe(200);
     const startedBuyerBooking = await startedBuyerRead.json();
-    expect(startedBuyerBooking.completionOtp, "customer receives a separate end OTP only while service is active").toMatch(/^\\d{4}$/);
+    expect(startedBuyerBooking.completionOtp, "customer receives a separate end OTP only while service is active").toMatch(/^\d{4}$/);
 
     const completeResponse = await request.post(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId) + "/complete", {
       headers: auth(professionalToken), data: { professionalId, otp: startedBuyerBooking.completionOtp }, timeout: 20_000,
