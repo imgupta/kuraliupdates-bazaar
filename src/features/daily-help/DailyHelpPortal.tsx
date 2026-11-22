@@ -26,7 +26,7 @@ const statusLabel: Record<string, string> = {
 
 export const DailyHelpProfessionalDashboard: React.FC = () => {
   const {
-    professional, earnings, availableJobs, jobs, loading, refreshing, setRefreshing, load, otpInputs, setOtpInputs, now,
+    professional, earnings, availableJobs, jobs, loading, refreshing, setRefreshing, load, otpInputs, setOtpInputs, completionOtpInputs, setCompletionOtpInputs, overrideReasons, setOverrideReasons, now,
     slotDate, setSlotDate, slotStart, setSlotStart, slotEnd, setSlotEnd, mySlots,
     registrationName, setRegistrationName,
     registrationWardNumber, setRegistrationWardNumber, registering, activeJobs,
@@ -143,7 +143,9 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
           <div className="flex items-center justify-between mb-3"><h2 className="text-sm font-black uppercase tracking-wide text-slate-800">Active Jobs</h2><span className="text-xs text-emerald-700 font-bold">{activeJobs.length} active</span></div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {activeJobs.map(job => {
-              const elapsed = job.serviceStartedAt ? Math.floor((now - new Date(job.serviceStartedAt).getTime()) / 1000) : 0;
+              const elapsedRaw = job.serviceStartedAt ? Math.floor((now - new Date(job.serviceStartedAt).getTime()) / 1000) : 0;
+              const bookedSeconds = Math.max(0, Math.round(Number(job.requestedHours || 0) * 3600));
+              const elapsed = Math.min(Math.max(0, elapsedRaw), bookedSeconds);
               return (
                 <article key={job.id} className="bg-white border-2 border-amber-300 rounded-3xl p-5 shadow-sm space-y-4">
                   <div className="flex justify-between gap-3">
@@ -173,11 +175,21 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
                   )}
 
                   {job.status === 'IN_PROGRESS' && (
-                    <div className="rounded-2xl bg-slate-900 text-white p-4 text-center">
-                      <div className="flex items-center justify-center gap-2 text-emerald-300 text-[10px] font-black uppercase"><Timer className="w-4 h-4" /> Live Service Timer</div>
-                      <div className="text-4xl font-mono font-black mt-1">{formatDuration(elapsed)}</div>
-                      <p className="text-[10px] text-slate-400 mt-1">Timer is server-started after OTP verification.</p>
-                      <button onClick={() => complete(job)} className="mt-3 px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-black cursor-pointer flex items-center gap-1.5 mx-auto"><CheckCircle2 className="w-4 h-4" /> Stop & Complete Service</button>
+                    <div className="rounded-2xl bg-slate-900 text-white p-4">
+                      <div className="flex items-center justify-center gap-2 text-emerald-300 text-[10px] font-black uppercase"><Timer className="w-4 h-4" /> Service Timer</div>
+                      <div className="text-4xl font-mono font-black mt-1 text-center">{formatDuration(elapsed)}</div>
+                      <p className="text-[10px] text-slate-300 mt-1 text-center">Timer starts after start OTP and is capped at the booked {job.requestedHours} hour duration.</p>
+                      {elapsedRaw >= bookedSeconds && <p className="mt-2 rounded-lg bg-amber-400/15 p-2 text-[10px] text-amber-200 text-center">Booked duration reached. Job remains open until customer OTP or audited override is submitted.</p>}
+                      <label className="block mt-3 text-[11px] font-bold text-slate-200">Customer completion OTP
+                        <input value={completionOtpInputs[job.id] || ''} onChange={e => setCompletionOtpInputs(p => ({...p, [job.id]: e.target.value.replace(/\\D/g, '').slice(0,4)}))} maxLength={4} inputMode="numeric" placeholder="4-digit end OTP" className="mt-1 w-full rounded-xl border border-slate-600 bg-white px-3 py-2.5 text-center font-mono font-black text-slate-900" />
+                      </label>
+                      <button onClick={() => complete(job)} className="mt-2 w-full px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-black cursor-pointer flex items-center justify-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> Verify OTP & Complete</button>
+                      <details className="mt-3 rounded-xl border border-white/15 p-3">
+                        <summary className="cursor-pointer text-[11px] font-bold text-amber-200">Customer cannot provide OTP? Use rare override</summary>
+                        <p className="mt-2 text-[10px] text-slate-300">Use only when the customer is genuinely unable to share the code. Your reason and identity are permanently recorded.</p>
+                        <textarea value={overrideReasons[job.id] || ''} onChange={e => setOverrideReasons(p => ({...p, [job.id]: e.target.value.slice(0,1000)}))} rows={3} maxLength={1000} placeholder="Explain why the customer completion OTP is unavailable (minimum 10 characters)" className="mt-2 w-full rounded-lg bg-white p-2 text-xs text-slate-900" />
+                        <button onClick={() => complete(job, true)} className="mt-2 w-full rounded-lg bg-amber-500 px-3 py-2 text-xs font-black text-slate-950">Complete with reasoned override</button>
+                      </details>
                     </div>
                   )}
                 </article>
