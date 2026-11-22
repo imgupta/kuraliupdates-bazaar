@@ -538,15 +538,22 @@ test.describe("Guarded transactional order and Daily Help lifecycle E2E", () => 
     expect(replayedStart.serviceStartedAt, "replay must not reset the original service start timestamp")
       .toBe(started.serviceStartedAt.slice(0, 26));
 
-    const completeResponse = await request.post(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId) + "/complete?professionalId=" + encodeURIComponent(professionalId), {
-      headers: auth(professionalToken), timeout: 20_000,
+    const startedBuyerRead = await request.get(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId), {
+      headers: auth(buyerToken), timeout: 20_000,
+    });
+    expect(startedBuyerRead.status()).toBe(200);
+    const startedBuyerBooking = await startedBuyerRead.json();
+    expect(startedBuyerBooking.completionOtp, "customer receives a separate end OTP only while service is active").toMatch(/^\\d{4}$/);
+
+    const completeResponse = await request.post(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId) + "/complete", {
+      headers: auth(professionalToken), data: { professionalId, otp: startedBuyerBooking.completionOtp }, timeout: 20_000,
     });
     expect(completeResponse.status()).toBe(200);
     const completed = await completeResponse.json();
     expect(completed.status).toBe("COMPLETED");
     expect(completed.serviceCompletedAt).toBeTruthy();
-    const replayComplete = await request.post(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId) + "/complete?professionalId=" + encodeURIComponent(professionalId), {
-      headers: auth(professionalToken), timeout: 20_000,
+    const replayComplete = await request.post(apiBase + "/daily-help/bookings/" + encodeURIComponent(bookingId) + "/complete", {
+      headers: auth(professionalToken), data: { professionalId, otp: startedBuyerBooking.completionOtp }, timeout: 20_000,
     });
     expect([400, 409], "Daily Help completion replay must not duplicate the terminal transition").toContain(replayComplete.status());
 
