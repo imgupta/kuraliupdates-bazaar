@@ -53,4 +53,27 @@ class SellerDirectPaymentServiceTest {
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
         verify(jdbc, never()).update(contains("INSERT INTO ORDER_SELLER_PAYMENTS"), any(Object[].class));
     }
+
+    @Test
+    void expirySweepUsesLockedRowsAndAuditsOnlySuccessfullyExpiredPayments() {
+        when(jdbc.queryForList(contains("FOR UPDATE SKIP LOCKED"), any(Object[].class)))
+                .thenReturn(java.util.List.of(Map.of(
+                        "PAYMENT_ID", "PAY-EXP-1",
+                        "ORDER_ID", "ORDER-EXP-1",
+                        "SELLER_ID", "SELLER-EXP-1",
+                        "PAYMENT_STATUS", "AWAITING_SELLER_CONFIRMATION")));
+        when(jdbc.update(contains("UPDATE ORDER_SELLER_PAYMENTS SET PAYMENT_STATUS='PAYMENT_EXPIRED'"), any(Object[].class)))
+                .thenReturn(1);
+        when(jdbc.update(contains("UPDATE ORDERS SET PAYMENT_STATUS='PAYMENT_EXPIRED'"), any(Object[].class)))
+                .thenReturn(1);
+        when(jdbc.update(contains("INSERT INTO SELLER_PAYMENT_AUDIT"), any(Object[].class)))
+                .thenReturn(1);
+
+        int expired = service.expirePendingPaymentsBatch();
+
+        assertEquals(1, expired);
+        verify(jdbc).queryForList(contains("FOR UPDATE SKIP LOCKED"), any(Object[].class));
+        verify(jdbc).update(contains("UPDATE ORDERS SET PAYMENT_STATUS='PAYMENT_EXPIRED'"), any(Object[].class));
+        verify(jdbc).update(contains("INSERT INTO SELLER_PAYMENT_AUDIT"), any(Object[].class));
+    }
 }
