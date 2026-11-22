@@ -39,7 +39,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
   } = useApp();
 
   const [sortBy, setSortBy] = useState<'price_asc' | 'distance_asc' | 'discount_desc' | 'featured'>('featured');
-  const [maxPrice, setMaxPrice] = useState<number>(3000);
+  const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [onlyInStock, setOnlyInStock] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -93,7 +93,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
         const effectivePrice = Math.round(
           p.sellerPrice * (1 - p.additionalDiscountPercent / 100)
         );
-        if (effectivePrice > maxPrice) {
+        if (maxPrice !== null && effectivePrice > maxPrice) {
           return false;
         }
 
@@ -171,9 +171,9 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
             <div>
               <div className="flex justify-between text-xs font-bold text-slate-800 mb-1">
                 <span>Maximum Price</span>
-                <span className="text-amber-700">Up to ₹{maxPrice}</span>
+                <span className="text-amber-700">{maxPrice === null ? 'Any price' : `Up to ₹${maxPrice}`}</span>
               </div>
-              <input type="range" min="100" max="3000" step="50" value={maxPrice}
+              <input type="range" min="100" max="10000" step="50" value={maxPrice ?? 10000}
                 onChange={e => setMaxPrice(parseInt(e.target.value, 10))} className="w-full accent-amber-600" />
             </div>
             <div className="flex items-center gap-2 pt-4">
@@ -183,14 +183,14 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
             </div>
             <div className="flex items-center justify-end pt-4">
               <button onClick={() => {
-                setMaxPrice(3000); setOnlyInStock(false); setSortBy('featured'); setSelectedCategory('All Categories');
+                setMaxPrice(null); setOnlyInStock(false); setSortBy('featured'); setSelectedCategory('All Categories');
               }} className="text-xs font-bold text-rose-600 hover:underline cursor-pointer">Reset All Filters</button>
             </div>
           </div>
         </div>
       )}
 
-      {(searchQuery.trim() || selectedCategory !== 'All Categories' || onlyInStock || maxPrice < 3000) && (
+      {(searchQuery.trim() || selectedCategory !== 'All Categories' || onlyInStock || maxPrice !== null) && (
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           <span className="text-[11px] font-bold text-slate-500 shrink-0">Active:</span>
           {searchQuery.trim() && (
@@ -208,8 +208,8 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
               In stock ×
             </button>
           )}
-          {maxPrice < 3000 && (
-            <button onClick={() => setMaxPrice(3000)} className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold whitespace-nowrap cursor-pointer">
+          {maxPrice !== null && (
+            <button onClick={() => setMaxPrice(null)} className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold whitespace-nowrap cursor-pointer">
               Up to ₹{maxPrice} ×
             </button>
           )}
@@ -248,7 +248,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
                 const quantity = cart.find(line => line.product.id === item.id)?.quantity || 0;
                 updateCartQuantity(item.id, quantity - 1);
               }}
-              onBuyNow={onBuyNow} onViewDetails={setSelectedProduct}
+              onViewDetails={setSelectedProduct}
             />
           ))}
         </div>
