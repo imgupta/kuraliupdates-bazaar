@@ -7,6 +7,7 @@ import { useApp } from '../../context/AppContext';
 import { buyerApi } from '../../services/domains/buyerApi';
 import { API_BASE_URL } from '../../services/http/apiConfig';
 import { LiveOrderMap } from './LiveOrderMap';
+import { BuyerSellerPaymentPanel } from './BuyerSellerPaymentPanel';
 
 interface OrderTrackingModalProps {
   orderId: string;
@@ -181,6 +182,10 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
               </div>
             </div>
           </section>
+
+          {String(order.paymentMethod || '').toUpperCase() === 'UPI' && (
+            <BuyerSellerPaymentPanel orderId={trackingOrderId} checkoutGroupId={order.checkoutGroupId} />
+          )}
 
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
