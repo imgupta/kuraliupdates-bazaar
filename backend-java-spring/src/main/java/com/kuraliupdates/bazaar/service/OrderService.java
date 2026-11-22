@@ -36,6 +36,7 @@ public class OrderService {
     private final JdbcTemplate jdbc;
     private final DeliveryConfigurationService deliveryConfigurationService;
     private final GoogleRoutesService googleRoutesService;
+    private final SellerDirectPaymentService sellerDirectPaymentService;
     private final SecureRandom random = new SecureRandom();
 
     /** Creates seller-owned suborders under one transaction; any seller failure rolls back the entire checkout. */
@@ -46,8 +47,8 @@ public class OrderService {
         if (request == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Checkout request is required");
         }
-        if (!"COD".equalsIgnoreCase(request.paymentMethod())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Online payment is not enabled yet. Please select Cash on Delivery.");
+        if (request.paymentMethod() == null || !Set.of("COD", "UPI").contains(request.paymentMethod().trim().toUpperCase(Locale.ROOT))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Select Cash on Delivery or seller-direct UPI.");
         }
         String fulfilmentMode = request.fulfilmentMode() == null ? "DELIVERY" : request.fulfilmentMode().trim().toUpperCase(Locale.ROOT);
         if (!Set.of("DELIVERY", "STORE_PICKUP").contains(fulfilmentMode)) {
@@ -131,6 +132,9 @@ public class OrderService {
             }
             orderRepository.saveAll(savedOrders);
         }
+        for (OrderEntity saved : savedOrders) {
+            sellerDirectPaymentService.updateOrderAmount(saved);
+        }
         List<OrderPlacementResponse> originalPlacements = new ArrayList<>(placed);
         placed.clear();
         for (int i = 0; i < savedOrders.size(); i++) {
@@ -148,9 +152,8 @@ public class OrderService {
     @Transactional
     public OrderPlacementResponse placeOrder(PlaceOrderRequest request, UserEntity buyer, String e2eRunId) {
         requireBuyer(buyer);
-        if (!"COD".equalsIgnoreCase(request.paymentMethod())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST,
-                    "Online payment is not enabled yet. Please select Cash on Delivery.");
+        if (request.paymentMethod() == null || !Set.of("COD", "UPI").contains(request.paymentMethod().trim().toUpperCase(Locale.ROOT))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Select Cash on Delivery or seller-direct UPI.");
         }
         if (request.items() == null || request.items().isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "At least one order item is required");
@@ -298,6 +301,9 @@ public class OrderService {
         }
         orderItems.forEach(item -> item.setOrder(order));
         OrderEntity saved = orderRepository.save(order);
+        // UPI instructions are snapshotted only from an admin-verified active seller destination.
+        // The payment record is seller-specific; no funds pass through KuraliUpdates.
+        sellerDirectPaymentService.createForOrder(saved);
         // A successfully placed order consumes the accepted bargain. Keep the
         // conversation as history, but close it for both buyer and seller inboxes.
         for (Map.Entry<String, String> accepted : acceptedOffers.entrySet()) {
