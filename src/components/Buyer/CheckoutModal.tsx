@@ -263,7 +263,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
               <button
                 type="button"
                 onClick={() => setPaymentMethod('UPI')}
-                disabled
                 className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
                   paymentMethod === 'UPI'
                     ? 'border-amber-500 bg-amber-50/50 shadow-xs'
@@ -326,16 +325,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
               </button>
             </div>
 
-            {/* UPI interactive preview */}
             {paymentMethod === 'UPI' && (
-              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-slate-800">UPI payments are not enabled yet</span>
-                  <p className="text-[11px] text-slate-500">Choose Cash on Delivery to place this order. No payment has been taken.</p>
-                </div>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                  Unavailable
-                </span>
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs">
+                <p className="font-bold text-amber-950">Pay each store separately</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-amber-900">
+                  Only an admin-verified, active seller UPI ID can be used. You will see each store’s exact amount after checkout.
+                  Returning from a UPI app or submitting a UTR does not confirm payment; the seller must confirm it.
+                  For multiple stores, each seller order has its own payment status.
+                </p>
               </div>
             )}
           </div>
@@ -410,7 +407,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
               <span>Continue to Payment &bull; ₹{(fulfilmentMode === 'STORE_PICKUP' && !isolatedBuyNow ? pickupTotal : displayedTotal).toFixed(2)}</span>
             ) : (
               <span>
-                {paymentMethod === 'COD' ? (fulfilmentMode === 'STORE_PICKUP' ? 'Place Store Pickup Order' : 'Place COD Order') : 'Online payment unavailable'} &bull; ₹{(fulfilmentMode === 'STORE_PICKUP' && !isolatedBuyNow ? pickupTotal : displayedTotal).toFixed(2)}
+                {paymentMethod === 'COD' ? (fulfilmentMode === 'STORE_PICKUP' ? 'Place Store Pickup Order' : 'Place COD Order') : 'Place seller-direct UPI order'} &bull; ₹{(fulfilmentMode === 'STORE_PICKUP' && !isolatedBuyNow ? pickupTotal : displayedTotal).toFixed(2)}
               </span>
             )}
           </button>
