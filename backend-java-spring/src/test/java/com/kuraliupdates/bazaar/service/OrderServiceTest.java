@@ -12,6 +12,7 @@ import com.kuraliupdates.bazaar.repository.OrderRepository;
 import com.kuraliupdates.bazaar.repository.ProductRepository;
 import com.kuraliupdates.bazaar.repository.SellerRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -22,7 +23,10 @@ import org.springframework.jdbc.core.ResultSetExtractor;
 import org.mockito.ArgumentMatchers;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -38,7 +42,15 @@ class OrderServiceTest {
     @Mock private JdbcTemplate jdbc;
     @Mock private DeliveryConfigurationService deliveryConfigurationService;
     @Mock private GoogleRoutesService googleRoutesService;
+    @Mock private SellerDirectPaymentService sellerDirectPaymentService;
     @InjectMocks private OrderService orderService;
+
+    @BeforeEach
+    void configureDeliveryPolicyDefaults() {
+        lenient().when(deliveryConfigurationService.nearbyRadiusKm()).thenReturn(BigDecimal.valueOf(5));
+        lenient().when(deliveryConfigurationService.maxRouteKm()).thenReturn(BigDecimal.valueOf(8));
+        lenient().when(deliveryConfigurationService.estimatedDeliveryMins()).thenReturn(0);
+    }
 
     @Test
     void missingBuyerIdentityCannotPlaceSingleSellerOrderBeforeRepositoryAccess() {
@@ -68,13 +80,13 @@ class OrderServiceTest {
     }
 
     @Test
-    void buyerOrderHistoryUsesAuthenticatedBuyerEmail() {
-        when(orderRepository.findByBuyerEmail("authenticated@example.test")).thenReturn(List.of());
+    void buyerOrderHistoryUsesAuthenticatedStableUserId() {
+        when(orderRepository.findByBuyerUserIdOrderByPlacedAtDesc("USER-1")).thenReturn(List.of());
 
         var history = orderService.history(buyer());
 
         assertTrue(history.isEmpty());
-        verify(orderRepository).findByBuyerEmail("authenticated@example.test");
+        verify(orderRepository).findByBuyerUserIdOrderByPlacedAtDesc("USER-1");
         verifyNoMoreInteractions(orderRepository);
     }
 
@@ -238,7 +250,7 @@ class OrderServiceTest {
                 .additionalDiscountPercent(BigDecimal.ZERO).stock(5).build();
         when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
         when(sellerRepository.findById("SELLER-1")).thenReturn(Optional.of(seller));
-        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.saveAndFlush(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var result = orderService.placeOrder(request("COD", List.of(new OrderItemRequest("P-1", 2, null))), buyer());
 
@@ -252,7 +264,7 @@ class OrderServiceTest {
         assertEquals(1, result.order().items().size());
         assertEquals(2, result.order().items().get(0).quantity());
         assertEquals(new BigDecimal("40.00"), result.order().subtotal());
-        verify(orderRepository).save(any(OrderEntity.class));
+        verify(orderRepository).saveAndFlush(any(OrderEntity.class));
     }
 
     @Test
@@ -268,16 +280,16 @@ class OrderServiceTest {
 
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
         assertEquals(1, product.getStock());
-        verify(orderRepository, never()).save(any());
+        verify(orderRepository, never()).saveAndFlush(any());
     }
 
     @Test
-    void rejectsOnlinePaymentUntilGatewayIsConfigured() {
+    void rejectsUnsupportedPaymentMethodBeforeCatalogAccess() {
         ApiException error = assertThrows(ApiException.class,
-                () -> orderService.placeOrder(request("UPI", List.of(new OrderItemRequest("P-1", 1, null))), buyer()));
+                () -> orderService.placeOrder(request("CARD", List.of(new OrderItemRequest("P-1", 1, null))), buyer()));
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
         verify(productRepository, never()).findLockedByProductId(anyString());
-        verify(orderRepository, never()).save(any());
+        verify(orderRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -293,7 +305,7 @@ class OrderServiceTest {
                         new OrderItemRequest("P-1", 1, BigDecimal.valueOf(1), null))), buyer()));
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
-        verify(orderRepository, never()).save(any());
+        verify(orderRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -304,7 +316,7 @@ class OrderServiceTest {
                 .additionalDiscountPercent(BigDecimal.ZERO).stock(5).build();
         when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
         when(sellerRepository.findById("SELLER-1")).thenReturn(Optional.of(seller));
-        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.saveAndFlush(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(jdbc.query(
                 contains("SELECT m.OFFER_PRICE"),
                 ArgumentMatchers.<ResultSetExtractor<BigDecimal>>any(),
@@ -319,7 +331,7 @@ class OrderServiceTest {
         assertEquals(new BigDecimal("15.00"), result.order().items().get(0).unitPrice());
         assertEquals(new BigDecimal("20.00"), product.getSellerPrice());
         assertEquals(4, product.getStock());
-        verify(orderRepository).save(any(OrderEntity.class));
+        verify(orderRepository).saveAndFlush(any(OrderEntity.class));
     }
 
     @Test
@@ -330,7 +342,7 @@ class OrderServiceTest {
                 () -> orderService.placeOrder(request("COD", List.of(new OrderItemRequest("missing", 1, null))), buyer()));
 
         assertEquals(HttpStatus.NOT_FOUND, error.getStatus());
-        verify(orderRepository, never()).save(any());
+        verify(orderRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -371,7 +383,7 @@ class OrderServiceTest {
                 () -> orderService.confirmStorePickup("PICKUP-ORDER-2", "0042", buyer()));
 
         assertEquals(HttpStatus.NOT_FOUND, error.getStatus());
-        verify(orderRepository, never()).save(any());
+        verify(orderRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -434,7 +446,7 @@ class OrderServiceTest {
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
         assertEquals(3, product.getStock());
         verify(productRepository, times(1)).findLockedByProductId("P-1");
-        verify(orderRepository, never()).save(any());
+        verify(orderRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -445,7 +457,7 @@ class OrderServiceTest {
                 .additionalDiscountPercent(BigDecimal.ZERO).stock(5).build();
         when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
         when(sellerRepository.findById("SELLER-1")).thenReturn(Optional.of(seller));
-        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.saveAndFlush(any(OrderEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var result = orderService.placeOrder(request("COD", List.of(
                 new OrderItemRequest("P-1", 2, null),
@@ -456,7 +468,7 @@ class OrderServiceTest {
         assertEquals(3, result.order().items().get(0).quantity());
         assertEquals(new BigDecimal("60.00"), result.order().subtotal());
         verify(productRepository, times(1)).findLockedByProductId("P-1");
-        verify(orderRepository).save(any(OrderEntity.class));
+        verify(orderRepository).saveAndFlush(any(OrderEntity.class));
     }
 
 
@@ -471,7 +483,7 @@ class OrderServiceTest {
 
     @Test
     void multiSellerCheckoutRejectsOnlinePaymentBeforeCatalogAccess() {
-        MultiSellerCheckoutRequest request = multiSellerRequest("UPI", "DELIVERY",
+        MultiSellerCheckoutRequest request = multiSellerRequest("CARD", "DELIVERY",
                 List.of(new OrderItemRequest("P-1", 1, null)));
 
         ApiException error = assertThrows(ApiException.class,
@@ -541,14 +553,64 @@ class OrderServiceTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
         verify(productRepository, times(4)).findById(anyString());
-        verify(orderRepository, never()).save(any(OrderEntity.class));
+        verify(orderRepository, never()).saveAndFlush(any(OrderEntity.class));
         verify(orderRepository, never()).saveAll(any(Iterable.class));
         verify(productRepository, never()).findLockedByProductId(anyString());
     }
 
+    @Test
+    void matchingCheckoutIdempotencyKeyReplaysExistingOrderWithoutReservingStockAgain() throws Exception {
+        PlaceOrderRequest checkoutRequest = request("COD", List.of(new OrderItemRequest("P-1", 1, null)));
+        String hash = java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                .digest(String.valueOf(checkoutRequest).getBytes(StandardCharsets.UTF_8)));
+        when(jdbc.queryForMap(contains("SELECT REQUEST_HASH,ORDER_ID"), any(Object[].class)))
+                .thenReturn(Map.of("REQUEST_HASH", hash, "ORDER_ID", "ORD-REPLAY", "CHECKOUT_GROUP_ID", ""));
+        OrderEntity existing = OrderEntity.builder().orderId("ORD-REPLAY")
+                .buyerEmail("authenticated@example.test").status("PLACED").items(new java.util.ArrayList<>()).build();
+        when(orderRepository.findLockedByOrderId("ORD-REPLAY")).thenReturn(Optional.of(existing));
+
+        var result = orderService.placeOrder(checkoutRequest, buyer(), null, "checkout-key-0001");
+
+        assertEquals("ORD-REPLAY", result.order().orderId());
+        verify(orderRepository).findLockedByOrderId("ORD-REPLAY");
+        verifyNoInteractions(productRepository, sellerRepository);
+    }
+
+    @Test
+    void checkoutIdempotencyKeyCannotBeReusedForDifferentPayload() throws Exception {
+        PlaceOrderRequest checkoutRequest = request("COD", List.of(new OrderItemRequest("P-1", 1, null)));
+        when(jdbc.queryForMap(contains("SELECT REQUEST_HASH,ORDER_ID"), any(Object[].class)))
+                .thenReturn(Map.of("REQUEST_HASH", "different-request-hash", "ORDER_ID", "ORD-OTHER", "CHECKOUT_GROUP_ID", ""));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.placeOrder(checkoutRequest, buyer(), null, "checkout-key-0002"));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        verifyNoInteractions(productRepository, sellerRepository, orderRepository);
+    }
+
+    @Test
+    void rejectsDeliveryWhenSellerLocationIsNotVerified() {
+        SellerEntity unverifiedSeller = SellerEntity.builder().sellerId("SELLER-1")
+                .storeName("Synthetic Store").status("APPROVED").codEnabled(true)
+                .locationVerified(false).build();
+        ProductEntity product = ProductEntity.builder().productId("P-1").seller(unverifiedSeller)
+                .title("Synthetic Test Product").sellerPrice(BigDecimal.valueOf(20))
+                .additionalDiscountPercent(BigDecimal.ZERO).stock(5).build();
+        when(productRepository.findLockedByProductId("P-1")).thenReturn(Optional.of(product));
+        when(sellerRepository.findById("SELLER-1")).thenReturn(Optional.of(unverifiedSeller));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.placeOrder(request("COD", List.of(new OrderItemRequest("P-1", 1, null))), buyer()));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        verify(orderRepository, never()).saveAndFlush(any(OrderEntity.class));
+    }
+
     private SellerEntity sellerWithId(String id) {
         return SellerEntity.builder().sellerId(id).storeName("Synthetic " + id)
-                .status("APPROVED").storeOpen(true)
+                .status("APPROVED").storeOpen(true).codEnabled(true).locationVerified(true)
+                .latitude(new BigDecimal("30.0000000")).longitude(new BigDecimal("76.5000000"))
                 .minOrderForFreeDelivery(BigDecimal.valueOf(499))
                 .baseDeliveryFee(BigDecimal.valueOf(35)).build();
     }
@@ -566,7 +628,9 @@ class OrderServiceTest {
 
     private SellerEntity seller() {
         return SellerEntity.builder().sellerId("SELLER-1").storeName("Synthetic Store")
-                .status("APPROVED").minOrderForFreeDelivery(BigDecimal.valueOf(499))
+                .status("APPROVED").codEnabled(true).locationVerified(true)
+                .latitude(new BigDecimal("30.0000000")).longitude(new BigDecimal("76.5000000"))
+                .minOrderForFreeDelivery(BigDecimal.valueOf(499))
                 .baseDeliveryFee(BigDecimal.valueOf(35)).build();
     }
 

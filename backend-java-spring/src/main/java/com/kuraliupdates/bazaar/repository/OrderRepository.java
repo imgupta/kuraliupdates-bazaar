@@ -35,6 +35,8 @@ public interface OrderRepository extends JpaRepository<OrderEntity, String> {
 
     List<OrderEntity> findByBuyerEmail(String buyerEmail);
 
+    List<OrderEntity> findByBuyerUserIdOrderByPlacedAtDesc(String buyerUserId);
+
     @Query("SELECT COUNT(o) FROM OrderEntity o WHERE o.seller.sellerId = :sellerId")
     long countBySellerId(@Param("sellerId") String sellerId);
 }

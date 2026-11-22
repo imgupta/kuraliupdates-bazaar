@@ -30,7 +30,16 @@ public class BuyerController {
     private final ProductService productService;
     private final OrderService orderService;
     private final AuthService authService;
+    private final com.kuraliupdates.bazaar.service.DeliveryConfigurationService deliveryConfigurationService;
     private final com.kuraliupdates.bazaar.service.E2eRunTagging e2eRunTagging;
+
+    @GetMapping("/delivery-estimate")
+    @Operation(summary = "Get the configured buyer delivery estimate; null means no ETA promise is configured")
+    public ResponseEntity<java.util.Map<String, Object>> getBuyerDeliveryEstimate(Authentication authentication) {
+        requireBuyer(authentication);
+        return ResponseEntity.ok(java.util.Map.of("estimatedDeliveryMins",
+                java.util.Optional.ofNullable(deliveryConfigurationService.estimatedDeliveryMins()).orElse(0)));
+    }
 
     @GetMapping("/products/search")
     @Operation(summary = "Search products across approved Kurali sellers")
@@ -47,10 +56,11 @@ public class BuyerController {
             @Valid @RequestBody PlaceOrderRequest request,
             @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
             @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             Authentication authentication) {
         UserEntity user = requireBuyer(authentication);
         String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
-        return ResponseEntity.ok(orderService.placeOrder(request, user, e2eRunId));
+        return ResponseEntity.ok(orderService.placeOrder(request, user, e2eRunId, idempotencyKey));
     }
 
     @PostMapping("/orders/checkout")
@@ -59,10 +69,11 @@ public class BuyerController {
             @Valid @RequestBody MultiSellerCheckoutRequest request,
             @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
             @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             Authentication authentication) {
         UserEntity user = requireBuyer(authentication);
         String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
-        return ResponseEntity.ok(orderService.placeMultiSellerOrder(request, user, e2eRunId));
+        return ResponseEntity.ok(orderService.placeMultiSellerOrder(request, user, e2eRunId, idempotencyKey));
     }
 
     @PostMapping("/orders/{orderId}/cancel")

@@ -41,6 +41,7 @@ import { useAdminDashboardRefresh } from './useAdminDashboardRefresh';
 import { useSellerDocumentReview } from './useSellerDocumentReview';
 import { useAdminConfiguration } from './useAdminConfiguration';
 import { AdminMfaGate } from './AdminMfaGate';
+import { AdminSellerPaymentReview } from '../../components/Admin/AdminSellerPaymentReview';
 
 const AdminDashboardContent: React.FC = () => {
   const {
@@ -58,7 +59,7 @@ const AdminDashboardContent: React.FC = () => {
     showToast,
   } = useApp();
 
-  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'orders' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory' | 'accounts' | 'delivery-config' | 'seller-area-config' | 'seller-documents' | 'seller-leads' | 'registration-otp-config' | 'india-compliance'>('trends');
+  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'orders' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory' | 'accounts' | 'delivery-config' | 'seller-area-config' | 'seller-documents' | 'seller-leads' | 'registration-otp-config' | 'india-compliance' | 'seller-payment-review'>('trends');
   const [buyers, setBuyers] = useState<any[]>([]);
   const [adminAccounts, setAdminAccounts] = useState<any[]>([]);
   const [accountSearch, setAccountSearch] = useState('');
@@ -382,6 +383,7 @@ const AdminDashboardContent: React.FC = () => {
             <button onClick={() => setActiveAdminTab('seller-leads')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-leads' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Merchant onboarding CRM</button>
             <button onClick={() => setActiveAdminTab('registration-otp-config')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'registration-otp-config' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Customer & seller OTP controls</button>
             <button onClick={() => setActiveAdminTab('india-compliance')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'india-compliance' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>India privacy & compliance</button>
+            <button onClick={() => setActiveAdminTab('seller-payment-review')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-payment-review' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Seller UPI verification</button>
           </div>
         </details>
 
@@ -417,7 +419,7 @@ const AdminDashboardContent: React.FC = () => {
           </div>
         </details>
 
-        <details open={['accounts', 'directory', 'diagnostics'].includes(activeAdminTab)} className="group rounded-2xl border border-slate-200 bg-white shadow-sm sm:col-span-2 xl:col-span-1">
+        <details open={['accounts', 'directory', 'diagnostics', 'seller-payment-review'].includes(activeAdminTab)} className="group rounded-2xl border border-slate-200 bg-white shadow-sm sm:col-span-2 xl:col-span-1">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3.5 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
             <span className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><ShieldCheck className="h-5 w-5" /></span><span><span className="block text-sm font-extrabold text-slate-900">Administration & System</span><span className="mt-0.5 block text-[11px] text-slate-500">Access control, identity and health</span></span></span>
             <span className="text-slate-400 transition-transform group-open:rotate-180">⌄</span>
@@ -475,6 +477,7 @@ const AdminDashboardContent: React.FC = () => {
       {activeAdminTab === 'seller-leads' && <SellerOnboardingCRM />}
       {activeAdminTab === 'registration-otp-config' && <SellerRegistrationOtpConfig />}
       {activeAdminTab === 'india-compliance' && <IndiaComplianceSettings />}
+      {activeAdminTab === 'seller-payment-review' && <AdminSellerPaymentReview />}
       {activeAdminTab === 'seller-area-config' && (
         <div className="space-y-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -505,7 +508,7 @@ const AdminDashboardContent: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-extrabold text-slate-900">Delivery, Payout & OTP Settings</h2>
-              <p className="text-xs text-slate-500 mt-1">Changes apply to future checkouts, newly claimed deliveries, and new OTP requests. Existing payout snapshots are not recalculated.</p>
+              <p className="text-xs text-slate-500 mt-1">Changes apply to future checkouts and new OTP requests. The buyer ETA is snapshotted on new delivery orders; existing orders keep their original estimate.</p>
             </div>
             <button type="button" onClick={() => void refreshDeliveryConfiguration()} disabled={deliveryConfigLoading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 disabled:opacity-50">
               <RefreshCw className={`h-4 w-4 ${deliveryConfigLoading ? 'animate-spin' : ''}`} /> Refresh settings
@@ -525,6 +528,7 @@ const AdminDashboardContent: React.FC = () => {
                   ['maxSellersPerBatch', 'Maximum sellers per batch', 1, 10, 1],
                   ['maxWaitMinutes', 'Maximum wait (minutes)', 0, 120, 1],
                   ['otpResendTimeoutSeconds', 'OTP resend timeout (seconds)', 5, 300, 1],
+                  ['estimatedDeliveryMins', 'Buyer delivery ETA (minutes; 0 disables)', 0, 360, 5],
                 ] as [string, string, number, number, number][]).map(([key, label, min, max, step]) => (
                   <label key={key} className="block rounded-xl border border-slate-200 bg-white p-4">
                     <span className="block text-xs font-bold text-slate-700 mb-2">{label}</span>
@@ -554,7 +558,7 @@ const AdminDashboardContent: React.FC = () => {
                 ))}
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl bg-slate-50 p-4">
-                <p className="text-[11px] text-slate-500">OTP resend timeout applies to login and registration. Allowed range: 5–300 seconds. OTP validity remains 10 minutes.</p>
+                <p className="text-[11px] text-slate-500">Buyer ETA is optional (0 disables it; otherwise 5–360 minutes in 5-minute steps) and is saved on new delivery orders. OTP resend timeout applies to login and registration; OTP validity remains 10 minutes.</p>
                 <button type="button" onClick={() => void saveDeliveryConfiguration()} disabled={deliveryConfigSaving || deliveryConfigLoading} className="rounded-xl bg-purple-700 px-5 py-3 text-xs font-extrabold text-white hover:bg-purple-800 disabled:opacity-50">{deliveryConfigSaving ? 'Saving…' : 'Save settings'}</button>
               </div>
             </>
@@ -1068,10 +1072,10 @@ const AdminDashboardContent: React.FC = () => {
                     <summary className="cursor-pointer text-xs font-bold text-slate-800">Advanced order operations</summary>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <button type="button" className="min-h-10 rounded-lg border px-3 text-xs font-bold" onClick={async()=>{try{const items=[];for(const it of (order.items||[])){const raw=window.prompt(`New quantity for ${it.productName||it.title||it.productId}`,String(it.quantity));if(raw===null)return;const quantity=Number(raw);if(!Number.isInteger(quantity)||quantity<1)throw new Error('Enter a positive whole-number quantity.');items.push({itemId:it.itemId,quantity});}const updated=await adminApi.updateAdminOrderItems(order.orderId,items);setAdminOrders(v=>v.map(o=>o.orderId===updated.orderId?updated:o));showToast('Quantities, stock and order total recalculated.','success');}catch(e:any){showToast(e?.message||'Unable to update quantities.','error');}}}>Edit item quantities</button>
-                      <button type="button" className="min-h-10 rounded-lg border px-3 text-xs font-bold" onClick={async()=>{try{const rows=await adminApi.getAdminOrderHistory(order.orderId);window.alert(rows.length?rows.map((r:any)=>String(r.OCCURRED_AT)+' · '+r.EVENT_TYPE+' · '+r.ACTOR_EMAIL+'\n'+r.DETAILS).join('\n\n'):'No admin history recorded yet.');}catch(e:any){showToast(e?.message||'Unable to load history.','error');}}}>View change history</button>
-                      <button type="button" className="min-h-10 rounded-lg border px-3 text-xs font-bold" onClick={async()=>{try{const note=window.prompt('Add internal support note (not visible to customer):');if(note?.trim())await adminApi.addAdminOrderNote(order.orderId,note.trim());const all=await adminApi.getAdminOrderNotes(order.orderId);window.alert(all.length?all.map((r:any)=>String(r.CREATED_AT)+' · '+r.CREATED_BY+'\n'+r.NOTE_TEXT).join('\n\n'):'No internal notes.');}catch(e:any){showToast(e?.message||'Unable to save or load notes.','error');}}}>Internal notes</button>
-                      <button type="button" className="min-h-10 rounded-lg border px-3 text-xs font-bold" disabled={String(order.paymentStatus||'').toUpperCase()!=='PAID'} onClick={async()=>{try{const amount=window.prompt('Refund amount (INR):');if(!amount)return;const reason=window.prompt('Refund reason:')||'Admin refund';const result=await adminApi.requestAdminOrderRefund(order.orderId,amount,reason);showToast('Refund request recorded: '+result.refundId+'. Process payment externally and record its reference.','success');}catch(e:any){showToast(e?.message||'Refund request failed.','error');}}}>Request refund</button>
-                      <button type="button" className="min-h-10 rounded-lg border px-3 text-xs font-bold sm:col-span-2" onClick={async()=>{try{const rows=await adminApi.getAdminOrderRefunds(order.orderId);if(!rows.length){window.alert('No refund requests.');return;}window.alert(rows.map((r:any)=>r.REFUND_ID+' · ₹'+r.AMOUNT+' · '+r.STATUS+' · '+(r.TRANSACTION_REFERENCE||'No reference')).join('\n'));const pending=rows.find((r:any)=>r.STATUS==='REQUESTED');if(pending){const ref=window.prompt('Enter actual payment-provider transaction reference to mark refund processed:');if(ref?.trim()){await adminApi.markAdminOrderRefundProcessed(order.orderId,pending.REFUND_ID,ref.trim());showToast('Refund marked processed with provider reference.','success');}}}catch(e:any){showToast(e?.message||'Unable to reconcile refunds.','error');}}}>View / reconcile refunds</button>
+                      <button type="button" className="min-h-10 rounded-lg border px-3 text-xs font-bold" onClick={async()=>{try{const rows=await adminApi.getAdminOrderHistory(order.orderId);window.alert(rows.length?rows.map((r:any)=>String(r.OCCURRED_AT)+" · "+r.EVENT_TYPE+" · "+r.ACTOR_EMAIL+"\n"+r.DETAILS).join("\n\n"):"No admin history recorded yet.");}catch(e:any){showToast(e?.message||"Unable to load history.","error");}}}>View change history</button>
+                      <button type="button" className="min-h-10 rounded-lg border px-3 text-xs font-bold" onClick={async()=>{try{const note=window.prompt("Add internal support note (not visible to customer):");if(note?.trim())await adminApi.addAdminOrderNote(order.orderId,note.trim());const all=await adminApi.getAdminOrderNotes(order.orderId);window.alert(all.length?all.map((r:any)=>String(r.CREATED_AT)+" · "+r.CREATED_BY+"\n"+r.NOTE_TEXT).join("\n\n"):"No internal notes.");}catch(e:any){showToast(e?.message||"Unable to save or load notes.","error");}}}>Internal notes</button>
+                      <button type="button" className="min-h-10 rounded-lg border px-3 text-xs font-bold" disabled={String(order.paymentStatus||"").toUpperCase()!=="PAID"} onClick={async()=>{try{const amount=window.prompt("Refund amount (INR):");if(!amount)return;const reason=window.prompt("Refund reason:")||"Admin refund";const result=await adminApi.requestAdminOrderRefund(order.orderId,amount,reason);showToast("Refund request recorded: "+result.refundId+". Process payment externally and record its reference.","success");}catch(e:any){showToast(e?.message||"Refund request failed.","error");}}}>Request refund</button>
+                      <button type="button" className="min-h-10 rounded-lg border px-3 text-xs font-bold sm:col-span-2" onClick={async()=>{try{const rows=await adminApi.getAdminOrderRefunds(order.orderId);if(!rows.length){window.alert("No refund requests.");return;}window.alert(rows.map((r:any)=>r.REFUND_ID+" · ₹"+r.AMOUNT+" · "+r.STATUS+" · "+(r.TRANSACTION_REFERENCE||"No reference")).join("\n"));const pending=rows.find((r:any)=>r.STATUS==="REQUESTED");if(pending){const ref=window.prompt("Enter actual payment-provider transaction reference to mark refund processed:");if(ref?.trim()){await adminApi.markAdminOrderRefundProcessed(order.orderId,pending.REFUND_ID,ref.trim());showToast("Refund marked processed with provider reference.","success");}}}catch(e:any){showToast(e?.message||"Unable to reconcile refunds.","error");}}}>View / reconcile refunds</button>
                     </div>
                     <p className="mt-2 text-[11px] text-slate-500">Customer notices are queued for delivery after order changes/refund events. Internal notes remain private.</p>
                   </details>

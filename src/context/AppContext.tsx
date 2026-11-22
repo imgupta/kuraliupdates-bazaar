@@ -119,7 +119,7 @@ const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children })
   } = marketplaceOperations;
 
   // Keep the public AppContext contract while delegating bargaining behavior to its domain hook.
-  const negotiationChat = useNegotiationChatState({ role, user, currentSeller, products, updateExistingBargainCartItem, showToast });
+  const negotiationChat = useNegotiationChatState({ role, user, currentSeller, products, updateExistingBargainCartItem, upsertBargainCartItem, showToast });
   const { chats, activeChatId, setActiveChatId, openChatForProduct, sendMessage, respondToOffer } = negotiationChat;
 
   // Current Agent

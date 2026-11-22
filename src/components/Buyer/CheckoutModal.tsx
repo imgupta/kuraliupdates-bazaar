@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   X,
   ShieldCheck,
-  CreditCard,
   QrCode,
   Banknote,
   MapPin,
@@ -18,14 +17,23 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useApp } from '../../context/AppContext';
+import { bazaarApi } from '../../services/api';
+import { buyerPaymentsApi } from '../../services/domains/buyerPaymentsApi';
 import { KURALI_LOCALITIES } from '../../data/initialData';
+import type { CartItem } from '../../types';
 
 interface CheckoutModalProps {
   onClose: () => void;
+  items?: CartItem[];
 }
 
-export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
+export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) => {
   const { cart, cartCalculations, createOrder, user, updateCartQuantity } = useApp();
+  const checkoutItems = items ?? cart;
+  const isolatedBuyNow = items !== undefined;
+  const checkoutItemSubtotal = checkoutItems.reduce((sum, item) => sum + (item.negotiatedPrice ?? item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100)) * item.quantity, 0);
+  const displayedSubtotal = isolatedBuyNow ? checkoutItemSubtotal : cartCalculations.subtotal;
+  const displayedTotal = isolatedBuyNow ? checkoutItemSubtotal : cartCalculations.finalTotal;
   const defaultAddress = user.savedAddresses?.find(address => address.isDefault) || user.savedAddresses?.[0];
   const [selectedAddressId, setSelectedAddressId] = useState(defaultAddress?.id || '');
   const selectedAddress = user.savedAddresses?.find(address => address.id === selectedAddressId) || defaultAddress;
@@ -34,6 +42,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
   const [buyerPhone, setBuyerPhone] = useState(user.phone || '');
   const [deliveryLocality, setDeliveryLocality] = useState(user.locality || KURALI_LOCALITIES.find(l => !l.startsWith('All')) || 'Main Bazaar');
   const [streetAddress, setStreetAddress] = useState(selectedAddress?.addressLine1 || user.addressLine1 || user.address || '');
+  const [configuredDeliveryEta, setConfiguredDeliveryEta] = useState<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void bazaarApi.getBuyerDeliveryEstimate()
+      .then(minutes => { if (active) setConfiguredDeliveryEta(minutes); })
+      .catch(() => { if (active) setConfiguredDeliveryEta(null); });
+    return () => { active = false; };
+  }, []);
 
   // Checkout can remain mounted while profile/address data finishes hydrating.
   // Reconcile only when the buyer has not explicitly selected another address.
@@ -48,16 +65,44 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
     }
     if (user.locality && KURALI_LOCALITIES.includes(user.locality)) setDeliveryLocality(user.locality);
   }, [user.name, user.phone, user.locality, user.addressLine1, user.address, defaultAddress?.id, defaultAddress?.addressLine1]);
-  const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Card' | 'COD' | 'NetBanking'>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'COD'>('COD');
+  const [paymentOptions, setPaymentOptions] = useState<Record<string,{codEnabled:boolean;upiEnabled:boolean}>>({});
+  const [paymentOptionsLoading, setPaymentOptionsLoading] = useState(false);
+  const [paymentOptionsError, setPaymentOptionsError] = useState('');
+  const sellerIdsKey = Array.from(new Set(checkoutItems.map(item => item.product.sellerId))).sort().join('|');
+  const checkoutSellerIds = sellerIdsKey.split('|').filter(Boolean);
+  useEffect(() => {
+    const sellerIds = sellerIdsKey.split('|').filter(Boolean);
+    if (!sellerIds.length) return;
+    let active = true;
+    setPaymentOptionsLoading(true);
+    setPaymentOptionsError('');
+    void Promise.all(sellerIds.map(async sellerId => ({
+      sellerId, options: await buyerPaymentsApi.getPaymentOptions(sellerId),
+    }))).then(results => {
+      if (!active) return;
+      const next: Record<string,{codEnabled:boolean;upiEnabled:boolean}> = {};
+      results.forEach(({sellerId,options}) => { next[sellerId] = { codEnabled: options.codEnabled === true, upiEnabled: options.upiEnabled === true }; });
+      setPaymentOptions(next);
+      const codAvailable = sellerIds.every(id => next[id]?.codEnabled);
+      const upiAvailable = sellerIds.every(id => next[id]?.upiEnabled);
+      setPaymentMethod(current => current === 'COD' && codAvailable ? current : current === 'UPI' && upiAvailable ? current : codAvailable ? 'COD' : upiAvailable ? 'UPI' : 'COD');
+    }).catch((error:any) => {
+      if (active) setPaymentOptionsError(error?.message || 'Unable to verify seller payment options.');
+    }).finally(() => { if (active) setPaymentOptionsLoading(false); });
+    return () => { active = false; };
+  }, [sellerIdsKey]);
+  const codAvailable = checkoutSellerIds.length > 0 && !paymentOptionsLoading && checkoutSellerIds.every(id => paymentOptions[id]?.codEnabled);
+  const upiAvailable = checkoutSellerIds.length > 0 && !paymentOptionsLoading && checkoutSellerIds.every(id => paymentOptions[id]?.upiEnabled);
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'review' | 'payment'>('review');
   const [fulfilmentMode, setFulfilmentMode] = useState<'DELIVERY' | 'STORE_PICKUP'>('DELIVERY');
-  const multiSellerCart = new Set(cart.map(item => item.product.sellerId)).size > 1;
-  const pickupTotal = Math.max(0, cartCalculations.subtotal - cartCalculations.billDiscount - cartCalculations.couponDiscount);
+  const multiSellerCart = new Set(checkoutItems.map(item => item.product.sellerId)).size > 1;
+  const pickupTotal = isolatedBuyNow ? checkoutItemSubtotal : Math.max(0, cartCalculations.subtotal - cartCalculations.billDiscount - cartCalculations.couponDiscount);
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (cart.length === 0 || isProcessing) return;
+    if (checkoutItems.length === 0 || isProcessing) return;
     if (checkoutStep === 'review') { setCheckoutStep('payment'); return; }
 
     setIsProcessing(true);
@@ -70,6 +115,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
         deliveryLocality,
         paymentMethod,
         fulfilmentMode,
+        ...(isolatedBuyNow ? { items: checkoutItems } : {}),
       });
 
       if (created) {
@@ -109,11 +155,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
           <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between text-xs">
             <span className="flex items-center gap-2 text-amber-900 font-bold">
               <Truck className="w-4 h-4 text-amber-600" />
-              {fulfilmentMode === 'STORE_PICKUP' ? 'Store pickup selected — no delivery charge' : cartCalculations.isFreeDelivery
+              {isolatedBuyNow ? 'Delivery charge confirmed after seller acceptance' : fulfilmentMode === 'STORE_PICKUP' ? 'Store pickup selected — no delivery charge' : cartCalculations.isFreeDelivery
                 ? 'FREE Delivery Qualified (Order > Min Threshold)'
                 : `Standard Delivery Fee: ₹${cartCalculations.deliveryFee}`}
             </span>
-            <span className="text-emerald-700 font-extrabold">25 Mins ETA</span>
+            <span className="text-slate-600 font-semibold">{fulfilmentMode === 'STORE_PICKUP' ? 'Pickup timing confirmed by seller' : configuredDeliveryEta ? `Estimated delivery: ${configuredDeliveryEta} minutes` : 'Delivery timing confirmed after seller acceptance'}</span>
           </div>
 
           {multiSellerCart && (
@@ -241,83 +287,30 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
               2. Select Payment Method
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('UPI')}
-                disabled
-                className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
-                  paymentMethod === 'UPI'
-                    ? 'border-amber-500 bg-amber-50/50 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <QrCode className="w-5 h-5 text-amber-600" />
-                  {paymentMethod === 'UPI' && (
-                    <CheckCircle2 className="w-4 h-4 text-amber-600" />
-                  )}
-                </div>
-                <div>
-                  <p className="font-bold text-xs text-slate-900">UPI (Coming soon)</p>
-                  <p className="text-[11px] text-slate-500">Online payments are not enabled yet</p>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('Card')}
-                disabled
-                className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
-                  paymentMethod === 'Card'
-                    ? 'border-amber-500 bg-amber-50/50 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <CreditCard className="w-5 h-5 text-blue-600" />
-                  {paymentMethod === 'Card' && (
-                    <CheckCircle2 className="w-4 h-4 text-amber-600" />
-                  )}
-                </div>
-                <div>
-                  <p className="font-bold text-xs text-slate-900">Cards (Coming soon)</p>
-                  <p className="text-[11px] text-slate-500">Online payments are not enabled yet</p>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('COD')}
-                className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
-                  paymentMethod === 'COD'
-                    ? 'border-amber-500 bg-amber-50/50 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <Banknote className="w-5 h-5 text-emerald-600" />
-                  {paymentMethod === 'COD' && (
-                    <CheckCircle2 className="w-4 h-4 text-amber-600" />
-                  )}
-                </div>
-                <div>
-                  <p className="font-bold text-xs text-slate-900">Cash on Delivery</p>
-                  <p className="text-[11px] text-slate-500">Pay when delivered</p>
-                </div>
-              </button>
+            {paymentOptionsLoading && <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">Checking payment methods enabled by each seller…</p>}
+            {paymentOptionsError && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-xs text-rose-700">{paymentOptionsError}</p>}
+            <div className={`grid grid-cols-1 gap-3 ${codAvailable && upiAvailable ? 'sm:grid-cols-2' : 'sm:grid-cols-1'}`}>
+              {upiAvailable && <button type="button" onClick={() => setPaymentMethod('UPI')}
+                className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${paymentMethod === 'UPI' ? 'border-amber-500 bg-amber-50/50 shadow-xs' : 'border-slate-200 hover:border-slate-300'}`}>
+                <div className="flex items-center justify-between mb-2"><QrCode className="w-5 h-5 text-amber-600"/>{paymentMethod === 'UPI' && <CheckCircle2 className="w-4 h-4 text-amber-600"/>}</div>
+                <div><p className="font-bold text-xs text-slate-900">UPI to each seller</p><p className="text-[11px] text-slate-500">Pay verified stores directly</p></div>
+              </button>}
+              {codAvailable && <button type="button" onClick={() => setPaymentMethod('COD')}
+                className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${paymentMethod === 'COD' ? 'border-amber-500 bg-amber-50/50 shadow-xs' : 'border-slate-200 hover:border-slate-300'}`}>
+                <div className="flex items-center justify-between mb-2"><Banknote className="w-5 h-5 text-emerald-600"/>{paymentMethod === 'COD' && <CheckCircle2 className="w-4 h-4 text-amber-600"/>}</div>
+                <div><p className="font-bold text-xs text-slate-900">Cash on Delivery</p><p className="text-[11px] text-slate-500">Pay when delivered</p></div>
+              </button>}
             </div>
+            {!paymentOptionsLoading && !paymentOptionsError && !codAvailable && !upiAvailable && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-xs text-rose-700">None of the stores in this basket currently has an available payment method. Contact the sellers before checkout.</p>}
 
-            {/* UPI interactive preview */}
             {paymentMethod === 'UPI' && (
-              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-slate-800">UPI payments are not enabled yet</span>
-                  <p className="text-[11px] text-slate-500">Choose Cash on Delivery to place this order. No payment has been taken.</p>
-                </div>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                  Unavailable
-                </span>
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs">
+                <p className="font-bold text-amber-950">Pay each store separately</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-amber-900">
+                  Only an admin-verified, active seller UPI ID can be used. You will see each store’s exact amount after checkout.
+                  Returning from a UPI app or submitting a UTR does not confirm payment; the seller must confirm it.
+                  For multiple stores, each seller order has its own payment status.
+                </p>
               </div>
             )}
           </div>
@@ -327,8 +320,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
 
           {/* Review the exact items before proceeding to payment. */}
           <section className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Order review · {cart.reduce((total, item) => total + item.quantity, 0)} units across {cart.length} products</h3>
-            {cart.map(item => {
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Order review · {checkoutItems.reduce((total, item) => total + item.quantity, 0)} units across {checkoutItems.length} products</h3>
+            {checkoutItems.map(item => {
               const unitPrice = item.negotiatedPrice ?? Number((item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100)).toFixed(2));
               const maxQuantity = Math.max(0, Number(item.product.stock) || 0);
               return (
@@ -336,10 +329,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-bold text-slate-800">{item.product.title}</p>
                     <p className="text-slate-500">{item.product.sellerName} · ₹{unitPrice.toFixed(2)} each</p>
-                    <div className="mt-2 inline-flex items-center rounded-lg border border-slate-200 bg-slate-50">
-                      <button type="button" aria-label={`Decrease quantity of ${item.product.title}`} disabled={item.quantity <= 1} onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)} className="p-2 text-slate-700 disabled:opacity-30"><Minus className="h-3 w-3" /></button>
-                      <span className="min-w-7 text-center font-bold">{item.quantity}</span>
-                      <button type="button" aria-label={`Increase quantity of ${item.product.title}`} disabled={item.quantity >= maxQuantity} onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)} className="p-2 text-slate-700 disabled:opacity-30"><Plus className="h-3 w-3" /></button>
+                    <div className="mt-2">
+                      {isolatedBuyNow ? <span className="text-slate-600 font-semibold">Qty {item.quantity}</span> : <div className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50">
+                        <button type="button" aria-label={`Decrease quantity of ${item.product.title}`} disabled={item.quantity <= 1} onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)} className="p-2 text-slate-700 disabled:opacity-30"><Minus className="h-3 w-3" /></button>
+                        <span className="min-w-7 text-center font-bold">{item.quantity}</span>
+                        <button type="button" aria-label={`Increase quantity of ${item.product.title}`} disabled={item.quantity >= maxQuantity} onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)} className="p-2 text-slate-700 disabled:opacity-30"><Plus className="h-3 w-3" /></button>
+                      </div>}
                     </div>
                   </div>
                   <span className="shrink-0 font-extrabold text-slate-900">₹{(unitPrice * item.quantity).toFixed(2)}</span>
@@ -352,16 +347,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
             <h4 className="font-bold text-slate-800">Payment Breakdown</h4>
             <div className="flex justify-between text-slate-600">
-              <span>Items Total ({cart.length} items)</span>
-              <span>₹{cartCalculations.subtotal}</span>
+              <span>Items Total ({checkoutItems.length} items)</span>
+              <span>₹{displayedSubtotal.toFixed(2)}</span>
             </div>
-            {cartCalculations.billDiscount > 0 && (
+            {!isolatedBuyNow && cartCalculations.billDiscount > 0 && (
               <div className="flex justify-between text-emerald-600 font-medium">
                 <span>Store Bill Discount</span>
                 <span>-₹{cartCalculations.billDiscount}</span>
               </div>
             )}
-            {cartCalculations.couponDiscount > 0 && (
+            {!isolatedBuyNow && cartCalculations.couponDiscount > 0 && (
               <div className="flex justify-between text-emerald-600 font-medium">
                 <span>Coupon Discount</span>
                 <span>-₹{cartCalculations.couponDiscount}</span>
@@ -369,28 +364,28 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose }) => {
             )}
             <div className="flex justify-between text-slate-600">
               <span>{fulfilmentMode === 'STORE_PICKUP' ? 'Store Pickup' : 'Delivery Fee'}</span>
-              <span>{fulfilmentMode === 'STORE_PICKUP' || cartCalculations.isFreeDelivery ? 'FREE' : `₹${cartCalculations.deliveryFee}`}</span>
+              <span>{isolatedBuyNow ? 'Confirmed after seller acceptance' : fulfilmentMode === 'STORE_PICKUP' || cartCalculations.isFreeDelivery ? 'FREE' : `₹${cartCalculations.deliveryFee}`}</span>
             </div>
             <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline font-extrabold text-sm text-slate-900">
               <span>Final Total</span>
               <span className="text-base text-amber-600 font-black">
-                ₹{fulfilmentMode === 'STORE_PICKUP' ? pickupTotal : cartCalculations.finalTotal}
+                ₹{(fulfilmentMode === 'STORE_PICKUP' && !isolatedBuyNow ? pickupTotal : displayedTotal).toFixed(2)}
               </span>
             </div>
           </div>
 
           <button
             type="submit"
-            disabled={isProcessing}
+            disabled={isProcessing || paymentOptionsLoading || Boolean(paymentOptionsError) || (!codAvailable && !upiAvailable) || (paymentMethod === 'COD' && !codAvailable) || (paymentMethod === 'UPI' && !upiAvailable)}
             className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 text-white rounded-xl font-extrabold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             {isProcessing ? (
               <span>Confirming Order with Kurali Store...</span>
             ) : checkoutStep === 'review' ? (
-              <span>Continue to Payment &bull; ₹{fulfilmentMode === 'STORE_PICKUP' ? pickupTotal : cartCalculations.finalTotal}</span>
+              <span>Continue to Payment &bull; ₹{(fulfilmentMode === 'STORE_PICKUP' && !isolatedBuyNow ? pickupTotal : displayedTotal).toFixed(2)}</span>
             ) : (
               <span>
-                {paymentMethod === 'COD' ? (fulfilmentMode === 'STORE_PICKUP' ? 'Place Store Pickup Order' : 'Place COD Order') : 'Online payment unavailable'} &bull; ₹{fulfilmentMode === 'STORE_PICKUP' ? pickupTotal : cartCalculations.finalTotal}
+                {paymentMethod === 'COD' ? (fulfilmentMode === 'STORE_PICKUP' ? 'Place Store Pickup Order' : 'Place COD Order') : 'Place seller-direct UPI order'} &bull; ₹{(fulfilmentMode === 'STORE_PICKUP' && !isolatedBuyNow ? pickupTotal : displayedTotal).toFixed(2)}
               </span>
             )}
           </button>

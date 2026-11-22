@@ -5,6 +5,7 @@ import { CartDrawer } from '../../components/Buyer/CartDrawer';
 import { CheckoutModal } from '../../components/Buyer/CheckoutModal';
 import { OrderTrackingModal } from '../../components/Buyer/OrderTrackingModal';
 import { NegotiationChatModal } from '../../components/Buyer/NegotiationChatModal';
+import type { CartItem, Product } from '../../types';
 
 export type BuyerPortalProps = {
   searchQuery: string;
@@ -25,8 +26,17 @@ export const BuyerPortal: React.FC<BuyerPortalProps> = ({
   selectedCategory,
   setSelectedCategory,
 }) => {
-  const { setTrackingOrderId, addToCart, trackingOrderId } = useApp();
+  const { setTrackingOrderId, trackingOrderId } = useApp();
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [buyNowItems, setBuyNowItems] = useState<CartItem[] | null>(null);
+  const openBuyNow = (product: Product) => {
+    setBuyNowItems([{ product, quantity: 1 }]);
+    setIsCheckoutOpen(true);
+  };
+  const openBasketCheckout = () => {
+    setBuyNowItems(null);
+    setIsCheckoutOpen(true);
+  };
 
   return (
     <>
@@ -36,15 +46,12 @@ export const BuyerPortal: React.FC<BuyerPortalProps> = ({
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
         onOpenTracking={(orderId) => setTrackingOrderId(orderId)}
-        onBuyNow={(product) => {
-          addToCart(product, 1);
-          setIsCheckoutOpen(true);
-        }}
+        onBuyNow={openBuyNow}
         isCheckoutOpen={isCheckoutOpen}
       />
-      <CartDrawer onProceedToCheckout={() => setIsCheckoutOpen(true)} />
+      <CartDrawer onProceedToCheckout={openBasketCheckout} />
       {isCheckoutOpen && (
-        <CheckoutModal onClose={() => setIsCheckoutOpen(false)} />
+        <CheckoutModal items={buyNowItems ?? undefined} onClose={() => { setIsCheckoutOpen(false); setBuyNowItems(null); }} />
       )}
       {trackingOrderId && (
         <OrderTrackingModal

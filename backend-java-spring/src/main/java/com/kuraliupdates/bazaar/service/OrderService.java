@@ -24,6 +24,8 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.math.RoundingMode;
 import java.security.SecureRandom;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -36,18 +38,34 @@ public class OrderService {
     private final JdbcTemplate jdbc;
     private final DeliveryConfigurationService deliveryConfigurationService;
     private final GoogleRoutesService googleRoutesService;
+    private final SellerDirectPaymentService sellerDirectPaymentService;
     private final SecureRandom random = new SecureRandom();
 
     /** Creates seller-owned suborders under one transaction; any seller failure rolls back the entire checkout. */
     @Transactional
     public com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse placeMultiSellerOrder(
             MultiSellerCheckoutRequest request, UserEntity buyer, String e2eRunId) {
+        return placeMultiSellerOrder(request, buyer, e2eRunId, null);
+    }
+
+    @Transactional
+    public com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse placeMultiSellerOrder(
+            MultiSellerCheckoutRequest request, UserEntity buyer, String e2eRunId, String idempotencyKey) {
         requireBuyer(buyer);
+        String requestHash = requestHash(request);
+        var previous = findPreviousCheckout(idempotencyKey, buyer.getUserId(), requestHash);
+        if (previous != null) {
+            String groupId = (String) previous.get("CHECKOUT_GROUP_ID");
+            if (groupId == null) throw new ApiException(HttpStatus.CONFLICT, "Checkout idempotency record is incomplete; retry with the same key");
+            List<OrderEntity> existing = orderRepository.findLockedByCheckoutGroupId(groupId);
+            return new com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse(groupId,
+                    existing.stream().map(o -> new OrderPlacementResponse(OrderResponse.from(o), o.getDeliveryOtp())).toList());
+        }
         if (request == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Checkout request is required");
         }
-        if (!"COD".equalsIgnoreCase(request.paymentMethod())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Online payment is not enabled yet. Please select Cash on Delivery.");
+        if (request.paymentMethod() == null || !Set.of("COD", "UPI").contains(request.paymentMethod().trim().toUpperCase(Locale.ROOT))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Select Cash on Delivery or seller-direct UPI.");
         }
         String fulfilmentMode = request.fulfilmentMode() == null ? "DELIVERY" : request.fulfilmentMode().trim().toUpperCase(Locale.ROOT);
         if (!Set.of("DELIVERY", "STORE_PICKUP").contains(fulfilmentMode)) {
@@ -73,6 +91,9 @@ public class OrderService {
             if (product.getSeller() == null || !"APPROVED".equalsIgnoreCase(product.getSeller().getStatus())) {
                 throw new ApiException(HttpStatus.CONFLICT, "Product seller is not approved");
             }
+            if (!"STORE_PICKUP".equals(fulfilmentMode)) {
+                validateSellerDeliveryRadius(product.getSeller(), request.deliveryLatitude(), request.deliveryLongitude());
+            }
             bySeller.computeIfAbsent(product.getSeller().getSellerId(), ignored -> new ArrayList<>()).add(item);
         }
         int maxSellers = deliveryConfigurationService.maxSellersPerBatch();
@@ -88,13 +109,14 @@ public class OrderService {
                     request.deliveryLocality(), group.getKey(), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                     BigDecimal.ZERO, request.paymentMethod(), request.distanceKm(), request.deliveryLatitude(),
                     request.deliveryLongitude(), request.deliveryPlaceId(), group.getValue());
-            OrderPlacementResponse result = placeOrder(sellerRequest, buyer, e2eRunId);
+            OrderPlacementResponse result = placeOrder(sellerRequest, buyer, e2eRunId, null, false);
             OrderEntity saved = orderRepository.findById(result.order().orderId())
                     .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Created seller order could not be reloaded"));
             saved.setCheckoutGroupId(checkoutGroupId);
             saved.setFulfilmentStatus("AWAITING_SELLER_ACCEPTANCE");
             saved.setFulfilmentMode(fulfilmentMode);
             if ("STORE_PICKUP".equals(fulfilmentMode)) {
+                saved.setEstimatedDeliveryMins(null);
                 saved.setDeliveryFee(BigDecimal.ZERO);
                 saved.setIsFreeDelivery(1);
                 saved.setTotalAmount(saved.getSubtotal().subtract(
@@ -116,12 +138,32 @@ public class OrderService {
             BigDecimal baseFee = deliveryConfigurationService.customerBaseFee();
             BigDecimal perKmFee = deliveryConfigurationService.customerPerKmFee();
             BigDecimal roadKm = googleRoutesService.calculateCombinedRouteKm(savedOrders);
+            BigDecimal routeForLimit = roadKm != null ? roadKm : approximateCombinedRouteKm(savedOrders);
+            if (routeForLimit == null && savedOrders.size() > 1) {
+                throw new ApiException(HttpStatus.CONFLICT, "Combined seller route cannot be verified. Choose sellers with verified locations or use separate checkouts.");
+            }
+            if (routeForLimit != null && routeForLimit.compareTo(deliveryConfigurationService.maxRouteKm()) > 0) {
+                throw new ApiException(HttpStatus.CONFLICT, "Combined seller pickup route exceeds the configured delivery route limit");
+            }
             BigDecimal checkoutDeliveryFee = baseFee;
-            if (roadKm != null) checkoutDeliveryFee = checkoutDeliveryFee.add(roadKm.multiply(perKmFee));
+            if (routeForLimit != null) checkoutDeliveryFee = checkoutDeliveryFee.add(routeForLimit.multiply(perKmFee));
             checkoutDeliveryFee = checkoutDeliveryFee.setScale(2, RoundingMode.HALF_UP);
+            BigDecimal totalSellerSubtotal = savedOrders.stream()
+                    .map(o -> o.getSubtotal() == null ? BigDecimal.ZERO : o.getSubtotal())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal allocatedSoFar = BigDecimal.ZERO;
             for (int i = 0; i < savedOrders.size(); i++) {
                 OrderEntity saved = savedOrders.get(i);
-                BigDecimal allocatedFee = i == 0 ? checkoutDeliveryFee : BigDecimal.ZERO;
+                BigDecimal allocatedFee;
+                if (i == savedOrders.size() - 1) {
+                    allocatedFee = checkoutDeliveryFee.subtract(allocatedSoFar);
+                } else if (totalSellerSubtotal.signum() > 0) {
+                    allocatedFee = checkoutDeliveryFee.multiply(saved.getSubtotal())
+                            .divide(totalSellerSubtotal, 2, RoundingMode.HALF_UP);
+                } else {
+                    allocatedFee = BigDecimal.ZERO;
+                }
+                allocatedSoFar = allocatedSoFar.add(allocatedFee);
                 saved.setDeliveryFee(allocatedFee);
                 saved.setIsFreeDelivery(allocatedFee.signum() == 0 ? 1 : 0);
                 BigDecimal discounts = (saved.getBillDiscountAmount() == null ? BigDecimal.ZERO : saved.getBillDiscountAmount())
@@ -130,12 +172,16 @@ public class OrderService {
             }
             orderRepository.saveAll(savedOrders);
         }
+        for (OrderEntity saved : savedOrders) {
+            sellerDirectPaymentService.updateOrderAmount(saved);
+        }
         List<OrderPlacementResponse> originalPlacements = new ArrayList<>(placed);
         placed.clear();
         for (int i = 0; i < savedOrders.size(); i++) {
             placed.add(new OrderPlacementResponse(OrderResponse.from(savedOrders.get(i)),
                     originalPlacements.get(i).deliveryOtp()));
         }
+        storeCheckoutRequest(idempotencyKey, buyer.getUserId(), requestHash, null, checkoutGroupId);
         return new com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse(checkoutGroupId, List.copyOf(placed));
     }
 
@@ -146,10 +192,27 @@ public class OrderService {
 
     @Transactional
     public OrderPlacementResponse placeOrder(PlaceOrderRequest request, UserEntity buyer, String e2eRunId) {
+        return placeOrder(request, buyer, e2eRunId, null, true);
+    }
+
+    @Transactional
+    public OrderPlacementResponse placeOrder(PlaceOrderRequest request, UserEntity buyer, String e2eRunId, String idempotencyKey) {
+        return placeOrder(request, buyer, e2eRunId, idempotencyKey, true);
+    }
+
+    @Transactional
+    public OrderPlacementResponse placeOrder(PlaceOrderRequest request, UserEntity buyer, String e2eRunId, String idempotencyKey, boolean enforceDeliveryRadius) {
         requireBuyer(buyer);
-        if (!"COD".equalsIgnoreCase(request.paymentMethod())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST,
-                    "Online payment is not enabled yet. Please select Cash on Delivery.");
+        var previous = findPreviousCheckout(idempotencyKey, buyer.getUserId(), requestHash(request));
+        if (previous != null) {
+            String orderId = (String) previous.get("ORDER_ID");
+            if (orderId == null) throw new ApiException(HttpStatus.CONFLICT, "Checkout idempotency record is incomplete; retry with the same key");
+            OrderEntity existing = orderRepository.findLockedByOrderId(orderId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "Previously created order could not be reloaded"));
+            return new OrderPlacementResponse(OrderResponse.from(existing), existing.getDeliveryOtp());
+        }
+        if (request.paymentMethod() == null || !Set.of("COD", "UPI").contains(request.paymentMethod().trim().toUpperCase(Locale.ROOT))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Select Cash on Delivery or seller-direct UPI.");
         }
         if (request.items() == null || request.items().isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "At least one order item is required");
@@ -165,8 +228,8 @@ public class OrderService {
             String productId = item.productId().trim();
             quantities.merge(productId, item.quantity(), Math::addExact);
             if (item.acceptedOfferId() != null && !item.acceptedOfferId().isBlank()) {
-                String previous = acceptedOffers.putIfAbsent(productId, item.acceptedOfferId().trim());
-                if (previous != null && !previous.equals(item.acceptedOfferId().trim())) {
+                String previousAcceptedOfferId = acceptedOffers.putIfAbsent(productId, item.acceptedOfferId().trim());
+                if (previousAcceptedOfferId != null && !previousAcceptedOfferId.equals(item.acceptedOfferId().trim())) {
                     throw new ApiException(HttpStatus.BAD_REQUEST, "A cart item cannot use multiple accepted bargain offers");
                 }
             }
@@ -251,6 +314,12 @@ public class OrderService {
 
         SellerEntity seller = sellerRepository.findById(sellerId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Seller not found"));
+        if ("COD".equalsIgnoreCase(request.paymentMethod()) && !Boolean.TRUE.equals(seller.getCodEnabled())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Cash on Delivery is not enabled by this seller. Choose seller-direct UPI.");
+        }
+        if (enforceDeliveryRadius) {
+            validateSellerDeliveryRadius(seller, request.deliveryLatitude(), request.deliveryLongitude());
+        }
         BigDecimal freeDeliveryThreshold = seller.getMinOrderForFreeDelivery() == null
                 ? BigDecimal.valueOf(499) : seller.getMinOrderForFreeDelivery();
         BigDecimal deliveryFee = itemSubtotal.compareTo(freeDeliveryThreshold) >= 0
@@ -264,6 +333,7 @@ public class OrderService {
                 .buyerName(buyer.getName())
                 .buyerPhone(buyer.getPhone())
                 .buyerEmail(buyer.getEmail() == null ? null : buyer.getEmail().trim().toLowerCase())
+                .buyerUserId(buyer.getUserId())
                 .deliveryAddress(request.deliveryAddress().trim())
                 .deliveryLocality(request.deliveryLocality().trim())
                 .deliveryLatitude(request.deliveryLatitude() == null ? null : BigDecimal.valueOf(request.deliveryLatitude()))
@@ -282,7 +352,7 @@ public class OrderService {
                 .status("PLACED")
                 .deliveryOtp(String.format("%04d", random.nextInt(10000)))
                 .distanceKm(request.distanceKm())
-                .estimatedDeliveryMins(25)
+                .estimatedDeliveryMins(deliveryConfigurationService.estimatedDeliveryMins())
                 .e2eRunId(e2eRunId)
                 .placedAt(now)
                 .updatedAt(now)
@@ -296,7 +366,11 @@ public class OrderService {
             product.setStock(product.getStock() - quantity);
         }
         orderItems.forEach(item -> item.setOrder(order));
-        OrderEntity saved = orderRepository.save(order);
+        OrderEntity saved = orderRepository.saveAndFlush(order);
+        storeCheckoutRequest(idempotencyKey, buyer.getUserId(), requestHash(request), saved.getOrderId(), null);
+        // UPI instructions are snapshotted only from an admin-verified active seller destination.
+        // The payment record is seller-specific; no funds pass through KuraliUpdates.
+        sellerDirectPaymentService.createForOrder(saved, buyer.getUserId());
         // A successfully placed order consumes the accepted bargain. Keep the
         // conversation as history, but close it for both buyer and seller inboxes.
         for (Map.Entry<String, String> accepted : acceptedOffers.entrySet()) {
@@ -313,7 +387,7 @@ public class OrderService {
     /** Cancels every seller order in the buyer's checkout group as one inventory transaction. */
     @Transactional
     public OrderResponse cancelOrderForBuyer(String orderId, UserEntity buyer) {
-        if (buyer == null || buyer.getEmail() == null || buyer.getEmail().isBlank()) {
+        if (buyer == null || (buyer.getUserId() == null && (buyer.getEmail() == null || buyer.getEmail().isBlank()))) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
         }
         // Read only to discover the group key. For a checkout group, acquire all
@@ -335,12 +409,11 @@ public class OrderService {
                 throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
             }
         }
-        String buyerEmail = buyer.getEmail().trim().toLowerCase(Locale.ROOT);
-        if (!OrderBuyerAccessPolicy.owns(requested, buyerEmail)) {
+        if (!OrderBuyerAccessPolicy.owns(requested, buyer)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
         }
         if (group == null || group.isEmpty()
-                || group.stream().anyMatch(order -> !OrderBuyerAccessPolicy.owns(order, buyerEmail))) {
+                || group.stream().anyMatch(order -> !OrderBuyerAccessPolicy.owns(order, buyer))) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
         }
         if (group.stream().allMatch(order -> "CANCELLED".equalsIgnoreCase(order.getStatus()))) {
@@ -405,6 +478,10 @@ public class OrderService {
             if ("CANCELLED".equalsIgnoreCase(order.getStatus())) {
                 continue;
             }
+            sellerDirectPaymentService.cancelUnpaidPaymentForOrder(order.getOrderId());
+            if ("UPI".equalsIgnoreCase(order.getPaymentMethod()) && !"PAID".equalsIgnoreCase(order.getPaymentStatus())) {
+                order.setPaymentStatus("CANCELLED");
+            }
             order.setStatus("CANCELLED");
             order.setFulfilmentStatus("CANCELLED");
             // COD has not been collected; retain PENDING_COD. Order and fulfilment
@@ -419,7 +496,7 @@ public class OrderService {
 
     @Transactional
     public OrderResponse confirmStorePickup(String orderId, String otp, UserEntity buyer) {
-        if (buyer == null || buyer.getEmail() == null) {
+        if (buyer == null || (buyer.getUserId() == null && buyer.getEmail() == null)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only the owning buyer can confirm store pickup");
         }
         if (otp == null || !otp.matches("\\d{4}")) {
@@ -427,7 +504,7 @@ public class OrderService {
         }
         OrderEntity order = orderRepository.findLockedByOrderId(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
-        if (!OrderBuyerAccessPolicy.owns(order, buyer.getEmail())) {
+        if (!OrderBuyerAccessPolicy.owns(order, buyer)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
         }
         if (!"STORE_PICKUP".equalsIgnoreCase(order.getFulfilmentMode())) {
@@ -449,6 +526,10 @@ public class OrderService {
     @Transactional(readOnly = true)
     public List<OrderResponse> history(UserEntity buyer) {
         requireBuyer(buyer);
+        if (buyer.getUserId() != null && !buyer.getUserId().isBlank()) {
+            return orderRepository.findByBuyerUserIdOrderByPlacedAtDesc(buyer.getUserId())
+                    .stream().map(OrderResponse::from).toList();
+        }
         if (buyer.getEmail() == null || buyer.getEmail().isBlank()) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Authenticated buyer session is required");
         }
@@ -458,13 +539,115 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public OrderResponse trackForBuyer(String orderId, UserEntity buyer) {
-        if (buyer == null || buyer.getEmail() == null || buyer.getEmail().isBlank()) {
+        if (buyer == null || (buyer.getUserId() == null && (buyer.getEmail() == null || buyer.getEmail().isBlank()))) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only the owning buyer can track this order");
         }
         OrderEntity order = orderRepository.findById(orderId)
-                .filter(candidate -> OrderBuyerAccessPolicy.owns(candidate, buyer.getEmail()))
+                .filter(candidate -> OrderBuyerAccessPolicy.owns(candidate, buyer))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
         return OrderResponse.from(order);
+    }
+
+    private BigDecimal approximateCombinedRouteKm(List<OrderEntity> orders) {
+        if (orders == null || orders.isEmpty()) return null;
+        OrderEntity first = orders.get(0);
+        if (first.getDeliveryLatitude() == null || first.getDeliveryLongitude() == null) return null;
+        List<SellerEntity> remaining = new ArrayList<>();
+        for (OrderEntity order : orders) {
+            SellerEntity seller = order.getSeller();
+            if (seller == null || !Boolean.TRUE.equals(seller.getLocationVerified())
+                    || seller.getLatitude() == null || seller.getLongitude() == null) return null;
+            remaining.add(seller);
+        }
+        double latitude = remaining.remove(0).getLatitude().doubleValue();
+        double longitude = orders.get(0).getSeller().getLongitude().doubleValue();
+        double total = 0;
+        while (!remaining.isEmpty()) {
+            int nearestIndex = 0;
+            double nearestDistance = Double.MAX_VALUE;
+            for (int i = 0; i < remaining.size(); i++) {
+                SellerEntity candidate = remaining.get(i);
+                double distance = haversineKm(latitude, longitude, candidate.getLatitude().doubleValue(), candidate.getLongitude().doubleValue());
+                if (distance < nearestDistance) { nearestDistance = distance; nearestIndex = i; }
+            }
+            SellerEntity next = remaining.remove(nearestIndex);
+            total += nearestDistance;
+            latitude = next.getLatitude().doubleValue();
+            longitude = next.getLongitude().doubleValue();
+        }
+        total += haversineKm(latitude, longitude, first.getDeliveryLatitude().doubleValue(), first.getDeliveryLongitude().doubleValue());
+        // Straight-line segments understate road distance; apply a conservative road detour factor.
+        return BigDecimal.valueOf(total * 1.25).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return 6371.0088 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    private void validateSellerDeliveryRadius(SellerEntity seller, Double buyerLatitude, Double buyerLongitude) {
+        if (seller == null || !Boolean.TRUE.equals(seller.getLocationVerified())
+                || seller.getLatitude() == null || seller.getLongitude() == null
+                || buyerLatitude == null || buyerLongitude == null) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Delivery radius cannot be verified for this seller and address. Use store pickup or update verified location details.");
+        }
+        if (buyerLatitude < -90 || buyerLatitude > 90 || buyerLongitude < -180 || buyerLongitude > 180
+                || seller.getLatitude().doubleValue() < -90 || seller.getLatitude().doubleValue() > 90
+                || seller.getLongitude().doubleValue() < -180 || seller.getLongitude().doubleValue() > 180) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A valid verified delivery location is required.");
+        }
+        double lat1 = Math.toRadians(seller.getLatitude().doubleValue());
+        double lat2 = Math.toRadians(buyerLatitude);
+        double deltaLat = Math.toRadians(buyerLatitude - seller.getLatitude().doubleValue());
+        double deltaLon = Math.toRadians(buyerLongitude - seller.getLongitude().doubleValue());
+        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
+                + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+        double distanceKm = 6371.0088 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        if (BigDecimal.valueOf(distanceKm).compareTo(deliveryConfigurationService.nearbyRadiusKm()) > 0) {
+            throw new ApiException(HttpStatus.CONFLICT, "Seller is outside the configured delivery radius for this address");
+        }
+    }
+
+    private Map<String,Object> findPreviousCheckout(String key, String buyerUserId, String hash) {
+        if (key == null || key.isBlank()) return null;
+        String normalized = key.trim();
+        if (!normalized.matches("[A-Za-z0-9._:-]{8,100}"))
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Idempotency-Key must contain 8–100 safe characters");
+        try {
+            Map<String,Object> row = jdbc.queryForMap(
+                    "SELECT REQUEST_HASH,ORDER_ID,CHECKOUT_GROUP_ID FROM BUYER_CHECKOUT_IDEMPOTENCY WHERE BUYER_USER_ID=? AND IDEMPOTENCY_KEY=?",
+                    buyerUserId, normalized);
+            if (!hash.equals(row.get("REQUEST_HASH")))
+                throw new ApiException(HttpStatus.CONFLICT, "This idempotency key was already used for a different checkout request");
+            return row;
+        } catch (org.springframework.dao.EmptyResultDataAccessException ignored) {
+            return null;
+        }
+    }
+
+    private void storeCheckoutRequest(String key, String buyerUserId, String hash, String orderId, String groupId) {
+        if (key == null || key.isBlank()) return;
+        try {
+            jdbc.update("INSERT INTO BUYER_CHECKOUT_IDEMPOTENCY (BUYER_USER_ID,IDEMPOTENCY_KEY,REQUEST_HASH,ORDER_ID,CHECKOUT_GROUP_ID,CREATED_AT) VALUES (?,?,?,?,?,?)",
+                    buyerUserId, key.trim(), hash, orderId, groupId, LocalDateTime.now());
+        } catch (org.springframework.dao.DuplicateKeyException duplicate) {
+            throw new ApiException(HttpStatus.CONFLICT, "A checkout with this idempotency key is already being processed. Retry using the same key.");
+        }
+    }
+
+    private String requestHash(Object request) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(String.valueOf(request).getBytes(StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        }
     }
 
     private void requireBuyer(UserEntity buyer) {

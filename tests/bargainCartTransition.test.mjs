@@ -6,8 +6,9 @@ test('historical accepted bargains are baselined and do not repopulate the buyer
   const source = readFileSync(new URL('../src/context/useNegotiationChatState.ts', import.meta.url), 'utf8');
   assert.match(source, /const newlyAccepted = previous != null && previous !== 'ACCEPTED' && status === 'ACCEPTED'/);
   assert.match(source, /if \(product && newlyAccepted && chat\.currentAgreedPrice != null\)/);
+  assert.match(source, /upsertBargainCartItem\(product, chat\.id, 'ACCEPTED', agreedPrice, agreedPrice/);
   assert.match(source, /lastSeenStatusRef\.current\.clear\(\)/);
-  assert.doesNotMatch(source, /status === 'ACCEPTED' && previous !== 'ACCEPTED'/);
+  assert.doesNotMatch(source, /Acceptance never adds an item automatically/);
 });
 
 test('only a previously observed non-accepted to accepted transition is eligible for cart addition', () => {

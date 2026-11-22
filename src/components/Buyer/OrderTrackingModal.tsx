@@ -7,6 +7,8 @@ import { useApp } from '../../context/AppContext';
 import { buyerApi } from '../../services/domains/buyerApi';
 import { API_BASE_URL } from '../../services/http/apiConfig';
 import { LiveOrderMap } from './LiveOrderMap';
+import { BuyerSellerPaymentPanel } from './BuyerSellerPaymentPanel';
+import { BuyerOrderIssuePanel } from './BuyerOrderIssuePanel';
 
 interface OrderTrackingModalProps {
   orderId: string;
@@ -45,7 +47,7 @@ const safeSponsorUrl = (value?: string) => {
 };
 
 export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId, onClose }) => {
-  const { orders, syncWithBackend, showToast } = useApp();
+  const { orders, products, addToCart, syncWithBackend, showToast } = useApp();
   const order = orders.find(o => o.id === orderId || o.checkoutGroupId === orderId);
   const [trackingSnapshot, setTrackingSnapshot] = useState<any>(null);
   const [pickupOtp, setPickupOtp] = useState('');
@@ -132,6 +134,26 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
     </div>
   );
 
+  const buyAgain = () => {
+    let added = 0;
+    let unavailable = 0;
+    for (const item of orderItems) {
+      const orderedProduct = item?.product || item || {};
+      const productId = orderedProduct?.id || (item as any)?.productId;
+      const currentProduct = products.find(product => product.id === productId);
+      if (!currentProduct || currentProduct.stock <= 0 || currentProduct.isAvailable === false) {
+        unavailable += 1;
+        continue;
+      }
+      const quantity = Math.max(1, Number(item?.quantity) || 1);
+      addToCart(currentProduct, Math.min(quantity, currentProduct.stock));
+      added += 1;
+    }
+    showToast(added > 0
+      ? `${added} item(s) added using current prices. ${unavailable ? `${unavailable} unavailable item(s) were skipped.` : ''}`
+      : 'None of the items from this order are currently available.', added > 0 ? 'success' : 'info');
+  };
+
   const etaText = trackingSnapshot?.estimatedDeliveryAt || trackingSnapshot?.estimatedDeliveryTime || trackingSnapshot?.eta;
   const otp = isDeliveryOtpStage && !isDelivered && typeof trackingSnapshot?.deliveryOtp === 'string' && /^\d{4}$/.test(trackingSnapshot.deliveryOtp)
     ? trackingSnapshot.deliveryOtp
@@ -181,6 +203,11 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
               </div>
             </div>
           </section>
+
+          {String(order.paymentMethod || '').toUpperCase() === 'UPI' && (
+            <BuyerSellerPaymentPanel orderId={trackingOrderId} checkoutGroupId={order.checkoutGroupId} />
+          )}
+          <BuyerOrderIssuePanel orderIds={order.checkoutGroupOrderIds?.length ? order.checkoutGroupOrderIds : [trackingOrderId]} />
 
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
@@ -331,9 +358,12 @@ export const OrderTrackingModal: React.FC<OrderTrackingModalProps> = ({ orderId,
           </div>
         </div>
 
-        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-3">
+        <footer className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-200 bg-white px-3 py-3 sm:px-4">
           <span className="min-w-0 truncate text-[10px] font-medium text-slate-500">Order #{order.id}</span>
-          <button type="button" onClick={onClose} className="shrink-0 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-extrabold text-white transition hover:bg-slate-800">Back to orders</button>
+          <div className="flex shrink-0 items-center gap-2">
+            {isDelivered && <button type="button" onClick={buyAgain} className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs font-extrabold text-amber-900 transition hover:bg-amber-100">Buy again</button>}
+            <button type="button" onClick={onClose} className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-slate-800">Back</button>
+          </div>
         </footer>
       </section>
     </div>

@@ -15,6 +15,7 @@ public class OrderEntity {
     @Column(name = "BUYER_NAME", nullable = false, length = 150) private String buyerName;
     @Column(name = "BUYER_PHONE", nullable = false, length = 30) private String buyerPhone;
     @Column(name = "BUYER_EMAIL", length = 255) private String buyerEmail;
+    @Column(name = "BUYER_USER_ID", length = 64) private String buyerUserId;
     @Column(name = "DELIVERY_ADDRESS", nullable = false, length = 500) private String deliveryAddress;
     @Column(name = "DELIVERY_LOCALITY", nullable = false, length = 150) private String deliveryLocality;
     @Column(name = "DELIVERY_LATITUDE", precision = 10, scale = 7) private BigDecimal deliveryLatitude;

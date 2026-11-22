@@ -5,6 +5,19 @@ import { API_BASE_URL } from '../http/apiConfig';
 import { groupCheckoutOrders } from '../../entities/orderGrouping';
 
 export const buyerOrdersApi = {
+  async getBuyerDeliveryEstimate(): Promise<number | null> {
+    const token = localStorage.getItem('kurali_auth_token');
+    if (!token) return null;
+    const response = await fetch(`${API_BASE_URL}/buyers/delivery-estimate`, {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    if (!response.ok) throw new Error(`Unable to load delivery estimate (HTTP ${response.status})`);
+    const data = await response.json();
+    const minutes = Number(data?.estimatedDeliveryMins ?? 0);
+    return Number.isInteger(minutes) && minutes > 0 ? minutes : null;
+  },
+
   async placeOrder(order: Partial<Order>): Promise<any> {
     try {
       const sellerCount = new Set((order.items || []).map(item => item.product.sellerId)).size;
@@ -44,13 +57,23 @@ export const buyerOrdersApi = {
         deliveryPlaceId: (order as any).deliveryPlaceId,
         items,
       };
+      const requestBody = JSON.stringify(sellerCount > 1 ? multiSellerPayload : singleSellerPayload);
+      const fingerprintSource = `${endpoint}|${requestBody}`;
+      let fingerprint = 2166136261;
+      for (let i = 0; i < fingerprintSource.length; i++) fingerprint = Math.imul(fingerprint ^ fingerprintSource.charCodeAt(i), 16777619);
+      const storageKey = `ku-checkout-idem:${(fingerprint >>> 0).toString(16)}`;
+      const idempotencyKey = sessionStorage.getItem(storageKey)
+        || `ku-${globalThis.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2)}`;
+      sessionStorage.setItem(storageKey, idempotencyKey);
       const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(localStorage.getItem('kurali_auth_token') ? { Authorization: `Bearer ${localStorage.getItem('kurali_auth_token')}` } : {}) },
-        body: JSON.stringify(sellerCount > 1 ? multiSellerPayload : singleSellerPayload),
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'Idempotency-Key': idempotencyKey, ...(localStorage.getItem('kurali_auth_token') ? { Authorization: `Bearer ${localStorage.getItem('kurali_auth_token')}` } : {}) },
+        body: requestBody,
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
+      const result = await res.json();
+      sessionStorage.removeItem(storageKey);
+      return result;
     } catch (err) {
       console.warn('Backend placeOrder failed:', err);
       return null;

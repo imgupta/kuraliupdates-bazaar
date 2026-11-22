@@ -34,6 +34,7 @@ public class SellerService {
     private final SellerRepository sellerRepository;
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
+    private final SellerDirectPaymentService sellerDirectPaymentService;
     private final BillDiscountRepository billDiscountRepository;
 
     @Transactional(readOnly = true)
@@ -156,6 +157,14 @@ public class SellerService {
             throw new ApiException(HttpStatus.CONFLICT,
                     "Order cannot transition from " + current + " to " + next);
         }
+        // Seller-direct UPI is not considered paid until the seller explicitly confirms
+        // the buyer-submitted reference. An unpaid suborder cannot enter dispatch/pickup.
+        if ("READY_FOR_PICKUP".equals(next)
+                && "UPI".equalsIgnoreCase(order.getPaymentMethod())
+                && !"PAID".equalsIgnoreCase(order.getPaymentStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "This seller suborder cannot be dispatched until its UPI payment is confirmed by the seller");
+        }
 
         if ("CANCELLED".equals(next)) {
             if ("PAID".equalsIgnoreCase(order.getPaymentStatus())) {
@@ -185,6 +194,10 @@ public class SellerService {
                     throw new ApiException(HttpStatus.CONFLICT,
                             "Cannot restore inventory because the stock quantity would overflow");
                 }
+            }
+            sellerDirectPaymentService.cancelUnpaidPaymentForOrder(order.getOrderId());
+            if ("UPI".equalsIgnoreCase(order.getPaymentMethod()) && !"PAID".equalsIgnoreCase(order.getPaymentStatus())) {
+                order.setPaymentStatus("CANCELLED");
             }
             order.setFulfilmentStatus("CANCELLED");
             // COD has not been collected; retain PENDING_COD. Cancellation belongs

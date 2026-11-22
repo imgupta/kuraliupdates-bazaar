@@ -178,7 +178,8 @@ public class SecurityConfig {
             "X-E2E-Flow-Token",
             "X-E2E-OTP-Token",
             "X-KU-CSRF",
-            "X-KU-Device-ID"
+            "X-KU-Device-ID",
+            "Idempotency-Key"
         ));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);

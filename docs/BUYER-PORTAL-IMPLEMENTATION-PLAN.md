@@ -1,6 +1,6 @@
 # Buyer Portal Simplification and Checkout Implementation Plan
 
-**Status:** Approved plan — implementation not yet verified  
+**Status:** Consolidated implementation committed on PR #390; CI, Oracle migration and staging verification pending — see [implementation report](BUYER-PORTAL-IMPLEMENTATION-REPORT.md)  
 **Scope:** Online Shop buyer journey, bargaining, seller-direct payments, grouped orders and buyer support  
 **Delivery target:** One consolidated implementation PR  
 **Last updated:** 22 November 2026
@@ -151,9 +151,12 @@ Before changing APIs/schema, inspect existing checkout grouping, order/suborder 
 
 ### Buyer experience
 - [ ] Home/search/category/product cards responsive and accessible.
-- [ ] No implicit ₹3,000 max-price filter.
+- [x] No implicit ₹3,000 max-price filter (source implemented; final CI verification pending).
 - [ ] Add and decrement/quantity/increment remain synchronized across card, detail, basket and checkout.
-- [ ] Buy Now checks out only selected product and preserves existing basket.
+- [x] Buy Now checks out only selected product and preserves existing basket (source implemented; final CI verification pending).
+- [x] Delivered orders provide Buy Again using current catalogue prices and stock checks (source implemented; final CI verification pending).
+- [x] Favourites and named saved lists are available with browser/device-local persistence.
+- [x] Common English/Roman Hindi/Devanagari/Gurmukhi grocery synonyms are expanded per search token; all query tokens must match.
 - [ ] No hard-coded ETA or disabled payment method shown as available.
 
 ### Bargaining
@@ -221,18 +224,18 @@ Set overall status to **Complete** only when mandatory requirements in sections 
 
 | Evidence | Record |
 |---|---|
-| Implementation PR | TBD |
+| Implementation PR | [#390](https://github.com/imgupta/kuraliupdates-bazaar/pull/390) |
 | Merge commit | TBD |
-| Exact tested head SHA | TBD |
-| Backend tests | Pending |
-| Frontend lint/type/build | Pending |
-| Buyer Playwright tests | Pending |
-| Payment/partial-payment tests | Pending |
-| Authorization/idempotency/concurrency tests | Pending |
-| Staging verification | Pending / not run |
-| Flyway migration versions (if any) | TBD |
+| Exact tested head SHA | `59c7e090d0f007e82e220b130937cbb64ddfc916` (code HEAD; report-only commit follows) |
+| Backend tests | Passed on exact tested code HEAD; full Maven verification suite |
+| Frontend lint/type/build | Passed on exact tested code HEAD |
+| Buyer Playwright tests | Browser E2E and read-only API smoke passed on exact tested code HEAD |
+| Payment/partial-payment tests | Service-level payment tests passed; Oracle partial-payment integration rehearsal pending |
+| Authorization/idempotency/concurrency tests | Service/controller tests and checkout replay/payload-conflict tests passed; Oracle multi-session concurrency pending |
+| Staging verification | Read-only role/fixture preflight and browser E2E passed; mutating transactional staging rehearsal not run |
+| Flyway migration versions (if any) | V48 and V49; isolated Oracle execution pending |
 | Known limitations/deferred items | TBD |
-| Final disposition | **PLANNED — NOT IMPLEMENTED** |
+| Final disposition | **SOURCE COMPLETE; CI PASSED; ORACLE/STAGING VALIDATION PENDING** |
 
 ## 10. Related documentation
 
@@ -242,3 +245,10 @@ Set overall status to **Complete** only when mandatory requirements in sections 
 - [Mandatory India PR governance](INDIA-PR-GOVERNANCE.md)
 - [Codebase documentation standard](CODEBASE-DOCUMENTATION-STANDARD.md)
 - [Deployment and release runbook](../DEPLOYMENT.md)
+
+
+## 10. Current implementation evidence (PR #390)
+
+The same consolidated PR now contains seller UPI destination submission and admin verification/activation; per-seller payment snapshots and payment records; buyer UTR submission; seller confirmation/rejection; seller-specific payment progress; seller-funded refund request/recording; per-seller COD configuration; unpaid UPI dispatch guard; buyer issue reporting and admin issue triage; buyer-user-scoped checkout idempotency; fail-closed verified-coordinate delivery-radius checks; combined route limit and route-based per-kilometre fee fallback; scheduled payment expiry with Oracle `FOR UPDATE SKIP LOCKED` and audit; admin-configurable ETA; multilingual grocery search expansion; browser-local favourites and saved lists; Buy Again; and migrations V48/V49.
+
+Remaining boundaries are operational: no bank/PSP ownership or settlement verification, no independent bank proof for seller refunds, browser-local saved items are not synchronized across devices, and search synonyms are curated rather than a general Indic transliteration engine. Source changes are not accepted as production-ready until the exact-head CI and staging/Oracle merge gates in the [implementation report](BUYER-PORTAL-IMPLEMENTATION-REPORT.md) are met.
