@@ -40,8 +40,9 @@ import { buildAdminDirectoryGroups } from './adminDirectory';
 import { useAdminDashboardRefresh } from './useAdminDashboardRefresh';
 import { useSellerDocumentReview } from './useSellerDocumentReview';
 import { useAdminConfiguration } from './useAdminConfiguration';
+import { AdminMfaGate } from './AdminMfaGate';
 
-export const AdminDashboard: React.FC = () => {
+const AdminDashboardContent: React.FC = () => {
   const {
     user,
     sellers,
@@ -1139,3 +1140,9 @@ export const AdminDashboard: React.FC = () => {
     </div>
   );
 };
+
+export const AdminDashboard: React.FC = () => (
+  <AdminMfaGate>
+    <AdminDashboardContent />
+  </AdminMfaGate>
+);

@@ -63,6 +63,8 @@ export const useAuthBootstrap = ({
           if (!res.authenticated || !res.user) {
             throw new Error('Stored authentication token is no longer valid');
           }
+          // Successful validation upgraded legacy bearer sessions to HttpOnly cookies.
+          persistAuthToken('__COOKIE_SESSION__');
           const u = res.user;
           const effectiveRole: UserRole = (u.role?.toLowerCase() as UserRole) || 'buyer';
           const hadStoredSession = hasStoredAuthSession();
@@ -128,7 +130,7 @@ export const useAuthBootstrap = ({
     let cancelled = false;
     bazaarApi.redeemPortalHandoff(code).then(result => {
       if (cancelled) return;
-      if (!result?.success || !result.token || !result.user || !result.role) {
+      if (!result?.success || !result.user || !result.role) {
         clearStoredAuthState();
         setUser({
           email: '', name: '', avatarUrl: '', phone: '',
@@ -169,7 +171,7 @@ export const useAuthBootstrap = ({
         isAdmin: roles.includes('admin'),
         registeredRoles: roles,
       };
-      persistAuthToken(result.token);
+      persistAuthToken(result.token || '__COOKIE_SESSION__');
       persistAuthSession(profile);
       setUser(profile);
       setRoleState(targetRole);

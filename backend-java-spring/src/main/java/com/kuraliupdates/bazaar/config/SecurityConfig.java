@@ -1,17 +1,21 @@
 package com.kuraliupdates.bazaar.config;
 
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import com.kuraliupdates.bazaar.security.OtpAbuseProtectionFilter;
+import com.kuraliupdates.bazaar.security.AdminMfaFilter;
 
 import java.util.List;
 
@@ -20,9 +24,15 @@ import java.util.List;
 public class SecurityConfig {
 
     private final SessionAuthenticationFilter sessionAuthenticationFilter;
+    private final ObjectProvider<OtpAbuseProtectionFilter> otpAbuseProtectionFilterProvider;
+    private final ObjectProvider<AdminMfaFilter> adminMfaFilterProvider;
 
-    public SecurityConfig(SessionAuthenticationFilter sessionAuthenticationFilter) {
+    public SecurityConfig(SessionAuthenticationFilter sessionAuthenticationFilter,
+                          ObjectProvider<OtpAbuseProtectionFilter> otpAbuseProtectionFilterProvider,
+                          ObjectProvider<AdminMfaFilter> adminMfaFilterProvider) {
         this.sessionAuthenticationFilter = sessionAuthenticationFilter;
+        this.otpAbuseProtectionFilterProvider = otpAbuseProtectionFilterProvider;
+        this.adminMfaFilterProvider = adminMfaFilterProvider;
     }
 
     /**
@@ -43,13 +53,38 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+            // Browser cookie requests are protected by the explicit double-submit
+            // CSRF contract in SessionAuthenticationFilter. Keep Spring's default
+            // synchronizer-token filter disabled to avoid two competing token contracts;
+            // non-browser bearer integrations remain supported separately.
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .headers(headers -> headers
                 .frameOptions(frame -> frame.deny())
                 .contentTypeOptions(contentType -> {})
+                .cacheControl(cache -> {})
+                // HSTS is emitted only on HTTPS requests by Spring Security.
+                .httpStrictTransportSecurity(hsts -> hsts
+                    .includeSubDomains(true)
+                    .maxAgeInSeconds(31_536_000)
+                )
                 .referrerPolicy(referrer -> referrer.policy(
                     org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN
+                ))
+                // Begin CSP in report-only mode. This intentionally does not block
+                // production assets until the Vite, map, image and payment-provider
+                // inventories have been verified against real browser reports.
+                .addHeaderWriter(new StaticHeadersWriter(
+                    "Content-Security-Policy-Report-Only",
+                    "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; " +
+                    "form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+                    "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; " +
+                    "font-src 'self' data: https:; connect-src 'self' https: wss:; " +
+                    "upgrade-insecure-requests"
+                ))
+                .addHeaderWriter(new StaticHeadersWriter(
+                    "Permissions-Policy",
+                    "camera=(), microphone=(), geolocation=(self), payment=(self)"
                 ))
             )
             .addFilterBefore(sessionAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
@@ -65,7 +100,7 @@ public class SecurityConfig {
                 ).permitAll()
 
                 // Public sign-in, registration verification and one-time portal handoff redemption.
-                .requestMatchers(HttpMethod.GET, "/privacy/notice-metadata").permitAll()
+                .requestMatchers(HttpMethod.GET, "/privacy/notice-metadata", "/auth/csrf").permitAll()
 
                 .requestMatchers(HttpMethod.POST,
                     "/auth/send-otp",
@@ -107,6 +142,8 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             );
 
+        otpAbuseProtectionFilterProvider.ifAvailable(filter -> http.addFilterBefore(filter, SessionAuthenticationFilter.class));
+        adminMfaFilterProvider.ifAvailable(filter -> http.addFilterAfter(filter, SessionAuthenticationFilter.class));
         return http.build();
     }
 
@@ -139,7 +176,9 @@ public class SecurityConfig {
             "X-Seller-Application-Token",
             "X-E2E-Run-Id",
             "X-E2E-Flow-Token",
-            "X-E2E-OTP-Token"
+            "X-E2E-OTP-Token",
+            "X-KU-CSRF",
+            "X-KU-Device-ID"
         ));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);

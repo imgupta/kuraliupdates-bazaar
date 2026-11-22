@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = HealthController.class)
-@Import({SecurityConfig.class, SessionAuthenticationFilter.class, SecurityConfigTest.ProbeController.class})
+@Import({SecurityConfig.class, SessionAuthenticationFilter.class, com.kuraliupdates.bazaar.config.SecurityFilterBeans.class, SecurityConfigTest.ProbeController.class})
 class SecurityConfigTest {
 
     @Autowired
@@ -36,8 +36,23 @@ class SecurityConfigTest {
     @Autowired
     private FilterRegistrationBean<SessionAuthenticationFilter> sessionAuthenticationFilterRegistration;
 
+    @Autowired
+    private FilterRegistrationBean<com.kuraliupdates.bazaar.security.OtpAbuseProtectionFilter> otpAbuseProtectionFilterRegistration;
+
+    @Autowired
+    private FilterRegistrationBean<com.kuraliupdates.bazaar.security.AdminMfaFilter> adminMfaFilterRegistration;
+
     @org.springframework.boot.test.mock.mockito.MockBean
     private AuthService authService;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.kuraliupdates.bazaar.service.ApiRateLimitService apiRateLimitService;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.kuraliupdates.bazaar.security.TrustedClientIpResolver trustedClientIpResolver;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.kuraliupdates.bazaar.service.AdminMfaService adminMfaService;
 
     @org.springframework.boot.test.mock.mockito.MockBean
     private DataSource dataSource;
@@ -72,13 +87,14 @@ class SecurityConfigTest {
         mockMvc.perform(options("/negotiations")
                 .header(HttpHeaders.ORIGIN, "https://buyer.kuraliupdates.com")
                 .header("Access-Control-Request-Method", "POST")
-                .header("Access-Control-Request-Headers", "authorization,x-active-role,x-e2e-run-id,x-e2e-flow-token"))
+                .header("Access-Control-Request-Headers", "authorization,x-active-role,x-e2e-run-id,x-e2e-flow-token,x-ku-device-id"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", "https://buyer.kuraliupdates.com"))
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
                         org.hamcrest.Matchers.allOf(
                                 org.hamcrest.Matchers.containsString("x-active-role"),
-                                org.hamcrest.Matchers.containsString("x-e2e-run-id"))));
+                                org.hamcrest.Matchers.containsString("x-e2e-run-id"),
+                                org.hamcrest.Matchers.containsString("x-ku-device-id"))));
     }
 
     @Test
@@ -115,8 +131,23 @@ class SecurityConfigTest {
     }
 
     @Test
+    void emitsReportOnlyCspAndRestrictiveBrowserFeaturePolicy() throws Exception {
+        mockMvc.perform(get("/health/live"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Security-Policy-Report-Only",
+                        org.hamcrest.Matchers.allOf(
+                                org.hamcrest.Matchers.containsString("default-src 'self'"),
+                                org.hamcrest.Matchers.containsString("object-src 'none'"),
+                                org.hamcrest.Matchers.containsString("frame-ancestors 'none'"))))
+                .andExpect(header().string("Permissions-Policy",
+                        org.hamcrest.Matchers.containsString("camera=()")));
+    }
+
+    @Test
     void sessionFilterIsRegisteredOnlyInsideSpringSecurityChain() {
         org.junit.jupiter.api.Assertions.assertFalse(sessionAuthenticationFilterRegistration.isEnabled());
+        org.junit.jupiter.api.Assertions.assertFalse(otpAbuseProtectionFilterRegistration.isEnabled());
+        org.junit.jupiter.api.Assertions.assertFalse(adminMfaFilterRegistration.isEnabled());
     }
 
     @Test

@@ -1,6 +1,6 @@
 # Phase 0 — Endpoint authorization and state inventory
 
-**Audit date:** 2026-11-11
+**Audit date:** 2026-11-20
 **Scope:** Static source review of Spring MVC controllers, security filter chain, session filter, ownership checks and cross-origin headers. This is an implementation inventory, not a penetration-test certification.
 
 ## Route policy
@@ -167,3 +167,25 @@ This does not replace Oracle-backed concurrency testing; the conditional update 
 ## 17 November 2026 — Daily Help booking identity source
 
 The authenticated buyer's session is now authoritative for the persisted Daily Help booking name and phone. The request remains the source only for service selection, selected slot, requested duration, and the service address/locality chosen for that booking. The controller rejects a phone that does not match the authenticated account and does not persist a client-supplied display name. Regression tests cover spoofed-name replacement and blank account-name rejection. This is a narrow hardening item, not a complete endpoint/IDOR certification; all other open route-owner gaps remain open.
+
+
+## 20 November 2026 — consolidated web security controls
+
+The following cross-cutting controls are now implemented on the web-only security branch:
+
+- Browser authentication uses the same-origin `/api/v1` route through Vercel and Vite. All standalone portals install the shared secure-fetch transport. Session cookies are HttpOnly, Secure and host-only; unsafe browser requests require the double-submit CSRF cookie/header pair. Browser-readable session tokens are replaced by a non-secret marker after migration.
+- Session credentials are stored as SHA-256 digests in Oracle. V46 adds immutable absolute expiry, a 30-minute sliding idle expiry and atomic opaque-token rotation. The browser refreshes at 15-minute active intervals; the database compare-and-update rejects concurrent/replayed refresh attempts. Absolute lifetime remains 12 hours.
+- OTP send is limited to 5/hour per identifier and 10/hour per pseudonymous device; verification is limited to 20/hour per identifier and 30/hour per device. The device value is untrusted friction only; the stored bucket key is hashed.
+- Trusted client-IP resolution ignores forwarded headers unless the immediate peer matches an explicitly configured trusted proxy CIDR. IP-derived OTP buckets are intentionally inactive until `KU_SECURITY_TRUSTED_PROXY_CIDRS` is populated with the verified Vercel/Render ingress chain. Do not infer or guess those CIDRs.
+- Admin routes retain the existing `ROLE_ADMIN` gate and now require a separate TOTP step-up for all non-MFA admin routes. TOTP secrets are AES-GCM encrypted; recovery codes are one-time hashes; step-up is bound to the active session and expires after 10 minutes. TOTP replay is rejected.
+- Admin mutations are written to append-only `SECURITY_AUDIT_EVENTS` (V44), with redacted handler metadata and failure logs. Seller and delivery-fleet admin responses use explicit DTOs rather than returning the JPA entities.
+
+### Still not certified / release gates
+
+- The route-family inventory above is not a complete endpoint-by-endpoint IDOR certification. Remaining work is to enumerate every identifier-bearing read and mutation, add positive/negative owner/role tests for every endpoint, and add DB-backed owner-isolation tests where repository query behavior is part of the boundary. The existing tests are a subset and many are mocked service/controller tests.
+- Explicit DTO conversion is currently limited to admin seller and delivery-fleet responses. Continue the response-contract inventory across buyer, seller, delivery, Daily Help, bargaining, tracking and admin.
+- Admin audit currently covers mutations, not all sensitive reads, authentication/session events or authorization denials. External alert routing, retention and access review are not configured.
+- CSP remains report-only pending actual browser reports and a verified asset inventory. Authenticated DAST has not been run.
+- V43–V46 Oracle migrations have not been applied to staging in this branch. Do not merge/deploy before isolated staging migration rehearsal, backup/rollback checks, refresh concurrency checks, admin MFA recovery rehearsal and full web role journeys.
+
+**Evidence boundary:** source and automated test changes only. No staging/production Oracle migration, production secret/config change or deployment is claimed by this section.

@@ -54,7 +54,7 @@ export const useAuthOperations = ({
     token?: string;
     serverUser?: any;
   }) => {
-    if (!params.token || !params.serverUser) {
+    if (!params.serverUser) {
       return { success: false, message: 'Authentication was not completed by the server.', role: 'buyer' as UserRole };
     }
 
@@ -114,8 +114,8 @@ export const useAuthOperations = ({
     setUser(updatedUser);
     setRoleState(effectiveRole);
     persistAuthSession(updatedUser);
-    persistAuthToken(params.token);
-    refreshBuyerAddresses(params.token, updatedUser.email);
+    persistAuthToken(params.token || '__COOKIE_SESSION__');
+    refreshBuyerAddresses(params.token || '__COOKIE_SESSION__', updatedUser.email);
 
     return {
       success: true,
@@ -144,7 +144,7 @@ export const useAuthOperations = ({
     token?: string;
     serverUser?: any;
   }) => {
-    if (!params.token || !params.serverUser) {
+    if (!params.serverUser) {
       return { success: false, message: 'Registration was not completed by the server.', role: 'buyer' as UserRole };
     }
 
@@ -186,8 +186,8 @@ export const useAuthOperations = ({
     setUser(updatedUser);
     setRoleState(effectiveRole);
     persistAuthSession(updatedUser);
-    persistAuthToken(params.token);
-    refreshBuyerAddresses(params.token, updatedUser.email);
+    persistAuthToken(params.token || '__COOKIE_SESSION__');
+    refreshBuyerAddresses(params.token || '__COOKIE_SESSION__', updatedUser.email);
 
     return { success: true, message: `Registration and OTP verification successful! Welcome ${updatedUser.name}.`, role: effectiveRole };
   };

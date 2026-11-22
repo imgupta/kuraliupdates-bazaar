@@ -34,7 +34,7 @@ public class PortalHandoffService {
         String code = HexFormat.of().formatHex(randomCode);
         repository.save(PortalHandoffEntity.builder()
                 .codeHash(sha256(code))
-                .sessionToken(sessionToken)
+                .sessionToken(AuthService.hashSessionToken(sessionToken))
                 .role(role)
                 .createdAt(now)
                 .expiresAt(now.plusSeconds(TTL_SECONDS))

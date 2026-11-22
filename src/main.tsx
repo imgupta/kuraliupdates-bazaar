@@ -2,6 +2,9 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { installSecureApiFetch } from './services/http/secureApiFetch';
+
+installSecureApiFetch();
 
 class AppErrorBoundary extends React.Component<
   { children: React.ReactNode },
