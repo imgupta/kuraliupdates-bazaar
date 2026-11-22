@@ -63,7 +63,7 @@ jobs:
 
   zap-baseline:
     name: OWASP ZAP staging baseline
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
       - name: Require an explicitly configured staging target
