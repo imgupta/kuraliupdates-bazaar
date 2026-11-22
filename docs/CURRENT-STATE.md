@@ -1,5 +1,19 @@
 # Current implementation status and remaining work
 
+## 22 November 2026 — PR #382 security release and staging verification
+
+This is the latest evidence checkpoint and supersedes older status statements below wherever they conflict. Full evidence and the overall pending register are in [Security release checkpoint — 22 November 2026](SECURITY-RELEASE-2026-11-22.md).
+
+- PR [#382](https://github.com/imgupta/kuraliupdates-bazaar/pull/382) merged to `main` as `65918519b5a17c51299e80545a77351216a5fdce`.
+- Six Vercel web projects (Bazaar, Buyer, Seller, Delivery, Admin, Daily Help) report READY on that exact SHA. The Render backend deployment is LIVE on the same SHA. These provider target labels do not create a separate production environment; the owner-designated environment remains shared staging.
+- Render startup logs confirm Flyway successfully applied V43–V46 to Oracle schema `ADMIN`; Flyway reported the schema at v46. This verifies those four migrations only, not a full schema/backup/restore audit.
+- Main CI run [#45007469777](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/45007469777) is **FAILED**: frontend checks and backend verification passed, CodeQL Java/JS and dependency scan passed, but browser E2E failed. Four tests passed, two admin authorization checks failed (expected 200, received 403), and six were skipped. Transactional lifecycle E2E was disabled.
+- Oracle recovery run [#45007469765](https://github.com/imgupta/kuraliupdates-bazaar/actions/runs/45007469765) is **FAILED**: synthetic seller-session issuance timed out after 30 seconds before expired-handoff cleanup/replay and checkout rollback checks ran.
+- The main-push ZAP job was skipped. The pre-merge PR baseline recorded 57 PASS, 11 WARN-NEW, zero FAIL-NEW and zero FAIL-INPROG; it was non-blocking and preceded the deployed Vercel edge-header change.
+- PR #382 adds same-origin API proxying, HttpOnly browser cookies and CSRF protection, V43 session-token hashing, OTP abuse controls, admin TOTP MFA/step-up, append-only admin mutation audit, browser idle/absolute expiry and token rotation, and security headers/CSP report-only.
+- **Release disposition:** staging deployment and V43–V46 application are confirmed; release validation remains open. Admin 403 E2E, Oracle recovery timeout, complete IDOR coverage, trusted proxy verification, authenticated DAST, backup/restore, data-residency and legal/operational sign-off remain outstanding.
+
+
 ## 11 November 2026 — active portal-role enforcement (PR #318 follow-up)
 
 The role-scoped session change in PR #318 is paired with backend enforcement at seller, seller-document, delivery and order-tracking entry points. Seller service calls require an active SELLER session; delivery controller/location operations require DELIVERY; buyer tracking and delivery OTP require BUYER; rider tracking requires DELIVERY plus the existing assignment/profile ownership checks. Regression tests reject cross-portal use even when one account owns multiple profiles. These are source and unit-test findings; exact-head CI and staging/runtime role-switch evidence remain required. No schema, database, credentials or deployment settings are changed.

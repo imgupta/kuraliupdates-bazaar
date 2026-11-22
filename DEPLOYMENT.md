@@ -1,5 +1,18 @@
 # Deployment and release runbook
 
+## Latest verified release — 22 November 2026
+
+PR #382 merge SHA: `65918519b5a17c51299e80545a77351216a5fdce`.
+
+- Six Vercel projects (Bazaar, Buyer, Seller, Delivery, Admin, Daily Help) are READY on the merge SHA. Provider deployment target is labelled production, but the owner-designated environment remains shared staging.
+- Render deployment `dep-dc1ba0e417fc73bc5kf0` is LIVE on the same SHA.
+- Render startup logs confirm Flyway applied V43–V46 to Oracle schema ADMIN; schema is at v46.
+- Main CI #45007469777 failed at two admin-positive browser E2E assertions (403 instead of 200); four passed and six skipped. Transactional lifecycle E2E was disabled.
+- Oracle recovery run #45007469765 timed out during synthetic seller-session issuance before cleanup/rollback checks.
+- Main-push ZAP was skipped. The pre-merge baseline had 11 warnings and preceded the deployed edge headers.
+
+Do not treat deployment readiness or migration success as full release validation. See [Security release checkpoint](docs/SECURITY-RELEASE-2026-11-22.md) for failure details and the release backlog.
+
 ## Environment
 
 There is one deployed environment designated **staging** by the owner. Public custom domains and Render API are part of this same environment; do not assume a separate production environment.
@@ -53,5 +66,8 @@ The current Oracle runtime path is walletless TLS. Do not reintroduce wallet-dir
 Rollback application deployment to last known-good commit. Assess database compatibility separately; do not rewrite Flyway history or blindly reverse applied schema changes. Prefer a forward corrective migration.
 
 ## Security
+
+PR #382 adds same-origin browser API proxying, HttpOnly cookie sessions and double-submit CSRF, session token hashing (V43), OTP abuse limits, admin TOTP MFA/step-up, admin mutation audit events, browser idle/absolute expiry and rotation, and edge/backend security headers. Keep `KU_SECURITY_TRUSTED_PROXY_CIDRS` empty until exact proxy CIDRs are independently verified; CSP remains report-only pending report review. Do not rotate `JWT_SECRET` without an approved MFA encryption-key migration/re-enrollment plan. See [Security release checkpoint](docs/SECURITY-RELEASE-2026-11-22.md).
+
 
 Keep credentials in hosting secret stores. Never commit or log OTPs, tokens, Oracle credentials, private seller documents or personal data. Treat historical wallet files/credentials as potentially exposed if they were ever committed; verify rotation/revocation independently rather than assuming a code removal rotated secrets.
