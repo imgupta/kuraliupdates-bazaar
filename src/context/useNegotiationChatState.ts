@@ -68,10 +68,11 @@ export const useNegotiationChatState = ({ role, user, products, updateExistingBa
       // Only a live transition into ACCEPTED adds the product. Initial hydration of
       // historical accepted chats is deliberately ignored, and the transition map
       // prevents polling/reconnects from re-adding an item the buyer later removed.
-      if (product && previous && previous !== 'ACCEPTED' && status === 'ACCEPTED') {
+      const newlyAccepted = previous != null && previous !== 'ACCEPTED' && status === 'ACCEPTED';
+      if (product && newlyAccepted && chat.currentAgreedPrice != null) {
         const acceptedMessage = [...chat.messages].reverse().find(message => message.offer?.status === 'accepted');
-        const agreedPrice = chat.currentAgreedPrice ?? acceptedMessage?.offer?.offeredPrice;
-        if (agreedPrice != null && Number.isFinite(agreedPrice) && agreedPrice > 0) {
+        const agreedPrice = chat.currentAgreedPrice;
+        if (Number.isFinite(agreedPrice) && agreedPrice > 0) {
           upsertBargainCartItem(product, chat.id, 'ACCEPTED', agreedPrice, agreedPrice, acceptedMessage?.offer?.id);
         }
       } else if (product && status !== 'ACCEPTED' && status !== 'CLOSED_PURCHASED') {
