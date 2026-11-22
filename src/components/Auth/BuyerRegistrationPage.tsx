@@ -191,7 +191,7 @@ export const BuyerRegistrationPage: React.FC = () => {
               </div>}
             </section>
             <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3 flex gap-2"><ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" /><p className="text-[11px] text-emerald-800">Your contact details are verified before account creation. A delivery address is only needed when you place an order.</p></div>
-            <button type="button" onClick={sendOtp} disabled={loading} className="w-full rounded-2xl bg-slate-950 py-3.5 text-sm font-black text-white hover:bg-black disabled:opacity-50"><ShoppingBag className="inline w-4 h-4 mr-2" /> {loading ? 'Sending verification codes…' : 'Continue & verify email and mobile'}</button>
+            <button type="button" onClick={sendOtp} disabled={loading} className="w-full rounded-2xl bg-slate-950 py-3.5 text-sm font-black text-white hover:bg-black disabled:opacity-50"><ShoppingBag className="inline w-4 h-4 mr-2" /> {loading ? 'Sending verification codes…' : 'Continue & verify contact details'}</button>
           </> : <div className="max-w-md mx-auto text-center py-8">
             <div className="mx-auto w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center"><Mail className="w-7 h-7 text-amber-700" /></div>
             <h2 className="mt-4 text-xl font-black text-slate-900">Verify your contact details</h2>
