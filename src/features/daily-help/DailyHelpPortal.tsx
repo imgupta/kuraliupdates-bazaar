@@ -181,7 +181,7 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
                       <p className="text-[10px] text-slate-300 mt-1 text-center">Timer starts after start OTP and is capped at the booked {job.requestedHours} hour duration.</p>
                       {elapsedRaw >= bookedSeconds && <p className="mt-2 rounded-lg bg-amber-400/15 p-2 text-[10px] text-amber-200 text-center">Booked duration reached. Job remains open until customer OTP or audited override is submitted.</p>}
                       <label className="block mt-3 text-[11px] font-bold text-slate-200">Customer completion OTP
-                        <input value={completionOtpInputs[job.id] || ''} onChange={e => setCompletionOtpInputs(p => ({...p, [job.id]: e.target.value.replace(/\\D/g, '').slice(0,4)}))} maxLength={4} inputMode="numeric" placeholder="4-digit end OTP" className="mt-1 w-full rounded-xl border border-slate-600 bg-white px-3 py-2.5 text-center font-mono font-black text-slate-900" />
+                        <input value={completionOtpInputs[job.id] || ''} onChange={e => setCompletionOtpInputs(p => ({...p, [job.id]: e.target.value.replace(/\D/g, '').slice(0,4)}))} maxLength={4} inputMode="numeric" placeholder="4-digit end OTP" className="mt-1 w-full rounded-xl border border-slate-600 bg-white px-3 py-2.5 text-center font-mono font-black text-slate-900" />
                       </label>
                       <button onClick={() => complete(job)} className="mt-2 w-full px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-black cursor-pointer flex items-center justify-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> Verify OTP & Complete</button>
                       <details className="mt-3 rounded-xl border border-white/15 p-3">
