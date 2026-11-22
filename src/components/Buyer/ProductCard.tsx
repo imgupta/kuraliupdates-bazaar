@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, ShoppingBag, Star, Store, Plus, Minus } from 'lucide-react';
+import { MessageSquare, ShoppingBag, Star, Store, Plus, Minus, Heart } from 'lucide-react';
 import { Product } from '../../types';
 
 interface ProductCardProps {
@@ -9,20 +9,22 @@ interface ProductCardProps {
   onAddToCart: (product: Product) => void;
   onRemoveFromCart: (product: Product) => void;
   onViewDetails: (product: Product) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (product: Product) => void;
 }
 
 const getEffectivePrice = (product: Product) =>
   Math.round(product.sellerPrice * (1 - product.additionalDiscountPercent / 100));
 
 export const ProductCard: React.FC<ProductCardProps> = ({
-  product, quantity, onBargain, onAddToCart, onRemoveFromCart, onViewDetails,
+  product, quantity, onBargain, onAddToCart, onRemoveFromCart, onViewDetails, isFavorite = false, onToggleFavorite,
 }) => {
   const effectivePrice = getEffectivePrice(product);
   const savings = Math.max(0, product.mrp - effectivePrice);
   const discount = product.mrp > 0 ? Math.round((savings / product.mrp) * 100) : 0;
 
   return (
-    <article className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:border-amber-300 hover:shadow-md">
+    <article className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:border-amber-300 hover:shadow-md">
       <button onClick={() => onViewDetails(product)} className="w-full cursor-pointer text-left" aria-label={`View ${product.title} details`}>
         <div className="relative aspect-square overflow-hidden bg-slate-50">
           {product.image ? (
@@ -39,6 +41,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
         </div>
       </button>
+      {onToggleFavorite && (
+        <button type="button" onClick={() => onToggleFavorite(product)}
+          aria-label={isFavorite ? `Remove ${product.title} from favourites` : `Save ${product.title} to favourites`}
+          aria-pressed={isFavorite}
+          className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-rose-600 shadow-sm transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500">
+          <Heart className={`h-4 w-4 ${isFavorite ? 'fill-rose-500' : ''}`} />
+        </button>
+      )}
 
       <div className="space-y-2.5 p-2.5 sm:p-3.5">
         <button onClick={() => onViewDetails(product)} className="w-full cursor-pointer text-left">
