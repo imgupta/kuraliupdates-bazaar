@@ -194,9 +194,12 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
           emailOtp: code,
         });
 
-        if (!response.success || !response.token || !response.user) {
+        if (!response.success || !response.user) {
           throw new Error(response.message || 'Registration verification failed');
         }
+        // First-party browser sessions are issued as HttpOnly cookies; the server
+        // intentionally omits the credential from JSON for these requests.
+        const sessionToken = response.token || '__COOKIE_SESSION__';
 
         const result = registerUserWithOtp({
           name,
@@ -206,7 +209,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
           locality,
           role: registrationRole,
           address,
-          token: response.token,
+          token: sessionToken,
           serverUser: response.user,
         });
 
@@ -216,7 +219,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
           return;
         }
         setOnboardingStatus('PENDING');
-        setPendingToken(response.token);
+        setPendingToken(sessionToken);
         setApplicationSubmitted(true);
         return;
       }
@@ -232,9 +235,12 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
         role: loginRole ?? (roleRegistration ? registrationRole.toUpperCase() : undefined),
       });
 
-      if (!response.success || !response.token || !response.user) {
+      if (!response.success || !response.user) {
         throw new Error(response.message || 'OTP verification failed');
       }
+      // Browser login authenticates through the HttpOnly cookie. A JSON token
+      // is only present for non-browser compatibility clients.
+      const sessionToken = response.token || '__COOKIE_SESSION__';
 
       const serverRole = (response.user.role || '').toLowerCase();
       const requestedProfileRole = registrationRole === 'delivery'
@@ -242,11 +248,11 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
         : registrationRole === 'professional'
           ? 'PROFESSIONAL'
           : undefined;
-      if (requestedProfileRole && response.token) {
-        const approval = await bazaarApi.getOnboardingStatus(response.token, requestedProfileRole);
+      if (requestedProfileRole) {
+        const approval = await bazaarApi.getOnboardingStatus(sessionToken, requestedProfileRole);
         if (approval.success && approval.status !== 'APPROVED') {
           setOnboardingStatus(approval.status || 'PENDING');
-          setPendingToken(response.token);
+          setPendingToken(sessionToken);
           setApplicationSubmitted(true);
           return;
         }
@@ -256,7 +262,7 @@ const AuthPageV2Legacy: React.FC<AuthPageV2Props> = ({ registrationRole = 'buyer
         identifier,
         email: contactMethod === 'email' ? identifier : undefined,
         phone: contactMethod === 'phone' ? identifier : undefined,
-        token: response.token,
+        token: sessionToken,
         serverUser: response.user,
       });
       showToast(result.message, 'success');
