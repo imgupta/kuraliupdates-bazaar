@@ -23,6 +23,8 @@ import org.springframework.jdbc.core.ResultSetExtractor;
 import org.mockito.ArgumentMatchers;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.Optional;
 
@@ -553,6 +555,37 @@ class OrderServiceTest {
         verify(orderRepository, never()).saveAndFlush(any(OrderEntity.class));
         verify(orderRepository, never()).saveAll(any(Iterable.class));
         verify(productRepository, never()).findLockedByProductId(anyString());
+    }
+
+    @Test
+    void matchingCheckoutIdempotencyKeyReplaysExistingOrderWithoutReservingStockAgain() throws Exception {
+        PlaceOrderRequest checkoutRequest = request("COD", List.of(new OrderItemRequest("P-1", 1, null)));
+        String hash = java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                .digest(String.valueOf(checkoutRequest).getBytes(StandardCharsets.UTF_8)));
+        when(jdbc.queryForMap(contains("SELECT REQUEST_HASH,ORDER_ID"), any(Object[].class)))
+                .thenReturn(Map.of("REQUEST_HASH", hash, "ORDER_ID", "ORD-REPLAY", "CHECKOUT_GROUP_ID", ""));
+        OrderEntity existing = OrderEntity.builder().orderId("ORD-REPLAY")
+                .buyerEmail("authenticated@example.test").status("PLACED").items(new java.util.ArrayList<>()).build();
+        when(orderRepository.findById("ORD-REPLAY")).thenReturn(Optional.of(existing));
+
+        var result = orderService.placeOrder(checkoutRequest, buyer(), null, "checkout-key-0001");
+
+        assertEquals("ORD-REPLAY", result.order().orderId());
+        verify(orderRepository).findById("ORD-REPLAY");
+        verifyNoInteractions(productRepository, sellerRepository);
+    }
+
+    @Test
+    void checkoutIdempotencyKeyCannotBeReusedForDifferentPayload() throws Exception {
+        PlaceOrderRequest checkoutRequest = request("COD", List.of(new OrderItemRequest("P-1", 1, null)));
+        when(jdbc.queryForMap(contains("SELECT REQUEST_HASH,ORDER_ID"), any(Object[].class)))
+                .thenReturn(Map.of("REQUEST_HASH", "different-request-hash", "ORDER_ID", "ORD-OTHER", "CHECKOUT_GROUP_ID", ""));
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> orderService.placeOrder(checkoutRequest, buyer(), null, "checkout-key-0002"));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        verifyNoInteractions(productRepository, sellerRepository, orderRepository);
     }
 
     @Test
