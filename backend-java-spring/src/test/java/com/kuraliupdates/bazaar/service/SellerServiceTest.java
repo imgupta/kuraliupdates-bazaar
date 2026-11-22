@@ -20,6 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -39,6 +40,7 @@ class SellerServiceTest {
     @Mock private OrderRepository orderRepository;
     @Mock private SellerDirectPaymentService sellerDirectPaymentService;
     @Mock private BillDiscountRepository billDiscountRepository;
+    @Mock private JdbcTemplate jdbcTemplate;
     @InjectMocks private SellerService sellerService;
 
     @Test
@@ -371,6 +373,42 @@ class SellerServiceTest {
 
         assertEquals(HttpStatus.FORBIDDEN, error.getStatus());
         verify(billDiscountRepository, never()).delete(any(BillDiscountEntity.class));
+    }
+
+
+    @Test
+    void sellerCanUpdateOwnShopAddressAndLocationVerificationIsReset() {
+        SellerEntity seller = approvedSeller("SELLER-1");
+        seller.setLatitude(new BigDecimal("30.8300000"));
+        seller.setLongitude(new BigDecimal("76.5700000"));
+        seller.setLocationVerified(true);
+        stubSeller(seller);
+        when(authService.requireUser(TOKEN)).thenReturn(UserEntity.builder()
+                .userId("USER-1").email("seller@example.com").name("Store Owner").role("SELLER").build());
+        when(sellerRepository.save(any(SellerEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        SellerEntity updated = sellerService.updateOwnAddress(TOKEN, "Shop 12, Main Road",
+                "Main Bazaar", new BigDecimal("30.8310000"), new BigDecimal("76.5780000"));
+
+        assertEquals("Shop 12, Main Road", updated.getAddress());
+        assertEquals("Main Bazaar", updated.getLocality());
+        assertEquals(new BigDecimal("30.8310000"), updated.getLatitude());
+        assertEquals(false, updated.getLocationVerified());
+        verify(sellerRepository).save(seller);
+        verify(jdbcTemplate).update(contains("SELLER_ADDRESS_CHANGE"), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void sellerAddressUpdateRejectsInvalidCoordinatesWithoutSaving() {
+        SellerEntity seller = approvedSeller("SELLER-1");
+        stubSeller(seller);
+
+        ApiException error = assertThrows(ApiException.class, () -> sellerService.updateOwnAddress(
+                TOKEN, "Shop 12", "Kurali", new BigDecimal("91"), new BigDecimal("76.5")));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verify(sellerRepository, never()).save(any());
+        verifyNoInteractions(jdbcTemplate);
     }
 
     private SellerProductRequest productRequest() {
