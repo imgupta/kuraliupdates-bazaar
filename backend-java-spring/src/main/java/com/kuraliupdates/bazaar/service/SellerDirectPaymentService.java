@@ -61,6 +61,19 @@ public class SellerDirectPaymentService {
     }
 
     @Transactional(readOnly = true)
+    public Map<String,Object> buyerPaymentOptions(String sellerId) {
+        try {
+            Map<String,Object> row = jdbc.queryForMap(
+                    "SELECT s.COD_ENABLED AS \"codEnabled\",CASE WHEN EXISTS (SELECT 1 FROM SELLER_PAYMENT_DESTINATIONS d WHERE d.SELLER_ID=s.SELLER_ID AND d.VERIFICATION_STATUS='VERIFIED' AND d.ACTIVE_FLAG=1) THEN 1 ELSE 0 END AS \"upiEnabled\" FROM SELLERS s WHERE s.SELLER_ID=? AND s.STATUS='APPROVED' AND s.STORE_OPEN=1",
+                    sellerId);
+            return Map.of("sellerId", sellerId, "codEnabled", ((Number) row.get("codEnabled")).intValue() == 1,
+                    "upiEnabled", ((Number) row.get("upiEnabled")).intValue() == 1);
+        } catch (org.springframework.dao.EmptyResultDataAccessException ex) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "Seller is not currently available for checkout");
+        }
+    }
+
+    @Transactional(readOnly = true)
     public List<Map<String,Object>> codSettings() {
         return jdbc.queryForList("SELECT SELLER_ID AS \"sellerId\",STORE_NAME AS \"storeName\",COD_ENABLED AS \"codEnabled\" FROM SELLERS ORDER BY STORE_NAME");
     }
