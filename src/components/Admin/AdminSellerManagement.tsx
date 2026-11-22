@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, MapPin, RefreshCw, Save, Search, Store, XCircle } from 'lucide-react';
 import { adminApi } from '../../services/domains/adminApi';
+import { API_BASE_URL, adminAuthHeaders } from '../../services/http/apiConfig';
 
 type Seller = Record<string, any>;
 type Tab = 'manage' | 'locations';
@@ -21,8 +22,8 @@ export const AdminSellerManagement: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`${(await import('../../services/http/apiConfig')).API_BASE_URL}/admin/sellers`, {
-        headers: (await import('../../services/http/apiConfig')).adminAuthHeaders(),
+      const response = await fetch(`${API_BASE_URL}/admin/sellers`, {
+        headers: adminAuthHeaders(),
         cache: 'no-store',
       });
       const data = await response.json().catch(() => []);
@@ -40,7 +41,7 @@ export const AdminSellerManagement: React.FC = () => {
   useEffect(() => { void load(); }, []);
 
   const selected = rows.find(seller => seller.sellerId === selectedId) || null;
-  useEffect(() => { setEditing(selected ? { ...selected } : null); }, [selectedId, rows.length]);
+  useEffect(() => { setEditing(selected ? { ...selected } : null); }, [selected]);
 
   const pendingLocations = useMemo(() => rows.filter(seller =>
     String(seller.status || '').toUpperCase() === 'APPROVED' && seller.locationVerified !== true
@@ -57,9 +58,9 @@ export const AdminSellerManagement: React.FC = () => {
     }
     setSaving(true); setError('');
     try {
-      const response = await fetch(`${(await import('../../services/http/apiConfig')).API_BASE_URL}/admin/sellers/${encodeURIComponent(editing.sellerId)}`, {
+      const response = await fetch(`${API_BASE_URL}/admin/sellers/${encodeURIComponent(editing.sellerId)}`, {
         method: 'PATCH',
-        headers: { ...(await import('../../services/http/apiConfig')).adminAuthHeaders(), 'Content-Type': 'application/json' },
+        headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
           storeName: editing.storeName, ownerName: editing.ownerName, phone: editing.phone,
           category: editing.category, address: editing.address, locality: editing.locality,
