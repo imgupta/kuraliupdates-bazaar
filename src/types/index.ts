@@ -144,7 +144,7 @@ export interface Order {
   isFreeDelivery: boolean;
   totalAmount: number;
   paymentMethod: 'UPI' | 'Card' | 'COD' | 'NetBanking' | 'StorePay';
-  paymentStatus: 'paid' | 'pending_cod' | 'pending';
+  paymentStatus: 'paid' | 'pending_cod' | 'pending_upi' | 'payment_expired' | 'cancelled' | 'pending';
   status: OrderStatus;
   placedAt: string;
   deliveryAgentId?: string;
