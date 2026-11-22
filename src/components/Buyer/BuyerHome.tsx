@@ -78,7 +78,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
       </div>
       {mode === 'shop' ? <OnlineShopHome {...props} /> : <DailyHelpHome searchQuery={props.searchQuery} />}
 
-      {(cart.length > 0 || activeOrders.length > 0) && !props.isCheckoutOpen && (
+      {((mode === 'shop' && cart.length > 0) || activeOrders.length > 0) && !props.isCheckoutOpen && (
         <section className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)]" aria-label="Cart and current orders">
           <div className="mx-auto flex max-w-screen-xl items-stretch gap-2 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-[0_-8px_28px_rgba(15,23,42,0.18)] backdrop-blur-md">
             {activeOrders.length > 0 && (
