@@ -24,6 +24,8 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.math.RoundingMode;
 import java.security.SecureRandom;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -43,7 +45,22 @@ public class OrderService {
     @Transactional
     public com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse placeMultiSellerOrder(
             MultiSellerCheckoutRequest request, UserEntity buyer, String e2eRunId) {
+        return placeMultiSellerOrder(request, buyer, e2eRunId, null);
+    }
+
+    @Transactional
+    public com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse placeMultiSellerOrder(
+            MultiSellerCheckoutRequest request, UserEntity buyer, String e2eRunId, String idempotencyKey) {
         requireBuyer(buyer);
+        String requestHash = requestHash(request);
+        var previous = findPreviousCheckout(idempotencyKey, buyer.getEmail(), requestHash);
+        if (previous != null) {
+            String groupId = (String) previous.get("CHECKOUT_GROUP_ID");
+            if (groupId == null) throw new ApiException(HttpStatus.CONFLICT, "Checkout idempotency record is incomplete; retry with the same key");
+            List<OrderEntity> existing = orderRepository.findLockedByCheckoutGroupId(groupId);
+            return new com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse(groupId,
+                    existing.stream().map(o -> new OrderPlacementResponse(OrderResponse.from(o), o.getDeliveryOtp())).toList());
+        }
         if (request == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Checkout request is required");
         }
@@ -141,6 +158,7 @@ public class OrderService {
             placed.add(new OrderPlacementResponse(OrderResponse.from(savedOrders.get(i)),
                     originalPlacements.get(i).deliveryOtp()));
         }
+        storeCheckoutRequest(idempotencyKey, buyer.getEmail(), requestHash, null, checkoutGroupId);
         return new com.kuraliupdates.bazaar.dto.order.MultiSellerOrderPlacementResponse(checkoutGroupId, List.copyOf(placed));
     }
 
@@ -151,7 +169,20 @@ public class OrderService {
 
     @Transactional
     public OrderPlacementResponse placeOrder(PlaceOrderRequest request, UserEntity buyer, String e2eRunId) {
+        return placeOrder(request, buyer, e2eRunId, null);
+    }
+
+    @Transactional
+    public OrderPlacementResponse placeOrder(PlaceOrderRequest request, UserEntity buyer, String e2eRunId, String idempotencyKey) {
         requireBuyer(buyer);
+        var previous = findPreviousCheckout(idempotencyKey, buyer.getEmail(), requestHash(request));
+        if (previous != null) {
+            String orderId = (String) previous.get("ORDER_ID");
+            if (orderId == null) throw new ApiException(HttpStatus.CONFLICT, "Checkout idempotency record is incomplete; retry with the same key");
+            OrderEntity existing = orderRepository.findLockedByOrderId(orderId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "Previously created order could not be reloaded"));
+            return new OrderPlacementResponse(OrderResponse.from(existing), existing.getDeliveryOtp());
+        }
         if (request.paymentMethod() == null || !Set.of("COD", "UPI").contains(request.paymentMethod().trim().toUpperCase(Locale.ROOT))) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Select Cash on Delivery or seller-direct UPI.");
         }
@@ -304,6 +335,7 @@ public class OrderService {
         }
         orderItems.forEach(item -> item.setOrder(order));
         OrderEntity saved = orderRepository.save(order);
+        storeCheckoutRequest(idempotencyKey, buyer.getEmail(), requestHash(request), saved.getOrderId(), null);
         // UPI instructions are snapshotted only from an admin-verified active seller destination.
         // The payment record is seller-specific; no funds pass through KuraliUpdates.
         sellerDirectPaymentService.createForOrder(saved);
@@ -476,6 +508,43 @@ public class OrderService {
                 .filter(candidate -> OrderBuyerAccessPolicy.owns(candidate, buyer.getEmail()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
         return OrderResponse.from(order);
+    }
+
+    private Map<String,Object> findPreviousCheckout(String key, String buyerEmail, String hash) {
+        if (key == null || key.isBlank()) return null;
+        String normalized = key.trim();
+        if (!normalized.matches("[A-Za-z0-9._:-]{8,100}"))
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Idempotency-Key must contain 8–100 safe characters");
+        try {
+            Map<String,Object> row = jdbc.queryForMap(
+                    "SELECT REQUEST_HASH,ORDER_ID,CHECKOUT_GROUP_ID FROM BUYER_CHECKOUT_IDEMPOTENCY WHERE BUYER_EMAIL=? AND IDEMPOTENCY_KEY=?",
+                    buyerEmail.trim().toLowerCase(Locale.ROOT), normalized);
+            if (!hash.equals(row.get("REQUEST_HASH")))
+                throw new ApiException(HttpStatus.CONFLICT, "This idempotency key was already used for a different checkout request");
+            return row;
+        } catch (org.springframework.dao.EmptyResultDataAccessException ignored) {
+            return null;
+        }
+    }
+
+    private void storeCheckoutRequest(String key, String buyerEmail, String hash, String orderId, String groupId) {
+        if (key == null || key.isBlank()) return;
+        try {
+            jdbc.update("INSERT INTO BUYER_CHECKOUT_IDEMPOTENCY (BUYER_EMAIL,IDEMPOTENCY_KEY,REQUEST_HASH,ORDER_ID,CHECKOUT_GROUP_ID,CREATED_AT) VALUES (?,?,?,?,?,?)",
+                    buyerEmail.trim().toLowerCase(Locale.ROOT), key.trim(), hash, orderId, groupId, LocalDateTime.now());
+        } catch (org.springframework.dao.DuplicateKeyException duplicate) {
+            throw new ApiException(HttpStatus.CONFLICT, "A checkout with this idempotency key is already being processed. Retry using the same key.");
+        }
+    }
+
+    private String requestHash(Object request) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(String.valueOf(request).getBytes(StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        }
     }
 
     private void requireBuyer(UserEntity buyer) {
