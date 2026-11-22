@@ -400,6 +400,8 @@ class SellerServiceTest {
 
     @Test
     void sellerAddressUpdateRejectsInvalidCoordinatesWithoutSaving() {
+        when(authService.requireSessionRole(TOKEN)).thenReturn("SELLER");
+
         ApiException error = assertThrows(ApiException.class, () -> sellerService.updateOwnAddress(
                 TOKEN, "Shop 12", "Kurali", new BigDecimal("91"), new BigDecimal("76.5")));
 
