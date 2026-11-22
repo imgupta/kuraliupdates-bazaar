@@ -27,6 +27,12 @@ public class DailyHelpBookingEntity {
     @Column(name = "OTP_VERIFIED_AT") private LocalDateTime otpVerifiedAt;
     @Column(name = "SERVICE_STARTED_AT") private LocalDateTime serviceStartedAt;
     @Column(name = "SERVICE_COMPLETED_AT") private LocalDateTime serviceCompletedAt;
+    @Column(name = "COMPLETION_OTP", length = 10) private String completionOtp;
+    @Column(name = "COMPLETION_OTP_ATTEMPTS", nullable = false) private Integer completionOtpAttempts;
+    @Column(name = "COMPLETION_OTP_VERIFIED_AT") private LocalDateTime completionOtpVerifiedAt;
+    @Column(name = "COMPLETION_OVERRIDE_REASON", length = 1000) private String completionOverrideReason;
+    @Column(name = "COMPLETION_OVERRIDE_BY", length = 64) private String completionOverrideBy;
+    @Column(name = "COMPLETION_OVERRIDE_AT") private LocalDateTime completionOverrideAt;
     @Column(name = "E2E_RUN_ID", length = 80) private String e2eRunId;
     @Column(name = "CREATED_AT", nullable = false) private LocalDateTime createdAt;
     @Column(name = "UPDATED_AT", nullable = false) private LocalDateTime updatedAt;
