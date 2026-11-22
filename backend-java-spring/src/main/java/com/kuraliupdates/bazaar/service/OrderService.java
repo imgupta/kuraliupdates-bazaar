@@ -139,6 +139,9 @@ public class OrderService {
             BigDecimal perKmFee = deliveryConfigurationService.customerPerKmFee();
             BigDecimal roadKm = googleRoutesService.calculateCombinedRouteKm(savedOrders);
             BigDecimal routeForLimit = roadKm != null ? roadKm : approximateCombinedRouteKm(savedOrders);
+            if (routeForLimit == null && savedOrders.size() > 1) {
+                throw new ApiException(HttpStatus.CONFLICT, "Combined seller route cannot be verified. Choose sellers with verified locations or use separate checkouts.");
+            }
             if (routeForLimit != null && routeForLimit.compareTo(deliveryConfigurationService.maxRouteKm()) > 0) {
                 throw new ApiException(HttpStatus.CONFLICT, "Combined seller pickup route exceeds the configured delivery route limit");
             }
@@ -589,7 +592,15 @@ public class OrderService {
     private void validateSellerDeliveryRadius(SellerEntity seller, Double buyerLatitude, Double buyerLongitude) {
         if (seller == null || !Boolean.TRUE.equals(seller.getLocationVerified())
                 || seller.getLatitude() == null || seller.getLongitude() == null
-                || buyerLatitude == null || buyerLongitude == null) return;
+                || buyerLatitude == null || buyerLongitude == null) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Delivery radius cannot be verified for this seller and address. Use store pickup or update verified location details.");
+        }
+        if (buyerLatitude < -90 || buyerLatitude > 90 || buyerLongitude < -180 || buyerLongitude > 180
+                || seller.getLatitude().doubleValue() < -90 || seller.getLatitude().doubleValue() > 90
+                || seller.getLongitude().doubleValue() < -180 || seller.getLongitude().doubleValue() > 180) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A valid verified delivery location is required.");
+        }
         double lat1 = Math.toRadians(seller.getLatitude().doubleValue());
         double lat2 = Math.toRadians(buyerLatitude);
         double deltaLat = Math.toRadians(buyerLatitude - seller.getLatitude().doubleValue());
