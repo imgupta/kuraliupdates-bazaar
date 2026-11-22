@@ -400,9 +400,6 @@ class SellerServiceTest {
 
     @Test
     void sellerAddressUpdateRejectsInvalidCoordinatesWithoutSaving() {
-        SellerEntity seller = approvedSeller("SELLER-1");
-        stubSeller(seller);
-
         ApiException error = assertThrows(ApiException.class, () -> sellerService.updateOwnAddress(
                 TOKEN, "Shop 12", "Kurali", new BigDecimal("91"), new BigDecimal("76.5")));
 
