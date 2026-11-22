@@ -23,6 +23,7 @@ import type { CartItem } from '../../types';
 
 interface CheckoutModalProps {
   onClose: () => void;
+  items?: CartItem[];
 }
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) => {
@@ -76,6 +77,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
         deliveryLocality,
         paymentMethod,
         fulfilmentMode,
+        ...(isolatedBuyNow ? { items: checkoutItems } : {}),
       });
 
       if (created) {
@@ -115,7 +117,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
           <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between text-xs">
             <span className="flex items-center gap-2 text-amber-900 font-bold">
               <Truck className="w-4 h-4 text-amber-600" />
-              {fulfilmentMode === 'STORE_PICKUP' ? 'Store pickup selected — no delivery charge' : cartCalculations.isFreeDelivery
+              {isolatedBuyNow ? 'Delivery charge confirmed after seller acceptance' : fulfilmentMode === 'STORE_PICKUP' ? 'Store pickup selected — no delivery charge' : cartCalculations.isFreeDelivery
                 ? 'FREE Delivery Qualified (Order > Min Threshold)'
                 : `Standard Delivery Fee: ₹${cartCalculations.deliveryFee}`}
             </span>
