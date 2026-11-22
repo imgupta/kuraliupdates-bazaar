@@ -1,7 +1,7 @@
 # Buyer Portal Implementation Report
 
 **Branch:** `feat/buyer-portal-complete-seller-direct-checkout`  
-**Status:** Expanded implementation committed to this branch; final verification pending  
+**Status:** Functional source implementation complete; exact-head CI passed; Oracle migration and transactional staging verification pending  
 **Date:** 22 November 2026
 
 This is a single consolidated implementation on PR #390. It does not create a new PR and does not claim production readiness before CI, migration and staging evidence.
@@ -60,19 +60,19 @@ This is a single consolidated implementation on PR #390. It does not create a ne
 
 | Check | Result |
 |---|---|
-| Source changes | Committed to PR #390 branch |
-| Seller-direct payment service tests | Added; CI execution pending |
-| Buyer search, favourites, saved lists and Buy Again regressions | Added; CI execution pending |
+| Source changes | Committed to PR #390 branch; latest tested source head `59c7e090d0f007e82e220b130937cbb64ddfc916` |
+| Seller-direct payment service tests | Passed on exact tested head |
+| Buyer search, favourites, saved lists and Buy Again regressions | Passed on exact tested head |
 | Existing order/seller service test injection | Updated for new service dependency |
-| Frontend TypeScript/build | Pending latest-head CI |
-| Backend tests | Pending latest-head CI |
-| Security scans / Docker gate | Pending latest-head CI |
-| Browser E2E and read-only API smoke | Pending latest-head CI |
-| Oracle V48/V49 migration execution | Not yet verified against staging Oracle |
-| Multi-seller UPI partial-payment rehearsal | Not run |
-| UTR duplicate/idempotency concurrency rehearsal | Not run |
-| Seller/admin/buyer live staging E2E | Not run |
-| Final status | **IMPLEMENTED IN SOURCE — VERIFICATION PENDING** |
+| Frontend TypeScript/build | Passed on exact tested head |
+| Backend tests | Passed on exact tested head (full Maven verification suite) |
+| Security scans / Docker gate | Passed (CodeQL Java/Kotlin and JavaScript/TypeScript, dependency scan, OWASP ZAP, Docker image gate) |
+| Browser E2E and read-only API smoke | Passed on exact tested head; staging role/fixture preflight passed |
+| Oracle V48/V49 migration execution | Not yet verified against isolated staging Oracle |
+| Multi-seller UPI partial-payment rehearsal | Not run against Oracle staging; service-level tests only |
+| UTR/checkout idempotency database concurrency rehearsal | Not run against Oracle staging; checkout replay/payload-conflict unit tests passed |
+| Mutating seller/admin/buyer transactional staging E2E | Not run; CI staging E2E and smoke are configured as read-only/synthetic preflight |
+| Final status | **SOURCE COMPLETE; CI PASSED; ORACLE/STAGING VALIDATION PENDING** |
 
 ## Merge gate
 
