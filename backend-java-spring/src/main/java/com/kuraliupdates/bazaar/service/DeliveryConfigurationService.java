@@ -18,6 +18,12 @@ public class DeliveryConfigurationService {
         return Integer.valueOf(1).equals(enabled);
     }
 
+    /** Returns the admin-configured buyer ETA in minutes; null means no promise is configured. */
+    public Integer estimatedDeliveryMins() {
+        return jdbc.queryForObject(
+                "SELECT ESTIMATED_DELIVERY_MINS FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
+    }
+
     public int maxSellersPerBatch() {
         Integer configured = jdbc.queryForObject(
                 "SELECT MAX_SELLERS_PER_BATCH FROM DELIVERY_CONFIGURATION WHERE CONFIG_ID=1", Integer.class);
