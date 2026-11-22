@@ -104,8 +104,8 @@ class BuyerControllerOrderAuthorizationTest {
                 .email("seller@example.test").role("SELLER").build();
         Authentication sellerAuthentication = authentication(seller, "ROLE_SELLER");
 
-        assertForbidden(() -> controller.placeOrder(null, null, null, sellerAuthentication));
-        assertForbidden(() -> controller.placeMultiSellerOrder(null, null, null, sellerAuthentication));
+        assertForbidden(() -> controller.placeOrder(null, null, null, null, sellerAuthentication));
+        assertForbidden(() -> controller.placeMultiSellerOrder(null, null, null, null, sellerAuthentication));
         assertForbidden(() -> controller.myOrders(sellerAuthentication));
         assertForbidden(() -> controller.trackOrder("ORDER-1", sellerAuthentication));
         assertForbidden(() -> controller.confirmStorePickup(
