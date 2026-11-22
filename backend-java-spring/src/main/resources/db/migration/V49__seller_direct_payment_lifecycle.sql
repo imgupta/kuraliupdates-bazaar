@@ -1,5 +1,14 @@
 ALTER TABLE ORDERS ADD BUYER_USER_ID VARCHAR2(64) REFERENCES USERS(USER_ID);
 
+-- Backfill existing email-linked orders without guessing when the email is ambiguous.
+UPDATE ORDERS o
+SET BUYER_USER_ID = (
+  SELECT u.USER_ID FROM USERS u WHERE LOWER(u.EMAIL) = LOWER(o.BUYER_EMAIL)
+)
+WHERE o.BUYER_USER_ID IS NULL
+  AND o.BUYER_EMAIL IS NOT NULL
+  AND (SELECT COUNT(*) FROM USERS u WHERE LOWER(u.EMAIL) = LOWER(o.BUYER_EMAIL)) = 1;
+
 ALTER TABLE SELLERS ADD COD_ENABLED NUMBER(1) DEFAULT 1 NOT NULL CHECK (COD_ENABLED IN (0,1));
 
 -- Seller-direct payment records. KuraliUpdates never receives or holds customer funds.
