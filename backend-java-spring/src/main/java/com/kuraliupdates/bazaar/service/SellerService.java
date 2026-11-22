@@ -156,6 +156,14 @@ public class SellerService {
             throw new ApiException(HttpStatus.CONFLICT,
                     "Order cannot transition from " + current + " to " + next);
         }
+        // Seller-direct UPI is not considered paid until the seller explicitly confirms
+        // the buyer-submitted reference. An unpaid suborder cannot enter dispatch/pickup.
+        if ("READY_FOR_PICKUP".equals(next)
+                && "UPI".equalsIgnoreCase(order.getPaymentMethod())
+                && !"PAID".equalsIgnoreCase(order.getPaymentStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "This seller suborder cannot be dispatched until its UPI payment is confirmed by the seller");
+        }
 
         if ("CANCELLED".equals(next)) {
             if ("PAID".equalsIgnoreCase(order.getPaymentStatus())) {
