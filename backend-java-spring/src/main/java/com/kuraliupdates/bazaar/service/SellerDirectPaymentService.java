@@ -155,8 +155,9 @@ public class SellerDirectPaymentService {
         return buyerPayment(orderId, buyerEmail);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Map<String,Object> buyerPayment(String orderId, String buyerEmail) {
+        expirePending();
         if (buyerEmail == null || buyerEmail.isBlank()) throw new ApiException(HttpStatus.UNAUTHORIZED, "Buyer session required");
         try {
             return buyerView(jdbc.queryForMap("SELECT p.* FROM ORDER_SELLER_PAYMENTS p WHERE p.ORDER_ID=? AND LOWER(p.BUYER_EMAIL)=?",
@@ -166,8 +167,9 @@ public class SellerDirectPaymentService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<Map<String,Object>> buyerGroupPayments(String checkoutGroupId, String buyerEmail) {
+        expirePending();
         if (buyerEmail == null || buyerEmail.isBlank()) throw new ApiException(HttpStatus.UNAUTHORIZED, "Buyer session required");
         List<Map<String,Object>> rows = jdbc.queryForList(
                 "SELECT ORDER_ID FROM ORDER_SELLER_PAYMENTS WHERE CHECKOUT_GROUP_ID=? AND LOWER(BUYER_EMAIL)=? ORDER BY CREATED_AT",
