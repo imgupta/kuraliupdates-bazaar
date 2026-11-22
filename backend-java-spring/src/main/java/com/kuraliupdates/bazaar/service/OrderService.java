@@ -91,6 +91,9 @@ public class OrderService {
             if (product.getSeller() == null || !"APPROVED".equalsIgnoreCase(product.getSeller().getStatus())) {
                 throw new ApiException(HttpStatus.CONFLICT, "Product seller is not approved");
             }
+            if (!"STORE_PICKUP".equals(fulfilmentMode)) {
+                validateSellerDeliveryRadius(product.getSeller(), request.deliveryLatitude(), request.deliveryLongitude());
+            }
             bySeller.computeIfAbsent(product.getSeller().getSellerId(), ignored -> new ArrayList<>()).add(item);
         }
         int maxSellers = deliveryConfigurationService.maxSellersPerBatch();
@@ -106,7 +109,7 @@ public class OrderService {
                     request.deliveryLocality(), group.getKey(), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                     BigDecimal.ZERO, request.paymentMethod(), request.distanceKm(), request.deliveryLatitude(),
                     request.deliveryLongitude(), request.deliveryPlaceId(), group.getValue());
-            OrderPlacementResponse result = placeOrder(sellerRequest, buyer, e2eRunId);
+            OrderPlacementResponse result = placeOrder(sellerRequest, buyer, e2eRunId, null, false);
             OrderEntity saved = orderRepository.findById(result.order().orderId())
                     .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Created seller order could not be reloaded"));
             saved.setCheckoutGroupId(checkoutGroupId);
@@ -135,6 +138,9 @@ public class OrderService {
             BigDecimal baseFee = deliveryConfigurationService.customerBaseFee();
             BigDecimal perKmFee = deliveryConfigurationService.customerPerKmFee();
             BigDecimal roadKm = googleRoutesService.calculateCombinedRouteKm(savedOrders);
+            if (roadKm != null && roadKm.compareTo(deliveryConfigurationService.maxRouteKm()) > 0) {
+                throw new ApiException(HttpStatus.CONFLICT, "Combined seller pickup route exceeds the configured delivery route limit");
+            }
             BigDecimal checkoutDeliveryFee = baseFee;
             if (roadKm != null) checkoutDeliveryFee = checkoutDeliveryFee.add(roadKm.multiply(perKmFee));
             checkoutDeliveryFee = checkoutDeliveryFee.setScale(2, RoundingMode.HALF_UP);
@@ -182,11 +188,16 @@ public class OrderService {
 
     @Transactional
     public OrderPlacementResponse placeOrder(PlaceOrderRequest request, UserEntity buyer, String e2eRunId) {
-        return placeOrder(request, buyer, e2eRunId, null);
+        return placeOrder(request, buyer, e2eRunId, null, true);
     }
 
     @Transactional
     public OrderPlacementResponse placeOrder(PlaceOrderRequest request, UserEntity buyer, String e2eRunId, String idempotencyKey) {
+        return placeOrder(request, buyer, e2eRunId, idempotencyKey, true);
+    }
+
+    @Transactional
+    public OrderPlacementResponse placeOrder(PlaceOrderRequest request, UserEntity buyer, String e2eRunId, String idempotencyKey, boolean enforceDeliveryRadius) {
         requireBuyer(buyer);
         var previous = findPreviousCheckout(idempotencyKey, buyer.getUserId(), requestHash(request));
         if (previous != null) {
@@ -301,6 +312,9 @@ public class OrderService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Seller not found"));
         if ("COD".equalsIgnoreCase(request.paymentMethod()) && !Boolean.TRUE.equals(seller.getCodEnabled())) {
             throw new ApiException(HttpStatus.CONFLICT, "Cash on Delivery is not enabled by this seller. Choose seller-direct UPI.");
+        }
+        if (enforceDeliveryRadius) {
+            validateSellerDeliveryRadius(seller, request.deliveryLatitude(), request.deliveryLongitude());
         }
         BigDecimal freeDeliveryThreshold = seller.getMinOrderForFreeDelivery() == null
                 ? BigDecimal.valueOf(499) : seller.getMinOrderForFreeDelivery();
@@ -522,6 +536,22 @@ public class OrderService {
                 .filter(candidate -> OrderBuyerAccessPolicy.owns(candidate, buyer.getEmail()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Order not found"));
         return OrderResponse.from(order);
+    }
+
+    private void validateSellerDeliveryRadius(SellerEntity seller, BigDecimal buyerLatitude, BigDecimal buyerLongitude) {
+        if (seller == null || !Boolean.TRUE.equals(seller.getLocationVerified())
+                || seller.getLatitude() == null || seller.getLongitude() == null
+                || buyerLatitude == null || buyerLongitude == null) return;
+        double lat1 = Math.toRadians(seller.getLatitude().doubleValue());
+        double lat2 = Math.toRadians(buyerLatitude.doubleValue());
+        double deltaLat = Math.toRadians(buyerLatitude.subtract(seller.getLatitude()).doubleValue());
+        double deltaLon = Math.toRadians(buyerLongitude.subtract(seller.getLongitude()).doubleValue());
+        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
+                + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+        double distanceKm = 6371.0088 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        if (BigDecimal.valueOf(distanceKm).compareTo(deliveryConfigurationService.nearbyRadiusKm()) > 0) {
+            throw new ApiException(HttpStatus.CONFLICT, "Seller is outside the configured delivery radius for this address");
+        }
     }
 
     private Map<String,Object> findPreviousCheckout(String key, String buyerUserId, String hash) {
