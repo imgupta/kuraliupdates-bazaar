@@ -42,6 +42,7 @@ import { useSellerDocumentReview } from './useSellerDocumentReview';
 import { useAdminConfiguration } from './useAdminConfiguration';
 import { AdminMfaGate } from './AdminMfaGate';
 import { AdminSellerPaymentReview } from '../../components/Admin/AdminSellerPaymentReview';
+import { AdminSellerManagement } from '../../components/Admin/AdminSellerManagement';
 
 const AdminDashboardContent: React.FC = () => {
   const {
@@ -59,7 +60,7 @@ const AdminDashboardContent: React.FC = () => {
     showToast,
   } = useApp();
 
-  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'orders' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory' | 'accounts' | 'delivery-config' | 'seller-area-config' | 'seller-documents' | 'seller-leads' | 'registration-otp-config' | 'india-compliance' | 'seller-payment-review'>('trends');
+  const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'orders' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory' | 'accounts' | 'delivery-config' | 'seller-area-config' | 'seller-documents' | 'seller-leads' | 'registration-otp-config' | 'india-compliance' | 'seller-payment-review' | 'seller-management'>('trends');
   const [buyers, setBuyers] = useState<any[]>([]);
   const [adminAccounts, setAdminAccounts] = useState<any[]>([]);
   const [accountSearch, setAccountSearch] = useState('');
@@ -365,7 +366,19 @@ const AdminDashboardContent: React.FC = () => {
 
       {/* Grouped admin navigation */}
       <nav aria-label="Admin sections" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-        <details open={['approvals', 'stores', 'buyers', 'seller-area-config'].includes(activeAdminTab)} className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <details open={['seller-management','seller-area-config','seller-documents','seller-leads','registration-otp-config','india-compliance','seller-payment-review'].includes(activeAdminTab)} className="group rounded-2xl border border-teal-200 bg-white shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3.5 hover:bg-teal-50 [&::-webkit-details-marker]:hidden"><span className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700"><Store className="h-5 w-5"/></span><span><span className="block text-sm font-extrabold text-slate-900">Seller Management</span><span className="mt-0.5 block text-[11px] text-slate-500">Applications, profiles, documents and payments</span></span></span><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">{adminSellers.length} sellers</span></summary>
+          <div className="space-y-1 border-t border-slate-100 p-2">
+            <button onClick={()=>setActiveAdminTab('seller-management')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab==='seller-management'?'bg-teal-50 text-teal-800':'text-slate-600 hover:bg-slate-50'}`}>Seller applications & all sellers</button>
+            <button onClick={()=>setActiveAdminTab('seller-documents')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab==='seller-documents'?'bg-teal-50 text-teal-800':'text-slate-600 hover:bg-slate-50'}`}>Seller document review</button>
+            <button onClick={()=>setActiveAdminTab('seller-area-config')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab==='seller-area-config'?'bg-teal-50 text-teal-800':'text-slate-600 hover:bg-slate-50'}`}>Seller registration radius</button>
+            <button onClick={()=>setActiveAdminTab('seller-leads')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab==='seller-leads'?'bg-teal-50 text-teal-800':'text-slate-600 hover:bg-slate-50'}`}>Merchant onboarding CRM</button>
+            <button onClick={()=>setActiveAdminTab('registration-otp-config')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab==='registration-otp-config'?'bg-teal-50 text-teal-800':'text-slate-600 hover:bg-slate-50'}`}>Seller registration OTP controls</button>
+            <button onClick={()=>setActiveAdminTab('india-compliance')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab==='india-compliance'?'bg-teal-50 text-teal-800':'text-slate-600 hover:bg-slate-50'}`}>Seller compliance settings</button>
+            <button onClick={()=>setActiveAdminTab('seller-payment-review')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab==='seller-payment-review'?'bg-teal-50 text-teal-800':'text-slate-600 hover:bg-slate-50'}`}>Seller payment methods & UPI verification</button>
+          </div>
+        </details>
+        <details open={['approvals', 'stores', 'buyers'].includes(activeAdminTab)} className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3.5 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
             <span className="flex min-w-0 items-center gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700"><Store className="h-5 w-5" /></span>
@@ -378,12 +391,6 @@ const AdminDashboardContent: React.FC = () => {
             <button onClick={() => setActiveAdminTab('stores')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'stores' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>All active stores <span className="ml-1 text-slate-400">({approvedSellers.length})</span></button>
             <button onClick={() => setActiveAdminTab('buyers')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'buyers' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Buyers <span className="ml-1 text-slate-400">({buyers.length})</span></button>
             <button onClick={() => setActiveAdminTab('orders')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'orders' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Orders <span className="ml-1 text-slate-400">({adminOrders.length})</span></button>
-            <button onClick={() => setActiveAdminTab('seller-area-config')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-area-config' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Seller registration radius</button>
-            <button onClick={() => setActiveAdminTab('seller-documents')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-documents' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Seller document review</button>
-            <button onClick={() => setActiveAdminTab('seller-leads')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-leads' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Merchant onboarding CRM</button>
-            <button onClick={() => setActiveAdminTab('registration-otp-config')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'registration-otp-config' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Customer & seller OTP controls</button>
-            <button onClick={() => setActiveAdminTab('india-compliance')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'india-compliance' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>India privacy & compliance</button>
-            <button onClick={() => setActiveAdminTab('seller-payment-review')} className={`w-full rounded-xl px-3 py-2.5 text-left text-xs font-bold ${activeAdminTab === 'seller-payment-review' ? 'bg-purple-50 text-purple-800' : 'text-slate-600 hover:bg-slate-50'}`}>Seller UPI verification</button>
           </div>
         </details>
 
@@ -432,6 +439,7 @@ const AdminDashboardContent: React.FC = () => {
         </details>
       </nav>
 
+      {activeAdminTab === 'seller-management' && <AdminSellerManagement />}
       {activeAdminTab === 'directory' && <AdminDirectoryTab groups={directoryGroups} onCopy={copyDirectoryValue} />}
 
       {activeAdminTab === 'seller-documents' && (
