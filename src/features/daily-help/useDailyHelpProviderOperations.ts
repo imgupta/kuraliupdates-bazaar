@@ -159,7 +159,7 @@ export const useDailyHelpProviderOperations = () => {
 
   const complete = async (booking: DailyHelpBooking, useOverride = false) => {
     if (!professional) return;
-    const otp = (completionOtpInputs[booking.id] || '').replace(/\\D/g, '');
+    const otp = (completionOtpInputs[booking.id] || '').replace(/\D/g, '');
     const overrideReason = (overrideReasons[booking.id] || '').trim();
     if (!useOverride && otp.length !== 4) {
       showToast('Enter the 4-digit customer completion OTP.', 'error');
