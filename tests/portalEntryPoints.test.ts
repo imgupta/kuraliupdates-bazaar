@@ -101,3 +101,16 @@ test('admin portal delegates refresh, seller document review and configuration l
   assert.match(configurationHook, /updateDeliveryConfiguration/);
   assert.match(configurationHook, /updateSellerServiceArea/);
 });
+
+test('editing login details after OTP request resets stale loading and preserves the contact value', () => {
+  const auth = read('../src/components/Auth/AuthPageV2.tsx');
+  const legacyStart = auth.indexOf('const AuthPageV2Legacy');
+  const legacyEnd = auth.indexOf('const RoleRegistrationCard', legacyStart);
+  const legacy = auth.slice(legacyStart, legacyEnd);
+
+  assert.match(legacy, /const \[emailValue, setEmailValue\] = useState\(''\)/);
+  assert.match(legacy, /const \[phoneValue, setPhoneValue\] = useState\(''\)/);
+  assert.match(legacy, /value=\{emailValue\} onChange=\{e => setEmailValue\(e\.target\.value\)\}/);
+  assert.match(legacy, /value=\{phoneValue\} onChange=/);
+  assert.match(legacy, /setLoading\(false\); setStep\('form'\); setOtp\(''\); setEmailOtp\(''\); setPhoneOtp\(''\); setPendingIdentifier\(''\); setError\(''\)/);
+});
