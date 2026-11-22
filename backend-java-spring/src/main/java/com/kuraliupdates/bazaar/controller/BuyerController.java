@@ -57,10 +57,20 @@ public class BuyerController {\n    private static final Logger log = LoggerFact
             @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
             @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId,
             Authentication authentication) {
         UserEntity user = requireBuyer(authentication);
+        String traceId = safeCorrelationId(correlationId);
         String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
-        return ResponseEntity.ok(orderService.placeOrder(request, user, e2eRunId, idempotencyKey));
+        log.info("Buyer single-seller checkout started correlationId={} itemCount={}",
+                traceId, request == null || request.items() == null ? 0 : request.items().size());
+        try {
+            return ResponseEntity.ok(orderService.placeOrder(request, user, e2eRunId, idempotencyKey));
+        } catch (RuntimeException ex) {
+            log.warn("Buyer single-seller checkout failed correlationId={} exceptionType={} message={}",
+                    traceId, ex.getClass().getSimpleName(), safeMessage(ex.getMessage()));
+            throw ex;
+        }
     }
 
     @PostMapping("/orders/checkout")
@@ -70,10 +80,20 @@ public class BuyerController {\n    private static final Logger log = LoggerFact
             @RequestHeader(value = "X-E2E-Run-Id", required = false) String runId,
             @RequestHeader(value = "X-E2E-Flow-Token", required = false) String e2eToken,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId,
             Authentication authentication) {
         UserEntity user = requireBuyer(authentication);
+        String traceId = safeCorrelationId(correlationId);
         String e2eRunId = e2eRunTagging.optionalRunId(runId, e2eToken);
-        return ResponseEntity.ok(orderService.placeMultiSellerOrder(request, user, e2eRunId, idempotencyKey));
+        log.info("Buyer multi-seller checkout started correlationId={} itemCount={}",
+                traceId, request == null || request.items() == null ? 0 : request.items().size());
+        try {
+            return ResponseEntity.ok(orderService.placeMultiSellerOrder(request, user, e2eRunId, idempotencyKey));
+        } catch (RuntimeException ex) {
+            log.warn("Buyer multi-seller checkout failed correlationId={} exceptionType={} message={}",
+                    traceId, ex.getClass().getSimpleName(), safeMessage(ex.getMessage()));
+            throw ex;
+        }
     }
 
     @PostMapping("/orders/{orderId}/cancel")
@@ -116,7 +136,8 @@ public class BuyerController {\n    private static final Logger log = LoggerFact
 
     private String safeMessage(String value) {
         if (value == null) return "";
-        return value.replaceAll("[\\r\\n\\t]", " ").substring(0, Math.min(value.length(), 240));
+        return value.replaceAll("[\\r
+\\t]", " ").substring(0, Math.min(value.length(), 240));
     }
 
     private UserEntity requireBuyer(Authentication authentication) {
