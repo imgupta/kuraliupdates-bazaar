@@ -412,6 +412,7 @@ public class OrderService {
             if ("CANCELLED".equalsIgnoreCase(order.getStatus())) {
                 continue;
             }
+            sellerDirectPaymentService.cancelUnpaidPaymentForOrder(order.getOrderId());
             order.setStatus("CANCELLED");
             order.setFulfilmentStatus("CANCELLED");
             // COD has not been collected; retain PENDING_COD. Order and fulfilment
