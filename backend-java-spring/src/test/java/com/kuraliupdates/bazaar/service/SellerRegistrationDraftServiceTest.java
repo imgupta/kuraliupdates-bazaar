@@ -1,6 +1,6 @@
 package com.kuraliupdates.bazaar.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.kuraliupdates.bazaar.entity.SellerRegistrationDraftEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.repository.SellerRegistrationDraftRepository;
@@ -20,7 +20,7 @@ class SellerRegistrationDraftServiceTest {
     @BeforeEach
     void setUp() {
         repository = mock(SellerRegistrationDraftRepository.class);
-        service = new SellerRegistrationDraftService(repository, new ObjectMapper());
+        service = new SellerRegistrationDraftService(repository, JsonMapper.builder().build());
         when(repository.findById("user-1")).thenReturn(Optional.empty());
         when(repository.save(any(SellerRegistrationDraftEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
