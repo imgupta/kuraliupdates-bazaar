@@ -1,7 +1,6 @@
 package com.kuraliupdates.bazaar.dto.delivery;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.json.JsonMapper;
 import com.kuraliupdates.bazaar.entity.OrderEntity;
 import org.junit.jupiter.api.Test;
 
@@ -37,7 +36,7 @@ class DeliveryJobResponseTest {
                 .build();
 
         DeliveryJobResponse response = DeliveryJobResponse.from(order);
-        String json = new ObjectMapper().registerModule(new JavaTimeModule()).writeValueAsString(response);
+        String json = JsonMapper.builder().build().writeValueAsString(response);
 
         assertEquals("ORD-DELIVERY-DTO", response.orderId());
         assertEquals("Synthetic Buyer", response.buyerName());
@@ -77,7 +76,7 @@ class DeliveryJobResponseTest {
                 .build();
 
         AvailableDeliveryJobResponse response = AvailableDeliveryJobResponse.from(order);
-        String json = new ObjectMapper().registerModule(new JavaTimeModule()).writeValueAsString(response);
+        String json = JsonMapper.builder().build().writeValueAsString(response);
 
         assertEquals("ORD-AVAILABLE-DTO", response.orderId());
         assertEquals("Kurali", response.deliveryLocality());
@@ -94,7 +93,7 @@ class DeliveryJobResponseTest {
     @Test
     void deliveryJobItemProjectionDoesNotExposeCommercialPricing() throws Exception {
         var item = new DeliveryJobResponse.DeliveryJobItemResponse("PROD-1", "Milk", 2);
-        String json = new ObjectMapper().writeValueAsString(item);
+        String json = JsonMapper.builder().build().writeValueAsString(item);
 
         assertTrue(json.contains("\"productId\""));
         assertTrue(json.contains("\"title\""));

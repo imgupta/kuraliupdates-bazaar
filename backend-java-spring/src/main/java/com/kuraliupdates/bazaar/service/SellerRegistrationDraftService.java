@@ -1,7 +1,7 @@
 package com.kuraliupdates.bazaar.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.kuraliupdates.bazaar.entity.SellerRegistrationDraftEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.repository.SellerRegistrationDraftRepository;
@@ -28,7 +28,7 @@ public class SellerRegistrationDraftService {
                 result.put("currentStep", draft.getCurrentStep());
                 result.put("updatedAt", draft.getUpdatedAt());
                 return result;
-            } catch (JsonProcessingException ex) {
+            } catch (JacksonException ex) {
                 throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Saved seller draft could not be read");
             }
         }).orElse(Map.of("exists", false));
@@ -50,7 +50,7 @@ public class SellerRegistrationDraftService {
             entity.setUpdatedAt(LocalDateTime.now());
             repository.save(entity);
             return Map.of("success", true, "currentStep", step, "updatedAt", entity.getUpdatedAt());
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Seller draft contains unsupported data");
         }
     }
