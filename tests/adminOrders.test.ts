@@ -54,7 +54,7 @@ test('cancel API error uses same fallback error toast',async()=>{
   assert.deepEqual(h.uiCalls.at(-1),{name:'toast',args:['Unable to cancel order.','error']});
 });
 test('quantity prompt cancellation aborts without API or toast',async()=>{
-  const h=harness();h.prompts.push(null);await h.actions.editItemQuantities({orderId:'o1',items:[{itemId:'i1',quantity:2}]});assert.equal(h.calls.length,0);assert.deepEqual(h.uiCalls,[{name:'prompt',args:['New quantity for i1','2']}]);
+  const h=harness();h.prompts.push(null);await h.actions.editItemQuantities({orderId:'o1',items:[{itemId:'i1',productId:'i1',quantity:2}]});assert.equal(h.calls.length,0);assert.deepEqual(h.uiCalls,[{name:'prompt',args:['New quantity for i1','2']}]);
 });
 test('invalid quantity never updates items and shows exact validation error',async()=>{
   for(const raw of ['1.5','0']) {const h=harness();h.prompts.push(raw);await h.actions.editItemQuantities({orderId:'o1',items:[{itemId:'i1',quantity:2}]});assert.equal(h.calls.some(c=>c.name==='updateAdminOrderItems'),false);assert.deepEqual(h.uiCalls.at(-1),{name:'toast',args:['Enter a positive whole-number quantity.','error']});}
