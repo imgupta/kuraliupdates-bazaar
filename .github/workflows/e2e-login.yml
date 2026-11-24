@@ -66,6 +66,8 @@ jobs:
         run: node --import tsx --test tests/orderGrouping.test.ts
       - name: Frontend module-boundary regression tests
         run: node --import tsx --test tests/moduleBoundaries.test.ts
+      - name: Admin buyers extraction regression tests
+        run: node --import tsx --test tests/adminBuyers.test.ts
       - name: Public role-portal entry point regression tests
         run: node --import tsx --test tests/portalEntryPoints.test.ts
       - name: Portal build contract regression tests
