@@ -36,7 +36,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
   const buyNowSeller = checkoutItems[0]?.product;
   const buyNowDeliveryFee = buyNowSeller && checkoutItemSubtotal >= Number(buyNowSeller.minOrderForFreeDelivery ?? 499)
     ? 0 : Number(buyNowSeller?.baseDeliveryFee ?? 35);
-  const displayedDeliveryFee = fulfilmentMode === 'STORE_PICKUP' ? 0 : isolatedBuyNow ? buyNowDeliveryFee : cartCalculations.deliveryFee;
   const displayedTotal = isolatedBuyNow ? checkoutItemSubtotal + displayedDeliveryFee : cartCalculations.finalTotal;
   const defaultAddress = user.savedAddresses?.find(address => address.isDefault) || user.savedAddresses?.[0];
   const [selectedAddressId, setSelectedAddressId] = useState(defaultAddress?.id || '');
@@ -95,6 +94,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'review' | 'payment'>('review');
   const [fulfilmentMode, setFulfilmentMode] = useState<'DELIVERY' | 'STORE_PICKUP'>('DELIVERY');
+  const displayedDeliveryFee = fulfilmentMode === 'STORE_PICKUP' ? 0 : isolatedBuyNow ? buyNowDeliveryFee : cartCalculations.deliveryFee;
   const multiSellerCart = new Set(checkoutItems.map(item => item.product.sellerId)).size > 1;
   const pickupTotal = isolatedBuyNow ? checkoutItemSubtotal : Math.max(0, cartCalculations.subtotal - cartCalculations.billDiscount - cartCalculations.couponDiscount);
 
