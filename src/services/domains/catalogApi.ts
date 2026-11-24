@@ -74,6 +74,8 @@ export const catalogApi = {
           sellerLocality: bp.seller?.locality || bp.locality || '',
           sellerDistanceKm: Number(bp.seller?.distanceKm ?? 0),
           sellerRating: Number(bp.seller?.rating ?? 0),
+          baseDeliveryFee: Number(bp.seller?.baseDeliveryFee ?? 35),
+          minOrderForFreeDelivery: Number(bp.seller?.minOrderForFreeDelivery ?? 499),
           title: bp.name || bp.title || '',
           category: bp.category || '',
           description: bp.description || '',
