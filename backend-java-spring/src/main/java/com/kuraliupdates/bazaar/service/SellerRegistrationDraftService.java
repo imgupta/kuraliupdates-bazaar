@@ -28,7 +28,7 @@ public class SellerRegistrationDraftService {
                 result.put("currentStep", draft.getCurrentStep());
                 result.put("updatedAt", draft.getUpdatedAt());
                 return result;
-            } catch (JsonProcessingException ex) {
+            } catch (JacksonException ex) {
                 throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Saved seller draft could not be read");
             }
         }).orElse(Map.of("exists", false));
@@ -50,7 +50,7 @@ public class SellerRegistrationDraftService {
             entity.setUpdatedAt(LocalDateTime.now());
             repository.save(entity);
             return Map.of("success", true, "currentStep", step, "updatedAt", entity.getUpdatedAt());
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Seller draft contains unsupported data");
         }
     }
