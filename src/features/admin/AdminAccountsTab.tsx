@@ -4,8 +4,7 @@ interface Props { adminAccounts:any[]; userEmail:string; showToast:(message:stri
 export const AdminAccountsTab:React.FC<Props>=({adminAccounts,userEmail,showToast,refreshAdminData})=>{
  const {accountSearch,setAccountSearch,accountActionId,accountAuditUserId,setAccountAuditUserId,accountAuditEntries,handleAccountStatus,handleRevokeSessions,handleAccountAudit}=useAdminAccounts({showToast,refreshAdminData});
  return (
-        {activeAdminTab === 'accounts' && (
-          <div className="space-y-4">
+                  <div className="space-y-4">
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
               <h2 className="text-base font-extrabold text-amber-950">Account & Permissions Control Center</h2>
               <p className="mt-1 text-xs leading-5 text-amber-900">Manage the underlying account across Buyer, Seller, Daily Help and Delivery roles. Suspension/revocation is enforced by the backend and invalidates active sessions. Role/profile records and order history are retained for audit and dispute handling.</p>
@@ -56,8 +55,5 @@ export const AdminAccountsTab:React.FC<Props>=({adminAccounts,userEmail,showToas
               <div className="border-t border-slate-100 bg-slate-50 px-3 py-3 text-[11px] text-slate-500">Account status applies to the linked identity and all marketplace roles. Re-enabling restores access but does not restore revoked sessions. Permanent account deletion is intentionally excluded so order, payment, booking and dispute records remain auditable.</div>
             </div>
           </div>
-        )}
-  
-  
  );
 };
