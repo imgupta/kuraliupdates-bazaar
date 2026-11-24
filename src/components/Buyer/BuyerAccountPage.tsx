@@ -1,17 +1,32 @@
-import React, { useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, ChevronRight, HelpCircle, MapPin, Package, Pencil, Plus, Save, ShoppingBag, User, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, HelpCircle, MapPin, Package, Pencil, Plus, Save, ShoppingBag, User, X } from 'lucide-react';
 import { useApp, SavedAddress } from '../../context/AppContext';
 import { LocationPicker, DeliveryLocation } from '../Auth/LocationPicker';
 import { OrderTrackingModal } from './OrderTrackingModal';
 import { buyerOrdersApi } from '../../services/domains/buyerOrdersApi';
+import { buyerApi } from '../../services/domains/buyerApi';
+import type { DailyHelpBooking } from '../../types';
 
 const emptyLocation = null;
+const terminalDailyHelpStatuses = new Set(['COMPLETED', 'CANCELLED']);
+const dailyHelpStatusLabel: Record<string, string> = {
+  SEARCHING: 'Finding a professional',
+  CONFIRMED: 'Confirmed',
+  PROFESSIONAL_ASSIGNED: 'Professional assigned',
+  ARRIVING: 'On the way',
+  READY_TO_START: 'Ready to start',
+  IN_PROGRESS: 'In progress',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+};
 
 export const BuyerAccountPage: React.FC = () => {
   const { user, orders, updateUserProfile, createBuyerAddress, updateBuyerAddress, setDefaultBuyerAddress, showToast, syncWithBackend } = useApp();
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
-  const [section, setSection] = useState<'overview' | 'profile' | 'addresses' | 'orders' | 'current' | 'help'>('overview');
+  const [section, setSection] = useState<'overview' | 'profile' | 'addresses' | 'orders' | 'current' | 'dailyHelpHistory' | 'help'>('overview');
+  const [dailyHelpBookings, setDailyHelpBookings] = useState<DailyHelpBooking[]>([]);
+  const [dailyHelpLoading, setDailyHelpLoading] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileName, setProfileName] = useState(user.name);
   const [profilePhone, setProfilePhone] = useState(user.phone || '');
@@ -25,6 +40,16 @@ export const BuyerAccountPage: React.FC = () => {
   const addresses = user.savedAddresses || [];
   const buyerOrders = useMemo(() => orders.filter(o => !user.email || o.buyerEmail === user.email), [orders, user.email]);
   const currentOrders = buyerOrders.filter(o => !['delivered', 'cancelled'].includes(o.status));
+
+  useEffect(() => {
+    if (section !== 'dailyHelpHistory' || !user.phone) return;
+    let cancelled = false;
+    setDailyHelpLoading(true);
+    buyerApi.getDailyHelpBookings(user.phone)
+      .then(items => { if (!cancelled) setDailyHelpBookings(items); })
+      .finally(() => { if (!cancelled) setDailyHelpLoading(false); });
+    return () => { cancelled = true; };
+  }, [section, user.phone]);
 
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
@@ -130,6 +155,7 @@ export const BuyerAccountPage: React.FC = () => {
     { id: 'addresses' as const, label: 'My addresses', icon: MapPin },
     { id: 'orders' as const, label: 'Order history', icon: Package },
     { id: 'current' as const, label: 'Current order', icon: ShoppingBag, badge: currentOrders.length },
+    { id: 'dailyHelpHistory' as const, label: 'Daily Help history', icon: CalendarDays },
     { id: 'help' as const, label: 'Help', icon: HelpCircle },
   ];
 
@@ -157,6 +183,7 @@ export const BuyerAccountPage: React.FC = () => {
             {section === 'addresses' && <Addresses addresses={addresses} isAddingAddress={isAddingAddress} editingAddress={editingAddress} label={label} setLabel={setLabel} addressLine={addressLine} setAddressLine={setAddressLine} landmark={landmark} setLandmark={setLandmark} location={location} setLocation={setLocation} onNew={openNewAddress} onEdit={openEditAddress} onSave={saveAddress} savingAddress={savingAddress} onDefault={setDefaultAddress} onCancel={() => { setEditingAddress(null); setIsAddingAddress(false); setLocation(null); setAddressLine(''); setLandmark(''); }} />}
             {section === 'orders' && <Orders orders={buyerOrders} onTrack={setTrackingOrderId} onCancel={cancelBuyerOrder} cancellingOrderId={cancellingOrderId} title="Order history" />}
             {section === 'current' && <Orders orders={currentOrders} onTrack={setTrackingOrderId} onCancel={cancelBuyerOrder} cancellingOrderId={cancellingOrderId} title="Current order" current />}
+            {section === 'dailyHelpHistory' && <DailyHelpHistory bookings={dailyHelpBookings} loading={dailyHelpLoading} />}
             {section === 'help' && <section><Title icon={<HelpCircle />} title="Help" /><div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center"><HelpCircle className="w-10 h-10 mx-auto text-slate-300" /><h3 className="mt-3 font-black text-slate-900">Help center coming soon</h3><p className="mt-1 text-xs text-slate-500">Support, FAQs, refunds and order assistance will be added here.</p></div></section>}
           </main>
         </div>
@@ -164,6 +191,32 @@ export const BuyerAccountPage: React.FC = () => {
       {trackingOrderId && <OrderTrackingModal orderId={trackingOrderId} onClose={() => setTrackingOrderId(null)} />}
     </div>
   );
+};
+
+
+const DailyHelpHistory = ({ bookings, loading }: { bookings: DailyHelpBooking[]; loading: boolean }) => {
+  const history = bookings
+    .filter(booking => terminalDailyHelpStatuses.has(booking.status))
+    .sort((a, b) => new Date(b.scheduledStart).getTime() - new Date(a.scheduledStart).getTime());
+
+  return <section>
+    <Title icon={<CalendarDays />} title="Daily Help history" />
+    {loading ? <div className="rounded-2xl bg-slate-50 p-8 text-center text-xs text-slate-500">Loading Daily Help history...</div>
+      : history.length === 0 ? <div className="rounded-2xl bg-slate-50 p-8 text-center text-xs text-slate-500">No completed or cancelled Daily Help bookings yet.</div>
+      : <div className="space-y-3">{history.map(booking => (
+        <article key={booking.id} className="rounded-2xl border border-slate-200 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0"><h2 className="text-sm font-black text-slate-900">{booking.serviceName}</h2><p className="mt-1 text-[11px] font-mono text-slate-500">{booking.id}</p></div>
+            <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${booking.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>{dailyHelpStatusLabel[booking.status] || booking.status}</span>
+          </div>
+          <div className="mt-3 grid gap-1 text-xs text-slate-600">
+            <p><span className="font-bold">Scheduled:</span> {new Date(booking.scheduledStart).toLocaleString()}</p>
+            {booking.professionalName && <p><span className="font-bold">Professional:</span> {booking.professionalName}</p>}
+            <p><span className="font-bold">Duration:</span> {booking.requestedHours} hour(s)</p>
+          </div>
+        </article>
+      ))}</div>}
+  </section>;
 };
 
 const Title = ({ icon, title }: { icon: React.ReactNode; title: string }) => <div className="flex items-center gap-2 mb-6"><span className="text-amber-600">{icon}</span><h1 className="text-xl font-black text-slate-900">{title}</h1></div>;
