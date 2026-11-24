@@ -32,7 +32,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.Duration;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
@@ -144,7 +144,7 @@ public class DailyHelpService {
                 || bookingStart.isBefore(windowStart) || bookingEnd.isAfter(windowEnd)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Selected time and duration must fit within the helper's availability window");
         }
-        if (bookingStart.isBefore(LocalDateTime.now())) {
+        if (bookingStart.isBefore(LocalDateTime.now(ZoneId.of("Asia/Kolkata")))) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Selected time has already started. Please choose a future time.");
         }
         if (bookingStart.getMinute() % 15 != 0 || bookingStart.getSecond() != 0 || bookingStart.getNano() != 0) {
@@ -207,18 +207,29 @@ public class DailyHelpService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Booking duration must be greater than zero");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        // Daily Help operates on India local time, independent of the Render host timezone.
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
+        long requestedMinutes = requestedHours.multiply(BigDecimal.valueOf(60)).longValue();
         return slotRepository.findAvailableForDate(date, locality == null || locality.isBlank() ? null : locality.trim(), LocalTime.MIN, LocalTime.MAX)
                 .stream()
-                .filter(s -> {
-                    LocalDateTime start = s.getSlotDate().atTime(s.getStartTime());
-                    LocalDateTime end = s.getSlotDate().atTime(s.getEndTime());
-                    long minutes = Duration.between(start, end).toMinutes();
-                    long requestedMinutes = requestedHours.multiply(BigDecimal.valueOf(60)).longValue();
-                    return !start.isBefore(now) && minutes >= requestedMinutes;
-                })
+                .filter(slot -> hasBookableWindow(
+                        slot.getSlotDate().atTime(slot.getStartTime()),
+                        slot.getSlotDate().atTime(slot.getEndTime()),
+                        now,
+                        requestedMinutes))
                 .map(DailyHelpSlotResponse::from)
                 .toList();
+    }
+
+    static boolean hasBookableWindow(LocalDateTime windowStart, LocalDateTime windowEnd,
+                                     LocalDateTime now, long requestedMinutes) {
+        // A full-day window commonly starts at 00:00. Do not discard it just
+        // because that start time has passed; find the next valid 15-minute start.
+        LocalDateTime earliest = windowStart.isBefore(now) ? now : windowStart;
+        int minuteOfDay = earliest.getHour() * 60 + earliest.getMinute();
+        int nextQuarterHour = ((minuteOfDay + 14) / 15) * 15;
+        LocalDateTime candidateStart = earliest.toLocalDate().atStartOfDay().plusMinutes(nextQuarterHour);
+        return !candidateStart.plusMinutes(requestedMinutes).isAfter(windowEnd);
     }
 
     @Transactional(readOnly = true)

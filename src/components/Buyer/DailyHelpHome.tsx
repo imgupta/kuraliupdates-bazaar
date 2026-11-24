@@ -30,6 +30,20 @@ const localDateString = (date: Date) => {
   return `${y}-${m}-${d}`;
 };
 
+const earliestBookableStart = (slot: DailyHelpSlot, durationHours: number) => {
+  const [startHour, startMinute] = slot.startTime.slice(0, 5).split(':').map(Number);
+  const [endHour, endMinute] = slot.endTime.slice(0, 5).split(':').map(Number);
+  const windowStart = startHour * 60 + startMinute;
+  const windowEnd = endHour * 60 + endMinute;
+  const today = localDateString(new Date());
+  const now = new Date();
+  const currentMinute = now.getHours() * 60 + now.getMinutes();
+  const earliest = slot.slotDate === today ? Math.max(windowStart, currentMinute) : windowStart;
+  const rounded = Math.ceil(earliest / 15) * 15;
+  if (rounded + durationHours * 60 > windowEnd) return null;
+  return `${String(Math.floor(rounded / 60)).padStart(2, '0')}:${String(rounded % 60).padStart(2, '0')}`;
+};
+
 export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery = '' }) => {
   const { user, showToast } = useApp();
   const [services, setServices] = useState<DailyHelpService[]>([]);
@@ -110,7 +124,8 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
     const start = startHour * 60 + startMinute;
     const windowStart = windowStartHour * 60 + windowStartMinute;
     const windowEnd = windowEndHour * 60 + windowEndMinute;
-    return start % 15 === 0 && start >= windowStart && start + hours * 60 <= windowEnd;
+    const startDateTime = new Date(`${selectedSlot.slotDate}T${selectedStartTime}:00`);
+    return start % 15 === 0 && start >= windowStart && start + hours * 60 <= windowEnd && startDateTime.getTime() >= Date.now();
   }, [selectedSlot, selectedStartTime, hours]);
 
   const minDate = localDateString(new Date());
@@ -229,8 +244,8 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
       )}
 
       {selected && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-end sm:items-center justify-center p-3">
-          <div className="bg-white w-full max-w-lg rounded-2xl p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[70] bg-slate-900/50 flex items-end sm:items-center justify-center p-3">
+          <div className="bg-white w-full max-w-lg rounded-2xl p-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between">
               <div><p className="text-[10px] uppercase font-black text-amber-700">{selected.category}</p><h2 className="text-lg font-black mt-1">{selected.name}</h2></div>
               <button onClick={() => { setSelected(null); setSelectedSlot(null); }} className="text-slate-400 text-xl cursor-pointer">×</button>
@@ -271,7 +286,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
                   {slots.map(slot => {
                     const active = selectedSlot?.slotId === slot.slotId;
                     return (
-                      <button key={slot.slotId} onClick={() => { setSelectedSlot(slot); setSelectedStartTime(slot.startTime.slice(0,5)); }} className={`w-full text-left rounded-xl border p-3 transition-all cursor-pointer ${active ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-500' : 'border-slate-200 hover:border-amber-300 bg-white'}`}>
+                      <button key={slot.slotId} onClick={() => { const earliest = earliestBookableStart(slot, hours); setSelectedSlot(slot); setSelectedStartTime(earliest || slot.startTime.slice(0,5)); }} className={`w-full text-left rounded-xl border p-3 transition-all cursor-pointer ${active ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-500' : 'border-slate-200 hover:border-amber-300 bg-white'}`}>
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center shrink-0"><UserRound className="w-4 h-4" /></div>
