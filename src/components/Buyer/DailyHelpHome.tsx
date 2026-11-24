@@ -124,7 +124,8 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
     const start = startHour * 60 + startMinute;
     const windowStart = windowStartHour * 60 + windowStartMinute;
     const windowEnd = windowEndHour * 60 + windowEndMinute;
-    const startDateTime = new Date(`${selectedSlot.slotDate}T${selectedStartTime}:00`);\n    return start % 15 === 0 && start >= windowStart && start + hours * 60 <= windowEnd && startDateTime.getTime() >= Date.now();
+    const startDateTime = new Date(`${selectedSlot.slotDate}T${selectedStartTime}:00`);
+    return start % 15 === 0 && start >= windowStart && start + hours * 60 <= windowEnd && startDateTime.getTime() >= Date.now();
   }, [selectedSlot, selectedStartTime, hours]);
 
   const minDate = localDateString(new Date());
