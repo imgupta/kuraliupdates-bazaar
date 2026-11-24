@@ -18,10 +18,7 @@ import {
   Users,
   Download,
   Lock,
-  Plus,
-  Pencil,
   Save,
-  UserRoundCheck,
   Database,
   RefreshCw,
   Copy,
@@ -42,6 +39,8 @@ import { AdminAccountsTab } from './AdminAccountsTab';
 import { AdminApprovalsTab } from './AdminApprovalsTab';
 import { AdminStoresTab } from './AdminStoresTab';
 import { AdminFleetTab } from './AdminFleetTab';
+import { AdminDailyHelpServicesTab } from './AdminDailyHelpServicesTab';
+import { AdminDailyHelpHelpersTab } from './AdminDailyHelpHelpersTab';
 import { createAdminDecisionActions } from './adminDecisionActions';
 import { buildAdminDirectoryGroups } from './adminDirectory';
 import { useAdminDashboardRefresh } from './useAdminDashboardRefresh';
@@ -84,9 +83,6 @@ const AdminDashboardContent: React.FC = () => {
   const [diagnostics, setDiagnostics] = useState<any | null>(null);
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
-  const [editingDailyHelpId, setEditingDailyHelpId] = useState<string | null>(null);
-  const [updatingHelperId, setUpdatingHelperId] = useState<string | null>(null);
-  const [dailyHelpForm, setDailyHelpForm] = useState({ category: '', name: '', description: '', pricingUnit: 'HOUR', pricePerHour: '199', minHours: '1', imageUrl: '', active: 1 });
   const isRootAdmin = isRootAdminEmail(user.email);
 
   const {
@@ -164,39 +160,7 @@ const AdminDashboardContent: React.FC = () => {
 
 
 
-  const resetDailyHelpForm = () => setDailyHelpForm({ category: '', name: '', description: '', pricingUnit: 'HOUR', pricePerHour: '199', minHours: '1', imageUrl: '', active: 1 });
 
-  const saveDailyHelpService = async () => {
-    if (!dailyHelpForm.category.trim() || !dailyHelpForm.name.trim() || Number(dailyHelpForm.pricePerHour) <= 0) {
-      showToast('Category, service name and a valid hourly rate are required.', 'error'); return;
-    }
-    const payload = {
-      ...dailyHelpForm,
-      category: dailyHelpForm.category.trim(),
-      name: dailyHelpForm.name.trim(),
-      pricingUnit: dailyHelpForm.pricingUnit.trim().toUpperCase(),
-      pricePerHour: Number(dailyHelpForm.pricePerHour),
-      minHours: Number(dailyHelpForm.minHours),
-      active: Number(dailyHelpForm.active),
-    };
-    try {
-      const saved = editingDailyHelpId
-        ? await adminApi.updateAdminDailyHelpService(editingDailyHelpId, payload)
-        : await adminApi.createAdminDailyHelpService(payload);
-      if (!saved) { showToast('Unable to save Daily Help service.', 'error'); return; }
-      showToast(editingDailyHelpId ? 'Daily Help service updated.' : 'Daily Help service added.', 'success');
-      setEditingDailyHelpId(null);
-      resetDailyHelpForm();
-      await refreshAdminData();
-    } catch (err: any) {
-      showToast(err?.message || 'Unable to save Daily Help service.', 'error');
-    }
-  };
-
-  const editDailyHelpService = (service: any) => {
-    setEditingDailyHelpId(service.serviceId || service.id);
-    setDailyHelpForm({ category: service.category || '', name: service.name || '', description: service.description || '', pricingUnit: service.pricingUnit || 'HOUR', pricePerHour: String(service.pricePerHour ?? ''), minHours: String(service.minHours ?? 1), imageUrl: service.imageUrl || '', active: Number(service.active ?? 1) });
-  };
 
   if (!isRootAdmin) {
     return (
@@ -588,135 +552,9 @@ const AdminDashboardContent: React.FC = () => {
         </div>
       )}
 
-      {activeAdminTab === 'daily-help' && (
-        <div className="space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div><h2 className="text-base font-extrabold text-slate-900">Daily Help Services</h2><p className="text-xs text-slate-500 mt-1">Services and hourly rates shown to buyers come only from the database.</p></div>
-            <button onClick={() => { setEditingDailyHelpId(null); resetDailyHelpForm(); }} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-700 text-white text-xs font-bold"><Plus className="w-4 h-4" /> Add Service</button>
-          </div>
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <input value={dailyHelpForm.category} onChange={e => setDailyHelpForm({...dailyHelpForm, category:e.target.value})} placeholder="Category" className="border rounded-xl px-3 py-2.5 text-xs" />
-            <input value={dailyHelpForm.name} onChange={e => setDailyHelpForm({...dailyHelpForm, name:e.target.value})} placeholder="Service name" className="border rounded-xl px-3 py-2.5 text-xs" />
-            <input value={dailyHelpForm.pricePerHour} onChange={e => setDailyHelpForm({...dailyHelpForm, pricePerHour:e.target.value})} type="number" min="1" placeholder="₹ / hour" className="border rounded-xl px-3 py-2.5 text-xs" />
-            <input value={dailyHelpForm.minHours} onChange={e => setDailyHelpForm({...dailyHelpForm, minHours:e.target.value})} type="number" min="1" placeholder="Minimum hours" className="border rounded-xl px-3 py-2.5 text-xs" />
-            <input value={dailyHelpForm.description} onChange={e => setDailyHelpForm({...dailyHelpForm, description:e.target.value})} placeholder="Description" className="border rounded-xl px-3 py-2.5 text-xs sm:col-span-2" />
-            <input value={dailyHelpForm.imageUrl} onChange={e => setDailyHelpForm({...dailyHelpForm, imageUrl:e.target.value})} placeholder="Image URL (optional)" className="border rounded-xl px-3 py-2.5 text-xs" />
-            <label className="flex items-center gap-2 border rounded-xl px-3 py-2.5 text-xs font-bold"><input type="checkbox" checked={dailyHelpForm.active === 1} onChange={e => setDailyHelpForm({...dailyHelpForm, active:e.target.checked ? 1 : 0})} /> Active for buyers</label>
-            <div className="sm:col-span-2 lg:col-span-4 flex gap-2">
-              <button onClick={saveDailyHelpService} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold"><Save className="w-4 h-4" /> {editingDailyHelpId ? 'Update Service' : 'Save Service'}</button>
-              {editingDailyHelpId && <button onClick={() => { setEditingDailyHelpId(null); resetDailyHelpForm(); }} className="px-4 py-2.5 rounded-xl border text-xs font-bold">Cancel</button>}
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {dailyHelpServices.map(service => (
-              <div key={service.id} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-start justify-between gap-4">
-                <div><div className="flex items-center gap-2"><h3 className="font-black text-sm">{service.name}</h3><span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${service.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{service.active ? 'Active' : 'Inactive'}</span></div><p className="text-[11px] text-slate-500 mt-1">{service.category} · Min {service.minHours} hr</p><p className="text-lg font-black mt-2">₹{service.pricePerHour}<span className="text-[11px] font-medium text-slate-500"> / hour</span></p><p className="text-xs text-slate-500 mt-1">{service.description || 'No description'}</p></div>
-                <button onClick={() => editDailyHelpService(service)} className="p-2 rounded-lg border text-slate-600 hover:bg-slate-50" title="Edit"><Pencil className="w-4 h-4" /></button>
-              </div>
-            ))}
-            {dailyHelpServices.length === 0 && <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200 p-10 text-center text-xs text-slate-500">No Daily Help services in the database. Add the first service above.</div>}
-          </div>
-        </div>
-      )}
+      {activeAdminTab === 'daily-help' && <AdminDailyHelpServicesTab dailyHelpServices={dailyHelpServices} showToast={showToast} refreshAdminData={refreshAdminData} />}
 
-      {activeAdminTab === 'daily-helpers' && (
-        <div className="space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h2 className="text-base font-extrabold text-slate-900">Daily Help Helpers</h2>
-              <p className="text-xs text-slate-500 mt-1">All registered home-service professionals. Availability and verification status are read directly from the database.</p>
-            </div>
-            <div className="flex gap-2 text-[11px] font-bold">
-              <span className="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700">Available {dailyHelpHelpers.filter(h => Boolean(h.verified) && String(h.status).toUpperCase() === 'AVAILABLE').length}</span>
-              <span className="px-3 py-2 rounded-xl bg-slate-100 text-slate-600">Offline {dailyHelpHelpers.filter(h => String(h.status).toUpperCase() === 'OFFLINE').length}</span>
-              <span className="px-3 py-2 rounded-xl bg-blue-50 text-blue-700">Verified {dailyHelpHelpers.filter(h => h.verified).length}</span>
-            </div>
-          </div>
-
-          {dailyHelpHelpers.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
-              <UserRoundCheck className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="font-bold text-sm text-slate-700">No Daily Help helpers registered yet.</p>
-              <p className="text-xs text-slate-500 mt-1">Helpers will appear here after they register for Daily Help.</p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[850px] text-left">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr className="text-[10px] uppercase tracking-wide text-slate-500">
-                      <th className="px-4 py-3 font-bold">Helper</th>
-                      <th className="px-4 py-3 font-bold">Contact</th>
-                      <th className="px-4 py-3 font-bold">Locality</th>
-                      <th className="px-4 py-3 font-bold">Availability</th>
-                      <th className="px-4 py-3 font-bold">Rating</th>
-                      <th className="px-4 py-3 font-bold">Verification</th>
-                      <th className="px-4 py-3 font-bold">Registered</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {dailyHelpHelpers.map(helper => (
-                      <tr key={helper.professionalId} className="hover:bg-slate-50">
-                        <td className="px-4 py-4">
-                          <div className="font-extrabold text-xs text-slate-900">{helper.fullName}</div>
-                          <div className="font-mono text-[10px] text-slate-400 mt-1">{helper.professionalId}</div>
-                        </td>
-                        <td className="px-4 py-4 text-xs text-slate-600">{helper.phone}</td>
-                        <td className="px-4 py-4 text-xs text-slate-600">{helper.currentLocality || '—'}</td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-col items-start gap-2">
-                            <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold ${String(helper.status).toUpperCase() === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{helper.status}</span>
-                            <button type="button" disabled={updatingHelperId === helper.professionalId || (!helper.verified && String(helper.status).toUpperCase() !== 'AVAILABLE')}
-                              onClick={async () => {
-                                const nextStatus = String(helper.status).toUpperCase() === 'AVAILABLE' ? 'OFFLINE' : 'AVAILABLE';
-                                setUpdatingHelperId(helper.professionalId);
-                                try {
-                                  const updated = await adminApi.updateAdminDailyHelpProfessionalAvailability(helper.professionalId, nextStatus, helper.currentLocality);
-                                  if (!updated) throw new Error('The server rejected this availability change. Confirm the admin role is authorized for this action.');
-                                  showToast(nextStatus === 'AVAILABLE' ? 'Daily Help professional is now available.' : 'Daily Help professional is now offline.', 'success');
-                                  await refreshAdminData();
-                                } catch (error: any) {
-                                  showToast(error?.message || 'Unable to change Daily Help availability.', 'error');
-                                } finally { setUpdatingHelperId(null); }
-                              }}
-                              className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-[10px] font-bold text-slate-700 disabled:opacity-50">
-                              {updatingHelperId === helper.professionalId ? 'Updating…' : !helper.verified && String(helper.status).toUpperCase() !== 'AVAILABLE' ? 'Verify before availability' : String(helper.status).toUpperCase() === 'AVAILABLE' ? 'Set offline' : 'Set available'}
-                            </button>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-xs font-bold">★ {helper.rating || '0.00'} <span className="text-slate-400 font-normal">({helper.reviewCount || 0})</span></td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-col items-start gap-2">
-                            {helper.verified ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700"><CheckCircle2 className="w-3.5 h-3.5" /> Verified</span> : <span className="text-[10px] font-bold text-rose-600">Not verified</span>}
-                            <button type="button" disabled={updatingHelperId === helper.professionalId}
-                              onClick={async () => {
-                                const nextVerified = !Boolean(helper.verified);
-                                if (!nextVerified && !window.confirm('Revoke verification? This will set the professional offline.')) return;
-                                setUpdatingHelperId(helper.professionalId);
-                                try {
-                                  await adminApi.updateAdminDailyHelpProfessionalVerification(helper.professionalId, nextVerified);
-                                  showToast(nextVerified ? 'Daily Help professional verified.' : 'Verification revoked; professional set offline.', 'success');
-                                  await refreshAdminData();
-                                } catch (error: any) {
-                                  showToast(error?.message || 'Unable to update Daily Help verification.', 'error');
-                                } finally { setUpdatingHelperId(null); }
-                              }}
-                              className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-[10px] font-bold text-slate-700 disabled:opacity-50">
-                              {updatingHelperId === helper.professionalId ? 'Updating…' : helper.verified ? 'Revoke verification' : 'Approve professional'}
-                            </button>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-[11px] text-slate-500">{helper.registeredAt ? new Date(helper.registeredAt).toLocaleDateString() : '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
+      {activeAdminTab === 'daily-helpers' && <AdminDailyHelpHelpersTab dailyHelpHelpers={dailyHelpHelpers} showToast={showToast} refreshAdminData={refreshAdminData} />}
 
       {/* Tab: Trends */}
       {activeAdminTab === 'trends' && <MarketTrendsVisualization analytics={adminAnalytics} searchTrends={adminSearchTrends} loading={adminDataLoading} />}
