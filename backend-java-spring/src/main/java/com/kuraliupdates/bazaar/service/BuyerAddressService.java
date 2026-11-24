@@ -1,5 +1,7 @@
 package com.kuraliupdates.bazaar.service;
 
+import com.kuraliupdates.bazaar.util.Strings;
+
 import com.kuraliupdates.bazaar.dto.address.AddressRequest;
 import com.kuraliupdates.bazaar.dto.address.AddressResponse;
 import com.kuraliupdates.bazaar.entity.UserAddressEntity;
@@ -51,9 +53,9 @@ public class BuyerAddressService {
                         .userId(userId)
                         .label("Home")
                         .addressLine1(addressLine1)
-                        .landmark(trim(user.getLandmark()))
-                        .formattedAddress(trim(user.getFormattedAddress()))
-                        .placeId(trim(user.getPlaceId()))
+                        .landmark(Strings.trim(user.getLandmark()))
+                        .formattedAddress(Strings.trim(user.getFormattedAddress()))
+                        .placeId(Strings.trim(user.getPlaceId()))
                         .latitude(user.getLatitude())
                         .longitude(user.getLongitude())
                         .isDefault(1)
@@ -79,9 +81,9 @@ public class BuyerAddressService {
                 .userId(userId)
                 .label(defaultValue(request.label(), "Home"))
                 .addressLine1(request.addressLine1().trim())
-                .landmark(trim(request.landmark()))
-                .formattedAddress(trim(request.formattedAddress()))
-                .placeId(trim(request.placeId()))
+                .landmark(Strings.trim(request.landmark()))
+                .formattedAddress(Strings.trim(request.formattedAddress()))
+                .placeId(Strings.trim(request.placeId()))
                 .latitude(toDecimal(request.latitude()))
                 .longitude(toDecimal(request.longitude()))
                 .isDefault(makeDefault ? 1 : 0)
@@ -100,9 +102,9 @@ public class BuyerAddressService {
         UserAddressEntity address = existing.get();
         address.setLabel(defaultValue(request.label(), address.getLabel()));
         address.setAddressLine1(request.addressLine1().trim());
-        address.setLandmark(trim(request.landmark()));
-        address.setFormattedAddress(trim(request.formattedAddress()));
-        address.setPlaceId(trim(request.placeId()));
+        address.setLandmark(Strings.trim(request.landmark()));
+        address.setFormattedAddress(Strings.trim(request.formattedAddress()));
+        address.setPlaceId(Strings.trim(request.placeId()));
         address.setLatitude(toDecimal(request.latitude()));
         address.setLongitude(toDecimal(request.longitude()));
         address.setUpdatedAt(LocalDateTime.now());
@@ -168,9 +170,6 @@ public class BuyerAddressService {
         return value == null || value.isBlank() ? fallback : value.trim();
     }
 
-    private String trim(String value) {
-        return value == null ? null : value.trim();
-    }
 
     private BigDecimal toDecimal(Double value) {
         return value == null ? null : BigDecimal.valueOf(value);

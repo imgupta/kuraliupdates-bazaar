@@ -1,5 +1,7 @@
 package com.kuraliupdates.bazaar.service;
 
+import com.kuraliupdates.bazaar.util.Strings;
+
 import com.kuraliupdates.bazaar.dto.product.ProductResponse;
 import com.kuraliupdates.bazaar.dto.order.OrderResponse;
 import com.kuraliupdates.bazaar.dto.seller.SellerProductRequest;
@@ -109,8 +111,8 @@ public class SellerService {
                 .seller(seller)
                 .title(request.title().trim())
                 .category(request.category().trim())
-                .description(trim(request.description()))
-                .imageUrl(trim(request.imageUrl()))
+                .description(Strings.trim(request.description()))
+                .imageUrl(Strings.trim(request.imageUrl()))
                 .mrp(request.mrp())
                 .sellerPrice(request.sellerPrice())
                 .additionalDiscountPercent(defaultDiscount(request.additionalDiscountPercent()))
@@ -133,8 +135,8 @@ public class SellerService {
         ensureOwnership(product, seller);
         product.setTitle(request.title().trim());
         product.setCategory(request.category().trim());
-        product.setDescription(trim(request.description()));
-        product.setImageUrl(trim(request.imageUrl()));
+        product.setDescription(Strings.trim(request.description()));
+        product.setImageUrl(Strings.trim(request.imageUrl()));
         product.setMrp(request.mrp());
         product.setSellerPrice(request.sellerPrice());
         product.setAdditionalDiscountPercent(defaultDiscount(request.additionalDiscountPercent()));
@@ -309,9 +311,6 @@ public class SellerService {
         return value == null ? BigDecimal.ZERO : value;
     }
 
-    private String trim(String value) {
-        return value == null ? null : value.trim();
-    }
 
     private String blankOr(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value.trim();

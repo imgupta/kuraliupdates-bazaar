@@ -1,5 +1,7 @@
 package com.kuraliupdates.bazaar.service;
 
+import com.kuraliupdates.bazaar.util.Strings;
+
 import com.kuraliupdates.bazaar.dto.order.OrderPlacementResponse;
 import com.kuraliupdates.bazaar.dto.order.OrderResponse;
 import com.kuraliupdates.bazaar.dto.order.PlaceOrderRequest;
@@ -338,7 +340,7 @@ public class OrderService {
                 .deliveryLocality(request.deliveryLocality().trim())
                 .deliveryLatitude(request.deliveryLatitude() == null ? null : BigDecimal.valueOf(request.deliveryLatitude()))
                 .deliveryLongitude(request.deliveryLongitude() == null ? null : BigDecimal.valueOf(request.deliveryLongitude()))
-                .deliveryPlaceId(trim(request.deliveryPlaceId()))
+                .deliveryPlaceId(Strings.trim(request.deliveryPlaceId()))
                 .seller(seller)
                 .fulfilmentMode("DELIVERY")
                 .subtotal(itemSubtotal)
@@ -659,7 +661,4 @@ public class OrderService {
         // a valid role-scoped session for a multi-profile account.
     }
 
-    private String trim(String value) {
-        return value == null ? null : value.trim();
-    }
 }
