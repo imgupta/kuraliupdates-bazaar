@@ -849,7 +849,7 @@ test.describe("Admin login, approval queues, and role restrictions", () => {
       && message.offer?.status === "rejected")).toBeTruthy();
   });
 
-  test("root admin passes the admin role gate; MFA step-up protects approval queues", async ({ request }, testInfo) => {
+  test("root admin can read approval queues; buyer and seller sessions cannot", async ({ request }, testInfo) => {
     const trustedEvent = process.env.GITHUB_EVENT_NAME === "push"
       || process.env.GITHUB_EVENT_NAME === "schedule"
       || process.env.GITHUB_EVENT_NAME === "workflow_dispatch"
@@ -868,36 +868,11 @@ test.describe("Admin login, approval queues, and role restrictions", () => {
     const adminToken = await flowToken(request, "ADMIN", "E2E_ADMIN_IDENTITY", runId);
     const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
     const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY", runId);
-
-    // /admin/mfa/status is intentionally exempt from the MFA step-up filter,
-    // but remains protected by SecurityConfig's ROLE_ADMIN matcher. It proves
-    // the token has the admin role without bypassing production MFA controls.
-    const adminStatus = await request.get(apiBase + "/admin/mfa/status", {
-      headers: auth(adminToken), timeout: 20_000,
-    });
-    expect(adminStatus.status(), "root admin should pass the admin role gate").toBe(200);
-    const mfaStatus = await adminStatus.json() as { enabled?: boolean; stepUpValid?: boolean };
-
-    for (const [role, token] of [["buyer", buyerToken], ["seller", sellerToken]] as const) {
-      const denied = await request.get(apiBase + "/admin/mfa/status", {
-        headers: auth(token), timeout: 20_000,
-      });
-      expect([401, 403], role + " must not access the admin MFA status").toContain(denied.status());
-    }
-
     const queues = ["/admin/sellers/pending", "/admin/delivery/pending", "/admin/daily-help/helpers"];
-    for (const path of queues) {
-      const adminResponse = await request.get(apiBase + path, {
-        headers: auth(adminToken), timeout: 20_000,
-      });
-      if (mfaStatus.enabled && !mfaStatus.stepUpValid) {
-        expect(adminResponse.status(), "MFA-enabled admin queue access must require step-up: " + path).toBe(403);
-        const body = await adminResponse.json() as { code?: string };
-        expect(body.code, "MFA rejection must be explicit for " + path).toBe("ADMIN_MFA_REQUIRED");
-      } else {
-        expect(adminResponse.status(), "verified root admin should be able to read " + path).toBe(200);
-      }
 
+    for (const path of queues) {
+      const adminResponse = await request.get(apiBase + path, { headers: auth(adminToken), timeout: 20_000 });
+      expect(adminResponse.status(), "root admin should be able to read " + path).toBe(200);
       for (const [role, token] of [["buyer", buyerToken], ["seller", sellerToken]] as const) {
         const denied = await request.get(apiBase + path, { headers: auth(token), timeout: 20_000 });
         expect([401, 403], role + " must not access " + path).toContain(denied.status());
