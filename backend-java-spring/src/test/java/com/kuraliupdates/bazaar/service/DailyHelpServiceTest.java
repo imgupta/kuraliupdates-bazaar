@@ -48,6 +48,36 @@ class DailyHelpServiceTest {
     }
 
     @Test
+    void fullDayAvailabilityRemainsBookableAfterMidnightHasPassed() {
+        LocalDate date = LocalDate.of(2026, 11, 25);
+        LocalDateTime windowStart = date.atStartOfDay();
+        LocalDateTime windowEnd = date.atTime(23, 59);
+        LocalDateTime now = date.atTime(11, 45);
+
+        assertTrue(DailyHelpService.hasBookableWindow(windowStart, windowEnd, now, 60));
+    }
+
+    @Test
+    void availabilityRejectsWindowWithoutEnoughRemainingTime() {
+        LocalDate date = LocalDate.of(2026, 11, 25);
+        LocalDateTime windowStart = date.atStartOfDay();
+        LocalDateTime windowEnd = date.atTime(12, 45);
+        LocalDateTime now = date.atTime(12, 0);
+
+        assertFalse(DailyHelpService.hasBookableWindow(windowStart, windowEnd, now, 60));
+    }
+
+    @Test
+    void futureAvailabilityWindowUsesItsConfiguredStartTime() {
+        LocalDate date = LocalDate.of(2026, 11, 25);
+        LocalDateTime windowStart = date.atTime(9, 0);
+        LocalDateTime windowEnd = date.atTime(17, 0);
+        LocalDateTime now = date.minusDays(1).atTime(18, 0);
+
+        assertTrue(DailyHelpService.hasBookableWindow(windowStart, windowEnd, now, 60));
+    }
+
+    @Test
     void nullBookingRequestReturnsBadRequestBeforeRepositoryAccess() {
         ApiException error = assertThrows(ApiException.class,
                 () -> dailyHelpService.createBooking(null));
