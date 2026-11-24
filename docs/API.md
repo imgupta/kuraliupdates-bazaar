@@ -19,7 +19,7 @@ Base path: `/api/v1`. Backend controllers and DTOs are authoritative; update thi
 | Orders | Checkout groups, seller suborders, order state and pickup/delivery |
 | Bargaining | Negotiation chat, accepted-offer validation and negotiated item price |
 | Delivery | Agent profile, available jobs, claim, OTP, location and payout |
-| Daily Help | Service catalogue, provider profile, slots, booking and job lifecycle |
+| Daily Help | Service catalogue, provider profile, slots, booking and job lifecycle | See [Daily Help end-to-end design](DAILY-HELP-END-TO-END.md) for endpoint contracts, role/ownership rules, request examples and lifecycle diagrams.
 | Tracking | Order/rider tracking and location reads |
 
 ## Seller documents
