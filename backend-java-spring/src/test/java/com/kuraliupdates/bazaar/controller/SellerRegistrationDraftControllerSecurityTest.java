@@ -7,8 +7,8 @@ import com.kuraliupdates.bazaar.service.AuthService;
 import com.kuraliupdates.bazaar.service.SellerRegistrationDraftService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -25,8 +25,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class SellerRegistrationDraftControllerSecurityTest {
 
     @Autowired private MockMvc mockMvc;
-    @MockBean private AuthService authService;
-    @MockBean private SellerRegistrationDraftService drafts;
+    @MockitoBean private AuthService authService;
+    @MockitoBean private SellerRegistrationDraftService drafts;
 
     @Test
     void anonymousCannotReadWriteOrDeleteDraft() throws Exception {

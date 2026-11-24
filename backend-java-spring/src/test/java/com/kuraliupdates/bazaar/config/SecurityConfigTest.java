@@ -5,7 +5,7 @@ import com.kuraliupdates.bazaar.service.AuthService;
 import com.kuraliupdates.bazaar.controller.HealthController;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -42,22 +42,22 @@ class SecurityConfigTest {
     @Autowired
     private FilterRegistrationBean<com.kuraliupdates.bazaar.security.AdminMfaFilter> adminMfaFilterRegistration;
 
-    @org.springframework.boot.test.mock.mockito.MockBean
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     private AuthService authService;
 
-    @org.springframework.boot.test.mock.mockito.MockBean
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     private com.kuraliupdates.bazaar.service.ApiRateLimitService apiRateLimitService;
 
-    @org.springframework.boot.test.mock.mockito.MockBean
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     private com.kuraliupdates.bazaar.security.TrustedClientIpResolver trustedClientIpResolver;
 
-    @org.springframework.boot.test.mock.mockito.MockBean
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     private com.kuraliupdates.bazaar.service.AdminMfaService adminMfaService;
 
-    @org.springframework.boot.test.mock.mockito.MockBean
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     private DataSource dataSource;
 
-    @org.springframework.boot.test.mock.mockito.MockBean
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     private DatabaseMigrationState migrationState;
 
     @Test
