@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Clock3, Home, ShieldCheck, Star, UserRound, CalendarDays, Timer, CheckCircle2, MapPin } from 'lucide-react';
+import { Clock3, Home, ShieldCheck, Star, UserRound, CalendarDays, Timer, MapPin } from 'lucide-react';
 import { buyerApi } from '../../services/domains/buyerApi';
 import { DailyHelpBooking, DailyHelpService, DailyHelpSlot } from '../../types';
 import { useApp } from '../../context/AppContext';
