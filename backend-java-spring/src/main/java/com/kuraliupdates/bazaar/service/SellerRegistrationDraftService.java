@@ -1,7 +1,7 @@
 package com.kuraliupdates.bazaar.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.kuraliupdates.bazaar.entity.SellerRegistrationDraftEntity;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.repository.SellerRegistrationDraftRepository;
