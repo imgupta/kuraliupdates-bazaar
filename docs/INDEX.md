@@ -16,6 +16,7 @@ Start with these maintained sources:
 | [Registration OTP audit history](REGISTRATION-OTP-AUDIT-HISTORY.md) | Admin change audit trail, endpoint and release acceptance checks |
 | [Deployment](../DEPLOYMENT.md) | Vercel/Render release, environment and rollback gates |
 | [API](API.md) | Domain API index and contract maintenance |
+| [Daily Help end-to-end design](DAILY-HELP-END-TO-END.md) | Buyer/provider/admin workflows, REST API, Oracle data model, class and sequence diagrams, security and troubleshooting |
 | [Database](DATABASE.md) | Flyway migration facts and Oracle operational safety |
 | [Development](DEVELOPMENT.md) | Coding practices |
 | [E2E testing](../E2E_TESTING.md) | Test modes and safety boundaries |
