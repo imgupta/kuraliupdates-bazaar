@@ -1,7 +1,7 @@
 package com.kuraliupdates.bazaar.controller;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import com.kuraliupdates.bazaar.exception.ApiException;
 import com.kuraliupdates.bazaar.service.MalwareScanner;
 import com.kuraliupdates.bazaar.service.AuthService;
