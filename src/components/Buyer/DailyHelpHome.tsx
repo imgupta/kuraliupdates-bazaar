@@ -123,6 +123,12 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
     return () => { cancelled = true; };
   }, [selected, bookingDate, hours, user.locality]);
 
+  useEffect(() => {
+    if (!selectedSlot) return;
+    const allowedTimes = bookableStartTimes(selectedSlot, hours);
+    if (!allowedTimes.includes(selectedStartTime)) setSelectedStartTime(allowedTimes[0] || '');
+  }, [selectedSlot, hours]);
+
   const elapsedSeconds = (startedAt?: string, requestedHours?: number) => {
     if (!startedAt) return 0;
     const raw = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1000));
@@ -137,8 +143,8 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
     const start = startHour * 60 + startMinute;
     const windowStart = windowStartHour * 60 + windowStartMinute;
     const windowEnd = windowEndHour * 60 + windowEndMinute;
-    const startDateTime = new Date(`${selectedSlot.slotDate}T${selectedStartTime}:00`);
-    return start % 15 === 0 && start >= windowStart && start + hours * 60 <= windowEnd && startDateTime.getTime() >= Date.now();
+    const allowedTimes = bookableStartTimes(selectedSlot, hours);
+    return start % 15 === 0 && start >= windowStart && start + hours * 60 <= windowEnd && allowedTimes.includes(selectedStartTime);
   }, [selectedSlot, selectedStartTime, hours]);
 
   const minDate = indiaDateString();
