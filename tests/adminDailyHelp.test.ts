@@ -10,3 +10,19 @@ test('availability success uses directional toast and refreshes',async()=>{const
 test('verification cancellation makes no API call or busy state change',async()=>{const x=h({},()=>false);await x.actions.toggleVerification({professionalId:'p1',verified:true});assert.equal(x.calls.length,0);assert.equal(x.sets.length,0);});
 test('verification does not add falsy-result guard',async()=>{const x=h();await x.actions.toggleVerification({professionalId:'p1',verified:false});assert.deepEqual(x.calls,[['verification','p1',true]]);assert.deepEqual(x.toasts,[['Daily Help professional verified.','success']]);assert.equal(x.refresh(),1);});
 test('verification revoke confirms and preserves exact toast',async()=>{const x=h();await x.actions.toggleVerification({professionalId:'p1',verified:true});assert.deepEqual(x.confirms,['Revoke verification? This will set the professional offline.']);assert.deepEqual(x.toasts,[['Verification revoked; professional set offline.','success']]);});
+
+test('AdminPortal delegates Daily Help tabs and preserves extracted helper control contracts',()=>{
+ const portal=readFileSync(new URL('../src/features/admin/AdminPortal.tsx',import.meta.url),'utf8');
+ const helpers=readFileSync(new URL('../src/features/admin/AdminDailyHelpHelpersTab.tsx',import.meta.url),'utf8');
+ const actions=readFileSync(new URL('../src/features/admin/adminDailyHelpActions.ts',import.meta.url),'utf8');
+ assert.ok(portal.includes('<AdminDailyHelpServicesTab dailyHelpServices={dailyHelpServices}'));
+ assert.ok(portal.includes('<AdminDailyHelpHelpersTab dailyHelpHelpers={dailyHelpHelpers}'));
+ assert.ok(!portal.includes('const [dailyHelpForm'));
+ assert.ok(!portal.includes('const [editingDailyHelpId'));
+ assert.ok(!portal.includes('const [updatingHelperId'));
+ assert.ok(helpers.includes("disabled={updatingHelperId === helper.professionalId || (!helper.verified && String(helper.status).toUpperCase() !== 'AVAILABLE')}"));
+ const verification=actions.slice(actions.indexOf('toggleVerification:'));
+ assert.ok(verification.includes("ui.confirm('Revoke verification? This will set the professional offline.')"));
+ assert.ok(verification.includes('await api.updateAdminDailyHelpProfessionalVerification'));
+ assert.ok(!verification.includes('if(!')&&!verification.includes('if (!'));
+});
