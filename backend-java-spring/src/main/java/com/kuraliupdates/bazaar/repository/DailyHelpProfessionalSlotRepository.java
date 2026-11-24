@@ -24,7 +24,7 @@ public interface DailyHelpProfessionalSlotRepository extends JpaRepository<Daily
           and s.status = 'AVAILABLE'
           and p.verified = 1
           and upper(p.status) = 'AVAILABLE'
-          and (:locality is null or upper(trim(p.currentLocality)) = upper(trim(:locality)))
+          and (:locality is null or upper(trim(:locality)) = 'KURALI' or upper(trim(p.currentLocality)) = upper(trim(:locality)))
           and s.startTime < :latestEnd
           and s.endTime > :earliestStart
         order by s.startTime asc, p.rating desc
