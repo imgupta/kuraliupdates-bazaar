@@ -51,7 +51,7 @@ export const SellerDashboard: React.FC = () => {
         sellerApi.getSellerDiscounts(),
         sellerApi.getMySellerDocuments(),
         sellerApi.getSellerOnboardingStatus(),
-        sellerPaymentsApi.getPayments(),
+        sellerPaymentsApi.getPayments().catch(() => []),
       ]);
       setSeller(remoteSeller);
       setProducts((remoteProducts || []).map((p: any) => mapSellerProduct(p, remoteSeller)));
