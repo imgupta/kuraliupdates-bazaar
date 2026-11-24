@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
 import { sellerPaymentsApi } from '../../services/domains/sellerPaymentsApi';
 
-export const SellerPaymentWorkspace: React.FC = () => {
+export const SellerPaymentWorkspace: React.FC<{ hidePaymentRecords?: boolean }> = ({ hidePaymentRecords = false }) => {
   const [destination, setDestination] = useState<any>({ configured: false });
   const [upiId, setUpiId] = useState('');
   const [payeeName, setPayeeName] = useState('');
@@ -58,7 +58,7 @@ export const SellerPaymentWorkspace: React.FC = () => {
       </form>
       {destination?.configured !== false && <p className="flex items-center gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-900"><ShieldCheck className="h-4 w-4"/>Verification: <strong>{label(destination.verificationStatus)}</strong> · {destination.active ? 'Active for new checkouts' : 'Not active for new checkouts'}. Editing details resets verification.</p>}
     </section>
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+    {!hidePaymentRecords && <section className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
       <div className="flex items-center justify-between"><div><h3 className="text-sm font-extrabold">Seller payments</h3><p className="text-[11px] text-slate-500">Only orders belonging to your store are shown.</p></div><button type="button" onClick={()=>void load()} className="rounded-lg border p-2" aria-label="Refresh payments"><RefreshCw className="h-4 w-4"/></button></div>
       {error && <p role="alert" className="rounded-lg bg-rose-50 p-2 text-xs text-rose-700">{error}</p>}
       {payments.length===0 ? <p className="rounded-xl bg-slate-50 p-4 text-xs text-slate-500">No seller-direct UPI payment records yet.</p> : payments.map(p=><article key={p.paymentId} className="rounded-xl border border-slate-200 p-3 space-y-2">
@@ -68,6 +68,6 @@ export const SellerPaymentWorkspace: React.FC = () => {
         {p.refundStatus==='REQUESTED' && <div className="space-y-2"><p className="text-xs text-amber-800">Buyer refund request: {p.refundReason}</p><button type="button" disabled={busy} onClick={()=>void refund(p.paymentId,'INITIATE')} className="rounded-lg border px-3 py-2 text-xs font-bold">I will initiate seller-funded refund</button><button type="button" disabled={busy} onClick={()=>void refund(p.paymentId,'REJECT')} className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-700">Reject refund request</button></div>}
         {p.refundStatus==='INITIATED_BY_SELLER' && <div className="space-y-2"><label className="block text-[11px] font-semibold">Actual bank/UPI refund reference after sending refund<input value={refundRefs[p.paymentId]||''} onChange={e=>setRefundRefs(prev=>({...prev,[p.paymentId]:e.target.value}))} className="mt-1 w-full rounded-lg border px-3 py-2 text-xs" placeholder="Refund transaction reference"/></label><button type="button" disabled={busy||!refundRefs[p.paymentId]?.trim()} onClick={()=>void refund(p.paymentId,'COMPLETE')} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Record refund completed</button></div>}
       </article>)}
-    </section>
+    </section>}
   </div>;
 };
