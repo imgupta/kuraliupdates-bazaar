@@ -11,6 +11,8 @@ export const mapSellerProduct = (p: any, seller?: any): Product => ({
   sellerLocality: p.seller?.locality || seller?.locality || '',
   sellerDistanceKm: Number(p.seller?.distanceKm ?? seller?.distanceKm ?? 1),
   sellerRating: Number(p.seller?.rating ?? seller?.rating ?? 0),
+  baseDeliveryFee: Number(p.seller?.baseDeliveryFee ?? seller?.baseDeliveryFee ?? 35),
+  minOrderForFreeDelivery: Number(p.seller?.minOrderForFreeDelivery ?? seller?.minOrderForFreeDelivery ?? 499),
   rating: 0,
   reviewCount: 0,
   isAvailable: Number(p.stock ?? 0) > 0,

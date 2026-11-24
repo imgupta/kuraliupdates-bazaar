@@ -15,6 +15,8 @@ export interface BackendProduct {
     locality: string;
     distanceKm: number;
     rating: number;
+    baseDeliveryFee?: number;
+    minOrderForFreeDelivery?: number;
   };
   name?: string;
   title?: string;

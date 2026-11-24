@@ -35,7 +35,8 @@ public record ProductResponse(
                 seller == null ? null : seller.getSellerId(),
                 seller == null ? null : new SellerSummary(
                         seller.getSellerId(), seller.getStoreName(), seller.getLocality(),
-                        seller.getDistanceKm(), seller.getRating()),
+                        seller.getDistanceKm(), seller.getRating(),
+                        seller.getBaseDeliveryFee(), seller.getMinOrderForFreeDelivery()),
                 product.getTitle(), product.getCategory(), product.getDescription(),
                 product.getImageUrl(), product.getMrp(), product.getSellerPrice(),
                 product.getAdditionalDiscountPercent(), product.getEffectivePrice(),
@@ -47,6 +48,8 @@ public record ProductResponse(
             String name,
             String locality,
             BigDecimal distanceKm,
-            BigDecimal rating
+            BigDecimal rating,
+        BigDecimal baseDeliveryFee,
+        BigDecimal minOrderForFreeDelivery
     ) {}
 }

@@ -7,6 +7,7 @@ import { sellerApi } from '../../services/domains/sellerApi';
 import { mapSellerProduct } from '../../entities/sellerProduct';
 import { NegotiationChatModal } from '../../components/Buyer/NegotiationChatModal';
 import { SellerPaymentWorkspace } from '../../components/Seller/SellerPaymentWorkspace';
+import { sellerPaymentsApi } from '../../services/domains/sellerPaymentsApi';
 import { SellerAddressEditor } from '../../components/Seller/SellerAddressEditor';
 
 
@@ -15,6 +16,8 @@ export const SellerDashboard: React.FC = () => {
   const [seller, setSeller] = useState<any | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [sellerPayments, setSellerPayments] = useState<any[]>([]);
+  const [paymentActionBusy, setPaymentActionBusy] = useState<string | null>(null);
   const [discounts, setDiscounts] = useState<any[]>([]);
   const [sellerDocuments, setSellerDocuments] = useState<any[]>([]);
   const [onboardingStatus, setOnboardingStatus] = useState<any | null>(null);
@@ -41,17 +44,19 @@ export const SellerDashboard: React.FC = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const [remoteSeller, remoteProducts, remoteOrders, remoteDiscounts, remoteDocuments, remoteOnboarding] = await Promise.all([
+      const [remoteSeller, remoteProducts, remoteOrders, remoteDiscounts, remoteDocuments, remoteOnboarding, remotePayments] = await Promise.all([
         sellerApi.getCurrentSeller(),
         sellerApi.getSellerProducts(),
         sellerApi.getSellerOrders(),
         sellerApi.getSellerDiscounts(),
         sellerApi.getMySellerDocuments(),
         sellerApi.getSellerOnboardingStatus(),
+        sellerPaymentsApi.getPayments().catch(() => []),
       ]);
       setSeller(remoteSeller);
       setProducts((remoteProducts || []).map((p: any) => mapSellerProduct(p, remoteSeller)));
       setOrders(remoteOrders || []);
+      setSellerPayments(remotePayments || []);
       knownOrderIds.current = new Set((remoteOrders || []).map((order: any) => String(order.orderId || order.id)));
       setDiscounts((remoteDiscounts || []).map((d: any) => ({ ...d })));
       setSellerDocuments(remoteDocuments || []);
@@ -77,6 +82,8 @@ export const SellerDashboard: React.FC = () => {
         }
         knownOrderIds.current = nextIds;
         setOrders(latest || []);
+        const latestPayments = await sellerPaymentsApi.getPayments();
+        setSellerPayments(latestPayments || []);
       } catch (error) { console.warn('Seller order notification refresh failed:', error); }
     };
     const timer = window.setInterval(() => { void poll(); }, 15000);
@@ -201,6 +208,18 @@ export const SellerDashboard: React.FC = () => {
       setDiscounts(prev => prev.filter(d => d.ruleId !== ruleId));
       showToast('Discount rule removed.', 'success');
     } catch (err: any) { showToast(err?.message || 'Unable to remove discount.', 'error'); }
+  };
+
+  const decideOrderPayment = async (payment: any, confirm: boolean) => {
+    if (paymentActionBusy) return;
+    setPaymentActionBusy(payment.paymentId);
+    try {
+      await sellerPaymentsApi.decidePayment(payment.paymentId, confirm, confirm ? '' : 'Seller could not verify this UTR. Contact buyer for clarification.');
+      const latest = await sellerPaymentsApi.getPayments();
+      setSellerPayments(latest || []);
+      showToast(confirm ? 'Payment marked as received.' : 'Payment reference rejected.', 'success');
+    } catch (error: any) { showToast(error?.message || 'Unable to update payment status.', 'error'); }
+    finally { setPaymentActionBusy(null); }
   };
 
   const advanceOrder = async (order: any) => {
@@ -354,14 +373,14 @@ export const SellerDashboard: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'payments' && <SellerPaymentWorkspace />}
+      {activeTab === 'payments' && <SellerPaymentWorkspace hidePaymentRecords />}
 
       {activeTab === 'orders' && (
         <div className="space-y-6">
           <section className="space-y-3">
             <h3 className="text-sm font-extrabold text-slate-800">Incoming Orders ({incomingOrders.length})</h3>
             {incomingOrders.length === 0 ? <div className="p-8 text-center bg-white rounded-3xl border border-slate-200"><ShoppingBag className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="font-bold text-sm">No pending orders. New orders will appear here.</p></div> :
-              incomingOrders.map(o => { const status=String(o.status||'').toUpperCase(); const next=status==='PLACED'?'Accept Order':status==='ACCEPTED_BY_SELLER'?'Mark Ready for Pickup':null; return <div key={o.orderId} className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row justify-between gap-4"><div><div className="flex gap-2 items-center"><span className="font-mono font-bold text-xs text-blue-700">#{o.orderId}</span><span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 uppercase">{status}</span></div><p className="text-xs font-bold mt-2">{o.buyerName} • {o.deliveryAddress}</p><p className="text-[11px] text-slate-500">{o.paymentMethod} • {o.placedAt ? new Date(o.placedAt).toLocaleString() : ''}</p></div><div className="flex items-center gap-3"><span className="font-black">₹{Number(o.totalAmount||0).toFixed(2)}</span>{next && <button onClick={()=>advanceOrder(o)} className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-bold">{next}</button>}</div></div>})}
+              incomingOrders.map(o => { const status=String(o.status||'').toUpperCase(); const next=status==='PLACED'?'Accept Order':status==='ACCEPTED_BY_SELLER'?'Mark Ready for Pickup':null; const payment=sellerPayments.find(p=>String(p.orderId)===String(o.orderId)); return <div key={o.orderId} className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col gap-3"><div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3"><div><div className="flex gap-2 items-center flex-wrap"><span className="font-mono font-bold text-xs text-blue-700">#{o.orderId}</span><span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 uppercase">{status}</span></div><p className="text-xs font-bold mt-2">{o.buyerName} • {o.deliveryAddress}</p><p className="text-[11px] text-slate-500">{o.paymentMethod} • {o.placedAt ? new Date(o.placedAt).toLocaleString() : ''}</p></div><div className="flex items-center justify-between md:justify-end gap-3"><span className="font-black">₹{Number(o.totalAmount||0).toFixed(2)}</span>{next && <button onClick={()=>advanceOrder(o)} className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-bold">{next}</button>}</div></div>{payment && <section className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 space-y-2"><div className="flex items-center justify-between gap-2"><span className="text-xs font-extrabold text-slate-800">Seller-direct UPI payment</span><span className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-slate-700">{String(payment.paymentStatus||'').replaceAll('_',' ').toLowerCase()}</span></div><p className="text-xs text-slate-700">Amount: <strong>₹{Number(payment.expectedAmount||0).toFixed(2)}</strong> · UTR: <strong>{payment.utrReference || 'Not submitted'}</strong></p>{payment.paymentStatus==='AWAITING_SELLER_CONFIRMATION' && <div className="flex flex-wrap gap-2"><button type="button" disabled={paymentActionBusy===payment.paymentId} onClick={()=>void decideOrderPayment(payment,true)} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{paymentActionBusy===payment.paymentId?'Updating…':'Confirm received'}</button><button type="button" disabled={paymentActionBusy===payment.paymentId} onClick={()=>void decideOrderPayment(payment,false)} className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 disabled:opacity-50">Reject reference</button></div>}</section>}</div>})}
           </section>
           <section className="space-y-3 pt-4 border-t border-slate-200">
             <h3 className="text-sm font-extrabold text-slate-800">Completed Orders ({completedOrders.length})</h3>

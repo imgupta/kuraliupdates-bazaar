@@ -57,6 +57,8 @@ export interface Product {
   sellerLocality: string;
   sellerDistanceKm: number;
   sellerRating: number;
+  baseDeliveryFee?: number;
+  minOrderForFreeDelivery?: number;
   rating?: number;
   reviewCount?: number;
   isAvailable?: boolean;

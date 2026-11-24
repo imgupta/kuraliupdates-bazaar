@@ -23,6 +23,8 @@ test('maps seller API product fields and seller fallback values', () => {
       locality: 'Main Bazaar',
       distanceKm: '2.5',
       rating: '4.2',
+      baseDeliveryFee: '30',
+      minOrderForFreeDelivery: '399',
     }),
     {
       id: 'product-1',
@@ -31,6 +33,8 @@ test('maps seller API product fields and seller fallback values', () => {
       sellerLocality: 'Main Bazaar',
       sellerDistanceKm: 2.5,
       sellerRating: 4.2,
+      baseDeliveryFee: 30,
+      minOrderForFreeDelivery: 399,
       rating: 0,
       reviewCount: 0,
       isAvailable: true,
@@ -75,6 +79,8 @@ test('preserves mapper defaults, numeric coercions, and invalid-tag fallback', (
       sellerLocality: '',
       sellerDistanceKm: 0,
       sellerRating: 0,
+      baseDeliveryFee: 35,
+      minOrderForFreeDelivery: 499,
       rating: 0,
       reviewCount: 0,
       isAvailable: false,
@@ -97,7 +103,7 @@ test('uses nested seller fields before dashboard seller fallbacks', () => {
   const product = mapSellerProduct({
     productId: 'product-3',
     sellerId: 'nested-seller',
-    seller: { name: 'Nested Store', locality: 'Morinda Road', distanceKm: 3, rating: 4.7 },
+    seller: { name: 'Nested Store', locality: 'Morinda Road', distanceKm: 3, rating: 4.7, baseDeliveryFee: 25, minOrderForFreeDelivery: 299 },
     stock: 1,
     tags: [],
     isFeatured: true,
@@ -114,5 +120,7 @@ test('uses nested seller fields before dashboard seller fallbacks', () => {
   assert.equal(product.sellerLocality, 'Morinda Road');
   assert.equal(product.sellerDistanceKm, 3);
   assert.equal(product.sellerRating, 4.7);
+  assert.equal(product.baseDeliveryFee, 25);
+  assert.equal(product.minOrderForFreeDelivery, 299);
   assert.equal(product.isFeatured, true);
 });

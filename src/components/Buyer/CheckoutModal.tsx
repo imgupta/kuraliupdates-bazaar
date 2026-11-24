@@ -33,7 +33,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
   const isolatedBuyNow = items !== undefined;
   const checkoutItemSubtotal = checkoutItems.reduce((sum, item) => sum + (item.negotiatedPrice ?? item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100)) * item.quantity, 0);
   const displayedSubtotal = isolatedBuyNow ? checkoutItemSubtotal : cartCalculations.subtotal;
-  const displayedTotal = isolatedBuyNow ? checkoutItemSubtotal : cartCalculations.finalTotal;
+  const buyNowSeller = checkoutItems[0]?.product;
+  const buyNowDeliveryFee = buyNowSeller && checkoutItemSubtotal >= Number(buyNowSeller.minOrderForFreeDelivery ?? 499)
+    ? 0 : Number(buyNowSeller?.baseDeliveryFee ?? 35);
   const defaultAddress = user.savedAddresses?.find(address => address.isDefault) || user.savedAddresses?.[0];
   const [selectedAddressId, setSelectedAddressId] = useState(defaultAddress?.id || '');
   const selectedAddress = user.savedAddresses?.find(address => address.id === selectedAddressId) || defaultAddress;
@@ -91,6 +93,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'review' | 'payment'>('review');
   const [fulfilmentMode, setFulfilmentMode] = useState<'DELIVERY' | 'STORE_PICKUP'>('DELIVERY');
+  const displayedDeliveryFee = fulfilmentMode === 'STORE_PICKUP' ? 0 : isolatedBuyNow ? buyNowDeliveryFee : cartCalculations.deliveryFee;
+  const displayedTotal = isolatedBuyNow ? checkoutItemSubtotal + displayedDeliveryFee : cartCalculations.finalTotal;
   const multiSellerCart = new Set(checkoutItems.map(item => item.product.sellerId)).size > 1;
   const pickupTotal = isolatedBuyNow ? checkoutItemSubtotal : Math.max(0, cartCalculations.subtotal - cartCalculations.billDiscount - cartCalculations.couponDiscount);
 
@@ -157,9 +161,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
           <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between text-xs">
             <span className="flex items-center gap-2 text-amber-900 font-bold">
               <Truck className="w-4 h-4 text-amber-600" />
-              {isolatedBuyNow ? 'Delivery charge confirmed after seller acceptance' : fulfilmentMode === 'STORE_PICKUP' ? 'Store pickup selected — no delivery charge' : cartCalculations.isFreeDelivery
-                ? 'FREE Delivery Qualified (Order > Min Threshold)'
-                : `Standard Delivery Fee: ₹${cartCalculations.deliveryFee}`}
+              {fulfilmentMode === 'STORE_PICKUP' ? 'Store pickup selected — no delivery charge' : displayedDeliveryFee === 0 ? 'FREE delivery qualified' : `Delivery charge: ₹${displayedDeliveryFee.toFixed(2)}`}
             </span>
             <span className="text-slate-600 font-semibold">{fulfilmentMode === 'STORE_PICKUP' ? 'Pickup timing confirmed by seller' : configuredDeliveryEta ? `Estimated delivery: ${configuredDeliveryEta} minutes` : 'Delivery timing confirmed after seller acceptance'}</span>
           </div>
@@ -304,12 +306,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
             )}
             <div className="flex justify-between text-slate-600">
               <span>{fulfilmentMode === 'STORE_PICKUP' ? 'Store Pickup' : 'Delivery Fee'}</span>
-              <span>{isolatedBuyNow ? 'Confirmed after seller acceptance' : fulfilmentMode === 'STORE_PICKUP' || cartCalculations.isFreeDelivery ? 'FREE' : `₹${cartCalculations.deliveryFee}`}</span>
+              <span>{fulfilmentMode === 'STORE_PICKUP' || displayedDeliveryFee === 0 ? 'FREE' : `₹${displayedDeliveryFee.toFixed(2)}`}</span>
             </div>
             <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline font-extrabold text-sm text-slate-900">
               <span>Final Total</span>
               <span className="text-base text-amber-600 font-black">
-                ₹{(fulfilmentMode === 'STORE_PICKUP' && !isolatedBuyNow ? pickupTotal : displayedTotal).toFixed(2)}
+                ₹{(fulfilmentMode === 'STORE_PICKUP' ? (isolatedBuyNow ? checkoutItemSubtotal : pickupTotal) : displayedTotal).toFixed(2)}
               </span>
             </div>
           </div>
