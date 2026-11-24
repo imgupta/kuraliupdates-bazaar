@@ -4,7 +4,7 @@ Base path: `/api/v1`. Backend controllers and DTOs are authoritative; update thi
 
 ## Conventions
 - JSON for ordinary requests/responses; multipart form-data for seller document uploads.
-- Authenticated endpoints use the configured bearer-token mechanism.
+- Authenticated browser endpoints use the configured session-cookie mechanism with CSRF protection; non-browser clients must follow the supported authentication contract. Do not assume a bearer token is accepted unless the endpoint/client contract explicitly says so.
 - Validate input at the boundary and enforce role/record ownership in services.
 - Return DTOs, never persistence entities.
 - Errors must not expose stack traces, SQL, secrets or private document content.
@@ -19,7 +19,7 @@ Base path: `/api/v1`. Backend controllers and DTOs are authoritative; update thi
 | Orders | Checkout groups, seller suborders, order state and pickup/delivery |
 | Bargaining | Negotiation chat, accepted-offer validation and negotiated item price |
 | Delivery | Agent profile, available jobs, claim, OTP, location and payout |
-| Daily Help | Service catalogue, provider profile, slots, booking and job lifecycle | See [Daily Help end-to-end design](DAILY-HELP-END-TO-END.md) for endpoint contracts, role/ownership rules, request examples and lifecycle diagrams.
+| Daily Help | Service catalogue, provider profile, slots, booking and job lifecycle |
 | Tracking | Order/rider tracking and location reads |
 
 ## Full workflow reference
