@@ -18,10 +18,7 @@ import {
   Users,
   Download,
   Lock,
-  Plus,
-  Pencil,
   Save,
-  UserRoundCheck,
   Database,
   RefreshCw,
   Copy,
@@ -38,6 +35,14 @@ import { IndiaComplianceSettings } from '../../components/Admin/IndiaComplianceS
 import { AdminDirectoryTab } from './AdminDirectoryTab';
 import { AdminBuyersTab } from './AdminBuyersTab';
 import { AdminOrdersTab } from './AdminOrdersTab';
+import { AdminAccountsTab } from './AdminAccountsTab';
+import { AdminApprovalsTab } from './AdminApprovalsTab';
+import { AdminStoresTab } from './AdminStoresTab';
+import { AdminFleetTab } from './AdminFleetTab';
+import { AdminDailyHelpServicesTab } from './AdminDailyHelpServicesTab';
+import { AdminDailyHelpHelpersTab } from './AdminDailyHelpHelpersTab';
+import { AdminDiagnosticsTab } from './AdminDiagnosticsTab';
+import { createAdminDecisionActions } from './adminDecisionActions';
 import { buildAdminDirectoryGroups } from './adminDirectory';
 import { useAdminDashboardRefresh } from './useAdminDashboardRefresh';
 import { useSellerDocumentReview } from './useSellerDocumentReview';
@@ -65,10 +70,6 @@ const AdminDashboardContent: React.FC = () => {
   const [activeAdminTab, setActiveAdminTab] = useState<'trends' | 'approvals' | 'stores' | 'fleet' | 'buyers' | 'orders' | 'daily-help' | 'daily-helpers' | 'diagnostics' | 'directory' | 'accounts' | 'delivery-config' | 'seller-area-config' | 'seller-documents' | 'seller-leads' | 'registration-otp-config' | 'india-compliance' | 'seller-payment-review' | 'seller-management'>('trends');
   const [buyers, setBuyers] = useState<any[]>([]);
   const [adminAccounts, setAdminAccounts] = useState<any[]>([]);
-  const [accountSearch, setAccountSearch] = useState('');
-  const [accountActionId, setAccountActionId] = useState<string | null>(null);
-  const [accountAuditUserId, setAccountAuditUserId] = useState<string | null>(null);
-  const [accountAuditEntries, setAccountAuditEntries] = useState<any[]>([]);
   const [buyersLoading, setBuyersLoading] = useState(false);
   const [adminOrders, setAdminOrders] = useState<any[]>([]);
 
@@ -80,12 +81,6 @@ const AdminDashboardContent: React.FC = () => {
   const [adminSearchTrends, setAdminSearchTrends] = useState<any[]>([]);
   const [dailyHelpServices, setDailyHelpServices] = useState<any[]>([]);
   const [dailyHelpHelpers, setDailyHelpHelpers] = useState<any[]>([]);
-  const [diagnostics, setDiagnostics] = useState<any | null>(null);
-  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
-  const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
-  const [editingDailyHelpId, setEditingDailyHelpId] = useState<string | null>(null);
-  const [updatingHelperId, setUpdatingHelperId] = useState<string | null>(null);
-  const [dailyHelpForm, setDailyHelpForm] = useState({ category: '', name: '', description: '', pricingUnit: 'HOUR', pricePerHour: '199', minHours: '1', imageUrl: '', active: 1 });
   const isRootAdmin = isRootAdminEmail(user.email);
 
   const {
@@ -123,6 +118,8 @@ const AdminDashboardContent: React.FC = () => {
     setBuyersLoading,
   });
 
+  const adminDecisionActions = createAdminDecisionActions({ api: adminApi, ui: { toast: showToast }, refreshAdminData });
+
 
   const {
     documentSellerId,
@@ -138,135 +135,13 @@ const AdminDashboardContent: React.FC = () => {
     reviewSellerDocument,
   } = useSellerDocumentReview(showToast);
 
-  const refreshDiagnostics = async () => {
-    if (!isRootAdmin) return;
-    setDiagnosticsLoading(true);
-    setDiagnosticsError(null);
-    try {
-      const result = await adminApi.getAdminDiagnostics();
-      setDiagnostics(result);
-    } catch (error: any) {
-      setDiagnosticsError(error?.message || 'Could not load database diagnostics.');
-      setDiagnostics(null);
-    } finally {
-      setDiagnosticsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isRootAdmin && activeAdminTab === 'diagnostics') void refreshDiagnostics();
-  }, [activeAdminTab, isRootAdmin]);
-
-  const handleSellerDecision = async (sellerId: string, approve: boolean) => {
-    const ok = approve ? await adminApi.approveSeller(sellerId) : await adminApi.rejectSeller(sellerId);
-    if (!ok) {
-      showToast('Unable to update seller status in the database.', 'error');
-      return;
-    }
-    showToast(approve ? 'Seller store approved.' : 'Seller store rejected.', approve ? 'success' : 'info');
-    await refreshAdminData();
-  };
-
-  const handleDeliveryDecision = async (agentId: string, approve: boolean) => {
-    const ok = approve ? await adminApi.approveDeliveryAgent(agentId) : await adminApi.rejectDeliveryAgent(agentId);
-    if (!ok) {
-      showToast('Unable to update delivery partner status in the database.', 'error');
-      return;
-    }
-    showToast(approve ? 'Delivery partner approved.' : 'Delivery partner rejected.', approve ? 'success' : 'info');
-    await refreshAdminData();
-  };
 
 
 
-  const handleAccountStatus = async (account: any, status: 'ACTIVE' | 'SUSPENDED' | 'REVOKED') => {
-    const currentStatus = String(account.accountStatus || 'ACTIVE').toUpperCase();
-    if (currentStatus === status) return;
-    let reason = '';
-    if (status !== 'ACTIVE') {
-      const supplied = window.prompt(
-        status === 'SUSPENDED'
-          ? `Reason for suspending ${account.name || account.email || account.userId}:`
-          : `Reason for revoking access for ${account.name || account.email || account.userId}:`
-      );
-      if (supplied === null) return;
-      reason = supplied.trim();
-      if (!reason) {
-        showToast('A reason is required for suspension or revocation.', 'error');
-        return;
-      }
-      if (!window.confirm(`Confirm ${status.toLowerCase()} access for this account? Existing sessions will be invalidated.`)) return;
-    } else if (!window.confirm('Re-enable this account? The user will need to sign in again.')) {
-      return;
-    }
-    setAccountActionId(account.userId);
-    try {
-      await adminApi.updateAdminAccountStatus(account.userId, status, reason);
-      showToast(status === 'ACTIVE' ? 'Account re-enabled.' : `Account access ${status.toLowerCase()} and existing sessions revoked.`, 'success');
-      await refreshAdminData();
-    } catch (error: any) {
-      showToast(error?.message || 'Unable to update account permissions.', 'error');
-    } finally {
-      setAccountActionId(null);
-    }
-  };
 
-  const handleRevokeSessions = async (account: any) => {
-    if (!window.confirm(`Revoke all active sessions for ${account.name || account.email || account.userId}? They will need to sign in again.`)) return;
-    setAccountActionId(account.userId);
-    try {
-      const result = await adminApi.revokeAdminAccountSessions(account.userId);
-      showToast(`Revoked ${result.sessionsRevoked ?? 0} session(s).`, 'success');
-    } catch (error: any) {
-      showToast(error?.message || 'Unable to revoke account sessions.', 'error');
-    } finally {
-      setAccountActionId(null);
-    }
-  };
 
-  const handleAccountAudit = async (account: any) => {
-    try {
-      const rows = await adminApi.getAdminAccountAudit(account.userId);
-      setAccountAuditEntries(rows);
-      setAccountAuditUserId(account.userId);
-    } catch (error: any) {
-      showToast(error?.message || 'Unable to load account audit history.', 'error');
-    }
-  };
 
-  const resetDailyHelpForm = () => setDailyHelpForm({ category: '', name: '', description: '', pricingUnit: 'HOUR', pricePerHour: '199', minHours: '1', imageUrl: '', active: 1 });
 
-  const saveDailyHelpService = async () => {
-    if (!dailyHelpForm.category.trim() || !dailyHelpForm.name.trim() || Number(dailyHelpForm.pricePerHour) <= 0) {
-      showToast('Category, service name and a valid hourly rate are required.', 'error'); return;
-    }
-    const payload = {
-      ...dailyHelpForm,
-      category: dailyHelpForm.category.trim(),
-      name: dailyHelpForm.name.trim(),
-      pricingUnit: dailyHelpForm.pricingUnit.trim().toUpperCase(),
-      pricePerHour: Number(dailyHelpForm.pricePerHour),
-      minHours: Number(dailyHelpForm.minHours),
-      active: Number(dailyHelpForm.active),
-    };
-    try {
-      const saved = editingDailyHelpId
-        ? await adminApi.updateAdminDailyHelpService(editingDailyHelpId, payload)
-        : await adminApi.createAdminDailyHelpService(payload);
-      if (!saved) { showToast('Unable to save Daily Help service.', 'error'); return; }
-      showToast(editingDailyHelpId ? 'Daily Help service updated.' : 'Daily Help service added.', 'success');
-      setEditingDailyHelpId(null);
-      resetDailyHelpForm();
-      await refreshAdminData();
-    } catch (err: any) {
-      showToast(err?.message || 'Unable to save Daily Help service.', 'error');
-    }
-  };
-
-  const editDailyHelpService = (service: any) => {
-    setEditingDailyHelpId(service.serviceId || service.id);
-    setDailyHelpForm({ category: service.category || '', name: service.name || '', description: service.description || '', pricingUnit: service.pricingUnit || 'HOUR', pricePerHour: String(service.pricePerHour ?? ''), minHours: String(service.minHours ?? 1), imageUrl: service.imageUrl || '', active: Number(service.active ?? 1) });
-  };
 
   if (!isRootAdmin) {
     return (
@@ -295,7 +170,6 @@ const AdminDashboardContent: React.FC = () => {
   }
 
   const pendingSellers = pendingSellerApplications;
-  const pendingDeliveryAgents = adminDeliveryAgents.filter(a => String(a.status).toLowerCase() === 'pending');
   const approvedSellers = adminSellers.filter(s => String(s.status).toLowerCase() === 'approved');
   const rejectedSellers = adminSellers.filter(s => String(s.status).toLowerCase() === 'rejected');
   const totalGMV = Number(adminAnalytics?.totalGmv || 0);
@@ -564,451 +438,20 @@ const AdminDashboardContent: React.FC = () => {
         </div>
       )}
 
-      {activeAdminTab === 'diagnostics' && (
-        <div className="space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-extrabold text-slate-900">Database Diagnostics</h2>
-              <p className="text-xs text-slate-500 mt-1">Read-only checks using the application's Oracle connection. No records are modified.</p>
-            </div>
-            <button onClick={() => void refreshDiagnostics()} disabled={diagnosticsLoading} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-700 text-white text-xs font-bold disabled:opacity-50">
-              <RefreshCw className={`w-4 h-4 ${diagnosticsLoading ? 'animate-spin' : ''}`} /> Refresh checks
-            </button>
-          </div>
+      {activeAdminTab === 'diagnostics' && <AdminDiagnosticsTab />}
 
-          {diagnosticsError && (
-            <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-              <strong>Diagnostics unavailable.</strong> {diagnosticsError}
-              <p className="text-xs mt-1">Confirm you are signed in with a valid admin session, then refresh.</p>
-            </div>
-          )}
-          {diagnosticsLoading && !diagnostics && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Reading database diagnostics…</div>
-          )}
+      {activeAdminTab === 'daily-help' && <AdminDailyHelpServicesTab dailyHelpServices={dailyHelpServices} showToast={showToast} refreshAdminData={refreshAdminData} />}
 
-          {diagnostics && (
-            <>
-              <div className={`rounded-2xl border p-4 flex items-start gap-3 ${diagnostics.database?.status === 'UP' ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
-                {diagnostics.database?.status === 'UP' ? <CheckCircle2 className="w-5 h-5 text-emerald-700 mt-0.5" /> : <AlertTriangle className="w-5 h-5 text-amber-700 mt-0.5" />}
-                <div>
-                  <p className="text-sm font-extrabold text-slate-900">Database: {diagnostics.database?.status || 'UNKNOWN'}</p>
-                  <p className="text-xs text-slate-600 mt-1">Connected schema: {diagnostics.database?.schema || 'Unknown'} · Checked: {diagnostics.checkedAt ? new Date(diagnostics.checkedAt).toLocaleString() : 'Unknown'}</p>
-                  <p className="text-xs text-slate-500 mt-1">Response is read-only; it does not run cleanup or repair migrations.</p>
-                </div>
-              </div>
-
-              <div className={`rounded-2xl border p-4 ${diagnostics.migrations?.v13Status === 'SUCCESS' ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
-                <div className="flex items-start gap-3">
-                  {diagnostics.migrations?.v13Status === 'SUCCESS' ? <CheckCircle2 className="w-5 h-5 text-emerald-700 mt-0.5" /> : <AlertTriangle className="w-5 h-5 text-amber-700 mt-0.5" />}
-                  <div className="flex-1">
-                    <p className="text-sm font-extrabold text-slate-900">Staging reset migration (V13): {diagnostics.migrations?.v13Status || 'UNKNOWN'}</p>
-                    <p className="text-xs text-slate-600 mt-1">
-                      {diagnostics.migrations?.v13Status === 'SUCCESS'
-                        ? 'Flyway records V13 as successful. Review the counts below; migration success alone does not prove every table is empty.'
-                        : 'Reset completion is not confirmed. Do not run V13 again from this screen; investigate the migration history before any cleanup.'}
-                    </p>
-                    {diagnostics.migrations?.historyStatus !== 'OK' && <p className="text-xs font-bold text-amber-800 mt-1">Flyway history could not be read.</p>}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-extrabold text-slate-900 mb-2">Table row counts</h3>
-                <p className="text-xs text-slate-500 mb-3">Admin accounts and the Daily Help service catalogue may intentionally remain after a staging reset.</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {Object.entries(diagnostics.tableCounts || {}).map(([key, value]: [string, any]) => (
-                    <div key={key} className="rounded-xl border border-slate-200 bg-white p-3 flex items-center justify-between gap-3">
-                      <span className="text-xs text-slate-600">{key.replace(/([A-Z])/g, ' $1').replace(/^./, t => t.toUpperCase())}</span>
-                      <span className={`text-sm font-black ${value.status === 'OK' ? 'text-slate-900' : 'text-rose-700'}`}>
-                        {value.status === 'OK' ? Number(value.count).toLocaleString() : 'Unavailable'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                {Array.isArray(diagnostics.tableCountErrors) && diagnostics.tableCountErrors.length > 0 && (
-                  <p className="text-xs text-rose-700 mt-3">Some table counts could not be read: {diagnostics.tableCountErrors.join(', ')}. Treat overall reset verification as incomplete.</p>
-                )}
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <h3 className="text-sm font-extrabold text-slate-900 mb-2">Latest Flyway migrations</h3>
-                {diagnostics.migrations?.latest?.length ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead><tr className="border-b text-slate-500"><th className="py-2 pr-3">Version</th><th className="py-2 pr-3">Migration</th><th className="py-2 pr-3">Result</th><th className="py-2">Installed</th></tr></thead>
-                      <tbody>
-                        {diagnostics.migrations.latest.map((item: any, index: number) => (
-                          <tr key={`${item.version || 'repeat'}-${index}`} className="border-b last:border-0">
-                            <td className="py-2 pr-3">{item.version || '—'}</td>
-                            <td className="py-2 pr-3">{item.description || '—'}</td>
-                            <td className={`py-2 pr-3 font-bold ${item.success ? 'text-emerald-700' : 'text-rose-700'}`}>{item.success ? 'Success' : 'Failed'}</td>
-                            <td className="py-2 whitespace-nowrap">{item.installedOn ? new Date(item.installedOn).toLocaleString() : '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : <p className="text-xs text-slate-500">Flyway history is unavailable.</p>}
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-                Signed-in admin account record: <strong>{diagnostics.identityCheck?.currentAdminAccountPresent === true ? 'Present (expected for admin access)' : diagnostics.identityCheck?.currentAdminAccountPresent === false ? 'Not found' : 'Unknown'}</strong>. The diagnostic intentionally does not show the account email or any personal record values.
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {activeAdminTab === 'daily-help' && (
-        <div className="space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div><h2 className="text-base font-extrabold text-slate-900">Daily Help Services</h2><p className="text-xs text-slate-500 mt-1">Services and hourly rates shown to buyers come only from the database.</p></div>
-            <button onClick={() => { setEditingDailyHelpId(null); resetDailyHelpForm(); }} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-700 text-white text-xs font-bold"><Plus className="w-4 h-4" /> Add Service</button>
-          </div>
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <input value={dailyHelpForm.category} onChange={e => setDailyHelpForm({...dailyHelpForm, category:e.target.value})} placeholder="Category" className="border rounded-xl px-3 py-2.5 text-xs" />
-            <input value={dailyHelpForm.name} onChange={e => setDailyHelpForm({...dailyHelpForm, name:e.target.value})} placeholder="Service name" className="border rounded-xl px-3 py-2.5 text-xs" />
-            <input value={dailyHelpForm.pricePerHour} onChange={e => setDailyHelpForm({...dailyHelpForm, pricePerHour:e.target.value})} type="number" min="1" placeholder="₹ / hour" className="border rounded-xl px-3 py-2.5 text-xs" />
-            <input value={dailyHelpForm.minHours} onChange={e => setDailyHelpForm({...dailyHelpForm, minHours:e.target.value})} type="number" min="1" placeholder="Minimum hours" className="border rounded-xl px-3 py-2.5 text-xs" />
-            <input value={dailyHelpForm.description} onChange={e => setDailyHelpForm({...dailyHelpForm, description:e.target.value})} placeholder="Description" className="border rounded-xl px-3 py-2.5 text-xs sm:col-span-2" />
-            <input value={dailyHelpForm.imageUrl} onChange={e => setDailyHelpForm({...dailyHelpForm, imageUrl:e.target.value})} placeholder="Image URL (optional)" className="border rounded-xl px-3 py-2.5 text-xs" />
-            <label className="flex items-center gap-2 border rounded-xl px-3 py-2.5 text-xs font-bold"><input type="checkbox" checked={dailyHelpForm.active === 1} onChange={e => setDailyHelpForm({...dailyHelpForm, active:e.target.checked ? 1 : 0})} /> Active for buyers</label>
-            <div className="sm:col-span-2 lg:col-span-4 flex gap-2">
-              <button onClick={saveDailyHelpService} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold"><Save className="w-4 h-4" /> {editingDailyHelpId ? 'Update Service' : 'Save Service'}</button>
-              {editingDailyHelpId && <button onClick={() => { setEditingDailyHelpId(null); resetDailyHelpForm(); }} className="px-4 py-2.5 rounded-xl border text-xs font-bold">Cancel</button>}
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {dailyHelpServices.map(service => (
-              <div key={service.id} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-start justify-between gap-4">
-                <div><div className="flex items-center gap-2"><h3 className="font-black text-sm">{service.name}</h3><span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${service.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{service.active ? 'Active' : 'Inactive'}</span></div><p className="text-[11px] text-slate-500 mt-1">{service.category} · Min {service.minHours} hr</p><p className="text-lg font-black mt-2">₹{service.pricePerHour}<span className="text-[11px] font-medium text-slate-500"> / hour</span></p><p className="text-xs text-slate-500 mt-1">{service.description || 'No description'}</p></div>
-                <button onClick={() => editDailyHelpService(service)} className="p-2 rounded-lg border text-slate-600 hover:bg-slate-50" title="Edit"><Pencil className="w-4 h-4" /></button>
-              </div>
-            ))}
-            {dailyHelpServices.length === 0 && <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200 p-10 text-center text-xs text-slate-500">No Daily Help services in the database. Add the first service above.</div>}
-          </div>
-        </div>
-      )}
-
-      {activeAdminTab === 'daily-helpers' && (
-        <div className="space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h2 className="text-base font-extrabold text-slate-900">Daily Help Helpers</h2>
-              <p className="text-xs text-slate-500 mt-1">All registered home-service professionals. Availability and verification status are read directly from the database.</p>
-            </div>
-            <div className="flex gap-2 text-[11px] font-bold">
-              <span className="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700">Available {dailyHelpHelpers.filter(h => Boolean(h.verified) && String(h.status).toUpperCase() === 'AVAILABLE').length}</span>
-              <span className="px-3 py-2 rounded-xl bg-slate-100 text-slate-600">Offline {dailyHelpHelpers.filter(h => String(h.status).toUpperCase() === 'OFFLINE').length}</span>
-              <span className="px-3 py-2 rounded-xl bg-blue-50 text-blue-700">Verified {dailyHelpHelpers.filter(h => h.verified).length}</span>
-            </div>
-          </div>
-
-          {dailyHelpHelpers.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
-              <UserRoundCheck className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="font-bold text-sm text-slate-700">No Daily Help helpers registered yet.</p>
-              <p className="text-xs text-slate-500 mt-1">Helpers will appear here after they register for Daily Help.</p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[850px] text-left">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr className="text-[10px] uppercase tracking-wide text-slate-500">
-                      <th className="px-4 py-3 font-bold">Helper</th>
-                      <th className="px-4 py-3 font-bold">Contact</th>
-                      <th className="px-4 py-3 font-bold">Locality</th>
-                      <th className="px-4 py-3 font-bold">Availability</th>
-                      <th className="px-4 py-3 font-bold">Rating</th>
-                      <th className="px-4 py-3 font-bold">Verification</th>
-                      <th className="px-4 py-3 font-bold">Registered</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {dailyHelpHelpers.map(helper => (
-                      <tr key={helper.professionalId} className="hover:bg-slate-50">
-                        <td className="px-4 py-4">
-                          <div className="font-extrabold text-xs text-slate-900">{helper.fullName}</div>
-                          <div className="font-mono text-[10px] text-slate-400 mt-1">{helper.professionalId}</div>
-                        </td>
-                        <td className="px-4 py-4 text-xs text-slate-600">{helper.phone}</td>
-                        <td className="px-4 py-4 text-xs text-slate-600">{helper.currentLocality || '—'}</td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-col items-start gap-2">
-                            <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold ${String(helper.status).toUpperCase() === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{helper.status}</span>
-                            <button type="button" disabled={updatingHelperId === helper.professionalId || (!helper.verified && String(helper.status).toUpperCase() !== 'AVAILABLE')}
-                              onClick={async () => {
-                                const nextStatus = String(helper.status).toUpperCase() === 'AVAILABLE' ? 'OFFLINE' : 'AVAILABLE';
-                                setUpdatingHelperId(helper.professionalId);
-                                try {
-                                  const updated = await adminApi.updateAdminDailyHelpProfessionalAvailability(helper.professionalId, nextStatus, helper.currentLocality);
-                                  if (!updated) throw new Error('The server rejected this availability change. Confirm the admin role is authorized for this action.');
-                                  showToast(nextStatus === 'AVAILABLE' ? 'Daily Help professional is now available.' : 'Daily Help professional is now offline.', 'success');
-                                  await refreshAdminData();
-                                } catch (error: any) {
-                                  showToast(error?.message || 'Unable to change Daily Help availability.', 'error');
-                                } finally { setUpdatingHelperId(null); }
-                              }}
-                              className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-[10px] font-bold text-slate-700 disabled:opacity-50">
-                              {updatingHelperId === helper.professionalId ? 'Updating…' : !helper.verified && String(helper.status).toUpperCase() !== 'AVAILABLE' ? 'Verify before availability' : String(helper.status).toUpperCase() === 'AVAILABLE' ? 'Set offline' : 'Set available'}
-                            </button>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-xs font-bold">★ {helper.rating || '0.00'} <span className="text-slate-400 font-normal">({helper.reviewCount || 0})</span></td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-col items-start gap-2">
-                            {helper.verified ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700"><CheckCircle2 className="w-3.5 h-3.5" /> Verified</span> : <span className="text-[10px] font-bold text-rose-600">Not verified</span>}
-                            <button type="button" disabled={updatingHelperId === helper.professionalId}
-                              onClick={async () => {
-                                const nextVerified = !Boolean(helper.verified);
-                                if (!nextVerified && !window.confirm('Revoke verification? This will set the professional offline.')) return;
-                                setUpdatingHelperId(helper.professionalId);
-                                try {
-                                  await adminApi.updateAdminDailyHelpProfessionalVerification(helper.professionalId, nextVerified);
-                                  showToast(nextVerified ? 'Daily Help professional verified.' : 'Verification revoked; professional set offline.', 'success');
-                                  await refreshAdminData();
-                                } catch (error: any) {
-                                  showToast(error?.message || 'Unable to update Daily Help verification.', 'error');
-                                } finally { setUpdatingHelperId(null); }
-                              }}
-                              className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-[10px] font-bold text-slate-700 disabled:opacity-50">
-                              {updatingHelperId === helper.professionalId ? 'Updating…' : helper.verified ? 'Revoke verification' : 'Approve professional'}
-                            </button>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-[11px] text-slate-500">{helper.registeredAt ? new Date(helper.registeredAt).toLocaleDateString() : '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
+      {activeAdminTab === 'daily-helpers' && <AdminDailyHelpHelpersTab dailyHelpHelpers={dailyHelpHelpers} showToast={showToast} refreshAdminData={refreshAdminData} />}
 
       {/* Tab: Trends */}
       {activeAdminTab === 'trends' && <MarketTrendsVisualization analytics={adminAnalytics} searchTrends={adminSearchTrends} loading={adminDataLoading} />}
 
-      {/* Tab: Approvals */}
-      {activeAdminTab === 'approvals' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-extrabold text-slate-900">
-              New Merchant Applications ({pendingSellers.length})
-            </h2>
-            <p className="text-xs text-slate-500">
-              Stores cannot receive orders or display products until approved by root admin.
-            </p>
-          </div>
+      {activeAdminTab === 'approvals' && <AdminApprovalsTab pendingSellerApplications={pendingSellerApplications} adminDeliveryAgents={adminDeliveryAgents} onSellerDecision={adminDecisionActions.handleSellerDecision} onDeliveryDecision={adminDecisionActions.handleDeliveryDecision} />}
 
-          {pendingSellers.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 space-y-3">
-              <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
-              <h3 className="text-sm font-bold text-slate-800">All Merchant Applications Processed</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                No stores are currently waiting for admin authorization in Kurali.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {pendingSellers.map(seller => (
-                <div
-                  key={seller.sellerId}
-                  className="bg-white rounded-3xl border border-amber-300 p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
-                >
-                  <div className="flex items-start gap-4">
-                    <img
-                      src={seller.avatarUrl}
-                      alt={seller.storeName}
-                      className="w-14 h-14 rounded-2xl object-cover border border-slate-200 shrink-0"
-                    />
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-extrabold text-sm text-slate-900">{seller.name}</h3>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                          {seller.category}
-                        </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                          Pending Verification
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600">{seller.description}</p>
-                      <div className="flex items-center gap-4 text-[11px] text-slate-500 pt-1 flex-wrap">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400" /> {seller.address}, {seller.locality}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-3.5 h-3.5 text-slate-400" /> {seller.phone}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Mail className="w-3.5 h-3.5 text-slate-400" /> {seller.email}
-                        </span>
-                        {seller.gstNumber && (
-                          <span className="font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
-                            GST: {seller.gstNumber}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+      {activeAdminTab === 'stores' && <AdminStoresTab adminSellers={adminSellers} products={products} />}
 
-                  <div className="flex items-center gap-2 self-end md:self-center shrink-0">
-                    <button
-                      onClick={() => handleSellerDecision(seller.sellerId, false)}
-                      className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer flex items-center gap-1.5"
-                    >
-                      <XCircle className="w-4 h-4" /> Reject
-                    </button>
-                    <button
-                      onClick={() => handleSellerDecision(seller.sellerId, true)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-colors cursor-pointer flex items-center gap-1.5"
-                    >
-                      <CheckCircle2 className="w-4 h-4" /> Approve &amp; Activate
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Delivery Partner Approvals */}
-      {activeAdminTab === 'approvals' && (
-        <div className="space-y-4 mt-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-extrabold text-slate-900">Delivery Partner Applications ({pendingDeliveryAgents.length})</h2>
-            <p className="text-xs text-slate-500">Partners remain inactive until approved by root admin.</p>
-          </div>
-          {pendingDeliveryAgents.length === 0 ? (
-            <div className="bg-white rounded-3xl p-8 text-center border border-slate-200">
-              <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-              <p className="text-xs font-bold text-slate-700">No delivery applications waiting for approval.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {pendingDeliveryAgents.map(agent => (
-                <div key={agent.agentId} className="bg-white rounded-3xl border border-emerald-200 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <h3 className="font-extrabold text-sm text-slate-900">{agent.fullName}</h3>
-                    <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
-                      <span><Phone className="inline w-3.5 h-3.5 mr-1" />{agent.phone}</span>
-                      <span><Mail className="inline w-3.5 h-3.5 mr-1" />{agent.email}</span>
-                      <span><Bike className="inline w-3.5 h-3.5 mr-1" />{agent.vehicleType} · {agent.vehicleNumber}</span>
-                      <span>Licence: {agent.licenseNumber}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={() => handleDeliveryDecision(agent.agentId, false)} className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 flex items-center gap-1.5"><XCircle className="w-4 h-4" /> Reject</button>
-                    <button onClick={() => handleDeliveryDecision(agent.agentId, true)} className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> Approve &amp; Activate</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tab: All Active Stores */}
-      {activeAdminTab === 'stores' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-extrabold text-slate-900">
-              Verified Marketplace Stores ({approvedSellers.length})
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {approvedSellers.map(seller => {
-              const sellerProdCount = products.filter(p => p.sellerId === seller.sellerId).length;
-              return (
-                <div
-                  key={seller.sellerId}
-                  className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs flex items-start gap-4"
-                >
-                  <img
-                    src={seller.avatarUrl}
-                    alt={seller.storeName}
-                    className="w-12 h-12 rounded-2xl object-cover border border-slate-200 shrink-0"
-                  />
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-extrabold text-sm text-slate-900 truncate">{seller.storeName}</h3>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
-                        Active
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500">{seller.category} &bull; {seller.locality}</p>
-                    <div className="flex items-center gap-3 text-xs text-slate-600 pt-1">
-                      <span>Products Listed: <strong>{sellerProdCount}</strong></span>
-                      <span>Rating: <strong>★ {seller.rating}</strong></span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-
-      {/* Tab: Account and permissions control */}
-      {activeAdminTab === 'accounts' && (
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <h2 className="text-base font-extrabold text-amber-950">Account & Permissions Control Center</h2>
-            <p className="mt-1 text-xs leading-5 text-amber-900">Manage the underlying account across Buyer, Seller, Daily Help and Delivery roles. Suspension/revocation is enforced by the backend and invalidates active sessions. Role/profile records and order history are retained for audit and dispute handling.</p>
-          </div>
-          {accountAuditUserId && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div><h3 className="font-extrabold text-sm text-slate-900">Account audit history</h3><p className="text-xs text-slate-500">{accountAuditUserId}</p></div>
-                <button type="button" onClick={() => setAccountAuditUserId(null)} className="rounded-lg border px-3 py-1.5 text-xs font-bold">Close</button>
-              </div>
-              {accountAuditEntries.length === 0 ? <p className="text-xs text-slate-500">No admin actions recorded for this account.</p> : (
-                <div className="overflow-x-auto"><table className="w-full min-w-[680px] text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-500"><tr><th className="p-2">Time</th><th className="p-2">Action</th><th className="p-2">Change</th><th className="p-2">Admin</th><th className="p-2">Reason</th></tr></thead>
-                  <tbody className="divide-y">{accountAuditEntries.map((entry: any) => <tr key={entry.auditId || entry.audit_id}><td className="p-2">{String(entry.occurredAt || entry.OCCURRED_AT || '—')}</td><td className="p-2">{entry.action || entry.ACTION}</td><td className="p-2">{entry.previousStatus || entry.PREVIOUS_STATUS || '—'} → {entry.newStatus || entry.NEW_STATUS || '—'}</td><td className="p-2">{entry.actorEmail || entry.ACTOR_EMAIL || entry.actorUserId || '—'}</td><td className="p-2">{entry.reason || entry.REASON || '—'}</td></tr>)}</tbody>
-                </table></div>
-              )}
-            </div>
-          )}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div><h3 className="text-sm font-extrabold text-slate-900">Marketplace accounts ({adminAccounts.length})</h3><p className="text-xs text-slate-500 mt-1">Search by name, email, phone, user ID, or role.</p></div>
-            <input type="search" aria-label="Search marketplace accounts" value={accountSearch} onChange={event => setAccountSearch(event.target.value)} placeholder="Search accounts…" className="w-full sm:w-80 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100" />
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-            <div className="overflow-x-auto"><table className="w-full min-w-[1100px] text-left text-xs">
-              <thead className="bg-slate-50 text-slate-500 uppercase tracking-wide"><tr><th className="px-3 py-3">Account</th><th className="px-3 py-3">Roles</th><th className="px-3 py-3">Account status</th><th className="px-3 py-3">Reason / updated</th><th className="px-3 py-3">Admin controls</th></tr></thead>
-              <tbody className="divide-y divide-slate-100">
-                {adminAccounts.filter((account: any) => [account.userId, account.name, account.email, account.phone, account.locality, ...(account.roles || [])].some(value => String(value ?? '').toLowerCase().includes(accountSearch.trim().toLowerCase()))).map((account: any) => {
-                  const status = String(account.accountStatus || 'ACTIVE').toUpperCase();
-                  const isProtected = String(account.email || '').toLowerCase() === String(user.email || '').toLowerCase()
-                    || ['shubham.gupta180296@gmail.com', 'sg7508359237@gmail.com', 'admin@kuraliupdates.com'].includes(String(account.email || '').toLowerCase());
-                  return <tr key={account.userId} className="align-top hover:bg-slate-50">
-                    <td className="px-3 py-3"><div className="font-bold text-slate-900">{account.name || '—'}</div><div className="mt-1 text-slate-600">{account.email || '—'}</div><div className="mt-1 text-slate-600">{account.phone || '—'}</div><div className="mt-1 font-mono text-[10px] text-slate-400">{account.userId}</div><div className="mt-1 text-[10px] text-slate-500">{account.locality || '—'}</div></td>
-                    <td className="px-3 py-3"><div className="flex flex-wrap gap-1">{(account.roles || []).map((role: string) => <span key={role} className="rounded-md bg-purple-50 px-2 py-1 font-bold text-purple-800">{role}</span>)}</div></td>
-                    <td className="px-3 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 font-bold ${status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : status === 'SUSPENDED' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'}`}>{status}</span><div className="mt-2 text-[10px] text-slate-500">Last login: {account.lastLogin ? new Date(account.lastLogin).toLocaleString() : '—'}</div></td>
-                    <td className="px-3 py-3 max-w-xs"><div className="whitespace-normal text-slate-700">{account.statusReason || '—'}</div><div className="mt-1 text-[10px] text-slate-400">{account.statusUpdatedAt ? new Date(account.statusUpdatedAt).toLocaleString() : 'No status change'}</div></td>
-                    <td className="px-3 py-3"><div className="flex max-w-[320px] flex-wrap gap-2">
-                      {status === 'ACTIVE' ? <>
-                        <button type="button" disabled={isProtected || accountActionId === account.userId} onClick={() => void handleAccountStatus(account, 'SUSPENDED')} className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 font-bold text-amber-900 disabled:opacity-40">{accountActionId === account.userId ? 'Working…' : 'Suspend'}</button>
-                        <button type="button" disabled={isProtected || accountActionId === account.userId} onClick={() => void handleAccountStatus(account, 'REVOKED')} className="rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1.5 font-bold text-rose-900 disabled:opacity-40">Revoke access</button>
-                      </> : <button type="button" disabled={isProtected || accountActionId === account.userId} onClick={() => void handleAccountStatus(account, 'ACTIVE')} className="rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 font-bold text-emerald-900 disabled:opacity-40">Re-enable</button>}
-                      <button type="button" disabled={isProtected || accountActionId === account.userId} onClick={() => void handleRevokeSessions(account)} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 font-bold text-slate-700 disabled:opacity-40">Revoke sessions</button>
-                      <button type="button" onClick={() => void handleAccountAudit(account)} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 font-bold text-slate-700">Audit history</button>
-                    </div>{isProtected && <p className="mt-2 text-[10px] text-slate-500">Protected administrator account.</p>}</td>
-                  </tr>;
-                })}
-              </tbody>
-            </table></div>
-            <div className="border-t border-slate-100 bg-slate-50 px-3 py-3 text-[11px] text-slate-500">Account status applies to the linked identity and all marketplace roles. Re-enabling restores access but does not restore revoked sessions. Permanent account deletion is intentionally excluded so order, payment, booking and dispute records remain auditable.</div>
-          </div>
-        </div>
-      )}
+      {activeAdminTab === 'accounts' && <AdminAccountsTab adminAccounts={adminAccounts} userEmail={user.email} showToast={showToast} refreshAdminData={refreshAdminData} />}
 
       {/* Tab: Buyers */}
       {activeAdminTab === 'buyers' && (
@@ -1025,53 +468,7 @@ const AdminDashboardContent: React.FC = () => {
         <AdminOrdersTab adminOrders={adminOrders} setAdminOrders={setAdminOrders} showToast={showToast} />
       )}
 
-      {/* Tab: Delivery Fleet */}
-      {activeAdminTab === 'fleet' && (
-        <div className="space-y-4">
-          <h2 className="text-base font-extrabold text-slate-900">
-            Registered Kurali Express Delivery Fleet ({adminDeliveryAgents.length})
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {adminDeliveryAgents.map(agent => (
-              <div
-                key={agent.agentId}
-                className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-3"
-              >
-                <div className="flex items-center gap-3">
-                  <img
-                    src={agent.avatarUrl}
-                    alt={agent.fullName}
-                    className="w-12 h-12 rounded-2xl object-cover border border-slate-200"
-                  />
-                  <div>
-                    <h3 className="font-extrabold text-sm text-slate-900">{agent.fullName}</h3>
-                    <p className="text-[11px] text-slate-500">{agent.phone}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                  <div>
-                    <span className="text-[10px] text-slate-400 block font-medium">Vehicle</span>
-                    <span className="font-bold text-slate-800">{agent.vehicleType}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 block font-medium">Plate</span>
-                    <span className="font-bold font-mono text-slate-800">{agent.vehicleNumber}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 block font-medium">Completed Trips</span>
-                    <span className="font-bold text-emerald-600">{agent.totalTrips}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 block font-medium">Total Earned</span>
-                    <span className="font-bold text-slate-900">₹{agent.totalEarnings}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {activeAdminTab === 'fleet' && <AdminFleetTab adminDeliveryAgents={adminDeliveryAgents} />}
     </div>
   );
 };
