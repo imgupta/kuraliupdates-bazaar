@@ -58,29 +58,32 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
     buyerApi.getDailyHelpBookings(user.phone).then(setBookings);
   }, [user.phone]);
 
-  useEffect(() => {
-    const active = bookings.filter(item => ['SEARCHING','CONFIRMED','PROFESSIONAL_ASSIGNED','ARRIVING','READY_TO_START','IN_PROGRESS'].includes(item.status));
-    if (!active.length) return;
-    const refresh = async () => {
-      const updated = await Promise.all(active.map(item => buyerApi.getDailyHelpBooking(item.id)));
-      setBookings(current => current.map(item => updated.find(next => next?.id === item.id) || item));
-    };
-    const interval = window.setInterval(refresh, active.some(item => item.status === 'IN_PROGRESS') ? 5000 : 15000);
-    return () => window.clearInterval(interval);
-  }, [bookings]);
+  const activeBookings = useMemo(
+    () => bookings
+      .filter(item => ['SEARCHING', 'CONFIRMED', 'PROFESSIONAL_ASSIGNED', 'ARRIVING', 'READY_TO_START', 'IN_PROGRESS'].includes(item.status))
+      .sort((a, b) => new Date(b.scheduledStart).getTime() - new Date(a.scheduledStart).getTime()),
+    [bookings],
+  );
+  const currentBooking = activeBookings[0] || null;
 
   useEffect(() => {
-    const hasRunningTimer = () => bookings.some(item =>
-      item.status === 'IN_PROGRESS' && item.serviceStartedAt &&
-      Date.now() < new Date(item.serviceStartedAt).getTime() + Math.max(0, Number(item.requestedHours || 0)) * 3600000
-    );
-    if (!hasRunningTimer()) return;
-    const interval = window.setInterval(() => {
-      setNow(Date.now());
-      if (!hasRunningTimer()) window.clearInterval(interval);
-    }, 1000);
+    if (!currentBooking) return;
+    let cancelled = false;
+    const refresh = async () => {
+      const updated = await buyerApi.getDailyHelpBooking(currentBooking.id);
+      if (!cancelled && updated) {
+        setBookings(current => current.map(item => item.id === updated.id ? updated : item));
+      }
+    };
+    const interval = window.setInterval(refresh, currentBooking.status === 'IN_PROGRESS' ? 5000 : 15000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, [currentBooking?.id, currentBooking?.status]);
+
+  useEffect(() => {
+    if (currentBooking?.status !== 'IN_PROGRESS' || !currentBooking.serviceStartedAt) return;
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
-  }, [bookings]);
+  }, [currentBooking?.id, currentBooking?.status, currentBooking?.serviceStartedAt]);
 
   useEffect(() => {
     if (!selected) return;
@@ -167,51 +170,6 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
 
   return (
     <div className="space-y-5">
-      {bookings.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between"><h2 className="text-lg font-black text-slate-900">Your Daily Help orders</h2><span className="text-xs font-bold text-slate-500">{bookings.length} order{bookings.length === 1 ? '' : 's'}</span></div>
-          {bookings.map(booking => (
-        <article key={booking.id} className="bg-white border border-emerald-200 rounded-2xl p-4 sm:p-5 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-wider font-black text-emerald-700">Active Daily Help</p>
-              <h2 className="text-base font-black text-slate-900 mt-1">{booking.serviceName}</h2>
-              <p className="text-xs text-slate-500 mt-1">{statusLabel[booking.status] || booking.status}</p>
-            </div>
-            <div className="text-right"><p className="text-[10px] text-slate-400">Booking</p><p className="text-xs font-mono font-bold">{booking.id}</p></div>
-          </div>
-
-          {booking.professionalName && (
-            <div className="mt-4 flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-              <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center"><UserRound className="w-4 h-4" /></div>
-              <div><p className="text-xs font-bold text-slate-800">{booking.professionalName}</p><p className="text-[11px] text-slate-500">{booking.professionalPhone || 'Verified professional'}</p></div>
-            </div>
-          )}
-
-          {booking.startOtp && ['ARRIVING','READY_TO_START'].includes(booking.status) && (
-            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
-              <p className="text-[10px] uppercase tracking-wider font-black text-amber-800">Share this OTP only when the professional is at your home</p>
-              <p className="text-3xl font-black tracking-[0.35em] text-slate-900 mt-2">{booking.startOtp}</p>
-              <p className="text-[11px] text-slate-600 mt-2">The timer starts only after the OTP is successfully verified.</p>
-            </div>
-          )}
-
-          {booking.status === 'IN_PROGRESS' && booking.serviceStartedAt && (
-            <div className="mt-4 rounded-xl bg-slate-900 text-white p-5 text-center">
-              <div className="flex items-center justify-center gap-2 text-emerald-300 text-xs font-bold"><Timer className="w-4 h-4" /> SERVICE TIMER</div>
-              <div className="text-4xl font-black font-mono mt-2">{formatDuration(elapsedSeconds(booking.serviceStartedAt, booking.requestedHours))}</div>
-              <p className="text-[11px] text-slate-400 mt-2">Started {new Date(booking.serviceStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Booked duration: {booking.requestedHours} hours</p>
-              {booking.completionOtp && <div className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-emerald-900"><p className="text-[10px] font-black uppercase">Customer completion OTP</p><p className="mt-1 text-3xl font-black tracking-[0.35em]">{booking.completionOtp}</p><p className="mt-1 text-[10px]">Share this code with the helper only when the service is finished.</p></div>}
-            </div>
-          )}
-          {booking.status === 'COMPLETED' && (
-            <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 text-emerald-800 p-3 text-xs font-bold"><CheckCircle2 className="w-4 h-4" /> Service completed successfully.</div>
-          )}
-        </article>
-          ))}
-        </section>
-      )}
-
       <section>
         {catalogError && <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[11px] font-semibold text-rose-800">Daily Help services could not be loaded from the database. Please try again shortly.</div>}
         <div className="flex items-center justify-between mb-3">
@@ -232,6 +190,43 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
         </div>
         {filteredServices.length === 0 && searchQuery.trim() ? <div className="sm:col-span-2 lg:col-span-3 rounded-2xl border border-slate-200 bg-white p-8 text-center"><p className="text-sm font-bold text-slate-700">No matching Daily Help services</p><p className="mt-1 text-xs text-slate-500">Try another service name or category.</p></div> : services.length === 0 && !loading && !catalogError && <div className="sm:col-span-2 lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-10 text-center"><p className="text-sm font-bold text-slate-700">No Daily Help services are currently available.</p><p className="text-xs text-slate-500 mt-1">The administrator can add or activate services from Admin → Daily Help Services.</p></div>}
       </section>
+
+      {currentBooking && (
+        <section aria-label="Current Daily Help booking" className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider font-black text-emerald-700">Current Daily Help booking</p>
+              <h2 className="mt-1 text-base font-black text-slate-900">{currentBooking.serviceName}</h2>
+              <p className="mt-1 text-xs font-semibold text-slate-600">{statusLabel[currentBooking.status] || currentBooking.status.replace(/_/g, ' ')}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] text-slate-400">Booking</p>
+              <p className="text-xs font-mono font-bold text-slate-800">{currentBooking.id}</p>
+            </div>
+          </div>
+          {currentBooking.professionalName && (
+            <div className="mt-3 flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 text-amber-700"><UserRound className="h-4 w-4" /></div>
+              <div><p className="text-xs font-bold text-slate-800">{currentBooking.professionalName}</p><p className="text-[11px] text-slate-500">{currentBooking.professionalPhone || 'Verified professional'}</p></div>
+            </div>
+          )}
+          {currentBooking.startOtp && ['ARRIVING', 'READY_TO_START'].includes(currentBooking.status) && (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-center">
+              <p className="text-[10px] font-black uppercase tracking-wide text-amber-800">Share OTP only when the professional arrives</p>
+              <p className="mt-1 text-2xl font-black tracking-[0.3em] text-slate-900">{currentBooking.startOtp}</p>
+              <p className="mt-1 text-[11px] text-slate-600">The service timer starts after OTP verification.</p>
+            </div>
+          )}
+          {currentBooking.status === 'IN_PROGRESS' && currentBooking.serviceStartedAt && (
+            <div className="mt-3 rounded-xl bg-slate-900 p-4 text-center text-white">
+              <div className="flex items-center justify-center gap-2 text-xs font-bold text-emerald-300"><Timer className="h-4 w-4" /> SERVICE TIMER</div>
+              <div className="mt-1 font-mono text-3xl font-black">{formatDuration(elapsedSeconds(currentBooking.serviceStartedAt, currentBooking.requestedHours))}</div>
+              <p className="mt-1 text-[11px] text-slate-300">Booked duration: {currentBooking.requestedHours} hours</p>
+              {currentBooking.completionOtp && <div className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-emerald-900"><p className="text-[10px] font-black uppercase">Customer completion OTP</p><p className="mt-1 text-2xl font-black tracking-[0.3em]">{currentBooking.completionOtp}</p><p className="mt-1 text-[10px]">Share only when the service is finished.</p></div>}
+            </div>
+          )}
+        </section>
+      )}
 
       {selected && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-end sm:items-center justify-center p-3">
