@@ -104,7 +104,7 @@ export const DailyHelpProfessionalDashboard: React.FC = () => {
         </div>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
           <label className="text-[11px] font-bold text-slate-700">Date
-            <input type="date" min={new Date().toISOString().slice(0,10)} value={slotDate} onChange={e => setSlotDate(e.target.value)} className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5" />
+            <input type="date" min={new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())} value={slotDate} onChange={e => setSlotDate(e.target.value)} className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5" />
           </label>
           <label className="text-[11px] font-bold text-slate-700">Start
             <input type="time" value={slotStart} onChange={e => setSlotStart(e.target.value)} className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5" />

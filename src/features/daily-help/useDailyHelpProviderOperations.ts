@@ -3,6 +3,10 @@ import { useApp } from '../../context/AppContext';
 import { dailyHelpProviderApi } from '../../services/domains/dailyHelpProviderApi';
 import type { DailyHelpBooking, DailyHelpProfessional, DailyHelpProfessionalEarnings, DailyHelpSlot } from '../../types';
 
+const indiaDateString = (date = new Date()) => new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+}).format(date);
+
 const ACTIVE_STATUSES = ['PROFESSIONAL_ASSIGNED', 'ARRIVING', 'READY_TO_START', 'IN_PROGRESS'];
 
 export const useDailyHelpProviderOperations = () => {
@@ -17,7 +21,7 @@ export const useDailyHelpProviderOperations = () => {
   const [completionOtpInputs, setCompletionOtpInputs] = useState<Record<string, string>>({});
   const [overrideReasons, setOverrideReasons] = useState<Record<string, string>>({});
   const [now, setNow] = useState(Date.now());
-  const [slotDate, setSlotDate] = useState(new Date().toISOString().slice(0, 10));
+  const [slotDate, setSlotDate] = useState(indiaDateString());
   const [slotStart, setSlotStart] = useState('09:00');
   const [slotEnd, setSlotEnd] = useState('11:00');
   const [mySlots, setMySlots] = useState<DailyHelpSlot[]>([]);
@@ -43,8 +47,6 @@ export const useDailyHelpProviderOperations = () => {
     setAvailableJobs(nextJobs);
     setJobs(history);
     setEarnings(money);
-    const slotsForDate = await dailyHelpProviderApi.getDailyHelpProfessionalSlots(profile.professionalId, slotDate);
-    setMySlots(slotsForDate as DailyHelpSlot[]);
     setLoading(false);
   };
 
@@ -52,7 +54,10 @@ export const useDailyHelpProviderOperations = () => {
 
   useEffect(() => {
     if (!professional?.professionalId) return;
-    dailyHelpProviderApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate).then(data => setMySlots(data as DailyHelpSlot[]));
+    let cancelled = false;
+    dailyHelpProviderApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate)
+      .then(data => { if (!cancelled) setMySlots(data as DailyHelpSlot[]); });
+    return () => { cancelled = true; };
   }, [professional?.professionalId, slotDate]);
 
   useEffect(() => {
@@ -201,12 +206,17 @@ export const useDailyHelpProviderOperations = () => {
       return;
     }
     try {
-      await dailyHelpProviderApi.createDailyHelpProfessionalSlot(professional.professionalId, slotDate, slotStart, slotEnd);
+      const created = await dailyHelpProviderApi.createDailyHelpProfessionalSlot(professional.professionalId, slotDate, slotStart, slotEnd);
+      if (created) {
+        setMySlots(current => [...current.filter(slot => slot.slotId !== created.slotId), created as DailyHelpSlot]
+          .sort((a, b) => a.startTime.localeCompare(b.startTime)));
+      }
       showToast('Availability window added. Buyers can book available time within it.', 'success');
     } catch (error: unknown) {
       showToast(error instanceof Error ? error.message : 'Unable to add availability.', 'error');
     } finally {
-      setMySlots(await dailyHelpProviderApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate) as DailyHelpSlot[]);
+      const latest = await dailyHelpProviderApi.getDailyHelpProfessionalSlots(professional.professionalId, slotDate);
+      setMySlots(latest as DailyHelpSlot[]);
     }
   };
 

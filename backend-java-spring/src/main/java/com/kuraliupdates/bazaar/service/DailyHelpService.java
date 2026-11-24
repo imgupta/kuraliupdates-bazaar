@@ -244,13 +244,13 @@ public class DailyHelpService {
         // Serialize slot creation for one professional to prevent overlapping slots under concurrent requests.
         DailyHelpProfessionalEntity professional = professionalRepository.findLockedByProfessionalId(professionalId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help professional not found"));
-        if (request.slotDate().isBefore(LocalDate.now())) {
+        if (request.slotDate().isBefore(LocalDate.now(ZoneId.of("Asia/Kolkata")))) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Slot date must be today or a future date");
         }
         if (!request.endTime().isAfter(request.startTime())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Slot end time must be after start time");
         }
-        if (request.slotDate().equals(LocalDate.now()) && request.startTime().isBefore(LocalTime.now())) {
+        if (request.slotDate().equals(LocalDate.now()) && request.startTime().isBefore(LocalTime.now(ZoneId.of("Asia/Kolkata")))) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Slot start time must be in the future");
         }
 
@@ -264,7 +264,7 @@ public class DailyHelpService {
             throw new ApiException(HttpStatus.CONFLICT, "This timing overlaps an existing slot");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
         DailyHelpProfessionalSlotEntity slot = DailyHelpProfessionalSlotEntity.builder()
                 .slotId("DHS-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .professional(professional)

@@ -30,18 +30,31 @@ const localDateString = (date: Date) => {
   return `${y}-${m}-${d}`;
 };
 
-const earliestBookableStart = (slot: DailyHelpSlot, durationHours: number) => {
+const indiaDateString = (date = new Date()) => new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+}).format(date);
+
+const bookableStartTimes = (slot: DailyHelpSlot, durationHours: number) => {
   const [startHour, startMinute] = slot.startTime.slice(0, 5).split(':').map(Number);
   const [endHour, endMinute] = slot.endTime.slice(0, 5).split(':').map(Number);
   const windowStart = startHour * 60 + startMinute;
   const windowEnd = endHour * 60 + endMinute;
-  const today = localDateString(new Date());
   const now = new Date();
-  const currentMinute = now.getHours() * 60 + now.getMinutes();
-  const earliest = slot.slotDate === today ? Math.max(windowStart, currentMinute) : windowStart;
-  const rounded = Math.ceil(earliest / 15) * 15;
-  if (rounded + durationHours * 60 > windowEnd) return null;
-  return `${String(Math.floor(rounded / 60)).padStart(2, '0')}:${String(rounded % 60).padStart(2, '0')}`;
+  const indiaNowParts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(now);
+  const currentMinute = Number(indiaNowParts.find(part => part.type === 'hour')?.value || 0) * 60
+    + Number(indiaNowParts.find(part => part.type === 'minute')?.value || 0);
+  const earliest = slot.slotDate === indiaDateString(now) ? Math.max(windowStart, currentMinute) : windowStart;
+  const first = Math.ceil(earliest / 15) * 15;
+  const isToday = slot.slotDate === indiaDateString(now);
+  return Array.from({ length: Math.max(0, Math.floor((windowEnd - first - durationHours * 60) / 15) + 1) }, (_, index) => first + index * 15)
+    .filter(minute => {
+      if (!isToday) return true;
+      const instant = new Date(`${slot.slotDate}T${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}:00+05:30`);
+      return instant.getTime() >= now.getTime();
+    })
+    .map(minute => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`);
 };
 
 export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery = '' }) => {
@@ -51,7 +64,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
   const [catalogError, setCatalogError] = useState(false);
   const [selected, setSelected] = useState<DailyHelpService | null>(null);
   const [hours, setHours] = useState(1);
-  const [bookingDate, setBookingDate] = useState(localDateString(new Date(Date.now() + 24 * 60 * 60 * 1000)));
+  const [bookingDate, setBookingDate] = useState(indiaDateString());
   const [slots, setSlots] = useState<DailyHelpSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<DailyHelpSlot | null>(null);
   const [selectedStartTime, setSelectedStartTime] = useState('09:00');
@@ -110,6 +123,12 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
     return () => { cancelled = true; };
   }, [selected, bookingDate, hours, user.locality]);
 
+  useEffect(() => {
+    if (!selectedSlot) return;
+    const allowedTimes = bookableStartTimes(selectedSlot, hours);
+    if (!allowedTimes.includes(selectedStartTime)) setSelectedStartTime(allowedTimes[0] || '');
+  }, [selectedSlot, hours]);
+
   const elapsedSeconds = (startedAt?: string, requestedHours?: number) => {
     if (!startedAt) return 0;
     const raw = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1000));
@@ -124,11 +143,11 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
     const start = startHour * 60 + startMinute;
     const windowStart = windowStartHour * 60 + windowStartMinute;
     const windowEnd = windowEndHour * 60 + windowEndMinute;
-    const startDateTime = new Date(`${selectedSlot.slotDate}T${selectedStartTime}:00`);
-    return start % 15 === 0 && start >= windowStart && start + hours * 60 <= windowEnd && startDateTime.getTime() >= Date.now();
+    const allowedTimes = bookableStartTimes(selectedSlot, hours);
+    return start % 15 === 0 && start >= windowStart && start + hours * 60 <= windowEnd && allowedTimes.includes(selectedStartTime);
   }, [selectedSlot, selectedStartTime, hours]);
 
-  const minDate = localDateString(new Date());
+  const minDate = indiaDateString();
   const filteredServices = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return services;
@@ -141,7 +160,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
   const openBooking = (service: DailyHelpService) => {
     setSelected(service);
     setHours(1);
-    setBookingDate(localDateString(new Date(Date.now() + 24 * 60 * 60 * 1000)));
+    setBookingDate(indiaDateString());
     setSelectedSlot(null);
   };
 
@@ -286,7 +305,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
                   {slots.map(slot => {
                     const active = selectedSlot?.slotId === slot.slotId;
                     return (
-                      <button key={slot.slotId} onClick={() => { const earliest = earliestBookableStart(slot, hours); setSelectedSlot(slot); setSelectedStartTime(earliest || slot.startTime.slice(0,5)); }} className={`w-full text-left rounded-xl border p-3 transition-all cursor-pointer ${active ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-500' : 'border-slate-200 hover:border-amber-300 bg-white'}`}>
+                      <button key={slot.slotId} onClick={() => { const availableTimes = bookableStartTimes(slot, hours); setSelectedSlot(slot); setSelectedStartTime(availableTimes[0] || ''); }} className={`w-full text-left rounded-xl border p-3 transition-all cursor-pointer ${active ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-500' : 'border-slate-200 hover:border-amber-300 bg-white'}`}>
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center shrink-0"><UserRound className="w-4 h-4" /></div>
@@ -306,7 +325,9 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
                 <div className="flex items-center gap-2 font-black"><MapPin className="w-4 h-4" /> {selectedSlot.professionalName}</div>
                 <p className="mt-1">Availability window: {selectedSlot.startTime.slice(0,5)} - {selectedSlot.endTime.slice(0,5)} on {selectedSlot.slotDate}</p>
                 <label className="block mt-3 font-bold">Your start time
-                  <input type="time" step={900} min={selectedSlot.startTime.slice(0,5)} max={selectedSlot.endTime.slice(0,5)} value={selectedStartTime} onChange={e => setSelectedStartTime(e.target.value)} className="mt-1 w-full rounded-lg border border-emerald-300 bg-white px-3 py-2" />
+                  <select value={selectedStartTime} onChange={e => setSelectedStartTime(e.target.value)} className="mt-1 w-full rounded-lg border border-emerald-300 bg-white px-3 py-2">
+                    {bookableStartTimes(selectedSlot, hours).map(time => <option key={time} value={time}>{time}</option>)}
+                  </select>
                 </label>
                 <p className="mt-1">Estimated finish: {(() => { const [h,m] = selectedStartTime.split(':').map(Number); const end = h * 60 + m + hours * 60; return `${String(Math.floor(end / 60)).padStart(2,'0')}:${String(end % 60).padStart(2,'0')}`; })()}</p>
               </div>
