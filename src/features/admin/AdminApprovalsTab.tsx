@@ -120,5 +120,6 @@ export const AdminApprovalsTab:React.FC<Props>=({pendingSellerApplications,admin
                 </div>
               )}
             </div>
+  </>
  );
 };
