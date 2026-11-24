@@ -6,7 +6,7 @@ import { createAdminOrderActions } from '../src/features/admin/adminOrderActions
 const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 const harness=(overrides:Record<string,any>={})=>{
   const calls:{name:string;args:any[]}[]=[]; const uiCalls:{name:string;args:any[]}[]=[];
-  let currentOrders:any[]=[{orderId:'order-1'},{orderId:'updated-order'}], loading=false, saving=false, error='', editing:any={orderId:'edit-1'};
+  let currentOrders:any[]=[{orderId:'old-order'}], loading=false, saving=false, error='', editing:any={orderId:'edit-1'};
   const prompts:(string|null)[]=[];
   const api={
     getAdminOrders:async(...args:any[])=>{calls.push({name:'getAdminOrders',args});return [{orderId:'reloaded'}];},
@@ -42,7 +42,7 @@ test('orderToForm preserves empty fallbacks and quantity parser exact validation
   for(const raw of ['1.5','0','-1']) assert.throws(()=>parseOrderQuantity(raw),{message:'Enter a positive whole-number quantity.'});
 });
 test('cancel null, empty and whitespace prompt reasons do not call API',async()=>{
-  for(const reason of [null,'','   ']) {const h=harness();h.prompts.push(reason);await h.actions.cancelOrder({orderId:'o1'});assert.equal(h.calls.length,0);assert.equal(h.uiCalls.filter(c=>c.name==='toast').length,0);}
+  for(const reason of [null,'','   ']) {const h=harness();h.prompts.push(reason);await h.actions.cancelOrder({orderId:'o1'});assert.equal(h.calls.length,0);assert.equal(h.uiCalls.length,0);}
 });
 test('cancel trims reason, reloads with current filters, then success toast',async()=>{
   const h=harness();h.prompts.push('  duplicate  ');await h.actions.cancelOrder({orderId:'o1'});
@@ -54,7 +54,7 @@ test('cancel API error uses same fallback error toast',async()=>{
   assert.deepEqual(h.uiCalls.at(-1),{name:'toast',args:['Unable to cancel order.','error']});
 });
 test('quantity prompt cancellation aborts without API or toast',async()=>{
-  const h=harness();h.prompts.push(null);await h.actions.editItemQuantities({orderId:'o1',items:[{itemId:'i1',quantity:2}]});assert.equal(h.calls.length,0);assert.equal(h.uiCalls.filter(c=>c.name==='toast').length,0);
+  const h=harness();h.prompts.push(null);await h.actions.editItemQuantities({orderId:'o1',items:[{itemId:'i1',quantity:2}]});assert.equal(h.calls.length,0);assert.equal(h.uiCalls.length,0);
 });
 test('invalid quantity never updates items and shows exact validation error',async()=>{
   for(const raw of ['1.5','0']) {const h=harness();h.prompts.push(raw);await h.actions.editItemQuantities({orderId:'o1',items:[{itemId:'i1',quantity:2}]});assert.equal(h.calls.some(c=>c.name==='updateAdminOrderItems'),false);assert.deepEqual(h.uiCalls.at(-1),{name:'toast',args:['Enter a positive whole-number quantity.','error']});}
@@ -62,7 +62,7 @@ test('invalid quantity never updates items and shows exact validation error',asy
 test('valid quantity sends item payload and replaces matching orderId',async()=>{
   const h=harness();h.prompts.push('5');await h.actions.editItemQuantities({orderId:'o1',items:[{itemId:'i1',quantity:2}]});
   assert.deepEqual(h.calls.find(c=>c.name==='updateAdminOrderItems')?.args,['o1',[{itemId:'i1',quantity:5}]]);
-  assert.deepEqual(h.orders(),[{orderId:'order-1',items:[]},{orderId:'updated-order'}]);
+  assert.deepEqual(h.orders(),[{orderId:'updated-order',items:[]}]);
   assert.deepEqual(h.uiCalls.at(-1),{name:'toast',args:['Quantities, stock and order total recalculated.','success']});
 });
 test('empty note still fetches and alerts; non-empty note is trimmed before fetch',async()=>{
@@ -87,7 +87,7 @@ test('formatters preserve exact history, notes, refunds and empty-state strings'
   assert.equal(formatAdminOrderRefunds([]),'No refund requests.');
 });
 test('save order edit preserves update, list replacement, close, toast and error fallback',async()=>{
-  const h=harness();await h.actions.saveOrderEdit();assert.deepEqual(h.calls[0],{name:'updateAdminOrder',args:['edit-1',{buyerName:'Buyer',buyerPhone:'123',buyerEmail:'b@example.com',deliveryAddress:'Address',deliveryLocality:'Kurali'}]});assert.deepEqual(h.orders(),[{orderId:'order-1'},{orderId:'updated-order'}]);assert.equal(h.editing(),null);assert.equal(h.saving(),false);assert.deepEqual(h.uiCalls.at(-1),{name:'toast',args:['Order details updated.','success']});
+  const h=harness();await h.actions.saveOrderEdit();assert.deepEqual(h.calls[0],{name:'updateAdminOrder',args:['edit-1',{buyerName:'Buyer',buyerPhone:'123',buyerEmail:'b@example.com',deliveryAddress:'Address',deliveryLocality:'Kurali'}]});assert.deepEqual(h.orders(),[{orderId:'updated-order'}]);assert.equal(h.editing(),null);assert.equal(h.saving(),false);assert.deepEqual(h.uiCalls.at(-1),{name:'toast',args:['Order details updated.','success']});
   const bad=harness({updateAdminOrder:async()=>{throw new Error('');}});await bad.actions.saveOrderEdit();assert.equal(bad.error(),'Unable to update order details.');assert.equal(bad.saving(),false);
 });
 test('AdminPortal delegates orders tab; page has no order editor state or order API calls',()=>{
