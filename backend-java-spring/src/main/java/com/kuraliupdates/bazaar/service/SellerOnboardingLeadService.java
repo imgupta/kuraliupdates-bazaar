@@ -1,5 +1,7 @@
 package com.kuraliupdates.bazaar.service;
 
+import com.kuraliupdates.bazaar.util.Strings;
+
 import com.kuraliupdates.bazaar.exception.ApiException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -298,7 +300,7 @@ public class SellerOnboardingLeadService {
             catch (Exception ex) { throw new ApiException(HttpStatus.BAD_REQUEST, "Follow-up time must use ISO local date-time format"); }
         }
         jdbc.update("INSERT INTO SELLER_ONBOARDING_LEAD_NOTES (NOTE_ID,LEAD_ID,AUTHOR,NOTE_TEXT,OUTCOME,FOLLOW_UP_AT,CREATED_AT) VALUES (?,?,?,?,?,?,?)",
-                UUID.randomUUID().toString(), leadId, clean(actor,150), safeNote, blankToNull(outcome), followUp, LocalDateTime.now());
+                UUID.randomUUID().toString(), leadId, clean(actor,150), safeNote, Strings.blankToNull(outcome), followUp, LocalDateTime.now());
         audit(leadId, actor, "NOTE_ADDED", outcome);
         return Map.of("success", true);
     }
@@ -366,5 +368,4 @@ public class SellerOnboardingLeadService {
         if (!phone.matches("\\d{10}")) throw new ApiException(HttpStatus.BAD_REQUEST, "Enter a valid 10-digit mobile number");
     }
     private String clean(String value, int max) { if (value == null) return ""; String v=value.trim(); return v.length()>max?v.substring(0,max):v; }
-    private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
 }
