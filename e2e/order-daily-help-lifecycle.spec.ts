@@ -849,30 +849,25 @@ test.describe("Admin login, approval queues, and role restrictions", () => {
       && message.offer?.status === "rejected")).toBeTruthy();
   });
 
-  test("root admin can read approval queues; buyer and seller sessions cannot", async ({ request }, testInfo) => {
-    const trustedEvent = process.env.GITHUB_EVENT_NAME === "push"
-      || process.env.GITHUB_EVENT_NAME === "schedule"
-      || process.env.GITHUB_EVENT_NAME === "workflow_dispatch"
-      || process.env.GITHUB_EVENT_NAME === "workflow_run";
-    const configured = trustedEvent
-      && process.env.E2E_ENVIRONMENT === "staging"
-      && apiBase === "https://kuraliupdates-bazaar.onrender.com/api/v1"
-      && Boolean(process.env.E2E_FLOW_AUTH_TOKEN?.trim())
-      && Boolean(process.env.E2E_ADMIN_IDENTITY?.trim())
-      && Boolean(process.env.E2E_BUYER_IDENTITY?.trim())
-      && Boolean(process.env.E2E_SELLER_IDENTITY?.trim());
+  test("admin approval queues require fresh MFA step-up; buyer and seller sessions cannot access", async ({ request }, testInfo) => {
+    const trustedEvent = process.env.GITHUB_EVENT_NAME === "push" || process.env.GITHUB_EVENT_NAME === "schedule" || process.env.GITHUB_EVENT_NAME === "workflow_dispatch" || process.env.GITHUB_EVENT_NAME === "workflow_run";
+    const configured = trustedEvent && process.env.E2E_ENVIRONMENT === "staging" && apiBase === "https://kuraliupdates-bazaar.onrender.com/api/v1" && Boolean(process.env.E2E_FLOW_AUTH_TOKEN?.trim()) && Boolean(process.env.E2E_ADMIN_IDENTITY?.trim()) && Boolean(process.env.E2E_BUYER_IDENTITY?.trim()) && Boolean(process.env.E2E_SELLER_IDENTITY?.trim());
     test.skip(!configured, "Read-only admin authorization test requires configured staging role identities.");
-
     const runId = runScopedId(testInfo);
     runIds.set(testKey(testInfo), runId);
     const adminToken = await flowToken(request, "ADMIN", "E2E_ADMIN_IDENTITY", runId);
     const buyerToken = await flowToken(request, "BUYER", "E2E_BUYER_IDENTITY", runId);
     const sellerToken = await flowToken(request, "SELLER", "E2E_SELLER_IDENTITY", runId);
+    const statusResponse = await request.get(apiBase + "/admin/mfa/status", { headers: auth(adminToken), timeout: 20_000 });
+    expect(statusResponse.status(), "root admin MFA status endpoint should be available").toBe(200);
+    const status = await statusResponse.json();
+    expect(typeof status.enabled).toBe("boolean");
+    expect(status.stepUpValid, "fresh staging role token must not inherit MFA step-up").toBe(false);
     const queues = ["/admin/sellers/pending", "/admin/delivery/pending", "/admin/daily-help/helpers"];
-
     for (const path of queues) {
       const adminResponse = await request.get(apiBase + path, { headers: auth(adminToken), timeout: 20_000 });
-      expect(adminResponse.status(), "root admin should be able to read " + path).toBe(200);
+      expect(adminResponse.status(), "root admin without fresh MFA must be challenged for " + path).toBe(403);
+      expect((await adminResponse.json()).code).toBe("ADMIN_MFA_REQUIRED");
       for (const [role, token] of [["buyer", buyerToken], ["seller", sellerToken]] as const) {
         const denied = await request.get(apiBase + path, { headers: auth(token), timeout: 20_000 });
         expect([401, 403], role + " must not access " + path).toContain(denied.status());
