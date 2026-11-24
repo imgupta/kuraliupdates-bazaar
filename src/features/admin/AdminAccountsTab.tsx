@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAdminAccounts } from './useAdminAccounts';
-interface Props { adminAccounts:any[]; userEmail:string; showToast:(message:string,type?:'success'|'info'|'error')=>void; refreshAdminData:()=>Promise<any>; }
+interface Props { adminAccounts:any[]; userEmail:string | undefined; showToast:(message:string,type?:'success'|'info'|'error')=>void; refreshAdminData:()=>Promise<any>; }
 export const AdminAccountsTab:React.FC<Props> =({adminAccounts,userEmail,showToast,refreshAdminData})=>{
  const {accountSearch,setAccountSearch,accountActionId,accountAuditUserId,setAccountAuditUserId,accountAuditEntries,handleAccountStatus,handleRevokeSessions,handleAccountAudit}=useAdminAccounts({showToast,refreshAdminData});
  return (
