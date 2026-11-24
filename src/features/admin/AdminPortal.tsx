@@ -39,6 +39,10 @@ import { AdminDirectoryTab } from './AdminDirectoryTab';
 import { AdminBuyersTab } from './AdminBuyersTab';
 import { AdminOrdersTab } from './AdminOrdersTab';
 import { AdminAccountsTab } from './AdminAccountsTab';
+import { AdminApprovalsTab } from './AdminApprovalsTab';
+import { AdminStoresTab } from './AdminStoresTab';
+import { AdminFleetTab } from './AdminFleetTab';
+import { createAdminDecisionActions } from './adminDecisionActions';
 import { buildAdminDirectoryGroups } from './adminDirectory';
 import { useAdminDashboardRefresh } from './useAdminDashboardRefresh';
 import { useSellerDocumentReview } from './useSellerDocumentReview';
@@ -120,6 +124,8 @@ const AdminDashboardContent: React.FC = () => {
     setBuyersLoading,
   });
 
+  const adminDecisionActions = createAdminDecisionActions({ api: adminApi, ui: { toast: showToast }, refreshAdminData });
+
 
   const {
     documentSellerId,
@@ -154,25 +160,7 @@ const AdminDashboardContent: React.FC = () => {
     if (isRootAdmin && activeAdminTab === 'diagnostics') void refreshDiagnostics();
   }, [activeAdminTab, isRootAdmin]);
 
-  const handleSellerDecision = async (sellerId: string, approve: boolean) => {
-    const ok = approve ? await adminApi.approveSeller(sellerId) : await adminApi.rejectSeller(sellerId);
-    if (!ok) {
-      showToast('Unable to update seller status in the database.', 'error');
-      return;
-    }
-    showToast(approve ? 'Seller store approved.' : 'Seller store rejected.', approve ? 'success' : 'info');
-    await refreshAdminData();
-  };
 
-  const handleDeliveryDecision = async (agentId: string, approve: boolean) => {
-    const ok = approve ? await adminApi.approveDeliveryAgent(agentId) : await adminApi.rejectDeliveryAgent(agentId);
-    if (!ok) {
-      showToast('Unable to update delivery partner status in the database.', 'error');
-      return;
-    }
-    showToast(approve ? 'Delivery partner approved.' : 'Delivery partner rejected.', approve ? 'success' : 'info');
-    await refreshAdminData();
-  };
 
 
 
@@ -734,168 +722,9 @@ const AdminDashboardContent: React.FC = () => {
       {/* Tab: Trends */}
       {activeAdminTab === 'trends' && <MarketTrendsVisualization analytics={adminAnalytics} searchTrends={adminSearchTrends} loading={adminDataLoading} />}
 
-      {/* Tab: Approvals */}
-      {activeAdminTab === 'approvals' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-extrabold text-slate-900">
-              New Merchant Applications ({pendingSellers.length})
-            </h2>
-            <p className="text-xs text-slate-500">
-              Stores cannot receive orders or display products until approved by root admin.
-            </p>
-          </div>
+      {activeAdminTab === 'approvals' && <AdminApprovalsTab pendingSellerApplications={pendingSellerApplications} adminDeliveryAgents={adminDeliveryAgents} onSellerDecision={adminDecisionActions.handleSellerDecision} onDeliveryDecision={adminDecisionActions.handleDeliveryDecision} />}
 
-          {pendingSellers.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 space-y-3">
-              <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
-              <h3 className="text-sm font-bold text-slate-800">All Merchant Applications Processed</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                No stores are currently waiting for admin authorization in Kurali.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {pendingSellers.map(seller => (
-                <div
-                  key={seller.sellerId}
-                  className="bg-white rounded-3xl border border-amber-300 p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
-                >
-                  <div className="flex items-start gap-4">
-                    <img
-                      src={seller.avatarUrl}
-                      alt={seller.storeName}
-                      className="w-14 h-14 rounded-2xl object-cover border border-slate-200 shrink-0"
-                    />
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-extrabold text-sm text-slate-900">{seller.name}</h3>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                          {seller.category}
-                        </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                          Pending Verification
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600">{seller.description}</p>
-                      <div className="flex items-center gap-4 text-[11px] text-slate-500 pt-1 flex-wrap">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400" /> {seller.address}, {seller.locality}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-3.5 h-3.5 text-slate-400" /> {seller.phone}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Mail className="w-3.5 h-3.5 text-slate-400" /> {seller.email}
-                        </span>
-                        {seller.gstNumber && (
-                          <span className="font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
-                            GST: {seller.gstNumber}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 self-end md:self-center shrink-0">
-                    <button
-                      onClick={() => handleSellerDecision(seller.sellerId, false)}
-                      className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer flex items-center gap-1.5"
-                    >
-                      <XCircle className="w-4 h-4" /> Reject
-                    </button>
-                    <button
-                      onClick={() => handleSellerDecision(seller.sellerId, true)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-colors cursor-pointer flex items-center gap-1.5"
-                    >
-                      <CheckCircle2 className="w-4 h-4" /> Approve &amp; Activate
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Delivery Partner Approvals */}
-      {activeAdminTab === 'approvals' && (
-        <div className="space-y-4 mt-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-extrabold text-slate-900">Delivery Partner Applications ({pendingDeliveryAgents.length})</h2>
-            <p className="text-xs text-slate-500">Partners remain inactive until approved by root admin.</p>
-          </div>
-          {pendingDeliveryAgents.length === 0 ? (
-            <div className="bg-white rounded-3xl p-8 text-center border border-slate-200">
-              <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-              <p className="text-xs font-bold text-slate-700">No delivery applications waiting for approval.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {pendingDeliveryAgents.map(agent => (
-                <div key={agent.agentId} className="bg-white rounded-3xl border border-emerald-200 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <h3 className="font-extrabold text-sm text-slate-900">{agent.fullName}</h3>
-                    <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
-                      <span><Phone className="inline w-3.5 h-3.5 mr-1" />{agent.phone}</span>
-                      <span><Mail className="inline w-3.5 h-3.5 mr-1" />{agent.email}</span>
-                      <span><Bike className="inline w-3.5 h-3.5 mr-1" />{agent.vehicleType} · {agent.vehicleNumber}</span>
-                      <span>Licence: {agent.licenseNumber}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={() => handleDeliveryDecision(agent.agentId, false)} className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 flex items-center gap-1.5"><XCircle className="w-4 h-4" /> Reject</button>
-                    <button onClick={() => handleDeliveryDecision(agent.agentId, true)} className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> Approve &amp; Activate</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tab: All Active Stores */}
-      {activeAdminTab === 'stores' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-extrabold text-slate-900">
-              Verified Marketplace Stores ({approvedSellers.length})
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {approvedSellers.map(seller => {
-              const sellerProdCount = products.filter(p => p.sellerId === seller.sellerId).length;
-              return (
-                <div
-                  key={seller.sellerId}
-                  className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs flex items-start gap-4"
-                >
-                  <img
-                    src={seller.avatarUrl}
-                    alt={seller.storeName}
-                    className="w-12 h-12 rounded-2xl object-cover border border-slate-200 shrink-0"
-                  />
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-extrabold text-sm text-slate-900 truncate">{seller.storeName}</h3>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
-                        Active
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500">{seller.category} &bull; {seller.locality}</p>
-                    <div className="flex items-center gap-3 text-xs text-slate-600 pt-1">
-                      <span>Products Listed: <strong>{sellerProdCount}</strong></span>
-                      <span>Rating: <strong>★ {seller.rating}</strong></span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
+      {activeAdminTab === 'stores' && <AdminStoresTab adminSellers={adminSellers} products={products} />}
 
       {activeAdminTab === 'accounts' && <AdminAccountsTab adminAccounts={adminAccounts} userEmail={user.email} showToast={showToast} refreshAdminData={refreshAdminData} />}
 
@@ -914,53 +743,7 @@ const AdminDashboardContent: React.FC = () => {
         <AdminOrdersTab adminOrders={adminOrders} setAdminOrders={setAdminOrders} showToast={showToast} />
       )}
 
-      {/* Tab: Delivery Fleet */}
-      {activeAdminTab === 'fleet' && (
-        <div className="space-y-4">
-          <h2 className="text-base font-extrabold text-slate-900">
-            Registered Kurali Express Delivery Fleet ({adminDeliveryAgents.length})
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {adminDeliveryAgents.map(agent => (
-              <div
-                key={agent.agentId}
-                className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-3"
-              >
-                <div className="flex items-center gap-3">
-                  <img
-                    src={agent.avatarUrl}
-                    alt={agent.fullName}
-                    className="w-12 h-12 rounded-2xl object-cover border border-slate-200"
-                  />
-                  <div>
-                    <h3 className="font-extrabold text-sm text-slate-900">{agent.fullName}</h3>
-                    <p className="text-[11px] text-slate-500">{agent.phone}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                  <div>
-                    <span className="text-[10px] text-slate-400 block font-medium">Vehicle</span>
-                    <span className="font-bold text-slate-800">{agent.vehicleType}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 block font-medium">Plate</span>
-                    <span className="font-bold font-mono text-slate-800">{agent.vehicleNumber}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 block font-medium">Completed Trips</span>
-                    <span className="font-bold text-emerald-600">{agent.totalTrips}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 block font-medium">Total Earned</span>
-                    <span className="font-bold text-slate-900">₹{agent.totalEarnings}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {activeAdminTab === 'fleet' && <AdminFleetTab adminDeliveryAgents={adminDeliveryAgents} />}
     </div>
   );
 };
