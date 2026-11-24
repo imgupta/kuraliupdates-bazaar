@@ -1,6 +1,6 @@
 package com.kuraliupdates.bazaar.dto.admin;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.kuraliupdates.bazaar.entity.SellerEntity;
 import org.junit.jupiter.api.Test;
 
@@ -19,7 +19,7 @@ class AdminResponseDtoTest {
                 .e2eRunId("internal-run")
                 .build();
 
-        String json = new ObjectMapper().writeValueAsString(AdminSellerResponse.from(seller));
+        String json = JsonMapper.builder().build().writeValueAsString(AdminSellerResponse.from(seller));
 
         assertTrue(json.contains("\"sellerId\":\"seller-1\""));
         assertFalse(json.contains("agreementAcceptedIp"));
