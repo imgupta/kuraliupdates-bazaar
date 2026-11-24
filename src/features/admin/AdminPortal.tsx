@@ -225,7 +225,6 @@ const AdminDashboardContent: React.FC = () => {
   }
 
   const pendingSellers = pendingSellerApplications;
-  const pendingDeliveryAgents = adminDeliveryAgents.filter(a => String(a.status).toLowerCase() === 'pending');
   const approvedSellers = adminSellers.filter(s => String(s.status).toLowerCase() === 'approved');
   const rejectedSellers = adminSellers.filter(s => String(s.status).toLowerCase() === 'rejected');
   const totalGMV = Number(adminAnalytics?.totalGmv || 0);

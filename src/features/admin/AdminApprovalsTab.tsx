@@ -5,6 +5,7 @@ export const AdminApprovalsTab:React.FC<Props>=({pendingSellerApplications,admin
  const pendingSellers=pendingSellerApplications;
  const pendingDeliveryAgents=adminDeliveryAgents.filter(a=>String(a.status).toLowerCase()==='pending');
  return (
+  <>
                   <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-extrabold text-slate-900">
@@ -68,13 +69,13 @@ export const AdminApprovalsTab:React.FC<Props>=({pendingSellerApplications,admin
     
                       <div className="flex items-center gap-2 self-end md:self-center shrink-0">
                         <button
-                          onClick={() => handleSellerDecision(seller.sellerId, false)}
+                          onClick={() => onSellerDecision(seller.sellerId, false)}
                           className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer flex items-center gap-1.5"
                         >
                           <XCircle className="w-4 h-4" /> Reject
                         </button>
                         <button
-                          onClick={() => handleSellerDecision(seller.sellerId, true)}
+                          onClick={() => onSellerDecision(seller.sellerId, true)}
                           className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-colors cursor-pointer flex items-center gap-1.5"
                         >
                           <CheckCircle2 className="w-4 h-4" /> Approve &amp; Activate
@@ -87,8 +88,7 @@ export const AdminApprovalsTab:React.FC<Props>=({pendingSellerApplications,admin
             </div>
     
           {/* Delivery Partner Approvals */}
-          {activeAdminTab === 'approvals' && (
-            <div className="space-y-4 mt-8">
+                      <div className="space-y-4 mt-8">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-extrabold text-slate-900">Delivery Partner Applications ({pendingDeliveryAgents.length})</h2>
                 <p className="text-xs text-slate-500">Partners remain inactive until approved by root admin.</p>
@@ -112,8 +112,8 @@ export const AdminApprovalsTab:React.FC<Props>=({pendingSellerApplications,admin
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => handleDeliveryDecision(agent.agentId, false)} className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 flex items-center gap-1.5"><XCircle className="w-4 h-4" /> Reject</button>
-                        <button onClick={() => handleDeliveryDecision(agent.agentId, true)} className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> Approve &amp; Activate</button>
+                        <button onClick={() => onDeliveryDecision(agent.agentId, false)} className="px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 flex items-center gap-1.5"><XCircle className="w-4 h-4" /> Reject</button>
+                        <button onClick={() => onDeliveryDecision(agent.agentId, true)} className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> Approve &amp; Activate</button>
                       </div>
                     </div>
                   ))}
