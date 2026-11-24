@@ -68,6 +68,8 @@ jobs:
         run: node --import tsx --test tests/moduleBoundaries.test.ts
       - name: Admin feature regression tests
         run: node --import tsx --test tests/admin*.test.ts
+      - name: Admin critical-guard mutation checks
+        run: node scripts/verify-admin-mutations.mjs
       - name: Public role-portal entry point regression tests
         run: node --import tsx --test tests/portalEntryPoints.test.ts
       - name: Portal build contract regression tests
