@@ -45,14 +45,14 @@ public class SellerReturnController {
     public ResponseEntity<Map<String,Object>> decision(@PathVariable String returnId,@RequestBody Map<String,String> body,@RequestHeader(value="Authorization",required=false) String authorization) {
         SellerEntity seller=currentSeller(authorization);
         boolean approve=body!=null && Boolean.parseBoolean(body.get("approve"));
-        return ResponseEntity.ok(returns.sellerDecision(seller.getSellerId(),returnId,approve,body==null?null:body.get("reason"),seller.getEmail()));
+        return ResponseEntity.ok(returns.sellerDecision(seller.getSellerId(),returnId,approve,body==null?null:body.get("reason"),seller.getUserId()));
     }
 
     @PostMapping("/sellers/me/returns/{returnId}/refund")
     public ResponseEntity<Map<String,Object>> refund(@PathVariable String returnId,@RequestBody Map<String,String> body,@RequestHeader(value="Authorization",required=false) String authorization) {
         SellerEntity seller=currentSeller(authorization);
         return ResponseEntity.ok(returns.sellerRefund(seller.getSellerId(),returnId,body==null?null:body.get("action"),
-                body==null?null:body.get("method"),body==null?null:body.get("reference"),seller.getEmail()));
+                body==null?null:body.get("method"),body==null?null:body.get("reference"),seller.getUserId()));
     }
 
     @GetMapping("/delivery/returns/available")
