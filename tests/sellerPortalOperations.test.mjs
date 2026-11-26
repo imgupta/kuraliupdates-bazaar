@@ -1,11 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import path from 'node:path';
 
 const read = p => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
 const portal = read('../src/features/seller/SellerPortal.tsx');
-const payment = read('../src/components/Seller/SellerPaymentWorkspace.tsx');
+const returnsUi = read('../src/components/Seller/SellerReturnsWorkspace.tsx');
+const returnsApi = read('../src/services/domains/sellerReturnsApi.ts');
+const service = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/SellerReturnService.java');
+const controller = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/SellerReturnController.java');
+const migration = read('../backend-java-spring/src/main/resources/db/migration/V51__seller_item_returns_and_agent_pickup.sql');
 
 test('seller portal starts on an actionable operations overview', () => {
   assert.match(portal, /useState<.*overview.*>('overview')/);
@@ -21,9 +24,32 @@ test('seller orders support search and status filtering', () => {
   assert.match(portal, /filteredOrders/);
 });
 
-test('seller refund actions are reachable from dedicated returns workspace', () => {
-  assert.match(portal, /activeTab === 'returns'.*SellerPaymentWorkspace hideDestination/s);
-  assert.match(payment, /hideDestination/);
-  assert.match(payment, /updateRefund/);
-  assert.match(payment, /seller-funded/);
+test('seller returns workspace is connected to physical return cases', () => {
+  assert.match(portal, /activeTab === 'returns'.*SellerReturnsWorkspace/s);
+  assert.match(returnsUi, /sellerReturnsApi\.decide/);
+  assert.match(returnsUi, /sellerReturnsApi\.refund/);
+  assert.match(returnsUi, /originalPaymentMethod/);
+  assert.match(returnsApi, /\/sellers\/me\/returns/);
+});
+
+test('return service enforces buyer ownership, delivered state and quantity limits', () => {
+  assert.match(service, /BUYER_USER_ID/);
+  assert.match(service, /DELIVERED/);
+  assert.match(service, /unreturned quantity/);
+  assert.match(service, /findByUserId/);
+});
+
+test('return pickup is assigned-agent-only and seller refund must use original mode', () => {
+  assert.match(service, /assignedTo\(c,a\)/);
+  assert.match(service, /RECEIVED_BY_SELLER/);
+  assert.match(service, /original\.equals\(supplied\)/);
+  assert.match(service, /SELLER_RETURN_EVENTS/);
+  assert.match(controller, /ROLE_BUYER/);
+  assert.match(controller, /ROLE_DELIVERY/);
+});
+
+test('Oracle migration creates case and append-only event records', () => {
+  assert.match(migration, /CREATE TABLE SELLER_RETURN_CASES/);
+  assert.match(migration, /CREATE TABLE SELLER_RETURN_EVENTS/);
+  assert.match(migration, /FK_RETURN_AGENT/);
 });
