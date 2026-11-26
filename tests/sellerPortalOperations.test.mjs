@@ -13,6 +13,10 @@ const deliveryPortal = read('../src/features/delivery/DeliveryPortal.tsx');
 const service = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/SellerReturnService.java');
 const controller = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/SellerReturnController.java');
 const migration = read('../backend-java-spring/src/main/resources/db/migration/V51__seller_item_returns_and_agent_pickup.sql');
+const policyMigration = read('../backend-java-spring/src/main/resources/db/migration/V52__configurable_item_return_policies.sql');
+const admin = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/AdminController.java');
+const adminUi = read('../src/features/admin/AdminReturnPolicies.tsx');
+const orderEntity = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/entity/OrderEntity.java');
 
 test('seller portal starts on an actionable operations overview', () => {
   assert.match(portal, /useState<.*overview.*>('overview')/);
@@ -69,4 +73,26 @@ test('delivery dashboard supports return collection and seller handover', () => 
   assert.match(deliveryPortal, /DeliveryReturnsWorkspace/);
   assert.match(deliveryReturnsUi, /deliveryReturnsApi\.pickup/);
   assert.match(deliveryReturnsUi, /deliveryReturnsApi\.handover/);
+});
+
+test('return eligibility uses category-specific admin policy and delivery timestamp', () => {
+  assert.match(service, /KU_RETURN_POLICIES/);
+  assert.match(service, /RETURN_WINDOW_DAYS/);
+  assert.match(service, /deliveredAt\.plusDays\(windowDays\)/);
+  assert.match(service, /IS_RETURNABLE/);
+  assert.match(orderEntity, /DELIVERED_AT/);
+  assert.match(policyMigration, /CREATE TABLE KU_RETURN_POLICIES/);
+  assert.match(policyMigration, /INSERT INTO KU_RETURN_POLICIES.*'\*'.*7/s);
+});
+
+test('root admin can configure and audit category return policies', () => {
+  assert.match(admin, /\/returns\/policies/);
+  assert.match(admin, /requireRootAdmin\(\)/);
+  assert.match(admin, /KU_RETURN_POLICY_EVENTS/);
+  assert.match(adminUi, /adminApi\.updateReturnPolicy/);
+  assert.match(adminUi, /category-specific rule overrides the global/);
+});
+
+test('delivery return assignment uses the same ACTIVE profile rule as normal delivery jobs', () => {
+  assert.match(service, /!"ACTIVE".equalsIgnoreCase\(agent.getStatus\(\)\)/);
 });
