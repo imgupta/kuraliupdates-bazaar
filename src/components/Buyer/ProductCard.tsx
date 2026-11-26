@@ -5,10 +5,8 @@ import { Product } from '../../types';
 interface ProductCardProps {
   product: Product;
   quantity: number;
-  onBargain: (product: Product) => void;
   onAddToCart: (product: Product) => void;
   onRemoveFromCart: (product: Product) => void;
-  onBuyNow: (product: Product) => void;
   onViewDetails: (product: Product) => void;
   isFavorite?: boolean;
   onToggleFavorite?: (product: Product) => void;
@@ -18,7 +16,7 @@ const getEffectivePrice = (product: Product) =>
   Math.round(product.sellerPrice * (1 - product.additionalDiscountPercent / 100));
 
 export const ProductCard: React.FC<ProductCardProps> = ({
-  product, quantity, onBargain, onAddToCart, onRemoveFromCart, onBuyNow, onViewDetails, isFavorite = false, onToggleFavorite,
+  product, quantity, onAddToCart, onRemoveFromCart, onViewDetails, isFavorite = false, onToggleFavorite,
 }) => {
   const effectivePrice = getEffectivePrice(product);
   const savings = Math.max(0, product.mrp - effectivePrice);
