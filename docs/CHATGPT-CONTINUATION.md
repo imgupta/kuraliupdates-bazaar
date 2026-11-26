@@ -195,7 +195,7 @@ Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller
 
 ## 26 November 2026 — buyer experience refresh
 
-- Continue on `feat/buyer-experience-complete-refresh`, created from main `5d0bb5c66c0bec7ec3f33c76b2753144249a7d76` after PR #418.
+- Continue on PR #419, branch `feat/buyer-experience-complete-refresh`, created from main `5d0bb5c66c0bec7ec3f33c76b2753144249a7d76` after PR #418.
 - One consolidated PR only; loyalty/referrals and iOS excluded.
 - Current changes: live catalogue-backed buyer search suggestions; safe unit-price derivation; category discovery labelled as non-equivalent recommendations; regression test references updated for current V48 migration and current card/detail action split.
 - No backend/schema/payment/order-state changes. Do not add speculative variant selectors until a real backend variant-group contract exists.
