@@ -56,3 +56,31 @@ test('buyer can review Daily Help bookings and cancel only eligible future work'
     'Cancel booking',
   ]) assert.ok(component.includes(phrase) || (phrase === 'cancelDailyHelpBooking' && readFileSync('src/services/domains/dailyHelpApi.ts', 'utf8').includes(phrase)), `Missing buyer lifecycle behavior: ${phrase}`);
 });
+
+test('Daily Help history is compact by default and can be expanded', () => {
+  assert.match(component, /showAllBookings \? bookings\.length : 2/);
+  assert.match(component, /showAllBookings \? 'Show less' : 'View all'/);
+  assert.match(component, /aria-expanded=\{showAllBookings\}/);
+});
+
+test('buyer order and cart dock stays compact on mobile', () => {
+  const buyerHome = readFileSync('src/components/Buyer/BuyerHome.tsx', 'utf8');
+  assert.match(buyerHome, /Keep the order shortcut compact/);
+  assert.match(buyerHome, /activeOrders\[0\]\.id/);
+  assert.match(buyerHome, /Track ›/);
+  assert.doesNotMatch(buyerHome, /showAllActiveOrders/);
+});
+
+test('Daily Help bookings are presented in a fixed bottom dock and opened in a sheet', () => {
+  assert.match(component, /fixed inset-x-0 bottom-0 z-50/);
+  assert.match(component, /Your bookings/);
+  assert.match(component, /setShowBookingsPanel\(true\)/);
+  assert.match(component, /role="dialog" aria-modal="true" aria-label="Your Daily Help bookings"/);
+  assert.match(component, /setShowBookingsPanel\(false\)/);
+  const dockIndex = component.indexOf('aria-label="Daily Help booking shortcut"');
+  const dialogIndex = component.indexOf('aria-label="Your Daily Help bookings"');
+  const activeBookingIndex = component.indexOf('aria-label="Current Daily Help booking"');
+  const discoveryIndex = component.indexOf('What would you like help with?');
+  assert.ok(dockIndex >= 0 && dialogIndex > dockIndex && activeBookingIndex > dialogIndex && discoveryIndex > activeBookingIndex,
+    'Active booking details and history must be inside the bottom-sheet dialog, after the main discovery content');
+});

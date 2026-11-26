@@ -18,7 +18,6 @@ interface BuyerHomeProps {
 
 export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
   const [mode, setMode] = useState<'shop' | 'daily-help'>('shop');
-  const [showAllActiveOrders, setShowAllActiveOrders] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const { orders, user, cart, cartCalculations, setIsCartOpen, products } = useApp();
   const searchSuggestions = useMemo(() => {
@@ -111,58 +110,27 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
       </div>
       {mode === 'shop' ? <OnlineShopHome {...props} /> : <DailyHelpHome searchQuery={props.searchQuery} />}
 
-      {/* Shopping cart shortcut and live-order tracking remain reachable without scrolling. */}
+      {/* Keep the order shortcut compact: the previous two-row dock obscured Daily Help content on iPhone Safari. */}
       {((mode === 'shop' && cart.length > 0) || activeOrders.length > 0) && !props.isCheckoutOpen && (
-        <section className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)]" aria-label="Cart and current orders">
-          <div className="mx-auto flex max-w-screen-xl items-stretch gap-2 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-[0_-8px_28px_rgba(15,23,42,0.18)] backdrop-blur-md">
+        <section className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[calc(env(safe-area-inset-bottom)+6px)]" aria-label="Cart and current orders">
+          <div className="mx-auto flex max-w-screen-xl items-center gap-2 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-[0_-6px_22px_rgba(15,23,42,0.16)] backdrop-blur-md">
             {activeOrders.length > 0 && (
-              <div className="flex min-w-0 flex-[1.7] items-center gap-2 rounded-xl bg-slate-50 px-2.5 py-2" aria-label="Your current orders">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Truck className="h-4 w-4" /></span>
+              <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-emerald-50 px-2.5 py-2" aria-label="Your current orders">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Truck className="h-4 w-4" /></span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-extrabold text-slate-900">Your orders</span>
-                    <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">{activeOrders.length}</span>
-                    {activeOrders.length > 1 && (
-                      <button type="button" onClick={() => setShowAllActiveOrders(value => !value)}
-                        className="ml-auto shrink-0 text-[9px] font-bold text-emerald-700">
-                        {showAllActiveOrders ? 'Latest' : 'All'}
-                      </button>
-                    )}
-                  </div>
-                  <div className="mt-0.5 flex min-w-0 items-center gap-2">
-                    <span className="min-w-0 flex-1 truncate text-[10px] text-slate-600">
-                      {showAllActiveOrders ? `${activeOrders.length} active orders` : `#${activeOrders[0].id} · ${String(activeOrders[0].status || 'placed').replace(/_/g, ' ').toLowerCase()}`}
-                    </span>
-                    <button type="button" onClick={() => props.onOpenTracking(activeOrders[0].id)}
-                      className="shrink-0 text-[10px] font-extrabold text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                      Track ›
-                    </button>
-                  </div>
-                  {showAllActiveOrders && activeOrders.length > 1 && (
-                    <div className="mt-1 flex gap-1 overflow-x-auto scrollbar-none">
-                      {activeOrders.slice(1).map(order => (
-                        <button key={order.id} type="button" onClick={() => props.onOpenTracking(order.id)}
-                          className="shrink-0 rounded-md border border-emerald-100 bg-white px-1.5 py-0.5 text-[9px] font-bold text-emerald-800">
-                          #{order.id} · Track
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <p className="truncate text-[11px] font-extrabold text-slate-900">{activeOrders.length} active {activeOrders.length === 1 ? 'order' : 'orders'}</p>
+                  <p className="truncate text-[10px] text-slate-600">#{activeOrders[0].id} · {String(activeOrders[0].status || 'placed').replace(/_/g, ' ').toLowerCase()}</p>
                 </div>
+                <button type="button" onClick={() => props.onOpenTracking(activeOrders[0].id)} className="shrink-0 rounded-lg px-2 py-2 text-[11px] font-extrabold text-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">Track ›</button>
               </div>
             )}
             {mode === 'shop' && cart.length > 0 && (
               <button type="button" onClick={() => setIsCartOpen(true)}
                 aria-label={`Open cart, ${cart.reduce((sum, item) => sum + item.quantity, 0)} items, total ₹${cartCalculations.finalTotal}`}
-                className="flex min-w-0 flex-1 items-center justify-between gap-1.5 rounded-xl bg-slate-900 px-2.5 py-2 text-left text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400">
-                <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10">
-                  <ShoppingBag className="h-5 w-5" />
-                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-400 px-1 text-[9px] font-black text-slate-950">{cart.reduce((sum, item) => sum + item.quantity, 0)}</span>
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[10px] font-extrabold">Cart · ₹{cartCalculations.finalTotal}</span>
-                  <span className="block truncate text-[9px] text-slate-300">Checkout ›</span>
-                </span>
+                className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-slate-900 px-3 py-2.5 text-left text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                <ShoppingBag className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 flex-1 truncate text-[11px] font-extrabold">Cart · ₹{cartCalculations.finalTotal}</span>
+                <span className="shrink-0 text-[10px] font-bold text-slate-300">Checkout ›</span>
               </button>
             )}
           </div>
