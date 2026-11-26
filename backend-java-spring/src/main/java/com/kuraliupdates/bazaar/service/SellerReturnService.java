@@ -61,7 +61,7 @@ public class SellerReturnService {
 
     @Transactional(readOnly=true)
     public List<Map<String,Object>> sellerCases(String sellerId) {
-        return jdbc.queryForList("SELECT RETURN_ID AS \"returnId\",ORDER_ID AS \"orderId\",ITEM_ID AS \"itemId\",BUYER_USER_ID AS \"buyerUserId\",QUANTITY AS \"quantity\",RETURN_AMOUNT AS \"returnAmount\",ORIGINAL_PAYMENT_METHOD AS \"originalPaymentMethod\",REASON AS \"reason\",SELLER_DECISION_REASON AS \"sellerDecisionReason\",STATUS AS \"status\",DELIVERY_AGENT_ID AS \"deliveryAgentId\",PICKUP_REFERENCE AS \"pickupReference\",SELLER_RECEIPT_REFERENCE AS \"sellerReceiptReference\",REFUND_METHOD AS \"refundMethod\",REFUND_REFERENCE AS \"refundReference\",CREATED_AT AS \"createdAt\" FROM SELLER_RETURN_CASES WHERE SELLER_ID=? ORDER BY CREATED_AT DESC",sellerId);
+        return jdbc.queryForList("SELECT RETURN_ID AS \"returnId\",ORDER_ID AS \"orderId\",ITEM_ID AS \"itemId\",BUYER_USER_ID AS \"buyerUserId\",QUANTITY AS \"quantity\",RETURN_AMOUNT AS \"returnAmount\",ORIGINAL_PAYMENT_METHOD AS \"originalPaymentMethod\",REASON AS \"reason\",SELLER_DECISION_REASON AS \"sellerDecisionReason\",STATUS AS \"status\",DELIVERY_AGENT_ID AS \"deliveryAgentId\",PICKUP_REFERENCE AS \"pickupReference\",SELLER_RECEIPT_REFERENCE AS \"sellerReceiptReference\",ACCEPTED_QUANTITY AS \"acceptedQuantity\",SELLER_CONDITION AS \"sellerCondition\",SELLER_RECEIPT_NOTE AS \"sellerReceiptNote\",REFUND_METHOD AS \"refundMethod\",REFUND_REFERENCE AS \"refundReference\",CREATED_AT AS \"createdAt\" FROM SELLER_RETURN_CASES WHERE SELLER_ID=? ORDER BY CREATED_AT DESC",sellerId);
     }
 
     @Transactional
