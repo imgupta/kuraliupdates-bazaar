@@ -308,6 +308,52 @@ public class AdminController {
         return getDailyHelpConfiguration();
     }
 
+    @GetMapping("/returns/policies")
+    @Transactional(readOnly = true)
+    @Operation(summary = "List root-admin configurable item return policies")
+    public ResponseEntity<List<Map<String,Object>>> getReturnPolicies() {
+        requireRootAdmin();
+        return ResponseEntity.ok(jdbcTemplate.queryForList(
+                "SELECT CATEGORY AS \"category\",IS_RETURNABLE AS \"returnable\",RETURN_WINDOW_DAYS AS \"returnWindowDays\",UPDATED_AT AS \"updatedAt\" FROM KU_RETURN_POLICIES ORDER BY CATEGORY"));
+    }
+
+    @PutMapping("/returns/policies")
+    @Transactional
+    @Operation(summary = "Create or update a category return policy")
+    public ResponseEntity<Map<String,Object>> updateReturnPolicy(@RequestBody Map<String,Object> payload) {
+        com.kuraliupdates.bazaar.entity.UserEntity actor = requireRootAdmin();
+        String category = String.valueOf(payload.getOrDefault("category", "")).trim().toUpperCase(Locale.ROOT);
+        if (category.isBlank() || category.length() > 100 || !category.matches("[A-Z0-9 _&/-]+") && !"*".equals(category))
+            throw new com.kuraliupdates.bazaar.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "A valid product category or * default is required");
+        Object returnableValue = payload.get("returnable");
+        if (!(returnableValue instanceof Boolean returnable))
+            throw new com.kuraliupdates.bazaar.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "returnable must be true or false");
+        int days;
+        try { days = new BigDecimal(String.valueOf(payload.get("returnWindowDays"))).intValueExact(); }
+        catch (Exception ex) { throw new com.kuraliupdates.bazaar.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "Return window must be a whole number of days"); }
+        if (days < 0 || days > 90 || (returnable && days == 0))
+            throw new com.kuraliupdates.bazaar.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "Return window must be 1-90 days for returnable categories, or 0-90 when disabled");
+        List<Map<String,Object>> beforeRows = jdbcTemplate.queryForList("SELECT IS_RETURNABLE,RETURN_WINDOW_DAYS FROM KU_RETURN_POLICIES WHERE CATEGORY=?", category);
+        Integer oldFlag = beforeRows.isEmpty() ? null : ((Number) beforeRows.get(0).get("IS_RETURNABLE")).intValue();
+        Integer oldDays = beforeRows.isEmpty() ? null : ((Number) beforeRows.get(0).get("RETURN_WINDOW_DAYS")).intValue();
+        if (beforeRows.isEmpty()) {
+            jdbcTemplate.update("INSERT INTO KU_RETURN_POLICIES (CATEGORY,IS_RETURNABLE,RETURN_WINDOW_DAYS,UPDATED_BY,UPDATED_AT) VALUES (?,?,?,?,CURRENT_TIMESTAMP)", category, returnable ? 1 : 0, days, actor.getUserId());
+        } else {
+            jdbcTemplate.update("UPDATE KU_RETURN_POLICIES SET IS_RETURNABLE=?,RETURN_WINDOW_DAYS=?,UPDATED_BY=?,UPDATED_AT=CURRENT_TIMESTAMP WHERE CATEGORY=?", returnable ? 1 : 0, days, actor.getUserId(), category);
+        }
+        jdbcTemplate.update("INSERT INTO KU_RETURN_POLICY_EVENTS (EVENT_ID,CATEGORY,PREVIOUS_RETURNABLE,NEW_RETURNABLE,PREVIOUS_WINDOW_DAYS,NEW_WINDOW_DAYS,ACTOR_USER_ID,CREATED_AT) VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",
+                UUID.randomUUID().toString(), category, oldFlag, returnable ? 1 : 0, oldDays, days, actor.getUserId());
+        return ResponseEntity.ok(jdbcTemplate.queryForMap("SELECT CATEGORY AS \"category\",IS_RETURNABLE AS \"returnable\",RETURN_WINDOW_DAYS AS \"returnWindowDays\",UPDATED_AT AS \"updatedAt\" FROM KU_RETURN_POLICIES WHERE CATEGORY=?", category));
+    }
+
+    private com.kuraliupdates.bazaar.entity.UserEntity requireRootAdmin() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication == null ? null : authentication.getPrincipal();
+        if (!(principal instanceof com.kuraliupdates.bazaar.entity.UserEntity actor) || !Integer.valueOf(1).equals(actor.getIsAdmin()))
+            throw new com.kuraliupdates.bazaar.exception.ApiException(org.springframework.http.HttpStatus.FORBIDDEN, "Root administrator access is required");
+        return actor;
+    }
+
     private String currentActorEmail() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return authentication == null ? "" : authentication.getName();
