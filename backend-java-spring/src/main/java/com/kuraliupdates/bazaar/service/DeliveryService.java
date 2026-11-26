@@ -303,6 +303,7 @@ public class DeliveryService {
         LocalDateTime deliveredAt = LocalDateTime.now();
         for (OrderEntity deliveryOrder : deliveryOrders) {
             deliveryOrder.setStatus("DELIVERED");
+            deliveryOrder.setDeliveredAt(deliveredAt);
             deliveryOrder.setPaymentStatus("COD".equalsIgnoreCase(deliveryOrder.getPaymentMethod())
                     ? "PAID" : deliveryOrder.getPaymentStatus());
             deliveryOrder.setUpdatedAt(deliveredAt);

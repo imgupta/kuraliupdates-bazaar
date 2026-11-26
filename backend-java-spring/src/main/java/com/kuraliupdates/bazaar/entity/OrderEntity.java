@@ -54,5 +54,6 @@ public class OrderEntity {
 
     @Column(name = "E2E_RUN_ID", length = 80) private String e2eRunId;
     @Column(name = "PLACED_AT") private LocalDateTime placedAt;
+    @Column(name = "DELIVERED_AT") private LocalDateTime deliveredAt;
     @Column(name = "UPDATED_AT") private LocalDateTime updatedAt;
 }

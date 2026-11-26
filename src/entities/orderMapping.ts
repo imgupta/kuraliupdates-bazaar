@@ -27,7 +27,7 @@ export interface BackendOrder {
   deliveryAgent?: any;
   placedAt?: string;
   distanceKm?: number;
-  items?: { productId: string; title: string; quantity: number; unitPrice: number; negotiatedPrice?: number; totalPrice: number }[];
+  items?: { itemId?: string; productId: string; title: string; quantity: number; unitPrice: number; negotiatedPrice?: number; totalPrice: number }[];
 }
 
 export const mapBackendOrder = (bo: BackendOrder): Order => ({

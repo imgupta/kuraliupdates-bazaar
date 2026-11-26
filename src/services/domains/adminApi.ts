@@ -52,6 +52,22 @@ export const adminApi = {
     if (!response.ok) throw new Error(data?.message || `Unable to save seller service area (HTTP ${response.status})`);
     return data;
   },
+  async getReturnPolicies(): Promise<any[]> {
+    const res = await fetch(`${API_BASE_URL}/admin/returns/policies`, { headers: adminAuthHeaders(), cache: 'no-store' });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to load return policies (HTTP ${res.status})`);
+    return Array.isArray(data) ? data : [];
+  },
+
+  async updateReturnPolicy(payload: { category: string; returnable: boolean; returnWindowDays: number }): Promise<any> {
+    const res = await fetch(`${API_BASE_URL}/admin/returns/policies`, {
+      method: 'PUT', headers: { ...adminAuthHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || `Unable to save return policy (HTTP ${res.status})`);
+    return data;
+  },
+
   async getAdminDiagnostics(): Promise<any> {
       const res = await fetch(`${API_BASE_URL}/admin/diagnostics`, {
         headers: adminAuthHeaders(),
