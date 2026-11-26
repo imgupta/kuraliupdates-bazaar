@@ -6,6 +6,10 @@ const read = p => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
 const portal = read('../src/features/seller/SellerPortal.tsx');
 const returnsUi = read('../src/components/Seller/SellerReturnsWorkspace.tsx');
 const returnsApi = read('../src/services/domains/sellerReturnsApi.ts');
+const buyerReturnsUi = read('../src/components/Buyer/BuyerReturnPanel.tsx');
+const deliveryReturnsUi = read('../src/components/Delivery/DeliveryReturnsWorkspace.tsx');
+const tracking = read('../src/components/Buyer/OrderTrackingModal.tsx');
+const deliveryPortal = read('../src/features/delivery/DeliveryPortal.tsx');
 const service = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/SellerReturnService.java');
 const controller = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/SellerReturnController.java');
 const migration = read('../backend-java-spring/src/main/resources/db/migration/V51__seller_item_returns_and_agent_pickup.sql');
@@ -52,4 +56,17 @@ test('Oracle migration creates case and append-only event records', () => {
   assert.match(migration, /CREATE TABLE SELLER_RETURN_CASES/);
   assert.match(migration, /CREATE TABLE SELLER_RETURN_EVENTS/);
   assert.match(migration, /FK_RETURN_AGENT/);
+});
+
+test('buyer can request item returns from delivered order tracking', () => {
+  assert.match(tracking, /BuyerReturnPanel/);
+  assert.match(tracking, /isDelivered &&/);
+  assert.match(buyerReturnsUi, /buyerReturnsApi\.create/);
+  assert.match(buyerReturnsUi, /item\.itemId/);
+});
+
+test('delivery dashboard supports return collection and seller handover', () => {
+  assert.match(deliveryPortal, /DeliveryReturnsWorkspace/);
+  assert.match(deliveryReturnsUi, /deliveryReturnsApi\.pickup/);
+  assert.match(deliveryReturnsUi, /deliveryReturnsApi\.handover/);
 });
