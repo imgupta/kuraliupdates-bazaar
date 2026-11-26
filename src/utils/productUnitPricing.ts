@@ -15,5 +15,5 @@ export function formatProductUnitPrice(price: number, unit: string): string | nu
   else if (['pc', 'pcs'].includes(rawUnit)) label = 'piece';
   const perUnit = price / divisor;
   if (!Number.isFinite(perUnit)) return null;
-  return \`₹\${Number(perUnit.toFixed(2)).toLocaleString('en-IN')}/\${label}\`;
+  return `₹${Number(perUnit.toFixed(2)).toLocaleString('en-IN')}/${label}`;
 }
