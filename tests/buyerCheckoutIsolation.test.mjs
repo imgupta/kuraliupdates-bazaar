@@ -27,9 +27,10 @@ test('product cards offer Add, Buy Now and quantity controls as separate actions
   const source = read('../src/components/Buyer/ProductCard.tsx');
   assert.match(source, /quantity <= 0 \?/);
   assert.match(source, /> ADD\s*</);
-  assert.match(source, /Buy Now/);
-  assert.match(source, /onBuyNow/);
-  assert.match(source, /onClick=\{\(\) => onBuyNow\(product\)\}/);
+  const details = read('../src/components/Buyer/ProductDetailsModal.tsx');
+  assert.match(details, /Buy now/);
+  assert.match(details, /onBuyNow/);
+  assert.match(details, /onClick=\{\(\) => onBuyNow\(product\)\}/);
 });
 
 test('buyer has a persistent cart shortcut that opens the cart drawer without scrolling', () => {
@@ -55,7 +56,7 @@ test('buyer ETA is admin-configurable, snapshotted by backend, and disabled when
   const controller = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/AdminController.java');
   const service = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/DeliveryConfigurationService.java');
   const orders = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/OrderService.java');
-  const migration = read('../backend-java-spring/src/main/java/db/migration/V22__Configurable_buyer_delivery_eta.java');
+  const migration = read('../backend-java-spring/src/main/java/db/migration/V48__Configurable_buyer_delivery_eta.java');
   assert.match(admin, /Buyer delivery ETA \(minutes; 0 disables\)/);
   assert.match(hook, /estimatedDeliveryMins: Number\(config\.estimatedDeliveryMins \?\? 0\)/);
   assert.match(controller, /ESTIMATED_DELIVERY_MINS AS "estimatedDeliveryMins"/);
