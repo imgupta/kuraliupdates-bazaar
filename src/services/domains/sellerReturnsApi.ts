@@ -13,5 +13,6 @@ const call = async (path: string, init?: RequestInit) => {
 export const sellerReturnsApi = {
   list: () => call('/sellers/me/returns'),
   decide: (id: string, approve: boolean, reason?: string) => call(`/sellers/me/returns/${encodeURIComponent(id)}/decision`, { method: 'POST', body: JSON.stringify({ approve, reason }) }),
+  confirmReceipt: (id: string, acceptedQuantity: number, condition: string, note?: string) => call(`/sellers/me/returns/${encodeURIComponent(id)}/receipt`, { method: 'POST', body: JSON.stringify({ acceptedQuantity, condition, note }) }),
   refund: (id: string, action: 'INITIATE'|'COMPLETE', method?: string, reference?: string) => call(`/sellers/me/returns/${encodeURIComponent(id)}/refund`, { method: 'POST', body: JSON.stringify({ action, method, reference }) }),
 };
