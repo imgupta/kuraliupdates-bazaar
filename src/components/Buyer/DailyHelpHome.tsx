@@ -96,6 +96,9 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
   const [slotsError, setSlotsError] = useState(false);
   const [availabilityRetry, setAvailabilityRetry] = useState(0);
   const [bookings, setBookings] = useState<DailyHelpBooking[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [bookingsError, setBookingsError] = useState(false);
+  const [bookingsRetry, setBookingsRetry] = useState(0);
   const [bookingBusy, setBookingBusy] = useState(false);
   const [cancelBusyId, setCancelBusyId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -112,11 +115,15 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
   }, []);
 
   useEffect(() => {
-    if (!user.phone) return;
+    if (!user.phone) { setBookingsLoading(false); return; }
     let cancelled = false;
-    buyerApi.getDailyHelpBookings(user.phone).then(data => { if (!cancelled) setBookings(data); }).catch(() => undefined);
+    setBookingsLoading(true);
+    buyerApi.getDailyHelpBookings(user.phone)
+      .then(data => { if (!cancelled) { setBookings(data); setBookingsError(false); } })
+      .catch(() => { if (!cancelled) setBookingsError(true); })
+      .finally(() => { if (!cancelled) setBookingsLoading(false); });
     return () => { cancelled = true; };
-  }, [user.phone]);
+  }, [user.phone, bookingsRetry]);
 
   const activeBookings = useMemo(() => bookings
     .filter(item => ['SEARCHING', 'CONFIRMED', 'PROFESSIONAL_ASSIGNED', 'ARRIVING', 'READY_TO_START', 'IN_PROGRESS'].includes(item.status))
@@ -296,6 +303,13 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
         </section>
       )}
 
+      {bookingsError && (
+        <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4" aria-live="polite">
+          <p className="text-sm font-bold text-rose-900">We couldn’t load your Daily Help bookings.</p>
+          <button type="button" onClick={() => setBookingsRetry(value => value + 1)} className="mt-2 text-xs font-bold text-rose-900 underline">Retry</button>
+        </section>
+      )}
+      {bookingsLoading && <p className="text-xs text-slate-500" aria-live="polite">Loading your Daily Help bookings…</p>}
       {bookings.length > 0 && (
         <section aria-label="Daily Help booking history" className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
