@@ -29,7 +29,9 @@ export const SellerDashboard: React.FC = () => {
   const [discountType, setDiscountType] = useState<'percentage' | 'flat'>('percentage');
   const [discountValue, setDiscountValue] = useState('5');
   const [discountDescription, setDiscountDescription] = useState('');
-  const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'add' | 'discounts' | 'chats' | 'payments'>('inventory');
+  const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'orders' | 'add' | 'discounts' | 'chats' | 'payments' | 'returns'>('overview');
+  const [orderSearch, setOrderSearch] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState('ALL');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -244,6 +246,18 @@ export const SellerDashboard: React.FC = () => {
     [orders]
   );
 
+  const lowStockProducts = products.filter(p => Number(p.stock) > 0 && Number(p.stock) <= 5);
+  const outOfStockProducts = products.filter(p => Number(p.stock) <= 0);
+  const awaitingAcceptance = orders.filter(o => String(o.status || '').toUpperCase() === 'PLACED');
+  const awaitingPickup = orders.filter(o => String(o.status || '').toUpperCase() === 'ACCEPTED_BY_SELLER');
+  const filteredOrders = orders.filter(o => {
+    const status = String(o.status || '').toUpperCase();
+    const query = orderSearch.trim().toLowerCase();
+    const matchesStatus = orderStatusFilter === 'ALL' || status === orderStatusFilter;
+    const matchesQuery = !query || [o.orderId, o.buyerName, o.deliveryAddress].some(value => String(value || '').toLowerCase().includes(query));
+    return matchesStatus && matchesQuery;
+  });
+
   if (loading) return <div className="p-10 text-center text-sm font-bold text-slate-500">Loading your store…</div>;
 
   return (
@@ -296,18 +310,52 @@ export const SellerDashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex border-b border-slate-200 overflow-x-auto gap-2">
+      <div className="sticky top-0 z-20 -mx-1 flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white/95 p-1 shadow-sm backdrop-blur">
         {[
-          ['inventory', Package, `Store Inventory (${sellerProducts.length})`],
-          ['orders', ShoppingBag, `Incoming Orders (${incomingOrders.length})`],
+          ['overview', Store, 'Overview'],
+          ['orders', ShoppingBag, `Orders (${incomingOrders.length})`],
+          ['returns', RefreshCw, 'Returns & refunds'],
+          ['inventory', Package, `Inventory (${sellerProducts.length})`],
           ['chats', MessageSquare, `Bargaining Chats (${sellerChats.length})${pendingOffers ? ` • ${pendingOffers} pending` : ''}`],
           ['add', PlusCircle, editingId ? 'Edit Product' : 'Upload New Product'],
           ['discounts', Percent, 'Bill Discounts'],
           ['payments', Wallet, 'Payments & UPI'],
         ].map(([tab, Icon, label]: any) => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 px-4 text-xs font-bold flex items-center gap-2 whitespace-nowrap border-b-2 ${activeTab === tab ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500'}`}><Icon className="w-4 h-4" />{label}</button>
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-3 text-xs font-bold whitespace-nowrap transition ${activeTab === tab ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}><Icon className="w-4 h-4" />{label}</button>
         ))}
       </div>
+
+
+      {activeTab === 'overview' && (
+        <section className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {[
+              ['Needs acceptance', awaitingAcceptance.length, 'orders'],
+              ['Ready for pickup', awaitingPickup.length, 'orders'],
+              ['Low stock', lowStockProducts.length, 'inventory'],
+              ['Out of stock', outOfStockProducts.length, 'inventory'],
+            ].map(([label, value, tab]: any) => (
+              <button key={label} type="button" onClick={() => { setActiveTab(tab); if (label === 'Needs acceptance') setOrderStatusFilter('PLACED'); if (label === 'Ready for pickup') setOrderStatusFilter('ACCEPTED_BY_SELLER'); }}
+                className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                <span className="block text-[11px] font-bold text-slate-500">{label}</span>
+                <strong className="mt-2 block text-2xl font-black text-slate-900">{value}</strong>
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <section className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex items-center justify-between"><div><h2 className="text-sm font-extrabold">Order action queue</h2><p className="mt-1 text-xs text-slate-500">New orders and orders awaiting pickup.</p></div><button onClick={() => setActiveTab('orders')} className="text-xs font-bold text-blue-700">All orders →</button></div>
+              {orders.filter(o => ['PLACED','ACCEPTED_BY_SELLER'].includes(String(o.status || '').toUpperCase())).slice(0,5).map(o => <div key={o.orderId} className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3"><div className="min-w-0"><p className="truncate text-xs font-extrabold">Order #{o.orderId}</p><p className="mt-1 text-[11px] text-slate-500">{o.buyerName || 'Buyer'} · {String(o.status).replaceAll('_',' ')}</p></div><button onClick={() => setActiveTab('orders')} className="rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-bold text-white">Review</button></div>)}
+              {awaitingAcceptance.length + awaitingPickup.length === 0 && <p className="mt-4 rounded-xl bg-slate-50 p-4 text-xs text-slate-500">No orders need action right now.</p>}
+            </section>
+            <section className="rounded-2xl border border-slate-200 bg-white p-4"><h2 className="text-sm font-extrabold">Inventory attention</h2><p className="mt-1 text-xs text-slate-500">Products that may need replenishment.</p>
+              {[...lowStockProducts, ...outOfStockProducts].slice(0,5).map(p => <div key={p.id} className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3"><div className="min-w-0"><p className="truncate text-xs font-bold">{p.title}</p><p className="text-[11px] text-slate-500">Stock: {p.stock} {p.unit}</p></div><button onClick={() => startEdit(p)} className="rounded-lg border px-3 py-2 text-[11px] font-bold">Update</button></div>)}
+              {lowStockProducts.length + outOfStockProducts.length === 0 && <p className="mt-4 rounded-xl bg-emerald-50 p-4 text-xs text-emerald-800">No low-stock products detected.</p>}
+            </section>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3"><button onClick={() => setActiveTab('inventory')} className="rounded-xl border bg-white p-4 text-left text-xs font-bold">Manage products<span className="mt-1 block font-normal text-slate-500">Prices, descriptions and stock</span></button><button onClick={() => setActiveTab('returns')} className="rounded-xl border bg-white p-4 text-left text-xs font-bold">Returns & refunds<span className="mt-1 block font-normal text-slate-500">Seller-funded refund requests</span></button><button onClick={() => setActiveTab('payments')} className="rounded-xl border bg-white p-4 text-left text-xs font-bold">UPI & payment settings<span className="mt-1 block font-normal text-slate-500">Direct payment destination</span></button></div>
+        </section>
+      )}
 
       {activeTab === 'chats' && (
         <div className="space-y-3">
@@ -374,18 +422,19 @@ export const SellerDashboard: React.FC = () => {
       )}
 
       {activeTab === 'payments' && <SellerPaymentWorkspace hidePaymentRecords />}
+      {activeTab === 'returns' && <SellerPaymentWorkspace hideDestination />}
 
       {activeTab === 'orders' && (
         <div className="space-y-6">
           <section className="space-y-3">
             <h3 className="text-sm font-extrabold text-slate-800">Incoming Orders ({incomingOrders.length})</h3>
             {incomingOrders.length === 0 ? <div className="p-8 text-center bg-white rounded-3xl border border-slate-200"><ShoppingBag className="w-10 h-10 text-slate-300 mx-auto mb-3" /><p className="font-bold text-sm">No pending orders. New orders will appear here.</p></div> :
-              incomingOrders.map(o => { const status=String(o.status||'').toUpperCase(); const next=status==='PLACED'?'Accept Order':status==='ACCEPTED_BY_SELLER'?'Mark Ready for Pickup':null; const payment=sellerPayments.find(p=>String(p.orderId)===String(o.orderId)); return <div key={o.orderId} className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col gap-3"><div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3"><div><div className="flex gap-2 items-center flex-wrap"><span className="font-mono font-bold text-xs text-blue-700">#{o.orderId}</span><span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 uppercase">{status}</span></div><p className="text-xs font-bold mt-2">{o.buyerName} • {o.deliveryAddress}</p><p className="text-[11px] text-slate-500">{o.paymentMethod} • {o.placedAt ? new Date(o.placedAt).toLocaleString() : ''}</p></div><div className="flex items-center justify-between md:justify-end gap-3"><span className="font-black">₹{Number(o.totalAmount||0).toFixed(2)}</span>{next && <button onClick={()=>advanceOrder(o)} className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-bold">{next}</button>}</div></div>{payment && <section className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 space-y-2"><div className="flex items-center justify-between gap-2"><span className="text-xs font-extrabold text-slate-800">Seller-direct UPI payment</span><span className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-slate-700">{String(payment.paymentStatus||'').replaceAll('_',' ').toLowerCase()}</span></div><p className="text-xs text-slate-700">Amount: <strong>₹{Number(payment.expectedAmount||0).toFixed(2)}</strong> · UTR: <strong>{payment.utrReference || 'Not submitted'}</strong></p>{payment.paymentStatus==='AWAITING_SELLER_CONFIRMATION' && <div className="flex flex-wrap gap-2"><button type="button" disabled={paymentActionBusy===payment.paymentId} onClick={()=>void decideOrderPayment(payment,true)} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{paymentActionBusy===payment.paymentId?'Updating…':'Confirm received'}</button><button type="button" disabled={paymentActionBusy===payment.paymentId} onClick={()=>void decideOrderPayment(payment,false)} className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 disabled:opacity-50">Reject reference</button></div>}</section>}</div>})}
+              filteredOrders.filter(o => !['DELIVERED','COMPLETED','CANCELLED'].includes(String(o.status || '').toUpperCase())).map(o => { const status=String(o.status||'').toUpperCase(); const next=status==='PLACED'?'Accept Order':status==='ACCEPTED_BY_SELLER'?'Mark Ready for Pickup':null; const payment=sellerPayments.find(p=>String(p.orderId)===String(o.orderId)); return <div key={o.orderId} className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col gap-3"><div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3"><div><div className="flex gap-2 items-center flex-wrap"><span className="font-mono font-bold text-xs text-blue-700">#{o.orderId}</span><span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 uppercase">{status}</span></div><p className="text-xs font-bold mt-2">{o.buyerName} • {o.deliveryAddress}</p><p className="text-[11px] text-slate-500">{o.paymentMethod} • {o.placedAt ? new Date(o.placedAt).toLocaleString() : ''}</p></div><div className="flex items-center justify-between md:justify-end gap-3"><span className="font-black">₹{Number(o.totalAmount||0).toFixed(2)}</span>{next && <button onClick={()=>advanceOrder(o)} className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-bold">{next}</button>}</div></div>{payment && <section className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 space-y-2"><div className="flex items-center justify-between gap-2"><span className="text-xs font-extrabold text-slate-800">Seller-direct UPI payment</span><span className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-slate-700">{String(payment.paymentStatus||'').replaceAll('_',' ').toLowerCase()}</span></div><p className="text-xs text-slate-700">Amount: <strong>₹{Number(payment.expectedAmount||0).toFixed(2)}</strong> · UTR: <strong>{payment.utrReference || 'Not submitted'}</strong></p>{payment.paymentStatus==='AWAITING_SELLER_CONFIRMATION' && <div className="flex flex-wrap gap-2"><button type="button" disabled={paymentActionBusy===payment.paymentId} onClick={()=>void decideOrderPayment(payment,true)} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{paymentActionBusy===payment.paymentId?'Updating…':'Confirm received'}</button><button type="button" disabled={paymentActionBusy===payment.paymentId} onClick={()=>void decideOrderPayment(payment,false)} className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 disabled:opacity-50">Reject reference</button></div>}</section>}</div>})}
           </section>
           <section className="space-y-3 pt-4 border-t border-slate-200">
             <h3 className="text-sm font-extrabold text-slate-800">Completed Orders ({completedOrders.length})</h3>
             {completedOrders.length === 0 ? <p className="p-6 text-center bg-white rounded-2xl border border-slate-200 text-sm text-slate-500">Completed orders will appear here.</p> :
-              completedOrders.map(o => <div key={o.orderId} className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row justify-between gap-4"><div><div className="flex gap-2 items-center"><span className="font-mono font-bold text-xs text-emerald-700">#{o.orderId}</span><span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 uppercase">{String(o.status || '').toUpperCase()}</span></div><p className="text-xs font-bold mt-2">{o.buyerName} • {o.deliveryAddress}</p><p className="text-[11px] text-slate-500">{o.paymentMethod} • {o.placedAt ? new Date(o.placedAt).toLocaleString() : ''}</p></div><span className="font-black">₹{Number(o.totalAmount||0).toFixed(2)}</span></div>)}
+              filteredOrders.filter(o => ['DELIVERED','COMPLETED'].includes(String(o.status || '').toUpperCase())).map(o => <div key={o.orderId} className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row justify-between gap-4"><div><div className="flex gap-2 items-center"><span className="font-mono font-bold text-xs text-emerald-700">#{o.orderId}</span><span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 uppercase">{String(o.status || '').toUpperCase()}</span></div><p className="text-xs font-bold mt-2">{o.buyerName} • {o.deliveryAddress}</p><p className="text-[11px] text-slate-500">{o.paymentMethod} • {o.placedAt ? new Date(o.placedAt).toLocaleString() : ''}</p></div><span className="font-black">₹{Number(o.totalAmount||0).toFixed(2)}</span></div>)}
           </section>
         </div>
       )}
