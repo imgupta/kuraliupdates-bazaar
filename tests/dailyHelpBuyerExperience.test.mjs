@@ -45,3 +45,14 @@ test('buyer redesign documents unsupported future features honestly', () => {
   assert.match(guide, /visible window is not a reservation\/hold/i);
   assert.match(guide, /Asia\/Kolkata/);
 });
+
+test('buyer can review Daily Help bookings and cancel only eligible future work', () => {
+  for (const phrase of [
+    'Daily Help booking history',
+    'cancelDailyHelpBooking',
+    'CANCELLED_BY_BUYER',
+    'serviceStartedAt',
+    'otpVerifiedAt',
+    'Cancel booking',
+  ]) assert.ok(component.includes(phrase) || (phrase === 'cancelDailyHelpBooking' && readFileSync('src/services/domains/dailyHelpApi.ts', 'utf8').includes(phrase)), `Missing buyer lifecycle behavior: ${phrase}`);
+});

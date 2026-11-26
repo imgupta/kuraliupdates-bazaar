@@ -4,14 +4,11 @@ import { API_BASE_URL } from '../http/apiConfig';
 /** Domain-owned API operations; endpoint and fallback behavior retained from the legacy client. */
 export const dailyHelpApi = {
   async getDailyHelpServices(): Promise<DailyHelpService[]> {
-      try {
-        const res = await fetch(`${API_BASE_URL}/daily-help/services`, { headers: { Accept: 'application/json' } });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
-      } catch (err) {
-        console.warn('Backend getDailyHelpServices failed:', err);
-        return [];
-      }
+      const res = await fetch(`${API_BASE_URL}/daily-help/services`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`Unable to load Daily Help services (HTTP ${res.status})`);
+      const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('Invalid Daily Help service catalogue response');
+      return data;
     },
 
   async createDailyHelpBooking(payload: Record<string, any>): Promise<DailyHelpBooking | null> {
@@ -43,7 +40,7 @@ export const dailyHelpApi = {
         return Array.isArray(data) ? data : [];
       } catch (err) {
         console.warn('Backend getDailyHelpAvailableSlots failed:', err);
-        return [];
+        throw err;
       }
     },
 
@@ -53,12 +50,13 @@ export const dailyHelpApi = {
         const res = await fetch(`${API_BASE_URL}/daily-help/bookings?buyerPhone=${encodeURIComponent(buyerPhone)}`, {
           headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         });
-        if (!res.ok) return [];
+        if (!res.ok) throw new Error(`Unable to load booking history (HTTP ${res.status})`);
         const data = await res.json();
-        return Array.isArray(data) ? data : [];
+        if (!Array.isArray(data)) throw new Error('Invalid Daily Help booking history response');
+        return data;
       } catch (err) {
         console.warn('Backend getDailyHelpBookings failed:', err);
-        return [];
+        throw err;
       }
     },
 
@@ -74,6 +72,17 @@ export const dailyHelpApi = {
         console.warn('Backend getLatestDailyHelpBooking failed:', err);
         return null;
       }
+    },
+
+  async cancelDailyHelpBooking(bookingId: string): Promise<DailyHelpBooking> {
+      const token = localStorage.getItem('kurali_auth_token');
+      const res = await fetch(`${API_BASE_URL}/daily-help/bookings/${encodeURIComponent(bookingId)}/cancel`, {
+        method: 'POST',
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
+      return data as DailyHelpBooking;
     },
 
   async getDailyHelpBooking(bookingId: string): Promise<DailyHelpBooking | null> {

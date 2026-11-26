@@ -15,6 +15,7 @@ export const buyerApi = {
   getDailyHelpBooking: dailyHelpApi.getDailyHelpBooking,
   getDailyHelpAvailableSlots: dailyHelpApi.getDailyHelpAvailableSlots,
   createDailyHelpBooking: dailyHelpApi.createDailyHelpBooking,
+  cancelDailyHelpBooking: dailyHelpApi.cancelDailyHelpBooking,
   getLiveTracking: trackingApi.getLiveTracking,
 
   async updateCurrentUser(token: string, updates: Record<string, any>): Promise<{ success: boolean; user?: any; addresses?: any[]; message?: string }> {

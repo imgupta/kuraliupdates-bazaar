@@ -25,6 +25,7 @@ const statusLabel: Record<string, string> = {
   IN_PROGRESS: 'Service in progress',
   COMPLETED: 'Service completed',
   CANCELLED: 'Booking cancelled',
+  CANCELLED_BY_BUYER: 'Cancelled by you',
 };
 
 const bookingStages = [
@@ -95,7 +96,11 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
   const [slotsError, setSlotsError] = useState(false);
   const [availabilityRetry, setAvailabilityRetry] = useState(0);
   const [bookings, setBookings] = useState<DailyHelpBooking[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [bookingsError, setBookingsError] = useState(false);
+  const [bookingsRetry, setBookingsRetry] = useState(0);
   const [bookingBusy, setBookingBusy] = useState(false);
+  const [cancelBusyId, setCancelBusyId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => { setQuery(searchQuery); }, [searchQuery]);
@@ -110,11 +115,15 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
   }, []);
 
   useEffect(() => {
-    if (!user.phone) return;
+    if (!user.phone) { setBookingsLoading(false); return; }
     let cancelled = false;
-    buyerApi.getDailyHelpBookings(user.phone).then(data => { if (!cancelled) setBookings(data); }).catch(() => undefined);
+    setBookingsLoading(true);
+    buyerApi.getDailyHelpBookings(user.phone)
+      .then(data => { if (!cancelled) { setBookings(data); setBookingsError(false); } })
+      .catch(() => { if (!cancelled) setBookingsError(true); })
+      .finally(() => { if (!cancelled) setBookingsLoading(false); });
     return () => { cancelled = true; };
-  }, [user.phone]);
+  }, [user.phone, bookingsRetry]);
 
   const activeBookings = useMemo(() => bookings
     .filter(item => ['SEARCHING', 'CONFIRMED', 'PROFESSIONAL_ASSIGNED', 'ARRIVING', 'READY_TO_START', 'IN_PROGRESS'].includes(item.status))
@@ -191,6 +200,28 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
     setSlots([]);
   };
 
+  const cancelBooking = async (booking: DailyHelpBooking) => {
+    const cancellableStatuses = ['PROFESSIONAL_ASSIGNED', 'ARRIVING', 'READY_TO_START'];
+    if (!cancellableStatuses.includes(booking.status) || booking.serviceStartedAt || booking.otpVerifiedAt
+        || new Date(booking.scheduledStart).getTime() <= Date.now()) {
+      showToast('This booking is no longer eligible for cancellation.', 'error');
+      return;
+    }
+    if (!window.confirm('Cancel this Daily Help booking?')) return;
+    setCancelBusyId(booking.id);
+    try {
+      const updated = await buyerApi.cancelDailyHelpBooking(booking.id);
+      setBookings(current => current.map(item => item.id === updated.id ? updated : item));
+      showToast('Your Daily Help booking was cancelled.', 'success');
+    } catch (error: any) {
+      showToast(error?.message || 'Unable to cancel this booking. Please refresh and try again.', 'error');
+      const refreshed = await buyerApi.getDailyHelpBooking(booking.id);
+      if (refreshed) setBookings(current => current.map(item => item.id === refreshed.id ? refreshed : item));
+    } finally {
+      setCancelBusyId(null);
+    }
+  };
+
   const createBooking = async () => {
     if (!selected || !selectedSlot || !selectedTimeValid) return;
     if (!user.name || !user.phone || !(user.formattedAddress || user.addressLine1 || user.address)) {
@@ -254,7 +285,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
       {currentBooking && (
         <section aria-label="Current Daily Help booking" className="overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3 bg-emerald-50/70 p-4 sm:p-5">
-            <div><p className="text-[10px] font-black uppercase tracking-[.16em] text-emerald-800">Your active booking</p><h2 className="mt-1 text-lg font-black text-slate-900">{currentBooking.serviceName}</h2><p className="mt-1 text-xs font-semibold text-slate-600">{statusLabel[currentBooking.status] || currentBooking.status.replace(/_/g, ' ')}</p></div>
+            <div><p className="text-[10px] font-black uppercase tracking-[.16em] text-emerald-800">Your active booking</p><h2 className="mt-1 text-lg font-black text-slate-900">{currentBooking.serviceName}</h2><p className="mt-1 text-xs font-semibold text-slate-600">{statusLabel[currentBooking.status] || currentBooking.status.replace(/_/g, ' ')}</p><p className="mt-1 text-[11px] text-slate-500">{new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(/Z|[+-]\\d{2}:?\\d{2}$/.test(currentBooking.scheduledStart) ? currentBooking.scheduledStart : `${currentBooking.scheduledStart}+05:30`))} · {currentBooking.requestedHours} hr · ₹{currentBooking.estimatedTotal}</p><p className="mt-1 text-[11px] text-slate-500">{currentBooking.address}</p></div>
             <span className="rounded-full bg-white px-3 py-1.5 text-[10px] font-bold text-slate-600">#{currentBooking.id}</span>
           </div>
           <div className="p-4 sm:p-5">
@@ -268,6 +299,43 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
             {currentBooking.professionalName && <div className="mt-4 flex items-center gap-3 rounded-2xl bg-slate-50 p-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-800"><UserRound className="h-5 w-5" /></div><div><p className="text-sm font-bold text-slate-900">{currentBooking.professionalName}</p><p className="text-xs text-slate-500">Your assigned professional</p></div></div>}
             {currentBooking.startOtp && ['ARRIVING', 'READY_TO_START'].includes(currentBooking.status) && <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center"><p className="text-[10px] font-black uppercase tracking-wide text-amber-900">Share only when your professional is at your door</p><p className="mt-1 text-3xl font-black tracking-[.3em] text-slate-950">{currentBooking.startOtp}</p><p className="mt-1 text-xs text-slate-600">The service timer starts only after this OTP is verified.</p></div>}
             {currentBooking.status === 'IN_PROGRESS' && currentBooking.serviceStartedAt && <div className="mt-4 rounded-2xl bg-slate-950 p-4 text-center text-white"><div className="flex items-center justify-center gap-2 text-xs font-bold text-emerald-300"><Timer className="h-4 w-4" /> SERVICE TIMER</div><div className="mt-1 font-mono text-3xl font-black">{formatDuration(elapsedSeconds(currentBooking.serviceStartedAt, currentBooking.requestedHours))}</div><p className="mt-1 text-[11px] text-slate-300">Booked duration: {currentBooking.requestedHours} hours</p>{currentBooking.completionOtp && <div className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-emerald-950"><p className="text-[10px] font-black uppercase">Completion OTP</p><p className="mt-1 text-2xl font-black tracking-[.3em]">{currentBooking.completionOtp}</p><p className="mt-1 text-[10px]">Share only when the service is finished.</p></div>}</div>}
+          </div>
+        </section>
+      )}
+
+      {bookingsError && (
+        <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4" aria-live="polite">
+          <p className="text-sm font-bold text-rose-900">We couldn’t load your Daily Help bookings.</p>
+          <button type="button" onClick={() => setBookingsRetry(value => value + 1)} className="mt-2 text-xs font-bold text-rose-900 underline">Retry</button>
+        </section>
+      )}
+      {bookingsLoading && <p className="text-xs text-slate-500" aria-live="polite">Loading your Daily Help bookings…</p>}
+      {bookings.length > 0 && (
+        <section aria-label="Daily Help booking history" className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div><p className="text-[10px] font-black uppercase tracking-[.16em] text-amber-700">Your activity</p><h2 className="mt-1 text-lg font-black text-slate-950">Daily Help bookings</h2></div>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-600">{bookings.length} total</span>
+          </div>
+          <div className="mt-3 divide-y divide-slate-100">
+            {[...bookings].sort((a,b) => new Date(b.scheduledStart).getTime() - new Date(a.scheduledStart).getTime()).slice(0,6).map(booking => {
+              const canCancel = ['PROFESSIONAL_ASSIGNED', 'ARRIVING', 'READY_TO_START'].includes(booking.status)
+                && !booking.serviceStartedAt && !booking.otpVerifiedAt
+                && new Date(booking.scheduledStart).getTime() > Date.now();
+              const dateValue = /Z|[+-]\\d{2}:?\\d{2}$/.test(booking.scheduledStart)
+                ? booking.scheduledStart : `${booking.scheduledStart}+05:30`;
+              const dateLabel = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }).format(new Date(dateValue));
+              return <article key={booking.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-slate-900">{booking.serviceName}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-500">{dateLabel} · {booking.requestedHours} hr · ₹{booking.estimatedTotal}</p>
+                  <p className="mt-1 text-[10px] font-bold text-slate-600">{statusLabel[booking.status] || booking.status.replace(/_/g, ' ')}</p>
+                </div>
+                {canCancel && <button type="button" onClick={() => void cancelBooking(booking)} disabled={cancelBusyId === booking.id}
+                  className="shrink-0 rounded-xl border border-rose-200 px-3 py-2 text-[11px] font-bold text-rose-700 disabled:opacity-50">
+                  {cancelBusyId === booking.id ? 'Cancelling…' : 'Cancel booking'}
+                </button>}
+              </article>;
+            })}
           </div>
         </section>
       )}
@@ -300,7 +368,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
             <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-black uppercase tracking-[.16em] text-amber-700">Book household help</p><h2 id="daily-help-booking-title" className="mt-1 text-xl font-black text-slate-950">{selected.name}</h2><p className="mt-1 text-xs text-slate-500">{selected.description}</p></div><button type="button" aria-label="Close booking" onClick={closeBooking} disabled={bookingBusy} className="rounded-full bg-slate-100 p-2 text-slate-600 hover:bg-slate-200 disabled:opacity-50"><X className="h-5 w-5" /></button></div>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
-              <div><p className="mb-2 text-xs font-black text-slate-700">How long?</p><div className="grid grid-cols-2 gap-2">{[1, 1.5, 2, 3].filter(value => value >= Number(selected.minHours || 1)).map(value => <button key={value} type="button" onClick={() => setHours(value)} aria-pressed={hours === value} className={`rounded-xl border px-2 py-3 text-xs font-black ${hours === value ? 'border-amber-500 bg-amber-50 text-amber-900 ring-1 ring-amber-400' : 'border-slate-200 bg-white text-slate-700'}`}>{value} {value === 1 ? 'hour' : 'hours'}</button>)}</div></div>
+              <div><p className="mb-2 text-xs font-black text-slate-700">How long?</p><div className="grid grid-cols-2 gap-2">{Array.from(new Set([Number(selected.minHours || 1), 1, 1.5, 2, 3, 4, 6, 8, 12])).filter(value => value >= Number(selected.minHours || 1) && value <= 12).sort((a, b) => a - b).map(value => <button key={value} type="button" onClick={() => setHours(value)} aria-pressed={hours === value} className={`rounded-xl border px-2 py-3 text-xs font-black ${hours === value ? 'border-amber-500 bg-amber-50 text-amber-900 ring-1 ring-amber-400' : 'border-slate-200 bg-white text-slate-700'}`}>{value} {value === 1 ? 'hour' : 'hours'}</button>)}</div></div>
               <div><p className="mb-2 text-xs font-black text-slate-700">Which day?</p><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setBookingDate(indiaDateString())} aria-pressed={bookingDate === indiaDateString()} className={`rounded-xl border px-2 py-3 text-xs font-black ${bookingDate === indiaDateString() ? 'border-amber-500 bg-amber-50 text-amber-900' : 'border-slate-200 text-slate-700'}`}>Today</button><button type="button" onClick={() => { const tomorrow = new Date(Date.now() + 86400000); setBookingDate(indiaDateString(tomorrow)); }} aria-pressed={bookingDate === indiaDateString(new Date(Date.now() + 86400000))} className={`rounded-xl border px-2 py-3 text-xs font-black ${bookingDate === indiaDateString(new Date(Date.now() + 86400000)) ? 'border-amber-500 bg-amber-50 text-amber-900' : 'border-slate-200 text-slate-700'}`}>Tomorrow</button></div><input aria-label="Choose booking date" type="date" min={minDate} value={bookingDate} onChange={event => setBookingDate(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700" /></div>
             </div>
 

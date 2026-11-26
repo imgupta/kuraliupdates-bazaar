@@ -632,6 +632,48 @@ class DailyHelpServiceTest {
         verify(bookingRepository, never()).save(any());
     }
 
+    @Test
+    void bookingRejectsDurationBelowServiceMinimumBeforeSlotLookup() {
+        DailyHelpServiceEntity service = service();
+        service.setMinHours(3);
+        when(serviceRepository.findById("DH-CLEAN")).thenReturn(Optional.of(service));
+        LocalDateTime start = LocalDate.now(java.time.ZoneId.of("Asia/Kolkata")).plusDays(2).atTime(10, 0);
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.createBooking(new DailyHelpBookingRequest(
+                        "DH-CLEAN", "Buyer", "9876543210", "House 1", "Kurali",
+                        start, BigDecimal.valueOf(2), "SLOT-1")));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verifyNoInteractions(slotRepository, professionalRepository, bookingRepository);
+    }
+
+    @Test
+    void bookingRejectsDurationThatIsNotAQuarterHourIncrementBeforeSlotLookup() {
+        when(serviceRepository.findById("DH-CLEAN")).thenReturn(Optional.of(service()));
+        LocalDateTime start = LocalDate.now(java.time.ZoneId.of("Asia/Kolkata")).plusDays(2).atTime(10, 0);
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> dailyHelpService.createBooking(new DailyHelpBookingRequest(
+                        "DH-CLEAN", "Buyer", "9876543210", "House 1", "Kurali",
+                        start, new BigDecimal("1.1"), "SLOT-1")));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        verifyNoInteractions(slotRepository, professionalRepository, bookingRepository);
+    }
+
+    @Test
+    void availabilityRejectsOutOfRangeOrNonQuarterHourDurationsBeforeQuery() {
+        ApiException tooLong = assertThrows(ApiException.class,
+                () -> dailyHelpService.getAvailableSlots(LocalDate.now().plusDays(1), "Kurali", BigDecimal.valueOf(13)));
+        ApiException fractional = assertThrows(ApiException.class,
+                () -> dailyHelpService.getAvailableSlots(LocalDate.now().plusDays(1), "Kurali", new BigDecimal("1.1")));
+
+        assertEquals(HttpStatus.BAD_REQUEST, tooLong.getStatus());
+        assertEquals(HttpStatus.BAD_REQUEST, fractional.getStatus());
+        verifyNoInteractions(slotRepository);
+    }
+
     private DailyHelpBookingRequest request(LocalDateTime start) {
         return new DailyHelpBookingRequest("DH-CLEAN", "Buyer", "9876543210", "House 1", "Kurali",
                 start, BigDecimal.valueOf(2), "SLOT-1");
