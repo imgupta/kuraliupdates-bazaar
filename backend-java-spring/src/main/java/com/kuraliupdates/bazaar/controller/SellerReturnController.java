@@ -31,6 +31,11 @@ public class SellerReturnController {
         return ResponseEntity.status(HttpStatus.CREATED).body(returns.request(orderId,itemId,quantity,reason,buyer));
     }
 
+    @GetMapping("/buyers/orders/{orderId}/return-eligibility")
+    public ResponseEntity<List<Map<String,Object>>> returnEligibility(@PathVariable String orderId,Authentication auth) {
+        return ResponseEntity.ok(returns.buyerReturnEligibility(orderId,requireRole(auth,"ROLE_BUYER")));
+    }
+
     @GetMapping("/buyers/me/returns")
     public ResponseEntity<List<Map<String,Object>>> buyerReturns(Authentication auth) {
         return ResponseEntity.ok(returns.buyerCases(requireRole(auth,"ROLE_BUYER").getUserId()));
