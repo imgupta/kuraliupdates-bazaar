@@ -11,6 +11,7 @@ import {
   Tag,
   CheckCircle2,
   Sparkles,
+  BadgePercent,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -62,6 +63,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onProceedToCheckout }) =
       showToast(res.message, 'success');
     }
   };
+
+  const productSavings = cart.reduce((sum, item) => {
+    const effectiveUnitPrice = item.negotiatedPrice
+      ?? Math.round(item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100));
+    return sum + Math.max(0, item.product.mrp - effectiveUnitPrice) * item.quantity;
+  }, 0);
+  const totalSavings = productSavings + cartCalculations.billDiscount + cartCalculations.couponDiscount;
 
   // Progress for free delivery
   const progressToFreeDelivery = Math.min(
@@ -329,9 +337,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onProceedToCheckout }) =
             <div className="p-4 bg-slate-50 border-t border-slate-200 space-y-3">
               <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between text-slate-600">
-                  <span>Subtotal</span>
-                  <span>₹{cartCalculations.subtotal}</span>
+                  <span>Items total <span className="text-[10px] text-slate-400">(after product prices)</span></span>
+                  <span>₹{cartCalculations.itemSubtotal.toFixed(2)}</span>
                 </div>
+                {productSavings > 0 && (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>Product savings <span className="text-[10px]">(already included above)</span></span>
+                    <span>−₹{productSavings.toFixed(2)}</span>
+                  </div>
+                )}
 
                 {cartCalculations.billDiscount > 0 && (
                   <div className="flex justify-between text-emerald-600 font-medium">
@@ -358,6 +372,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onProceedToCheckout }) =
                   </span>
                 </div>
 
+                {totalSavings > 0 && (
+                  <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-2.5 py-2 text-[11px] font-bold text-emerald-800">
+                    <span className="flex items-center gap-1.5"><BadgePercent className="h-3.5 w-3.5" /> Total savings</span>
+                    <span>₹{totalSavings.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline font-extrabold text-sm text-slate-900">
                   <span>Final Payable</span>
                   <span className="text-lg text-amber-600 font-black">

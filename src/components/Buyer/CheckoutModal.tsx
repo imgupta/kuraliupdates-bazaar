@@ -32,7 +32,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
   const checkoutItems = items ?? cart;
   const isolatedBuyNow = items !== undefined;
   const checkoutItemSubtotal = checkoutItems.reduce((sum, item) => sum + (item.negotiatedPrice ?? item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100)) * item.quantity, 0);
-  const displayedSubtotal = isolatedBuyNow ? checkoutItemSubtotal : cartCalculations.subtotal;
+  const displayedSubtotal = isolatedBuyNow ? checkoutItemSubtotal : cartCalculations.itemSubtotal;
+  const referenceSavings = checkoutItems.reduce((sum, item) => {
+    const effectivePrice = item.negotiatedPrice
+      ?? Number((item.product.sellerPrice * (1 - (item.product.additionalDiscountPercent || 0) / 100)).toFixed(2));
+    return sum + Math.max(0, item.product.mrp - effectivePrice) * item.quantity;
+  }, 0);
   const buyNowSeller = checkoutItems[0]?.product;
   const buyNowDeliveryFee = buyNowSeller && checkoutItemSubtotal >= Number(buyNowSeller.minOrderForFreeDelivery ?? 499)
     ? 0 : Number(buyNowSeller?.baseDeliveryFee ?? 35);
@@ -287,17 +292,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
 
           {/* Section 3: Final Bill Breakdown */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
-            <h4 className="font-bold text-slate-800">Payment Breakdown</h4>
+            <h4 className="font-bold text-slate-800">Your order total</h4>
             <div className="flex justify-between text-slate-600">
-              <span>Items Total ({checkoutItems.length} items)</span>
+              <span>Items total · {checkoutItems.reduce((total, item) => total + item.quantity, 0)} units</span>
               <span>₹{displayedSubtotal.toFixed(2)}</span>
             </div>
-            {!isolatedBuyNow && cartCalculations.billDiscount > 0 && (
-              <div className="flex justify-between text-emerald-600 font-medium">
-                <span>Store Bill Discount</span>
-                <span>-₹{cartCalculations.billDiscount}</span>
+            {referenceSavings > 0 && (
+              <div className="flex justify-between text-emerald-700">
+                <span>Saved vs MRP <span className="text-[10px]">(already reflected in item prices)</span></span>
+                <span>−₹{referenceSavings.toFixed(2)}</span>
               </div>
             )}
+            {!isolatedBuyNow && cartCalculations.billDiscounts.map(discount => (
+              <div key={discount.sellerId} className="flex justify-between gap-3 text-emerald-700 font-medium">
+                <span className="min-w-0 truncate">{discount.sellerName} · {discount.description || 'Store discount'}</span>
+                <span className="shrink-0">−₹{discount.amount}</span>
+              </div>
+            ))}
             {!isolatedBuyNow && cartCalculations.couponDiscount > 0 && (
               <div className="flex justify-between text-emerald-600 font-medium">
                 <span>Coupon Discount</span>
@@ -308,6 +319,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ onClose, items }) 
               <span>{fulfilmentMode === 'STORE_PICKUP' ? 'Store Pickup' : 'Delivery Fee'}</span>
               <span>{fulfilmentMode === 'STORE_PICKUP' || displayedDeliveryFee === 0 ? 'FREE' : `₹${displayedDeliveryFee.toFixed(2)}`}</span>
             </div>
+            <p className="pt-1 text-[10px] leading-relaxed text-slate-500">Discounts are shown separately and are not deducted twice. Delivery is based on the selected fulfilment option and the current basket calculation.</p>
             <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline font-extrabold text-sm text-slate-900">
               <span>Final Total</span>
               <span className="text-base text-amber-600 font-black">
