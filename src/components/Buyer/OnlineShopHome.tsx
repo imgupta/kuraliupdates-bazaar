@@ -336,6 +336,8 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
                 updateCartQuantity(item.id, quantity - 1);
               }}
               onViewDetails={openProductDetails}
+              onCompare={item => setComparingProduct(item)}
+              onBargain={item => openChatForProduct(item)}
               isFavorite={savedItems.favoriteIds.includes(product.id)}
               onToggleFavorite={product => toggleFavorite(product.id)}
             />
