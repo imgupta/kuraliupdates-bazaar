@@ -76,6 +76,17 @@ export const dailyHelpApi = {
       }
     },
 
+  async cancelDailyHelpBooking(bookingId: string): Promise<DailyHelpBooking> {
+      const token = localStorage.getItem('kurali_auth_token');
+      const res = await fetch(`${API_BASE_URL}/daily-help/bookings/${encodeURIComponent(bookingId)}/cancel`, {
+        method: 'POST',
+        headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
+      return data as DailyHelpBooking;
+    },
+
   async getDailyHelpBooking(bookingId: string): Promise<DailyHelpBooking | null> {
       try {
         const token = localStorage.getItem('kurali_auth_token');
