@@ -1,6 +1,6 @@
 # Buyer Portal Simplification and Checkout Implementation Plan
 
-**Status:** Existing commerce foundations remain in place; buyer storefront interaction refresh is being delivered in PR #416. CI and staging verification pending.  
+**Status:** Existing storefront foundations landed in PRs #416–#418. A consolidated buyer-experience completion refresh is in progress on `feat/buyer-experience-complete-refresh`; loyalty/referrals are excluded. Exact-head CI and staging verification are pending.  
 **Scope:** Online Shop buyer journey, bargaining, seller-direct payments, grouped orders and buyer support  
 **Delivery target:** One consolidated implementation PR  
 **Last updated:** 26 November 2026
@@ -255,3 +255,9 @@ Set overall status to **Complete** only when mandatory requirements in sections 
 The same consolidated PR now contains seller UPI destination submission and admin verification/activation; per-seller payment snapshots and payment records; buyer UTR submission; seller confirmation/rejection; seller-specific payment progress; seller-funded refund request/recording; per-seller COD configuration; unpaid UPI dispatch guard; buyer issue reporting and admin issue triage; buyer-user-scoped checkout idempotency; fail-closed verified-coordinate delivery-radius checks; combined route limit and route-based per-kilometre fee fallback; scheduled payment expiry with Oracle `FOR UPDATE SKIP LOCKED` and audit; admin-configurable ETA; multilingual grocery search expansion; browser-local favourites and saved lists; Buy Again; and migrations V48/V49.
 
 Remaining boundaries are operational: no bank/PSP ownership or settlement verification, no independent bank proof for seller refunds, browser-local saved items are not synchronized across devices, and search synonyms are curated rather than a general Indic transliteration engine. Source changes are not accepted as production-ready until the exact-head CI and staging/Oracle merge gates in the [implementation report](BUYER-PORTAL-IMPLEMENTATION-REPORT.md) are met.
+
+## 26 November 2026 — consolidated buyer experience refresh
+
+The current refresh continues on one branch from main commit `5d0bb5c66c0bec7ec3f33c76b2753144249a7d76` (PR #418). It builds on the merged catalogue, cards, seller comparison, Buy Again, favourites/saved lists, recent history, checkout and tracking foundations. This refresh adds live catalogue-backed product suggestions to Online Shop search, explicit unit-price display only for parseable pack units, and clearly labelled same-category discovery in product details. It also corrects stale regression references to the current V48 ETA migration and the actual separation of Buy Now from the compact card Add action.
+
+No backend API, schema, payment, transaction or order-state change is intended. Customer-to-seller direct payment and backend authority for price, stock, seller eligibility, delivery and order lifecycle remain unchanged. Variant/pack-size selection is not fabricated: the current Product contract represents each pack as a distinct catalogue item and exposes no variant-group contract. Category recommendations are not guaranteed substitutes. See [Buyer Portal Experience](BUYER-PORTAL-EXPERIENCE.md) for the UI/API/security specification. Status remains **IN PROGRESS** until exact PR-head CI and staging evidence are recorded.

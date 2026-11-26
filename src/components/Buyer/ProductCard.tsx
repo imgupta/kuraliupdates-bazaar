@@ -1,6 +1,7 @@
 import React from 'react';
 import { ShoppingBag, Star, Store, Plus, Minus, Heart, Scale, MessageCircle } from 'lucide-react';
 import { Product } from '../../types';
+import { formatProductUnitPrice } from '../../utils/productUnitPricing';
 
 interface ProductCardProps {
   product: Product;
@@ -30,6 +31,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const effectivePrice = getEffectivePrice(product);
   const savings = Math.max(0, product.mrp - effectivePrice);
+  const unitPrice = formatProductUnitPrice(effectivePrice, product.unit);
   const discount = product.mrp > 0 ? Math.round((savings / product.mrp) * 100) : 0;
 
   return (
@@ -68,7 +70,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             {product.sellerRating > 0 && <span className="flex shrink-0 items-center gap-1 font-bold text-amber-600"><Star className="h-3 w-3 fill-amber-400" />{product.sellerRating}</span>}
           </div>
           <h3 className="line-clamp-2 min-h-[2.35rem] text-[13px] font-bold leading-snug text-slate-900">{product.title}</h3>
-          <p className="text-[10px] text-slate-500">{product.unit}</p>
+          <p className="text-[10px] text-slate-500">{product.unit}{unitPrice && <> · {unitPrice}</>}</p>
         </button>
 
         <div className="border-t border-slate-100 pt-2">

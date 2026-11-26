@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle2, MapPin, MessageSquare, ShoppingBag, Star, Store, Truck, X } from 'lucide-react';
 import { Product } from '../../types';
+import { formatProductUnitPrice } from '../../utils/productUnitPricing';
 
 interface ProductDetailsModalProps {
   product: Product;
@@ -9,6 +10,8 @@ interface ProductDetailsModalProps {
   onBuyNow: (product: Product) => void;
   onBargain: (product: Product) => void;
   onCompare: (product: Product) => void;
+  relatedProducts?: Product[];
+  onSelectRelated?: (product: Product) => void;
 }
 
 export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
@@ -18,9 +21,12 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   onBuyNow,
   onBargain,
   onCompare,
+  relatedProducts = [],
+  onSelectRelated,
 }) => {
   const price = Math.round(product.sellerPrice * (1 - product.additionalDiscountPercent / 100));
   const savings = Math.max(0, product.mrp - price);
+  const unitPrice = formatProductUnitPrice(price, product.unit);
 
   return (
     <div
@@ -59,6 +65,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
               <span className="text-sm text-slate-400 line-through">MRP ₹{product.mrp}</span>
             </div>
             <p className="text-sm font-bold text-emerald-700">You save ₹{savings} · {product.unit}</p>
+            {unitPrice && <p className="text-xs font-semibold text-slate-600">Unit price: {unitPrice}</p>}
 
             <div className="space-y-2 rounded-2xl border bg-slate-50 p-4">
               <div className="flex items-center gap-2 text-sm font-bold">
@@ -86,6 +93,25 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
             </div>
 
             {product.description && <p className="text-sm leading-6 text-slate-600">{product.description}</p>}
+            
+            {relatedProducts.length > 0 && onSelectRelated && (
+              <section aria-label="More products in this category" className="space-y-2">
+                <h3 className="text-xs font-extrabold text-slate-800">More in {product.category}</h3>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {relatedProducts.slice(0, 4).map(item => (
+                    <button key={item.id} type="button" onClick={() => onSelectRelated(item)}
+                      className="w-28 shrink-0 rounded-xl border border-slate-200 bg-white p-2 text-left transition hover:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                      <span className="mb-1 flex h-16 items-center justify-center overflow-hidden rounded-lg bg-slate-50">
+                        {item.image ? <img src={item.image} alt="" loading="lazy" className="h-full w-full object-cover" /> : '🛍️'}
+                      </span>
+                      <span className="block truncate text-[10px] font-bold text-slate-800">{item.title}</span>
+                      <span className="text-[10px] font-black text-amber-700">₹{Math.round(item.sellerPrice * (1 - item.additionalDiscountPercent / 100))}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-500">Category matches, not guaranteed equivalent products or pack sizes.</p>
+              </section>
+            )}
 
             <div className="grid grid-cols-2 gap-2">
               <button type="button" onClick={() => onCompare(product)} className="rounded-xl border bg-amber-50 py-2.5 text-xs font-bold">

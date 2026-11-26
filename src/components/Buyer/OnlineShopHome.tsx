@@ -406,6 +406,8 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
           onBuyNow={(item) => { setSelectedProduct(null); onBuyNow(item); }}
           onBargain={(item) => { setSelectedProduct(null); openChatForProduct(item); }}
           onCompare={(item) => { setSelectedProduct(null); setComparingProduct(item); }}
+          relatedProducts={products.filter(item => item.id !== selectedProduct.id && item.category === selectedProduct.category && item.stock > 0)}
+          onSelectRelated={item => openProductDetails(item)}
         />
       )}
 
