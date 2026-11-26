@@ -18,7 +18,6 @@ interface BuyerHomeProps {
 
 export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
   const [mode, setMode] = useState<'shop' | 'daily-help'>('shop');
-  const [showAllActiveOrders, setShowAllActiveOrders] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const { orders, user, cart, cartCalculations, setIsCartOpen, products } = useApp();
   const searchSuggestions = useMemo(() => {
