@@ -59,13 +59,13 @@ Oracle migration V51 adds SELLER_RETURN_CASES and SELLER_RETURN_EVENTS. V52 adds
 1. Buyer creates an item-level return request against an order item and quantity. The order must be DELIVERED (or COMPLETED), the buyer must own it, category must be returnable, the configured calendar-day window must not have expired from DELIVERED_AT, and previously active returned quantities are deducted from the available quantity.
 2. Seller reviews the request and approves or rejects it with a reason.
 3. An ACTIVE, available delivery agent sees approved pickup jobs, claims one, records collection proof, then records seller handover proof.
-4. The case moves to RECEIVED_BY_SELLER only after the assigned agent records handover.
-5. Seller initiates refund preparation only after receipt, executes the refund outside KuraliUpdates, then records the actual refund reference.
+4. The case moves to HANDED_TO_SELLER after agent handover. The seller then confirms physical receipt, condition and accepted quantity; zero accepted quantity enters RECEIPT_DISPUTED and blocks refund.
+5. Seller initiates refund preparation only after confirming receipt. Refund amount is recalculated from accepted quantity; the seller executes the refund outside KuraliUpdates, then records the actual refund reference.
 6. The backend enforces that the recorded refund method matches the original order payment method (UPI or COD). It does not initiate or move money.
 
-The seller UI now supports approve/reject, tracking pickup progress, preparing the refund after handover, and recording the refund reference. Delivery-agent assignment uses the same ACTIVE profile/availability rule as ordinary delivery jobs. The delivery API exposes available, assigned, claim, pickup and handover operations. Buyer API exposes request and return-history operations.
+The seller UI now supports approve/reject, tracking pickup progress, seller-side condition/quantity confirmation, preparing the refund after receipt, and recording the refund reference. Delivery-agent assignment uses the same ACTIVE profile/availability rule as ordinary delivery jobs. The delivery API exposes available, assigned, claim, pickup and handover operations. Buyer API exposes request and return-history operations.
 
-Return states: REQUESTED -> APPROVED -> PICKUP_ASSIGNED -> PICKED_UP -> RECEIVED_BY_SELLER -> REFUND_PENDING -> REFUNDED; seller rejection ends at REJECTED. Every state change writes an event record.
+Return states: REQUESTED -> APPROVED -> PICKUP_ASSIGNED -> PICKED_UP -> HANDED_TO_SELLER -> RECEIVED_BY_SELLER -> REFUND_PENDING -> REFUNDED; zero accepted quantity enters RECEIPT_DISPUTED.; seller rejection ends at REJECTED. Every state change writes an event record.
 
 ### Boundaries and remaining work
 
@@ -74,7 +74,7 @@ Return states: REQUESTED -> APPROVED -> PICKUP_ASSIGNED -> PICKED_UP -> RECEIVED
 - Return quantity is item-level, but exchange/replacement, QC grading, partial acceptance of damaged quantities, and RTO before customer delivery are not implemented.
 - Buyer tracking now exposes item-level return requests and return status history after delivery.
 - Delivery dashboard exposes available and assigned return pickups, collection proof and seller handover proof. Buyer sees the return-case status and seller refund reference in the tracking panel.
-- Pickup and handover use mandatory agent-entered proof/reference values, not OTP or photo uploads.
+- Pickup and handover use mandatory agent-entered proof/reference values, not OTP or photo uploads. Seller receipt confirmation is a separate authenticated seller action; accepted quantity controls the refund amount.
 - COD/UPI refunds are externally executed by the seller. Cash refund evidence or UPI transaction reference is recorded; no platform money movement is implemented.
 - Bulk inventory update, stock movement/audit ledger, inventory reservation visibility.
 - Downloadable invoices, packing slips, pickup manifests or courier label generation.
@@ -96,7 +96,7 @@ These need explicit API/DTO/domain/ownership/transaction contracts, migration an
 - TypeScript, frontend regression tests and seller portal production build.
 - Backend Maven tests, controller/service authorization tests and security scans.
 - Browser E2E for seller role, seller-owned orders, UPI confirmation and refund action visibility.
-- Staging Oracle V51/V52 migration rehearsal and synthetic buyer -> seller decision -> delivery claim/pickup/handover -> seller original-mode refund lifecycle, including category override and expired-window rejection.
+- Staging Oracle V51/V52 migration rehearsal and synthetic buyer -> seller decision -> delivery claim/pickup/handover -> seller receipt condition/quantity confirmation -> original-mode refund lifecycle, including category override and expired-window rejection.
 - Negative tests for cross-seller payment/refund/order access.
 - Manual responsive acceptance on iPhone Safari and desktop.
 - No production launch claim until staging and deployed seller portal are checked.
