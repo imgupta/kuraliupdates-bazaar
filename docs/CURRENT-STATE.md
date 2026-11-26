@@ -374,7 +374,7 @@ See [Phase 1 completion report](PHASE-1-COMPLETION-REPORT.md), [Phase 1 matrix](
 ## 26 November 2026 — buyer experience refresh in progress
 
 - Base main commit: `5d0bb5c66c0bec7ec3f33c76b2753144249a7d76` (PR #418 merge).
-- One implementation branch: `feat/buyer-experience-complete-refresh`; no PR created yet.
+- One implementation branch: `feat/buyer-experience-complete-refresh`; PR #419 is open.
 - Buyer web changes: catalogue-backed search suggestions, explicit unit-price derivation for supported catalogue units, and category discovery in product details. Existing Buy Again, saved items, seller comparison, bargaining, cart/checkout and order tracking are retained.
 - No backend/API/schema/payment/order-state change or migration is intended. Loyalty/referrals and iOS are excluded.
 - Local TypeScript, unit/regression and buyer build checks are recorded in the branch session; exact-head GitHub CI, browser E2E, Render/Vercel deployment and staging runtime evidence are not yet verified.
