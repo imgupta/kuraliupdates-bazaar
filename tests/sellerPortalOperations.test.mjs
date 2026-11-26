@@ -13,7 +13,7 @@ const deliveryPortal = read('../src/features/delivery/DeliveryPortal.tsx');
 const service = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/service/SellerReturnService.java');
 const controller = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/SellerReturnController.java');
 const migration = read('../backend-java-spring/src/main/resources/db/migration/V51__seller_item_returns_and_agent_pickup.sql');
-const policyMigration = read('../backend-java-spring/src/main/resources/db/migration/V52__configurable_item_return_policies.sql');
+const policyMigration = read('../backend-java-spring/src/main/resources/db/migration/V53__non_returnable_default_and_product_overrides.sql');
 const admin = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/controller/AdminController.java');
 const adminUi = read('../src/features/admin/AdminReturnPolicies.tsx');
 const orderEntity = read('../backend-java-spring/src/main/java/com/kuraliupdates/bazaar/entity/OrderEntity.java');
@@ -106,3 +106,5 @@ test('seller confirms physical receipt, condition and accepted quantity before r
   assert.match(returnsUi, /sellerReturnsApi\.confirmReceipt/);
   assert.match(returnsUi, /accepted quantity/i);
 });
+
+test('return eligibility defaults to disabled and supports product overrides', () => { assert.match(service, /PRODUCT:/); assert.match(service, /productRule/); assert.match(admin, /PRODUCT:\[A-Z0-9_-\]/); assert.match(policyMigration, /UPDATE KU_RETURN_POLICIES SET IS_RETURNABLE=0/); });
