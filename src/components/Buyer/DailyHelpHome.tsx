@@ -285,7 +285,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
       {currentBooking && (
         <section aria-label="Current Daily Help booking" className="overflow-hidden rounded-3xl border border-emerald-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3 bg-emerald-50/70 p-4 sm:p-5">
-            <div><p className="text-[10px] font-black uppercase tracking-[.16em] text-emerald-800">Your active booking</p><h2 className="mt-1 text-lg font-black text-slate-900">{currentBooking.serviceName}</h2><p className="mt-1 text-xs font-semibold text-slate-600">{statusLabel[currentBooking.status] || currentBooking.status.replace(/_/g, ' ')}</p></div>
+            <div><p className="text-[10px] font-black uppercase tracking-[.16em] text-emerald-800">Your active booking</p><h2 className="mt-1 text-lg font-black text-slate-900">{currentBooking.serviceName}</h2><p className="mt-1 text-xs font-semibold text-slate-600">{statusLabel[currentBooking.status] || currentBooking.status.replace(/_/g, ' ')}</p><p className="mt-1 text-[11px] text-slate-500">{new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(/Z|[+-]\\d{2}:?\\d{2}$/.test(currentBooking.scheduledStart) ? currentBooking.scheduledStart : `${currentBooking.scheduledStart}+05:30`))} · {currentBooking.requestedHours} hr · ₹{currentBooking.estimatedTotal}</p><p className="mt-1 text-[11px] text-slate-500">{currentBooking.address}</p></div>
             <span className="rounded-full bg-white px-3 py-1.5 text-[10px] font-bold text-slate-600">#{currentBooking.id}</span>
           </div>
           <div className="p-4 sm:p-5">
