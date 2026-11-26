@@ -108,3 +108,5 @@ test('seller confirms physical receipt, condition and accepted quantity before r
 });
 
 test('return eligibility defaults to disabled and supports product overrides', () => { assert.match(service, /PRODUCT:/); assert.match(service, /productRule/); assert.match(admin, /PRODUCT:\[A-Z0-9_-\]/); assert.match(policyMigration, /UPDATE KU_RETURN_POLICIES SET IS_RETURNABLE=0/); });
+
+test('buyer order tracking displays backend-authoritative item return eligibility and deadline', () => { assert.match(buyerReturnsUi, /buyerReturnsApi\.eligibility/); assert.match(buyerReturnsUi, /Non-returnable/); assert.match(buyerReturnsUi, /returnDeadline/); assert.match(buyerReturnsUi, /returnWindowDays/); assert.match(controller, /return-eligibility/); });
