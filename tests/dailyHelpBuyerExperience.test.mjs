@@ -70,3 +70,12 @@ test('buyer order and cart dock stays compact on mobile', () => {
   assert.match(buyerHome, /Track ›/);
   assert.doesNotMatch(buyerHome, /showAllActiveOrders/);
 });
+
+test('Daily Help bookings are presented in a fixed bottom dock and opened in a sheet', () => {
+  assert.match(component, /fixed inset-x-0 bottom-0 z-50/);
+  assert.match(component, /Your bookings/);
+  assert.match(component, /setShowBookingsPanel\(true\)/);
+  assert.match(component, /role="dialog" aria-modal="true" aria-label="Your Daily Help bookings"/);
+  assert.match(component, /setShowBookingsPanel\(false\)/);
+  assert.doesNotMatch(component.slice(0, component.indexOf('What would you like help with?')), /aria-label="Current Daily Help booking"/);
+});
