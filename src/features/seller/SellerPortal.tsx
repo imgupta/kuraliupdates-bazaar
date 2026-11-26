@@ -7,6 +7,7 @@ import { sellerApi } from '../../services/domains/sellerApi';
 import { mapSellerProduct } from '../../entities/sellerProduct';
 import { NegotiationChatModal } from '../../components/Buyer/NegotiationChatModal';
 import { SellerPaymentWorkspace } from '../../components/Seller/SellerPaymentWorkspace';
+import { SellerReturnsWorkspace } from '../../components/Seller/SellerReturnsWorkspace';
 import { sellerPaymentsApi } from '../../services/domains/sellerPaymentsApi';
 import { SellerAddressEditor } from '../../components/Seller/SellerAddressEditor';
 
@@ -353,7 +354,7 @@ export const SellerDashboard: React.FC = () => {
               {lowStockProducts.length + outOfStockProducts.length === 0 && <p className="mt-4 rounded-xl bg-emerald-50 p-4 text-xs text-emerald-800">No low-stock products detected.</p>}
             </section>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3"><button onClick={() => setActiveTab('inventory')} className="rounded-xl border bg-white p-4 text-left text-xs font-bold">Manage products<span className="mt-1 block font-normal text-slate-500">Prices, descriptions and stock</span></button><button onClick={() => setActiveTab('returns')} className="rounded-xl border bg-white p-4 text-left text-xs font-bold">Returns & refunds<span className="mt-1 block font-normal text-slate-500">Seller-funded refund requests</span></button><button onClick={() => setActiveTab('payments')} className="rounded-xl border bg-white p-4 text-left text-xs font-bold">UPI & payment settings<span className="mt-1 block font-normal text-slate-500">Direct payment destination</span></button></div>
+          <div className="grid gap-3 sm:grid-cols-3"><button onClick={() => setActiveTab('inventory')} className="rounded-xl border bg-white p-4 text-left text-xs font-bold">Manage products<span className="mt-1 block font-normal text-slate-500">Prices, descriptions and stock</span></button><button onClick={() => setActiveTab('returns')} className="rounded-xl border bg-white p-4 text-left text-xs font-bold">Returns & refunds<span className="mt-1 block font-normal text-slate-500">Physical item pickup, seller receipt and original-mode refunds</span></button><button onClick={() => setActiveTab('payments')} className="rounded-xl border bg-white p-4 text-left text-xs font-bold">UPI & payment settings<span className="mt-1 block font-normal text-slate-500">Direct payment destination</span></button></div>
         </section>
       )}
 
@@ -422,7 +423,7 @@ export const SellerDashboard: React.FC = () => {
       )}
 
       {activeTab === 'payments' && <SellerPaymentWorkspace hidePaymentRecords />}
-      {activeTab === 'returns' && <SellerPaymentWorkspace hideDestination />}
+      {activeTab === 'returns' && <SellerReturnsWorkspace />}
 
       {activeTab === 'orders' && (
         <div className="space-y-6">
