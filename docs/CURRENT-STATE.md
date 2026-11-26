@@ -369,3 +369,12 @@ See [Phase 1 completion report](PHASE-1-COMPLETION-REPORT.md), [Phase 1 matrix](
 - The single consolidated P1 branch `phase1/consolidated-p1-security-regression-batch` makes Daily Help booking identity server-authoritative: authenticated account name and phone are persisted, while the customer-selected service address/locality remains request data. It adds negative regressions for client-supplied name spoofing and blank account name.
 - Exact-head CI is required before merge. No Oracle, shared staging business data, secret, schema or deployment mutation is part of this code change.
 - Phase 1 remains IN PROGRESS. Full endpoint × role × owner coverage, trusted five-role browser journeys, isolated Oracle contention/rollback/migration proof, seller-document access/retention acceptance, notice outbox delivery, and India production-residency/legal/operational sign-offs are not closed by this batch.
+
+
+## 26 November 2026 — buyer experience refresh in progress
+
+- Base main commit: `5d0bb5c66c0bec7ec3f33c76b2753144249a7d76` (PR #418 merge).
+- One implementation branch: `feat/buyer-experience-complete-refresh`; no PR created yet.
+- Buyer web changes: catalogue-backed search suggestions, explicit unit-price derivation for supported catalogue units, and category discovery in product details. Existing Buy Again, saved items, seller comparison, bargaining, cart/checkout and order tracking are retained.
+- No backend/API/schema/payment/order-state change or migration is intended. Loyalty/referrals and iOS are excluded.
+- Local TypeScript, unit/regression and buyer build checks are recorded in the branch session; exact-head GitHub CI, browser E2E, Render/Vercel deployment and staging runtime evidence are not yet verified.
