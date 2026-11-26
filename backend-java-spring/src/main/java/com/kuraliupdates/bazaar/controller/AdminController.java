@@ -323,7 +323,7 @@ public class AdminController {
     public ResponseEntity<Map<String,Object>> updateReturnPolicy(@RequestBody Map<String,Object> payload) {
         com.kuraliupdates.bazaar.entity.UserEntity actor = requireRootAdmin();
         String category = String.valueOf(payload.getOrDefault("category", "")).trim().toUpperCase(Locale.ROOT);
-        if (category.isBlank() || category.length() > 100 || !category.matches("[A-Z0-9 _&/-]+") && !"*".equals(category))
+        if (category.isBlank() || category.length() > 100 || !(category.equals("*") || category.matches("[A-Z0-9 _&/-]+") || category.matches("PRODUCT:[A-Z0-9_-]+")))
             throw new com.kuraliupdates.bazaar.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "A valid product category or * default is required");
         Object returnableValue = payload.get("returnable");
         if (!(returnableValue instanceof Boolean returnable))
