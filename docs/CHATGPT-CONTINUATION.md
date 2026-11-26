@@ -191,3 +191,12 @@ Never commit/log secrets, OTPs, tokens, Oracle wallet material or private seller
 - PR #357 delivered admin CRM customer search/edit with prefilled values, admin Orders workspace, guarded item quantity changes/stock recalculation, event history, admin-only notes, refund reconciliation ledger and durable notice outbox. V39 migration source is merged.
 - Next: verify V39 on isolated staging Oracle; run approved synthetic CRM/order acceptance on staging; build/test the notice-outbox delivery worker; validate seller-funded/external refund reconciliation. Do not assume these have happened.
 - Phase 0 formal closure remains OPEN. Phase 1 remains IN PROGRESS; #357 completes one admin CRM/order feature milestone, not the entire phase. Keep Phase 2 and production launch gates closed until their respective evidence packs are approved.
+
+
+## 26 November 2026 — buyer experience refresh
+
+- Continue on `feat/buyer-experience-complete-refresh`, created from main `5d0bb5c66c0bec7ec3f33c76b2753144249a7d76` after PR #418.
+- One consolidated PR only; loyalty/referrals and iOS excluded.
+- Current changes: live catalogue-backed buyer search suggestions; safe unit-price derivation; category discovery labelled as non-equivalent recommendations; regression test references updated for current V48 migration and current card/detail action split.
+- No backend/schema/payment/order-state changes. Do not add speculative variant selectors until a real backend variant-group contract exists.
+- Local frontend checks passed in the active sandbox; rerun all local gates after final changes, then require exact-head GitHub CI. Inspect Vercel preview and Render status only for changed services; do not deploy production or claim staging acceptance without evidence.
