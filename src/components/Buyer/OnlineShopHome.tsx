@@ -330,13 +330,11 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
           {filteredProducts.map(product => (
             <ProductCard key={product.id} product={product}
               quantity={cart.find(item => item.product.id === product.id)?.quantity || 0}
-              onBargain={openChatForProduct}
               onAddToCart={(item) => { addToCart(item, 1); showToast(`${item.title} added to your basket.`, 'success'); }}
               onRemoveFromCart={(item) => {
                 const quantity = cart.find(line => line.product.id === item.id)?.quantity || 0;
                 updateCartQuantity(item.id, quantity - 1);
               }}
-              onBuyNow={onBuyNow}
               onViewDetails={openProductDetails}
               isFavorite={savedItems.favoriteIds.includes(product.id)}
               onToggleFavorite={product => toggleFavorite(product.id)}
