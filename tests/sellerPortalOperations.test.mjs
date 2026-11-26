@@ -96,3 +96,13 @@ test('root admin can configure and audit category return policies', () => {
 test('delivery return assignment uses the same ACTIVE profile rule as normal delivery jobs', () => {
   assert.match(service, /!"ACTIVE".equalsIgnoreCase\(agent.getStatus\(\)\)/);
 });
+
+test('seller confirms physical receipt, condition and accepted quantity before refund', () => {
+  assert.match(controller, /\/returns\/\{returnId\}\/receipt/);
+  assert.match(service, /sellerConfirmReceipt/);
+  assert.match(service, /HANDED_TO_SELLER/);
+  assert.match(service, /RECEIPT_DISPUTED/);
+  assert.match(service, /ACCEPTED_QUANTITY/);
+  assert.match(returnsUi, /sellerReturnsApi\.confirmReceipt/);
+  assert.match(returnsUi, /accepted quantity/i);
+});
