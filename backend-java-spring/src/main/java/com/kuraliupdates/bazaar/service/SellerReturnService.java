@@ -23,12 +23,20 @@ public class SellerReturnService {
     public Map<String,Object> request(String orderId, String itemId, int quantity, String reason, UserEntity buyer) {
         if (quantity < 1 || reason == null || reason.isBlank() || reason.trim().length() > 500)
             throw new ApiException(HttpStatus.BAD_REQUEST, "A valid quantity and return reason are required");
-        Map<String,Object> order = one("SELECT ORDER_ID,SELLER_ID,BUYER_USER_ID,STATUS,PAYMENT_METHOD FROM ORDERS WHERE ORDER_ID=? FOR UPDATE", orderId);
+        Map<String,Object> order = one("SELECT ORDER_ID,SELLER_ID,BUYER_USER_ID,STATUS,PAYMENT_METHOD,DELIVERED_AT FROM ORDERS WHERE ORDER_ID=? FOR UPDATE", orderId);
         if (!buyer.getUserId().equals(str(order,"BUYER_USER_ID")))
             throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
         if (!Set.of("DELIVERED","COMPLETED").contains(str(order,"STATUS").toUpperCase(Locale.ROOT)))
             throw new ApiException(HttpStatus.CONFLICT, "A return can only be requested for a delivered order");
-        Map<String,Object> item = one("SELECT ITEM_ID,QUANTITY,UNIT_PRICE,NEGOTIATED_PRICE,TOTAL_PRICE FROM ORDER_ITEMS WHERE ITEM_ID=? AND ORDER_ID=?", itemId, orderId);
+        Map<String,Object> item = one("SELECT I.ITEM_ID,I.QUANTITY,I.UNIT_PRICE,I.NEGOTIATED_PRICE,I.TOTAL_PRICE,P.CATEGORY AS CATEGORY FROM ORDER_ITEMS I JOIN PRODUCTS P ON P.PRODUCT_ID=I.PRODUCT_ID WHERE I.ITEM_ID=? AND I.ORDER_ID=?", itemId, orderId);
+        Object deliveredValue=order.get("DELIVERED_AT");
+        LocalDateTime deliveredAt=deliveredValue instanceof java.sql.Timestamp ts?ts.toLocalDateTime():deliveredValue instanceof LocalDateTime dt?dt:null;
+        if(deliveredAt==null) throw new ApiException(HttpStatus.CONFLICT,"Delivery timestamp is unavailable; contact support to review this order");
+        String category=str(item,"CATEGORY").trim().toUpperCase(Locale.ROOT);
+        Map<String,Object> policy=one("SELECT CATEGORY,IS_RETURNABLE,RETURN_WINDOW_DAYS FROM KU_RETURN_POLICIES WHERE CATEGORY IN (?, '*') ORDER BY CASE WHEN CATEGORY=? THEN 0 ELSE 1 END FETCH FIRST 1 ROWS ONLY",category,category);
+        if(((Number)policy.get("IS_RETURNABLE")).intValue()!=1) throw new ApiException(HttpStatus.CONFLICT,"This product category is not eligible for return");
+        int windowDays=((Number)policy.get("RETURN_WINDOW_DAYS")).intValue();
+        if(windowDays<=0 || LocalDateTime.now().isAfter(deliveredAt.plusDays(windowDays))) throw new ApiException(HttpStatus.CONFLICT,"The return window for this product category has expired");
         int already = Optional.ofNullable(jdbc.queryForObject("SELECT NVL(SUM(QUANTITY),0) FROM SELLER_RETURN_CASES WHERE ITEM_ID=? AND STATUS NOT IN ('REJECTED','CANCELLED')", Integer.class, itemId)).orElse(0);
         if (quantity > ((Number)item.get("QUANTITY")).intValue() - already)
             throw new ApiException(HttpStatus.CONFLICT, "Return quantity exceeds the unreturned quantity");
@@ -76,7 +84,7 @@ public class SellerReturnService {
     @Transactional
     public Map<String,Object> claim(String returnId,UserEntity user) {
         DeliveryAgentEntity agent=agent(user);
-        if(!"APPROVED".equalsIgnoreCase(agent.getStatus()) || Boolean.FALSE.equals(agent.getAvailableForJobs()))
+        if(!"ACTIVE".equalsIgnoreCase(agent.getStatus()) || Boolean.FALSE.equals(agent.getAvailableForJobs()))
             throw new ApiException(HttpStatus.FORBIDDEN,"An approved, available delivery profile is required");
         Map<String,Object> c=locked(returnId,null);
         requireStatus(c,"APPROVED");
