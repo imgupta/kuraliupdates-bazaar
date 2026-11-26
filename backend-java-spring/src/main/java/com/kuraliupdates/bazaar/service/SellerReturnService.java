@@ -28,12 +28,12 @@ public class SellerReturnService {
             throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
         if (!Set.of("DELIVERED","COMPLETED").contains(str(order,"STATUS").toUpperCase(Locale.ROOT)))
             throw new ApiException(HttpStatus.CONFLICT, "A return can only be requested for a delivered order");
-        Map<String,Object> item = one("SELECT I.ITEM_ID,I.QUANTITY,I.UNIT_PRICE,I.NEGOTIATED_PRICE,I.TOTAL_PRICE,P.CATEGORY AS CATEGORY FROM ORDER_ITEMS I JOIN PRODUCTS P ON P.PRODUCT_ID=I.PRODUCT_ID WHERE I.ITEM_ID=? AND I.ORDER_ID=?", itemId, orderId);
+        Map<String,Object> item = one("SELECT I.ITEM_ID,I.QUANTITY,I.UNIT_PRICE,I.NEGOTIATED_PRICE,I.TOTAL_PRICE,P.PRODUCT_ID AS PRODUCT_ID,P.CATEGORY AS CATEGORY FROM ORDER_ITEMS I JOIN PRODUCTS P ON P.PRODUCT_ID=I.PRODUCT_ID WHERE I.ITEM_ID=? AND I.ORDER_ID=?", itemId, orderId);
         Object deliveredValue=order.get("DELIVERED_AT");
         LocalDateTime deliveredAt=deliveredValue instanceof java.sql.Timestamp ts?ts.toLocalDateTime():deliveredValue instanceof LocalDateTime dt?dt:null;
         if(deliveredAt==null) throw new ApiException(HttpStatus.CONFLICT,"Delivery timestamp is unavailable; contact support to review this order");
         String category=str(item,"CATEGORY").trim().toUpperCase(Locale.ROOT);
-        Map<String,Object> policy=one("SELECT CATEGORY,IS_RETURNABLE,RETURN_WINDOW_DAYS FROM KU_RETURN_POLICIES WHERE CATEGORY IN (?, '*') ORDER BY CASE WHEN CATEGORY=? THEN 0 ELSE 1 END FETCH FIRST 1 ROWS ONLY",category,category);
+        String productRule="PRODUCT:"+str(item,"PRODUCT_ID").trim().toUpperCase(Locale.ROOT); Map<String,Object> policy=one("SELECT CATEGORY,IS_RETURNABLE,RETURN_WINDOW_DAYS FROM KU_RETURN_POLICIES WHERE CATEGORY IN (?, ?, '*') ORDER BY CASE WHEN CATEGORY=? THEN 0 WHEN CATEGORY=? THEN 1 ELSE 2 END FETCH FIRST 1 ROWS ONLY",productRule,category,productRule,category);
         if(((Number)policy.get("IS_RETURNABLE")).intValue()!=1) throw new ApiException(HttpStatus.CONFLICT,"This product category is not eligible for return");
         int windowDays=((Number)policy.get("RETURN_WINDOW_DAYS")).intValue();
         if(windowDays<=0 || LocalDateTime.now().isAfter(deliveredAt.plusDays(windowDays))) throw new ApiException(HttpStatus.CONFLICT,"The return window for this product category has expired");
