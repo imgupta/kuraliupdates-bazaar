@@ -52,6 +52,8 @@ jobs:
         run: node --test tests/productionSmoke.test.mjs
       - name: Buyer launch readiness evidence guard
         run: node --test tests/buyerLaunchReadiness.test.mjs
+      - name: Daily Help buyer experience regression tests
+        run: node --test tests/dailyHelpBuyerExperience.test.mjs
       - name: Frontend route registry regression tests
         run: node --import tsx --test tests/routeConfig.test.ts
       - name: Role route access policy regression tests
