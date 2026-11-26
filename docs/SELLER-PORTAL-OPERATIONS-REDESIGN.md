@@ -71,8 +71,8 @@ Return states: REQUESTED -> APPROVED -> PICKUP_ASSIGNED -> PICKED_UP -> RECEIVED
 
 - Return eligibility currently requires a delivered/completed order; a configurable return window, category-specific policy, admin override and return-fee policy are not implemented.
 - Return quantity is item-level, but exchange/replacement, QC grading, partial acceptance of damaged quantities, and RTO before customer delivery are not implemented.
-- Buyer order-detail UI still needs a customer-facing request form; the authenticated buyer API is implemented.
-- Delivery agent endpoints are implemented; a dedicated delivery-agent return-job UI and buyer-facing pickup status timeline remain to be integrated.
+- Buyer tracking now exposes item-level return requests and return status history after delivery.
+- Delivery dashboard exposes available and assigned return pickups, collection proof and seller handover proof. Buyer sees the return-case status and seller refund reference in the tracking panel.
 - Pickup and handover use mandatory agent-entered proof/reference values, not OTP or photo uploads.
 - COD/UPI refunds are externally executed by the seller. Cash refund evidence or UPI transaction reference is recorded; no platform money movement is implemented.
 - Bulk inventory update, stock movement/audit ledger, inventory reservation visibility.
