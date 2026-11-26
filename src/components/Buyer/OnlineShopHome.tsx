@@ -155,42 +155,51 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
 
   return (
     <div className="space-y-4 sm:space-y-5 pb-12">
-      {/* Category + Filter Controls */}
-      <div className="flex items-center gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <h2 className="text-sm font-extrabold text-slate-800 tracking-tight">Categories</h2>
-            <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
-              {categories.length - 1} available
-            </span>
+      {/* Category discovery: compact, visual and easy to scan on mobile */}
+      <section aria-label="Shop by category" className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-amber-700">Explore Kurali</p>
+            <h2 className="text-base font-black tracking-tight text-slate-900">Shop by category</h2>
           </div>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
-                  selectedCategory === cat
-                    ? 'bg-amber-600 text-white shadow-sm'
-                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
+          <span className="text-[11px] font-semibold text-slate-500">{categories.length - 1} categories</span>
         </div>
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          aria-label="Filter and sort products"
-          className={`shrink-0 mt-6 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
-            showFilters ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <SlidersHorizontal className="w-3.5 h-3.5 text-amber-600" />
-          <span className="hidden sm:inline">Filter &amp; Sort</span>
-          <span className="sm:hidden">Filter</span>
-        </button>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+          {categories.map(cat => {
+            const count = cat === 'All Categories' ? products.length : products.filter(product => product.category === cat).length;
+            const active = selectedCategory === cat;
+            const icon = cat === 'All Categories' ? '🛍️' : /fruit|veget|fresh/i.test(cat) ? '🥬' : /dairy|milk|bread|egg/i.test(cat) ? '🥛' : /snack|drink|beverage|juice/i.test(cat) ? '🥤' : /personal|beauty|care|health/i.test(cat) ? '🧴' : /home|kitchen|clean/i.test(cat) ? '🏠' : /grocery|staple|atta|rice|dal/i.test(cat) ? '🌾' : '🧺';
+            return (
+              <button key={cat} type="button" onClick={() => setSelectedCategory(cat)} aria-pressed={active}
+                className={`group flex min-h-[88px] flex-col items-start justify-between rounded-2xl border p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-amber-400 ${active ? 'border-amber-500 bg-amber-50 shadow-sm ring-1 ring-amber-200' : 'border-slate-200 bg-white hover:border-amber-200'}`}>
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-xl group-hover:bg-white">{icon}</span>
+                <span className="mt-2 line-clamp-2 text-[11px] font-extrabold leading-tight text-slate-800">{cat === 'All Categories' ? 'Everything' : cat}</span>
+                <span className="text-[10px] font-medium text-slate-500">{count} items</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm">
+        <div className="min-w-0">
+          <p className="text-xs font-extrabold text-slate-900">Find your everyday essentials</p>
+          <p className="text-[10px] text-slate-500">Browse local sellers and compare what’s available</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="buyer-sort" className="sr-only">Sort products</label>
+          <select id="buyer-sort" value={sortBy} onChange={event => setSortBy(event.target.value as typeof sortBy)}
+            className="max-w-[145px] rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] font-bold text-slate-700 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100">
+            <option value="featured">Featured first</option>
+            <option value="price_asc">Price: low to high</option>
+            <option value="discount_desc">Biggest savings</option>
+            <option value="distance_asc">Nearest seller</option>
+          </select>
+          <button type="button" onClick={() => setShowFilters(open => !open)} aria-expanded={showFilters} aria-label="Filter products"
+            className={`inline-flex min-h-9 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${showFilters ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}>
+            <SlidersHorizontal className="h-3.5 w-3.5" /> Filter
+          </button>
+        </div>
       </div>
       <div className="flex items-center justify-between gap-2">
         <button type="button" onClick={() => setShowSavedItems(open => !open)} aria-expanded={showSavedItems}
