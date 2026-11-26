@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, Star, Store, Plus, Minus, Heart, ArrowUpRight } from 'lucide-react';
+import { ShoppingBag, Star, Store, Plus, Minus, Heart, Scale, MessageCircle } from 'lucide-react';
 import { Product } from '../../types';
 
 interface ProductCardProps {
@@ -8,6 +8,8 @@ interface ProductCardProps {
   onAddToCart: (product: Product) => void;
   onRemoveFromCart: (product: Product) => void;
   onViewDetails: (product: Product) => void;
+  onCompare: (product: Product) => void;
+  onBargain: (product: Product) => void;
   isFavorite?: boolean;
   onToggleFavorite?: (product: Product) => void;
 }
@@ -16,15 +18,24 @@ const getEffectivePrice = (product: Product) =>
   Math.round(product.sellerPrice * (1 - product.additionalDiscountPercent / 100));
 
 export const ProductCard: React.FC<ProductCardProps> = ({
-  product, quantity, onAddToCart, onRemoveFromCart, onViewDetails, isFavorite = false, onToggleFavorite,
+  product,
+  quantity,
+  onAddToCart,
+  onRemoveFromCart,
+  onViewDetails,
+  onCompare,
+  onBargain,
+  isFavorite = false,
+  onToggleFavorite,
 }) => {
   const effectivePrice = getEffectivePrice(product);
   const savings = Math.max(0, product.mrp - effectivePrice);
   const discount = product.mrp > 0 ? Math.round((savings / product.mrp) * 100) : 0;
 
   return (
-    <article className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:border-amber-300 hover:shadow-md">
-      <button onClick={() => onViewDetails(product)} className="w-full cursor-pointer text-left" aria-label={`View ${product.title} details`}>
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:border-amber-300 hover:shadow-md">
+      <button type="button" onClick={() => onViewDetails(product)} className="w-full cursor-pointer text-left"
+        aria-label={`View ${product.title} details`}>
         <div className="relative aspect-square overflow-hidden bg-slate-50">
           {product.image ? (
             <img src={product.image} alt={product.title} loading="lazy"
@@ -40,6 +51,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
         </div>
       </button>
+
       {onToggleFavorite && (
         <button type="button" onClick={() => onToggleFavorite(product)}
           aria-label={isFavorite ? `Remove ${product.title} from favourites` : `Save ${product.title} to favourites`}
@@ -49,28 +61,43 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </button>
       )}
 
-      <div className="space-y-2.5 p-2.5 sm:p-3.5">
-        <button onClick={() => onViewDetails(product)} className="w-full cursor-pointer text-left">
+      <div className="flex flex-1 flex-col gap-2 p-2.5 sm:p-3">
+        <button type="button" onClick={() => onViewDetails(product)} className="w-full cursor-pointer text-left">
           <div className="mb-1 flex items-center justify-between gap-1 text-[10px] text-slate-500">
             <span className="flex min-w-0 items-center gap-1 truncate font-medium"><Store className="h-3 w-3 shrink-0" />{product.sellerName || 'Local seller'}</span>
             {product.sellerRating > 0 && <span className="flex shrink-0 items-center gap-1 font-bold text-amber-600"><Star className="h-3 w-3 fill-amber-400" />{product.sellerRating}</span>}
           </div>
-          <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-bold leading-snug text-slate-900">{product.title}</h3>
-          <p className="text-[11px] text-slate-500">{product.unit}</p>
+          <h3 className="line-clamp-2 min-h-[2.35rem] text-[13px] font-bold leading-snug text-slate-900">{product.title}</h3>
+          <p className="text-[10px] text-slate-500">{product.unit}</p>
         </button>
 
         <div className="border-t border-slate-100 pt-2">
-          <div className="flex items-baseline gap-2">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span className="text-lg font-black text-slate-900">₹{effectivePrice}</span>
             {product.mrp > effectivePrice && <span className="text-[11px] text-slate-400 line-through">₹{product.mrp}</span>}
+            {savings > 0 && <span className="text-[10px] font-bold text-emerald-700">Save ₹{savings}</span>}
           </div>
-          {savings > 0 && <p className="text-[10px] font-semibold text-emerald-700">You save ₹{savings}</p>}
-          <p className={`mt-1 text-[10px] font-bold ${product.stock > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+          <p className={`mt-0.5 text-[10px] font-bold ${product.stock > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
             {product.stock > 0 ? 'In stock' : 'Out of stock'}
           </p>
         </div>
 
-        <div className="flex items-center justify-between gap-2">
+        <div className="mt-auto space-y-2">
+          <div className="flex items-center gap-1.5">
+            <button type="button" onClick={() => onCompare(product)}
+              aria-label={`Compare sellers for ${product.title}`} title="Compare sellers"
+              className="flex h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800 focus:outline-none focus:ring-2 focus:ring-amber-400">
+              <Scale className="h-4 w-4 shrink-0" />
+              <span className="text-[10px] font-bold">Compare</span>
+            </button>
+            <button type="button" onClick={() => onBargain(product)}
+              aria-label={`Bargain for ${product.title}`} title="Bargain"
+              className="flex h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-800 focus:outline-none focus:ring-2 focus:ring-violet-400">
+              <MessageCircle className="h-4 w-4 shrink-0" />
+              <span className="text-[10px] font-bold">Bargain</span>
+            </button>
+          </div>
+
           {quantity <= 0 ? (
             <button type="button" onClick={() => onAddToCart(product)} disabled={product.stock <= 0}
               className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-xs font-extrabold text-white transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-slate-300">
@@ -91,12 +118,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               </button>
             </div>
           )}
+          <button type="button" onClick={() => onViewDetails(product)}
+            className="sr-only">Open full details for {product.title}</button>
         </div>
-
-        <button type="button" onClick={() => onViewDetails(product)}
-          className="flex min-h-8 w-full items-center justify-center gap-1 rounded-lg py-1.5 text-[11px] font-bold text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900">
-          View details <ArrowUpRight className="h-3.5 w-3.5" />
-        </button>
       </div>
     </article>
   );
