@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, ShoppingBag, Star, Store, Plus, Minus, Heart, CheckCircle2 } from 'lucide-react';
+import { ShoppingBag, Star, Store, Plus, Minus, Heart, ArrowUpRight } from 'lucide-react';
 import { Product } from '../../types';
 
 interface ProductCardProps {
@@ -95,17 +95,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           )}
         </div>
 
-        <button type="button" onClick={() => onBuyNow(product)} disabled={product.stock <= 0}
-          className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-extrabold text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:border-slate-300">
-          <CheckCircle2 className="h-4 w-4" /> Buy Now
+        <button type="button" onClick={() => onViewDetails(product)}
+          className="flex min-h-8 w-full items-center justify-center gap-1 rounded-lg py-1.5 text-[11px] font-bold text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900">
+          View details <ArrowUpRight className="h-3.5 w-3.5" />
         </button>
-
-        <div className="border-t border-slate-100 pt-2">
-          <button onClick={() => onBargain(product)} disabled={product.stock <= 0}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-bold text-amber-800 transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40">
-            <MessageSquare className="h-3.5 w-3.5" />Make an offer
-          </button>
-        </div>
       </div>
     </article>
   );
