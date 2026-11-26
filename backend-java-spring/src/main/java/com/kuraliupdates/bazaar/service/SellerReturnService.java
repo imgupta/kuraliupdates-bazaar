@@ -55,6 +55,32 @@ public class SellerReturnService {
     }
 
     @Transactional(readOnly=true)
+    public List<Map<String,Object>> buyerReturnEligibility(String orderId, UserEntity buyer) {
+        Map<String,Object> order=one("SELECT ORDER_ID,BUYER_USER_ID,STATUS,DELIVERED_AT FROM ORDERS WHERE ORDER_ID=?",orderId);
+        if(!buyer.getUserId().equals(str(order,"BUYER_USER_ID"))) throw new ApiException(HttpStatus.NOT_FOUND,"Order not found");
+        if(!Set.of("DELIVERED","COMPLETED").contains(str(order,"STATUS").toUpperCase(Locale.ROOT))) return List.of();
+        Object deliveredValue=order.get("DELIVERED_AT");
+        LocalDateTime deliveredAt=deliveredValue instanceof java.sql.Timestamp ts?ts.toLocalDateTime():deliveredValue instanceof LocalDateTime dt?dt:null;
+        List<Map<String,Object>> items=jdbc.queryForList("SELECT I.ITEM_ID AS \"itemId\",P.PRODUCT_ID AS \"productId\",P.CATEGORY AS \"category\",I.QUANTITY AS \"quantity\" FROM ORDER_ITEMS I JOIN PRODUCTS P ON P.PRODUCT_ID=I.PRODUCT_ID WHERE I.ORDER_ID=? ORDER BY I.ITEM_ID",orderId);
+        List<Map<String,Object>> result=new ArrayList<>();
+        for(Map<String,Object> item:items) {
+            String category=str(item,"category").trim().toUpperCase(Locale.ROOT);
+            String productRule="PRODUCT:"+str(item,"productId").trim().toUpperCase(Locale.ROOT);
+            Map<String,Object> policy=one("SELECT CATEGORY,IS_RETURNABLE,RETURN_WINDOW_DAYS FROM KU_RETURN_POLICIES WHERE CATEGORY IN (?, ?, '*') ORDER BY CASE WHEN CATEGORY=? THEN 0 WHEN CATEGORY=? THEN 1 ELSE 2 END FETCH FIRST 1 ROWS ONLY",productRule,category,productRule,category);
+            int days=((Number)policy.get("RETURN_WINDOW_DAYS")).intValue();
+            boolean configured=((Number)policy.get("IS_RETURNABLE")).intValue()==1;
+            LocalDateTime deadline=deliveredAt==null?null:deliveredAt.plusDays(days);
+            boolean withinWindow=deadline!=null && !LocalDateTime.now().isAfter(deadline);
+            boolean eligible=configured && days>0 && withinWindow;
+            Map<String,Object> row=new LinkedHashMap<>(item);
+            row.put("returnable",eligible); row.put("policyReturnable",configured); row.put("returnWindowDays",days);
+            row.put("deliveredAt",deliveredAt); row.put("returnDeadline",deadline);
+            row.put("reason",!configured?"This product is non-returnable":!withinWindow?"The return window has expired":"Eligible for return");
+            result.add(row);
+        }
+        return result;
+    }
+    @Transactional(readOnly=true)
     public List<Map<String,Object>> buyerCases(String buyerId) {
         return jdbc.queryForList("SELECT RETURN_ID AS \"returnId\",ORDER_ID AS \"orderId\",ITEM_ID AS \"itemId\",QUANTITY AS \"quantity\",RETURN_AMOUNT AS \"returnAmount\",ORIGINAL_PAYMENT_METHOD AS \"originalPaymentMethod\",REASON AS \"reason\",SELLER_DECISION_REASON AS \"sellerDecisionReason\",STATUS AS \"status\",PICKUP_REFERENCE AS \"pickupReference\",SELLER_RECEIPT_REFERENCE AS \"sellerReceiptReference\",ACCEPTED_QUANTITY AS \"acceptedQuantity\",SELLER_CONDITION AS \"sellerCondition\",SELLER_RECEIPT_NOTE AS \"sellerReceiptNote\",REFUND_METHOD AS \"refundMethod\",REFUND_REFERENCE AS \"refundReference\",CREATED_AT AS \"createdAt\",UPDATED_AT AS \"updatedAt\" FROM SELLER_RETURN_CASES WHERE BUYER_USER_ID=? ORDER BY CREATED_AT DESC",buyerId);
     }
