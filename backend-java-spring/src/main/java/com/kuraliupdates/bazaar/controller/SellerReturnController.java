@@ -48,6 +48,16 @@ public class SellerReturnController {
         return ResponseEntity.ok(returns.sellerDecision(seller.getSellerId(),returnId,approve,body==null?null:body.get("reason"),seller.getUserId()));
     }
 
+    @PostMapping("/sellers/me/returns/{returnId}/receipt")
+    public ResponseEntity<Map<String,Object>> receipt(@PathVariable String returnId,@RequestBody Map<String,Object> body,@RequestHeader(value="Authorization",required=false) String authorization) {
+        SellerEntity seller=currentSeller(authorization);
+        int accepted;
+        try { accepted=Integer.parseInt(String.valueOf(body==null?null:body.get("acceptedQuantity"))); }
+        catch(Exception ex) { throw new ApiException(HttpStatus.BAD_REQUEST,"A valid accepted quantity is required"); }
+        return ResponseEntity.ok(returns.sellerConfirmReceipt(seller.getSellerId(),returnId,accepted,
+                body==null?null:String.valueOf(body.get("condition")),body==null?null:String.valueOf(body.get("note")),seller.getUserId()));
+    }
+
     @PostMapping("/sellers/me/returns/{returnId}/refund")
     public ResponseEntity<Map<String,Object>> refund(@PathVariable String returnId,@RequestBody Map<String,String> body,@RequestHeader(value="Authorization",required=false) String authorization) {
         SellerEntity seller=currentSeller(authorization);
