@@ -110,6 +110,16 @@ public class DailyHelpService {
                 .filter(s -> Integer.valueOf(1).equals(s.getActive()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help service not found"));
 
+        if (request.requestedHours() == null
+                || request.requestedHours().compareTo(BigDecimal.valueOf(service.getMinHours())) < 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Selected duration is below the minimum hours for this service");
+        }
+        BigDecimal requestedMinutesValue = request.requestedHours().multiply(BigDecimal.valueOf(60));
+        if (requestedMinutesValue.remainder(BigDecimal.valueOf(15)).compareTo(BigDecimal.ZERO) != 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Booking duration must use 15-minute increments");
+        }
         if (request.slotId() == null || request.slotId().isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Please select an available maid slot");
         }
@@ -138,7 +148,7 @@ public class DailyHelpService {
         LocalDateTime windowStart = slot.getSlotDate().atTime(slot.getStartTime());
         LocalDateTime windowEnd = slot.getSlotDate().atTime(slot.getEndTime());
         LocalDateTime bookingStart = request.scheduledStart();
-        long requestedMinutes = request.requestedHours().multiply(BigDecimal.valueOf(60)).longValueExact();
+        long requestedMinutes = requestedMinutesValue.longValueExact();
         LocalDateTime bookingEnd = bookingStart.plusMinutes(requestedMinutes);
         if (!bookingStart.toLocalDate().equals(slot.getSlotDate())
                 || bookingStart.isBefore(windowStart) || bookingEnd.isAfter(windowEnd)) {
@@ -172,7 +182,7 @@ public class DailyHelpService {
             throw new ApiException(HttpStatus.CONFLICT, "That time is no longer available. Please select another start time.");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
         DailyHelpBookingEntity booking = DailyHelpBookingEntity.builder()
                 .bookingId("DH-KUR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .service(service)
@@ -244,13 +254,15 @@ public class DailyHelpService {
         // Serialize slot creation for one professional to prevent overlapping slots under concurrent requests.
         DailyHelpProfessionalEntity professional = professionalRepository.findLockedByProfessionalId(professionalId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Daily Help professional not found"));
-        if (request.slotDate().isBefore(LocalDate.now(ZoneId.of("Asia/Kolkata")))) {
+        LocalDate indiaToday = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        LocalTime indiaNow = LocalTime.now(ZoneId.of("Asia/Kolkata"));
+        if (request.slotDate().isBefore(indiaToday)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Slot date must be today or a future date");
         }
         if (!request.endTime().isAfter(request.startTime())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Slot end time must be after start time");
         }
-        if (request.slotDate().equals(LocalDate.now()) && request.startTime().isBefore(LocalTime.now(ZoneId.of("Asia/Kolkata")))) {
+        if (request.slotDate().equals(indiaToday) && request.startTime().isBefore(indiaNow)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Slot start time must be in the future");
         }
 
