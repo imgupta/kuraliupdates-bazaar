@@ -38,6 +38,7 @@ public class SellerReturnService {
         String id = id("RET");
         LocalDateTime now = LocalDateTime.now();
         String sellerId = str(order,"SELLER_ID"), method = str(order,"PAYMENT_METHOD").toUpperCase(Locale.ROOT);
+        if (!Set.of("UPI","COD").contains(method)) throw new ApiException(HttpStatus.CONFLICT,"Unsupported original payment mode for refund");
         jdbc.update("INSERT INTO SELLER_RETURN_CASES (RETURN_ID,ORDER_ID,ITEM_ID,BUYER_USER_ID,SELLER_ID,QUANTITY,RETURN_AMOUNT,ORIGINAL_PAYMENT_METHOD,REASON,STATUS,CREATED_AT,UPDATED_AT) VALUES (?,?,?,?,?,?,?,?,?,'REQUESTED',?,?)",
                 id, orderId, itemId, buyer.getUserId(), sellerId, quantity, amount, method, reason.trim(), now, now);
         event(id,buyer.getUserId(),"BUYER","RETURN_REQUESTED",null,"REQUESTED",null,reason.trim());
@@ -68,7 +69,7 @@ public class SellerReturnService {
     @Transactional(readOnly=true)
     public List<Map<String,Object>> availablePickupJobs(UserEntity user) {
         DeliveryAgentEntity agent=agent(user);
-        if(!"APPROVED".equalsIgnoreCase(agent.getStatus()) || Boolean.FALSE.equals(agent.getAvailableForJobs())) return List.of();
+        if(!"ACTIVE".equalsIgnoreCase(agent.getStatus()) || Boolean.FALSE.equals(agent.getAvailableForJobs())) return List.of();
         return jdbc.queryForList("SELECT RETURN_ID AS \"returnId\",ORDER_ID AS \"orderId\",SELLER_ID AS \"sellerId\",QUANTITY AS \"quantity\",RETURN_AMOUNT AS \"returnAmount\",REASON AS \"reason\",STATUS AS \"status\" FROM SELLER_RETURN_CASES WHERE STATUS='APPROVED' AND DELIVERY_AGENT_ID IS NULL ORDER BY CREATED_AT");
     }
 
