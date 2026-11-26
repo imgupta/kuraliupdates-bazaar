@@ -84,13 +84,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onProceedToCheckout }) =
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
       />
 
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col">
+      <div className="fixed inset-y-0 right-0 z-10 flex w-full max-w-full sm:w-auto">
+        <div className="flex h-full w-full min-w-0 flex-col overflow-x-hidden bg-white shadow-2xl sm:w-screen sm:max-w-md">
           {/* Header */}
           <div className="px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <ShoppingBag className="w-5 h-5" />
-              <h2 className="text-base font-extrabold tracking-tight">Your Kurali Basket</h2>
+              <h2 className="truncate text-base font-extrabold tracking-tight">Your Kurali Basket</h2>
               <span className="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                 {cart.reduce((a, b) => a + b.quantity, 0)} items
               </span>
@@ -286,18 +286,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onProceedToCheckout }) =
                       </button>
                     </div>
                   ) : (
-                    <form onSubmit={handleApplyCoupon} className="flex gap-2">
+                    <form onSubmit={handleApplyCoupon} className="flex min-w-0 gap-2">
                       <input
                         type="text"
                         placeholder="Enter coupon code (e.g. KURALI50)"
                         value={couponInput}
                         onChange={e => setCouponInput(e.target.value.toUpperCase())}
-                        className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none uppercase font-mono"
+                        className="min-w-0 flex-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none uppercase font-mono"
                       />
                       <button
                         type="submit"
                         disabled={!couponInput.trim()}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 disabled:opacity-40 text-white rounded-lg text-xs font-bold cursor-pointer"
+                        className="shrink-0 px-3 py-1.5 bg-slate-800 hover:bg-slate-900 disabled:opacity-40 text-white rounded-lg text-xs font-bold cursor-pointer"
                       >
                         Apply
                       </button>
@@ -334,11 +334,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onProceedToCheckout }) =
 
           {/* Footer / Summary & Checkout */}
           {cart.length > 0 && (
-            <div className="p-4 bg-slate-50 border-t border-slate-200 space-y-3">
-              <div className="space-y-1.5 text-xs">
+            <div className="min-w-0 p-3 sm:p-4 bg-slate-50 border-t border-slate-200 space-y-3">
+              <div className="min-w-0 space-y-1.5 text-xs">
                 <div className="flex justify-between text-slate-600">
                   <span>Items total <span className="text-[10px] text-slate-400">(after product prices)</span></span>
-                  <span>₹{cartCalculations.itemSubtotal.toFixed(2)}</span>
+                  <span className="shrink-0">₹{cartCalculations.itemSubtotal.toFixed(2)}</span>
                 </div>
                 {productSavings > 0 && (
                   <div className="flex justify-between text-emerald-700">
