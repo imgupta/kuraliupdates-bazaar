@@ -19,6 +19,7 @@ import { Order } from '../../types';
 import { deliveryApi } from '../../services/domains/deliveryApi';
 import { LiveOrderMap } from '../../components/shared/LiveOrderMap';
 import { groupCheckoutOrders } from '../../entities/orderGrouping';
+import { DeliveryReturnsWorkspace } from '../../components/Delivery/DeliveryReturnsWorkspace';
 
 
 const uniqueOrdersById = (items: Order[]): Order[] => {
@@ -490,6 +491,8 @@ export const DeliveryDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      <DeliveryReturnsWorkspace />
 
       {/* Available Job Board */}
       <div className="space-y-3">
