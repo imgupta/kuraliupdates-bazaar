@@ -32,7 +32,7 @@ test('booking review preserves the existing server-authoritative contract', () =
 test('time choices and OTP lifecycle remain guarded', () => {
   for (const phrase of [
     'Math.ceil(earliest / 15) * 15',
-    'minute + durationHours * 60',
+    'windowEnd - first - durationHours * 60',
     "['ARRIVING', 'READY_TO_START'].includes(currentBooking.status)",
     "currentBooking.status === 'IN_PROGRESS'",
     'The service timer starts only after this OTP is verified.',
