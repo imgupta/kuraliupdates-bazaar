@@ -1,6 +1,10 @@
 -- Return-policy configuration and durable delivery timestamp for item-level eligibility.
 ALTER TABLE ORDERS ADD DELIVERED_AT TIMESTAMP;
 
+ALTER TABLE SELLER_RETURN_CASES ADD ACCEPTED_QUANTITY NUMBER(10);
+ALTER TABLE SELLER_RETURN_CASES ADD SELLER_CONDITION VARCHAR2(30);
+ALTER TABLE SELLER_RETURN_CASES ADD SELLER_RECEIPT_NOTE VARCHAR2(500);
+
 -- Existing delivered records have no dedicated delivery timestamp. Preserve the
 -- best available historical approximation and document this backfill explicitly.
 UPDATE ORDERS
