@@ -213,7 +213,8 @@ export type DailyHelpBookingStatus =
   | 'READY_TO_START'
   | 'IN_PROGRESS'
   | 'COMPLETED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'CANCELLED_BY_BUYER';
 
 export interface DailyHelpService {
   id: string;
