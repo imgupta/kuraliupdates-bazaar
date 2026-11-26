@@ -23,7 +23,7 @@ public class SellerReturnService {
     public Map<String,Object> request(String orderId, String itemId, int quantity, String reason, UserEntity buyer) {
         if (quantity < 1 || reason == null || reason.isBlank() || reason.trim().length() > 500)
             throw new ApiException(HttpStatus.BAD_REQUEST, "A valid quantity and return reason are required");
-        Map<String,Object> order = one("SELECT ORDER_ID,SELLER_ID,BUYER_USER_ID,STATUS,PAYMENT_METHOD,DELIVERED_AT FROM ORDERS WHERE ORDER_ID=? FOR UPDATE", orderId);
+        Map<String,Object> order = one("SELECT ORDER_ID,SELLER_ID,BUYER_USER_ID,STATUS,PAYMENT_METHOD,PAYMENT_STATUS,DELIVERED_AT FROM ORDERS WHERE ORDER_ID=? FOR UPDATE", orderId);
         if (!buyer.getUserId().equals(str(order,"BUYER_USER_ID")))
             throw new ApiException(HttpStatus.NOT_FOUND, "Order not found");
         if (!Set.of("DELIVERED","COMPLETED").contains(str(order,"STATUS").toUpperCase(Locale.ROOT)))
@@ -41,11 +41,12 @@ public class SellerReturnService {
         if (quantity > ((Number)item.get("QUANTITY")).intValue() - already)
             throw new ApiException(HttpStatus.CONFLICT, "Return quantity exceeds the unreturned quantity");
         BigDecimal lineTotal = (BigDecimal)item.get("TOTAL_PRICE");
-        BigDecimal unit = lineTotal.divide(BigDecimal.valueOf(((Number)item.get("QUANTITY")).intValue()), 2, java.math.RoundingMode.HALF_UP);
-        BigDecimal amount = unit.multiply(BigDecimal.valueOf(quantity));
+        int orderedQuantity=((Number)item.get("QUANTITY")).intValue();
+        BigDecimal amount = quantity==orderedQuantity ? lineTotal : lineTotal.multiply(BigDecimal.valueOf(quantity)).divide(BigDecimal.valueOf(orderedQuantity), 2, java.math.RoundingMode.HALF_UP);
         String id = id("RET");
         LocalDateTime now = LocalDateTime.now();
         String sellerId = str(order,"SELLER_ID"), method = str(order,"PAYMENT_METHOD").toUpperCase(Locale.ROOT);
+        if (!"PAID".equalsIgnoreCase(str(order,"PAYMENT_STATUS"))) throw new ApiException(HttpStatus.CONFLICT,"A refund can only be requested for an order with confirmed payment");
         if (!Set.of("UPI","COD").contains(method)) throw new ApiException(HttpStatus.CONFLICT,"Unsupported original payment mode for refund");
         jdbc.update("INSERT INTO SELLER_RETURN_CASES (RETURN_ID,ORDER_ID,ITEM_ID,BUYER_USER_ID,SELLER_ID,QUANTITY,RETURN_AMOUNT,ORIGINAL_PAYMENT_METHOD,REASON,STATUS,CREATED_AT,UPDATED_AT) VALUES (?,?,?,?,?,?,?,?,?,'REQUESTED',?,?)",
                 id, orderId, itemId, buyer.getUserId(), sellerId, quantity, amount, method, reason.trim(), now, now);
@@ -112,11 +113,27 @@ public class SellerReturnService {
     public Map<String,Object> handover(String returnId,String reference,UserEntity user) {
         DeliveryAgentEntity a=agent(user); Map<String,Object> c=locked(returnId,null); assignedTo(c,a);
         requireStatus(c,"PICKED_UP"); requireReference(reference,"Seller handover proof/reference");
-        jdbc.update("UPDATE SELLER_RETURN_CASES SET STATUS='RECEIVED_BY_SELLER',SELLER_RECEIPT_REFERENCE=?,UPDATED_AT=? WHERE RETURN_ID=?",reference.trim(),LocalDateTime.now(),returnId);
-        event(returnId,user.getUserId(),"DELIVERY","RETURN_HANDED_TO_SELLER","PICKED_UP","RECEIVED_BY_SELLER",reference,null);
+        jdbc.update("UPDATE SELLER_RETURN_CASES SET STATUS='HANDED_TO_SELLER',SELLER_RECEIPT_REFERENCE=?,UPDATED_AT=? WHERE RETURN_ID=?",reference.trim(),LocalDateTime.now(),returnId);
+        event(returnId,user.getUserId(),"DELIVERY","RETURN_HANDED_TO_SELLER","PICKED_UP","HANDED_TO_SELLER",reference,null);
         return deliveryCase(returnId,a.getAgentId());
     }
 
+    @Transactional
+    public Map<String,Object> sellerConfirmReceipt(String sellerId,String returnId,int acceptedQuantity,String condition,String note,String actor) {
+        Map<String,Object> c=locked(returnId,sellerId);
+        requireStatus(c,"HANDED_TO_SELLER");
+        int requested=((Number)c.get("QUANTITY")).intValue();
+        if(acceptedQuantity<0 || acceptedQuantity>requested) throw new ApiException(HttpStatus.BAD_REQUEST,"Accepted quantity must be between zero and the requested quantity");
+        String normalized=condition==null?"":condition.trim().toUpperCase(Locale.ROOT);
+        if(!Set.of("GOOD","DAMAGED","PARTIAL","MISSING").contains(normalized)) throw new ApiException(HttpStatus.BAD_REQUEST,"Condition must be GOOD, DAMAGED, PARTIAL or MISSING");
+        if(note!=null && note.trim().length()>500) throw new ApiException(HttpStatus.BAD_REQUEST,"Receipt note cannot exceed 500 characters");
+        BigDecimal requestedAmount=(BigDecimal)c.get("RETURN_AMOUNT");
+        BigDecimal acceptedAmount=acceptedQuantity==requested?requestedAmount:requestedAmount.multiply(BigDecimal.valueOf(acceptedQuantity)).divide(BigDecimal.valueOf(requested),2,java.math.RoundingMode.HALF_UP);
+        String next=acceptedQuantity==0?"RECEIPT_DISPUTED":"RECEIVED_BY_SELLER";
+        jdbc.update("UPDATE SELLER_RETURN_CASES SET STATUS=?,ACCEPTED_QUANTITY=?,RETURN_AMOUNT=?,SELLER_CONDITION=?,SELLER_RECEIPT_NOTE=?,UPDATED_AT=? WHERE RETURN_ID=?",next,acceptedQuantity,acceptedAmount,normalized,note==null?null:note.trim(),LocalDateTime.now(),returnId);
+        event(returnId,actor,"SELLER","SELLER_RECEIPT_CONFIRMED","HANDED_TO_SELLER",next,str(c,"SELLER_RECEIPT_REFERENCE"),"acceptedQuantity="+acceptedQuantity+"; condition="+normalized+(note==null?"":"; "+note.trim()));
+        return sellerCase(returnId,sellerId);
+    }
     @Transactional
     public Map<String,Object> sellerRefund(String sellerId,String returnId,String action,String method,String reference,String actor) {
         Map<String,Object> c=locked(returnId,sellerId); String status=str(c,"STATUS");
