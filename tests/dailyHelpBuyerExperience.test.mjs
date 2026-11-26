@@ -77,5 +77,10 @@ test('Daily Help bookings are presented in a fixed bottom dock and opened in a s
   assert.match(component, /setShowBookingsPanel\(true\)/);
   assert.match(component, /role="dialog" aria-modal="true" aria-label="Your Daily Help bookings"/);
   assert.match(component, /setShowBookingsPanel\(false\)/);
-  assert.doesNotMatch(component.slice(0, component.indexOf('What would you like help with?')), /aria-label="Current Daily Help booking"/);
+  const dockIndex = component.indexOf('aria-label="Daily Help booking shortcut"');
+  const dialogIndex = component.indexOf('aria-label="Your Daily Help bookings"');
+  const activeBookingIndex = component.indexOf('aria-label="Current Daily Help booking"');
+  const discoveryIndex = component.indexOf('What would you like help with?');
+  assert.ok(dockIndex >= 0 && dialogIndex > dockIndex && activeBookingIndex > dialogIndex && discoveryIndex > activeBookingIndex,
+    'Active booking details and history must be inside the bottom-sheet dialog, after the main discovery content');
 });
