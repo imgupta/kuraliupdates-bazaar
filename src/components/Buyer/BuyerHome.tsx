@@ -3,6 +3,7 @@ import { ShoppingBag, Home, Search, X, Truck, ArrowRight } from 'lucide-react';
 import { OnlineShopHome } from './OnlineShopHome';
 import { DailyHelpHome } from './DailyHelpHome';
 import { Product } from '../../types';
+import { matchesBuyerSearch } from '../../utils/buyerSearch';
 import { useApp } from '../../context/AppContext';
 
 interface BuyerHomeProps {
@@ -18,7 +19,14 @@ interface BuyerHomeProps {
 export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
   const [mode, setMode] = useState<'shop' | 'daily-help'>('shop');
   const [showAllActiveOrders, setShowAllActiveOrders] = useState(false);
-  const { orders, user, cart, cartCalculations, setIsCartOpen } = useApp();
+  const [searchFocused, setSearchFocused] = useState(false);
+  const { orders, user, cart, cartCalculations, setIsCartOpen, products } = useApp();
+  const searchSuggestions = useMemo(() => {
+    const query = props.searchQuery.trim();
+    if (!query || mode !== 'shop') return [];
+    return products.filter(product => matchesBuyerSearch(query, [product.title, product.category, product.sellerName, product.sellerLocality, product.unit, ...product.tags]))
+      .sort((a, b) => Number(b.stock > 0) - Number(a.stock > 0)).slice(0, 6);
+  }, [mode, products, props.searchQuery]);
   const activeOrders = useMemo(() => {
     const email = user.email?.trim().toLowerCase();
     const phone = user.phone?.replace(/\D/g, '');
@@ -68,16 +76,42 @@ export const BuyerHome: React.FC<BuyerHomeProps> = (props) => {
         <div className="relative">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input type="search" value={props.searchQuery}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => window.setTimeout(() => setSearchFocused(false), 120)}
+            onKeyDown={event => { if (event.key === 'Escape') setSearchFocused(false); }}
             onChange={event => props.setSearchQuery(event.target.value)}
             placeholder={mode === 'shop' ? 'Search products across Kurali shops...' : 'Search Daily Help services...'}
             aria-label={mode === 'shop' ? 'Search products' : 'Search Daily Help services'}
+            role="combobox" aria-autocomplete="list"
+            aria-expanded={searchFocused && searchSuggestions.length > 0}
+            aria-controls="buyer-search-suggestions" autoComplete="off"
             className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-10 text-sm shadow-sm outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100" />
-          {props.searchQuery && <button type="button" onClick={() => props.setSearchQuery('')} aria-label="Clear search"
+          {props.searchQuery && <button type="button" onMouseDown={event => event.preventDefault()} onClick={() => props.setSearchQuery('')} aria-label="Clear search"
             className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="h-4 w-4" /></button>}
+          {searchFocused && searchSuggestions.length > 0 && (
+            <div id="buyer-search-suggestions" role="listbox" aria-label="Matching products"
+              className="absolute inset-x-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+              <div className="border-b border-slate-100 px-3 py-2 text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Products in Kurali shops</div>
+              {searchSuggestions.map(product => (
+                <button key={product.id} type="button" role="option" aria-selected="false"
+                  onMouseDown={event => event.preventDefault()}
+                  onClick={() => { props.setSearchQuery(product.title); setSearchFocused(false); }}
+                  className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-amber-50 focus:bg-amber-50 focus:outline-none">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 text-lg">
+                    {product.image ? <img src={product.image} alt="" loading="lazy" className="h-full w-full object-cover" /> : '🛍️'}
+                  </span>
+                  <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-900">{product.title}</span>
+                    <span className="block truncate text-[10px] text-slate-500">{product.category} · {product.sellerName}</span></span>
+                  <span className="shrink-0 text-xs font-black text-slate-900">₹{Math.round(product.sellerPrice * (1 - product.additionalDiscountPercent / 100))}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       {mode === 'shop' ? <OnlineShopHome {...props} /> : <DailyHelpHome searchQuery={props.searchQuery} />}
 
+      {/* Shopping cart shortcut and live-order tracking remain reachable without scrolling. */}
       {((mode === 'shop' && cart.length > 0) || activeOrders.length > 0) && !props.isCheckoutOpen && (
         <section className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)]" aria-label="Cart and current orders">
           <div className="mx-auto flex max-w-screen-xl items-stretch gap-2 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-[0_-8px_28px_rgba(15,23,42,0.18)] backdrop-blur-md">
