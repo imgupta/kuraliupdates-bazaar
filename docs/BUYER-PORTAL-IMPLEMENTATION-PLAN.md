@@ -1,9 +1,9 @@
 # Buyer Portal Simplification and Checkout Implementation Plan
 
-**Status:** Consolidated implementation committed on PR #390; CI, Oracle migration and staging verification pending — see [implementation report](BUYER-PORTAL-IMPLEMENTATION-REPORT.md)  
+**Status:** Existing commerce foundations remain in place; buyer storefront interaction refresh is being delivered in PR #416. CI and staging verification pending.  
 **Scope:** Online Shop buyer journey, bargaining, seller-direct payments, grouped orders and buyer support  
 **Delivery target:** One consolidated implementation PR  
-**Last updated:** 22 November 2026
+**Last updated:** 26 November 2026
 
 > This is the acceptance contract for the buyer-portal implementation. Requirements are not complete merely because they are documented or appear in a mock-up. Mark them complete only after implementation, automated tests and applicable runtime evidence are recorded.
 
@@ -33,7 +33,8 @@ These are product decisions, not legal conclusions. Actual fund flow, seller con
 ## 3. Buyer journey requirements
 
 ### 3.1 Home and discovery
-- Clear Online Shop entry, location context and one prominent search field.
+- Clear Online Shop entry, location context and one prominent search field with live product/category suggestions and quick category shortcuts.
+- Featured products, deal discovery and recently viewed products must be derived from current catalogue data or buyer-local interaction history; do not fabricate ratings, stock, savings or delivery promises.
 - Compact useful categories; remove repeated promotions and competing calls to action.
 - Daily Help remains a separate mode; do not mix service bookings into grocery catalogue.
 - Popular nearby, deals and recently purchased sections only when backed by real data.
@@ -151,6 +152,8 @@ Before changing APIs/schema, inspect existing checkout grouping, order/suborder 
 
 ### Buyer experience
 - [ ] Home/search/category/product cards responsive and accessible.
+- [ ] Header search is wired to shared buyer search state; suggestions select real catalogue products/categories and quick shortcuts resolve to real categories.
+- [ ] Featured and deal rails use real catalogue fields; recently viewed history is local, bounded and clearable.
 - [x] No implicit ₹3,000 max-price filter (source implemented; final CI verification pending).
 - [ ] Add and decrement/quantity/increment remain synchronized across card, detail, basket and checkout.
 - [x] Buy Now checks out only selected product and preserves existing basket (source implemented; final CI verification pending).
