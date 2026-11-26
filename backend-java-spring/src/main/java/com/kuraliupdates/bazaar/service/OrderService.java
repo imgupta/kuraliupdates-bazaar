@@ -519,6 +519,7 @@ public class OrderService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid pickup OTP");
         }
         order.setStatus("DELIVERED");
+        order.setDeliveredAt(LocalDateTime.now());
         order.setFulfilmentStatus("PICKED_UP_BY_BUYER");
         order.setPaymentStatus("PAID");
         order.setUpdatedAt(LocalDateTime.now());
