@@ -93,6 +93,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
   const [selectedStartTime, setSelectedStartTime] = useState('');
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState(false);
+  const [availabilityRetry, setAvailabilityRetry] = useState(0);
   const [bookings, setBookings] = useState<DailyHelpBooking[]>([]);
   const [bookingBusy, setBookingBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -151,7 +152,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
       .catch(() => { if (!cancelled) { setSlots([]); setSlotsError(true); } })
       .finally(() => { if (!cancelled) setSlotsLoading(false); });
     return () => { cancelled = true; };
-  }, [selected, bookingDate, hours, user.locality]);
+  }, [selected, bookingDate, hours, user.locality, availabilityRetry]);
 
   const elapsedSeconds = (startedAt?: string, requestedHours?: number) => {
     if (!startedAt) return 0;
@@ -307,7 +308,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
 
             <div className="mt-5"><div className="flex items-center justify-between gap-2"><h3 className="text-sm font-black text-slate-950">Choose an available professional</h3><span className="text-[10px] font-semibold text-slate-500">{slots.length} windows</span></div><p className="mt-1 text-[11px] text-slate-500">Availability is checked for your locality. Your time is confirmed only after booking succeeds.</p>
               {slotsLoading ? <div className="mt-3 rounded-2xl border border-slate-200 p-7 text-center text-xs text-slate-500"><RefreshCw className="mx-auto mb-2 h-5 w-5 animate-spin" />Checking local availability…</div>
-                : slotsError ? <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-5 text-center"><p className="text-sm font-black text-rose-900">Couldn’t check availability</p><p className="mt-1 text-xs text-rose-800">Please change the date or try again.</p><button type="button" onClick={() => setBookingDate(value => value)} className="mt-2 text-xs font-bold underline">Retry by selecting the date again</button></div>
+                : slotsError ? <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-5 text-center"><p className="text-sm font-black text-rose-900">Couldn’t check availability</p><p className="mt-1 text-xs text-rose-800">Please change the date or try again.</p><button type="button" onClick={() => setAvailabilityRetry(value => value + 1)} className="mt-2 text-xs font-bold underline">Retry by selecting the date again</button></div>
                 : slots.length === 0 ? <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center"><CalendarDays className="mx-auto h-6 w-6 text-amber-700" /><p className="mt-2 text-sm font-black text-slate-900">No matching availability yet</p><p className="mt-1 text-xs text-slate-600">Try another date or a shorter duration to see more options.</p></div>
                 : <div className="mt-3 space-y-2">{slots.map(slot => { const times = bookableStartTimes(slot, hours); const active = selectedSlot?.slotId === slot.slotId; return <div key={slot.slotId} className={\`rounded-2xl border p-3 \${active ? 'border-amber-400 bg-amber-50/60' : 'border-slate-200 bg-white'}\`}><button type="button" onClick={() => { setSelectedSlot(slot); setSelectedStartTime(times[0] || ''); }} className="flex w-full items-center justify-between gap-3 text-left"><div className="flex min-w-0 items-center gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-800"><UserRound className="h-5 w-5" /></div><div className="min-w-0"><p className="truncate text-xs font-black text-slate-900">{slot.professionalName}</p><p className="mt-0.5 text-[11px] text-slate-500">{formatDate(slot.slotDate)} · {formatTime(slot.startTime)}–{formatTime(slot.endTime)}</p></div></div><span className={\`rounded-full px-2.5 py-1 text-[10px] font-black \${active ? 'bg-amber-700 text-white' : 'bg-emerald-50 text-emerald-800'}\`}>{active ? 'Selected' : 'View times'}</span></button>{active && <div className="mt-3 border-t border-amber-200 pt-3"><p className="mb-2 text-[10px] font-black uppercase tracking-wide text-slate-600">Pick a start time</p><div className="flex flex-wrap gap-2">{times.map(time => <button key={time} type="button" onClick={() => setSelectedStartTime(time)} aria-pressed={selectedStartTime === time} className={\`rounded-lg border px-3 py-2 text-xs font-bold \${selectedStartTime === time ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-700'}\`}>{time}</button>)}</div>{times.length === 0 && <p className="text-xs text-amber-900">This window no longer fits the selected duration. Choose another window.</p>}</div>}</div>; })}</div>}
             </div>
