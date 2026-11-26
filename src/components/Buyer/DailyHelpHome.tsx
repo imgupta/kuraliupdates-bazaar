@@ -99,6 +99,7 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [bookingsError, setBookingsError] = useState(false);
   const [bookingsRetry, setBookingsRetry] = useState(0);
+  const [showAllBookings, setShowAllBookings] = useState(false);
   const [bookingBusy, setBookingBusy] = useState(false);
   const [cancelBusyId, setCancelBusyId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -314,10 +315,10 @@ export const DailyHelpHome: React.FC<{ searchQuery?: string }> = ({ searchQuery 
         <section aria-label="Daily Help booking history" className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div><p className="text-[10px] font-black uppercase tracking-[.16em] text-amber-700">Your activity</p><h2 className="mt-1 text-lg font-black text-slate-950">Daily Help bookings</h2></div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-600">{bookings.length} total</span>
+            <div className="flex shrink-0 items-center gap-2"><span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-600">{bookings.length} total</span><button type="button" onClick={() => setShowAllBookings(value => !value)} aria-expanded={showAllBookings} className="text-[11px] font-extrabold text-amber-800">{showAllBookings ? 'Show less' : 'View all'}</button></div>
           </div>
           <div className="mt-3 divide-y divide-slate-100">
-            {[...bookings].sort((a,b) => new Date(b.scheduledStart).getTime() - new Date(a.scheduledStart).getTime()).slice(0,6).map(booking => {
+            {[...bookings].sort((a,b) => new Date(b.scheduledStart).getTime() - new Date(a.scheduledStart).getTime()).slice(0, showAllBookings ? bookings.length : 2).map(booking => {
               const canCancel = ['PROFESSIONAL_ASSIGNED', 'ARRIVING', 'READY_TO_START'].includes(booking.status)
                 && !booking.serviceStartedAt && !booking.otpVerifiedAt
                 && new Date(booking.scheduledStart).getTime() > Date.now();
