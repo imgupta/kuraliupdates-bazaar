@@ -48,15 +48,40 @@ Upgrade the seller workspace from a collection of basic tabs into an operational
 - Overview includes actionable order and inventory attention lists.
 - Orders workspace adds search by order ID, buyer and delivery address plus status filtering.
 - Seller navigation is a compact, horizontally scrollable, sticky workspace bar suitable for mobile.
-- A dedicated Returns & refunds workspace exposes the already-supported seller payment/refund records and actions that were previously hidden by the parent portal.
+- A dedicated Returns & refunds workspace exposes item-level return cases and the reverse-pickup/refund lifecycle.
 - The refund workspace clearly states that refunds are seller-funded and KuraliUpdates does not transfer funds.
 - UPI destination setup remains in Payments & UPI; no payment destination or custody model changed.
 
-## Explicitly not claimed / remaining backend work
+## Physical return and refund workflow implemented in this PR
 
-The following are not implemented by this UI slice and must not be represented as live capabilities:
-- Physical item return requests, return approval/dispute, reverse pickup, item receipt/QC, partial item returns, replacement and RTO/courier-return processing.
-- Seller return policy configuration or automatic return eligibility windows.
+A new Oracle migration V51 adds SELLER_RETURN_CASES and SELLER_RETURN_EVENTS. The backend exposes buyer, seller and delivery-agent endpoints with role checks and resource ownership checks.
+
+1. Buyer creates an item-level return request against an order item and quantity. The order must be DELIVERED (or COMPLETED), the buyer must own it, and previously active returned quantities are deducted from the available quantity.
+2. Seller reviews the request and approves or rejects it with a reason.
+3. An ACTIVE, available delivery agent sees approved pickup jobs, claims one, records collection proof, then records seller handover proof.
+4. The case moves to RECEIVED_BY_SELLER only after the assigned agent records handover.
+5. Seller initiates refund preparation only after receipt, executes the refund outside KuraliUpdates, then records the actual refund reference.
+6. The backend enforces that the recorded refund method matches the original order payment method (UPI or COD). It does not initiate or move money.
+
+The seller UI now supports approve/reject, tracking pickup progress, preparing the refund after handover, and recording the refund reference. The delivery API exposes available, assigned, claim, pickup and handover operations. Buyer API exposes request and return-history operations.
+
+Return states: REQUESTED -> APPROVED -> PICKUP_ASSIGNED -> PICKED_UP -> RECEIVED_BY_SELLER -> REFUND_PENDING -> REFUNDED; seller rejection ends at REJECTED. Every state change writes an event record.
+
+### Boundaries and remaining work
+
+- Return eligibility currently requires a delivered/completed order; a configurable return window, category-specific policy, admin override and return-fee policy are not implemented.
+- Return quantity is item-level, but exchange/replacement, QC grading, partial acceptance of damaged quantities, and RTO before customer delivery are not implemented.
+- Buyer order-detail UI still needs a customer-facing request form; the authenticated buyer API is implemented.
+- Delivery agent endpoints are implemented; a dedicated delivery-agent return-job UI and buyer-facing pickup status timeline remain to be integrated.
+- Pickup and handover use mandatory agent-entered proof/reference values, not OTP or photo uploads.
+- COD/UPI refunds are externally executed by the seller. Cash refund evidence or UPI transaction reference is recorded; no platform money movement is implemented.
+- Bulk inventory update, stock movement/audit ledger, inventory reservation visibility.
+- Downloadable invoices, packing slips, pickup manifests or courier label generation.
+- Seller statement export, fee/commission breakdown and settlement reconciliation.
+- Durable notification centre and support tickets.
+- Net margin, SKU profitability or return-rate analytics.
+
+These require explicit contracts and staging verification before being represented as complete.
 - Bulk inventory update, stock movement/audit ledger, inventory reservation visibility.
 - Downloadable invoices, packing slips, pickup manifests or courier label generation.
 - Seller statement export, fee/commission breakdown and settlement reconciliation.
@@ -68,9 +93,9 @@ These need explicit API/DTO/domain/ownership/transaction contracts, migration an
 ## Verification and release gates
 
 - TypeScript, frontend regression tests and seller portal production build.
-- Backend tests and security checks if backend source changes are added.
+- Backend Maven tests, controller/service authorization tests and security scans.
 - Browser E2E for seller role, seller-owned orders, UPI confirmation and refund action visibility.
-- Staging test with synthetic buyer/seller accounts for refund request -> seller initiation -> external reference recording -> reconciliation.
+- Staging Oracle V51 migration rehearsal and synthetic buyer -> seller decision -> delivery claim/pickup/handover -> seller original-mode refund lifecycle.
 - Negative tests for cross-seller payment/refund/order access.
 - Manual responsive acceptance on iPhone Safari and desktop.
 - No production launch claim until staging and deployed seller portal are checked.
