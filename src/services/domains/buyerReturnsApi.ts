@@ -9,5 +9,6 @@ const request = async (path: string, init?: RequestInit) => {
 };
 export const buyerReturnsApi = {
   list: () => request('/buyers/me/returns'),
+  eligibility: (orderId:string) => request(`/buyers/orders/${encodeURIComponent(orderId)}/return-eligibility`),
   create: (orderId:string,itemId:string,quantity:number,reason:string) => request(`/buyers/orders/${encodeURIComponent(orderId)}/returns`,{method:'POST',body:JSON.stringify({itemId,quantity,reason})}),
 };
