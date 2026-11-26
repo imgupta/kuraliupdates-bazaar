@@ -213,8 +213,12 @@ public class DailyHelpService {
     @Transactional(readOnly = true)
     public List<DailyHelpSlotResponse> getAvailableSlots(LocalDate date, String locality, BigDecimal requestedHours) {
         if (date == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Booking date is required");
-        if (requestedHours == null || requestedHours.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Booking duration must be greater than zero");
+        if (requestedHours == null || requestedHours.compareTo(BigDecimal.ONE) < 0
+                || requestedHours.compareTo(BigDecimal.valueOf(12)) > 0
+                || requestedHours.multiply(BigDecimal.valueOf(60)).remainder(BigDecimal.valueOf(15))
+                        .compareTo(BigDecimal.ZERO) != 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Booking duration must be between 1 and 12 hours in 15-minute increments");
         }
 
         // Daily Help operates on India local time, independent of the Render host timezone.
