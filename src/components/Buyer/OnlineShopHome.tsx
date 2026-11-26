@@ -9,6 +9,7 @@ import {
   Clock3,
   Flame,
   ArrowRight,
+  Repeat2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
@@ -48,6 +49,8 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
 }) => {
   const {
     products,
+    orders,
+    user,
     cart,
     addToCart,
     updateCartQuantity,
@@ -109,6 +112,31 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
   // results to approved sellers, so do not re-filter against the local seller
   // cache. That cache intentionally contains only pending admin applications
   // during backend sync and can therefore omit approved stores.
+  // Reorder shelf is derived only from this signed-in buyer's previous orders
+  // and the current approved catalogue. Missing or unavailable products are omitted.
+  const buyAgainProducts = useMemo(() => {
+    const email = user.email?.trim().toLowerCase();
+    const phone = user.phone?.replace(/\\D/g, '');
+    const orderedIds: string[] = [];
+    const buyerOrders = orders
+      .filter(order => {
+        const emailMatches = Boolean(email && order.buyerEmail?.trim().toLowerCase() === email);
+        const orderPhone = order.buyerPhone?.replace(/\\D/g, '');
+        const phoneMatches = Boolean(phone && orderPhone && orderPhone.slice(-10) === phone.slice(-10));
+        const status = String(order.status || '').toLowerCase();
+        return (emailMatches || phoneMatches) && !['cancelled', 'canceled', 'rejected', 'failed'].includes(status);
+      })
+      .sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime());
+    buyerOrders.forEach(order => order.items?.forEach(item => {
+      const id = item.product?.id;
+      if (id && !orderedIds.includes(id)) orderedIds.push(id);
+    }));
+    return orderedIds
+      .map(id => products.find(product => product.id === id))
+      .filter((product): product is Product => Boolean(product && product.stock > 0))
+      .slice(0, 6);
+  }, [orders, products, user.email, user.phone]);
+
   const filteredProducts = useMemo(() => {
     return products
       .filter(p => {
@@ -193,6 +221,33 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
           })}
         </div>
       </section>
+
+      {!searchQuery.trim() && selectedCategory === 'All Categories' && buyAgainProducts.length > 0 && (
+        <section aria-label="Buy again" className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-emerald-700">Your shopping history</p>
+              <h2 className="flex items-center gap-1.5 text-base font-black text-slate-900"><Repeat2 className="h-4 w-4 text-emerald-600" /> Buy again</h2>
+            </div>
+            <span className="text-[10px] font-semibold text-slate-500">Previously ordered · current availability</span>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {buyAgainProducts.map(product => (
+              <article key={product.id} className="flex w-48 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+                <button type="button" onClick={() => openProductDetails(product)} className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-slate-50" aria-label={`View ${product.title}`}>
+                  {product.image ? <img src={product.image} alt="" loading="lazy" className="h-full w-full object-cover" /> : <ShoppingBag className="m-auto h-6 w-6 text-slate-300" />}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <button type="button" onClick={() => openProductDetails(product)} className="block w-full truncate text-left text-[11px] font-bold text-slate-800">{product.title}</button>
+                  <p className="text-xs font-black text-slate-900">₹{Math.round(product.sellerPrice * (1 - product.additionalDiscountPercent / 100))}</p>
+                  <button type="button" onClick={() => { addToCart(product, 1); showToast(`${product.title} added to your basket.`, 'success'); }}
+                    className="mt-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-extrabold text-white hover:bg-emerald-700">＋ Add again</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       {!searchQuery.trim() && selectedCategory === 'All Categories' && (
         <>
