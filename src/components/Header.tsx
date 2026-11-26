@@ -10,6 +10,8 @@ import {
   Home,
   MapPin,
   Check,
+  Search,
+  X,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { isRootAdminEmail } from '../data/initialData';
@@ -24,7 +26,7 @@ interface HeaderProps {
   setSelectedCategory: (cat: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = () => {
+export const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, selectedCategory, setSelectedCategory }) => {
   const {
     role,
     setRole,
@@ -44,6 +46,7 @@ export const Header: React.FC<HeaderProps> = () => {
   } = useApp();
 
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isAddressMenuOpen, setIsAddressMenuOpen] = useState(false);
   const [addressBusy, setAddressBusy] = useState(false);
   const savedAddresses = user.savedAddresses || [];
@@ -302,7 +305,41 @@ export const Header: React.FC<HeaderProps> = () => {
           </div>
         </div>
 
-
+        {role === 'buyer' && !isCartOpen && (
+          <div className="relative mt-3">
+            <form onSubmit={event => { event.preventDefault(); setIsSearchFocused(false); }}
+              className="flex min-h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 transition focus-within:border-amber-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-amber-100">
+              <Search className="h-4 w-4 shrink-0 text-amber-600" />
+              <input value={searchQuery || ''} onChange={event => setSearchQuery(event.target.value)}
+                onFocus={() => setIsSearchFocused(true)} onKeyDown={event => { if (event.key === 'Escape') setIsSearchFocused(false); }}
+                placeholder="Search groceries, fruits, dairy and more…" aria-label="Search products"
+                aria-expanded={isSearchFocused && Boolean(searchQuery?.trim())} aria-controls="buyer-search-suggestions"
+                className="min-w-0 flex-1 bg-transparent py-2 text-sm font-medium text-slate-800 outline-none placeholder:text-slate-400" />
+              {searchQuery?.trim() && <button type="button" onClick={() => setSearchQuery('')} aria-label="Clear search" className="rounded-full p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700"><X className="h-4 w-4" /></button>}
+              <span className="hidden shrink-0 text-[10px] font-semibold text-slate-400 sm:inline">Kurali stores</span>
+            </form>
+            {isSearchFocused && Boolean(searchQuery?.trim()) && (() => {
+              const query = searchQuery.trim().toLowerCase();
+              const matches = products.filter(product => [product.title, product.category, product.sellerName, ...(product.tags || [])].some(value => String(value || '').toLowerCase().includes(query))).slice(0, 5);
+              const categoryMatches = Array.from(new Set(products.map(product => product.category))).filter(category => category.toLowerCase().includes(query)).slice(0, 3);
+              return (
+                <div id="buyer-search-suggestions" role="listbox" className="absolute left-0 right-0 top-full z-[220] mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl">
+                  {matches.length === 0 && categoryMatches.length === 0 ? <p className="px-3 py-3 text-xs text-slate-500">No quick matches. Press Enter to search the full catalogue.</p> : (
+                    <>
+                      {categoryMatches.map(category => <button key={category} type="button" role="option" onClick={() => { setSelectedCategory(category); setSearchQuery(''); setIsSearchFocused(false); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-bold text-amber-800 hover:bg-amber-50"><span>▦</span> Browse {category}</button>)}
+                      {matches.map(product => <button key={product.id} type="button" role="option" onClick={() => { setSearchQuery(product.title); setIsSearchFocused(false); }} className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left hover:bg-slate-50"><span className="min-w-0"><span className="block truncate text-xs font-bold text-slate-800">{product.title}</span><span className="block truncate text-[10px] text-slate-500">{product.category} · {product.sellerName}</span></span><span className="shrink-0 text-xs font-extrabold text-slate-900">₹{Math.round(product.sellerPrice * (1 - product.additionalDiscountPercent / 100))}</span></button>)}
+                    </>
+                  )}
+                  <button type="button" onClick={() => setIsSearchFocused(false)} className="mt-1 w-full rounded-lg border-t border-slate-100 px-3 py-2 text-left text-[10px] font-bold text-slate-500">Close suggestions · press Enter to see all results</button>
+                </div>
+              );
+            })()}
+            <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none">
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-slate-400">Quick picks</span>
+              {['Vegetables', 'Dairy', 'Snacks', 'Grocery'].map(category => <button key={category} type="button" onClick={() => { const match = Array.from(new Set(products.map(product => product.category))).find(value => value.toLowerCase().includes(category.toLowerCase())); if (match) { setSelectedCategory(match); setSearchQuery(''); } else setSearchQuery(category); }} className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-semibold text-slate-600 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-800">{category}</button>)}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="sm:hidden px-3 pb-2 pt-0.5 border-t border-slate-100 bg-white">

@@ -6,6 +6,9 @@ import {
   SlidersHorizontal,
   Store,
   Heart,
+  Clock3,
+  Flame,
+  ArrowRight,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
@@ -16,6 +19,7 @@ import { BuyerSavedListsPanel, type BuyerSavedList } from './BuyerSavedListsPane
 import { ProductDetailsModal } from './ProductDetailsModal';
 
 const SAVED_ITEMS_KEY = 'kurali_buyer_saved_items_v1';
+const RECENT_PRODUCTS_KEY = 'kurali_buyer_recent_products_v1';
 type SavedItemsState = { favoriteIds: string[]; lists: BuyerSavedList[] };
 const loadSavedItems = (): SavedItemsState => {
   try {
@@ -51,6 +55,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
     selectedCityLocality,
     comparingProduct,
     setComparingProduct,
+    showToast,
   } = useApp();
 
   const [sortBy, setSortBy] = useState<'price_asc' | 'distance_asc' | 'discount_desc' | 'featured'>('featured');
@@ -60,6 +65,14 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [savedItems, setSavedItems] = useState<SavedItemsState>(() => loadSavedItems());
   const [showSavedItems, setShowSavedItems] = useState(false);
+  const [recentProductIds, setRecentProductIds] = useState<string[]>(() => {
+    try { const value = JSON.parse(localStorage.getItem(RECENT_PRODUCTS_KEY) || '[]'); return Array.isArray(value) ? value.filter((id: unknown) => typeof id === 'string').slice(0, 8) : []; } catch { return []; }
+  });
+  const openProductDetails = (product: Product) => {
+    setRecentProductIds(current => [product.id, ...current.filter(id => id !== product.id)].slice(0, 8));
+    setSelectedProduct(product);
+  };
+  useEffect(() => { try { localStorage.setItem(RECENT_PRODUCTS_KEY, JSON.stringify(recentProductIds)); } catch { /* Recent history is an optional convenience. */ } }, [recentProductIds]);
   useEffect(() => {
     try { localStorage.setItem(SAVED_ITEMS_KEY, JSON.stringify(savedItems)); } catch { /* Storage may be disabled; current session still works. */ }
   }, [savedItems]);
@@ -155,42 +168,75 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
 
   return (
     <div className="space-y-4 sm:space-y-5 pb-12">
-      {/* Category + Filter Controls */}
-      <div className="flex items-center gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <h2 className="text-sm font-extrabold text-slate-800 tracking-tight">Categories</h2>
-            <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
-              {categories.length - 1} available
-            </span>
+      {/* Category discovery: compact, visual and easy to scan on mobile */}
+      <section aria-label="Shop by category" className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-amber-700">Explore Kurali</p>
+            <h2 className="text-base font-black tracking-tight text-slate-900">Shop by category</h2>
           </div>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
-                  selectedCategory === cat
-                    ? 'bg-amber-600 text-white shadow-sm'
-                    : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
+          <span className="text-[11px] font-semibold text-slate-500">{categories.length - 1} categories</span>
         </div>
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          aria-label="Filter and sort products"
-          className={`shrink-0 mt-6 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
-            showFilters ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <SlidersHorizontal className="w-3.5 h-3.5 text-amber-600" />
-          <span className="hidden sm:inline">Filter &amp; Sort</span>
-          <span className="sm:hidden">Filter</span>
-        </button>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+          {categories.map(cat => {
+            const count = cat === 'All Categories' ? products.length : products.filter(product => product.category === cat).length;
+            const active = selectedCategory === cat;
+            const icon = cat === 'All Categories' ? '🛍️' : /fruit|veget|fresh/i.test(cat) ? '🥬' : /dairy|milk|bread|egg/i.test(cat) ? '🥛' : /snack|drink|beverage|juice/i.test(cat) ? '🥤' : /personal|beauty|care|health/i.test(cat) ? '🧴' : /home|kitchen|clean/i.test(cat) ? '🏠' : /grocery|staple|atta|rice|dal/i.test(cat) ? '🌾' : '🧺';
+            return (
+              <button key={cat} type="button" onClick={() => setSelectedCategory(cat)} aria-pressed={active}
+                className={`group flex min-h-[88px] flex-col items-start justify-between rounded-2xl border p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-amber-400 ${active ? 'border-amber-500 bg-amber-50 shadow-sm ring-1 ring-amber-200' : 'border-slate-200 bg-white hover:border-amber-200'}`}>
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-xl group-hover:bg-white">{icon}</span>
+                <span className="mt-2 line-clamp-2 text-[11px] font-extrabold leading-tight text-slate-800">{cat === 'All Categories' ? 'Everything' : cat}</span>
+                <span className="text-[10px] font-medium text-slate-500">{count} items</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {!searchQuery.trim() && selectedCategory === 'All Categories' && (
+        <>
+          {products.some(product => product.isFeatured) && (
+            <section className="space-y-3" aria-label="Featured local products">
+              <div className="flex items-end justify-between gap-2"><div><p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-amber-700">Picked for Kurali</p><h2 className="text-base font-black text-slate-900">Featured local finds</h2></div><button type="button" onClick={() => setSortBy('featured')} className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700">Explore all <ArrowRight className="h-3 w-3" /></button></div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {products.filter(product => product.isFeatured && product.stock > 0).slice(0, 4).map(product => <button key={product.id} type="button" onClick={() => openProductDetails(product)} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md"><div className="aspect-[5/3] overflow-hidden bg-slate-50">{product.image ? <img src={product.image} alt={product.title} loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" /> : <div className="flex h-full items-center justify-center text-2xl">🛍️</div>}</div><div className="p-2.5"><p className="line-clamp-1 text-xs font-extrabold text-slate-900">{product.title}</p><p className="mt-1 text-[10px] text-slate-500">{product.sellerName}</p><p className="mt-1 text-sm font-black text-amber-700">₹{Math.round(product.sellerPrice * (1 - product.additionalDiscountPercent / 100))}</p></div></button>)}
+              </div>
+            </section>
+          )}
+          {products.some(product => product.mrp > Math.round(product.sellerPrice * (1 - product.additionalDiscountPercent / 100))) && (
+            <section className="space-y-3" aria-label="Deals and savings">
+              <div className="flex items-end justify-between gap-2"><div><p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-rose-600">Save on your basket</p><h2 className="flex items-center gap-1.5 text-base font-black text-slate-900"><Flame className="h-4 w-4 text-rose-500" /> Deals worth a look</h2></div><span className="text-[10px] font-semibold text-slate-500">Actual catalogue prices</span></div>
+              <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
+                {[...products].filter(product => product.stock > 0 && product.mrp > Math.round(product.sellerPrice * (1 - product.additionalDiscountPercent / 100))).sort((a,b) => (b.mrp - b.sellerPrice * (1-b.additionalDiscountPercent/100)) - (a.mrp - a.sellerPrice * (1-a.additionalDiscountPercent/100))).slice(0, 8).map(product => { const price = Math.round(product.sellerPrice * (1 - product.additionalDiscountPercent / 100)); const saving = Math.max(0, product.mrp - price); return <button key={product.id} type="button" onClick={() => openProductDetails(product)} className="w-36 shrink-0 overflow-hidden rounded-2xl border border-rose-100 bg-white text-left shadow-sm transition hover:border-rose-300 hover:shadow-md sm:w-44"><div className="relative aspect-square bg-slate-50">{product.image ? <img src={product.image} alt={product.title} loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-2xl">🏷️</div>}<span className="absolute left-2 top-2 rounded-full bg-rose-600 px-2 py-1 text-[9px] font-extrabold text-white">SAVE ₹{saving}</span></div><div className="p-2.5"><p className="line-clamp-1 text-xs font-bold text-slate-800">{product.title}</p><p className="mt-1 text-sm font-black text-slate-900">₹{price} <span className="text-[10px] font-medium text-slate-400 line-through">₹{product.mrp}</span></p><span className="mt-1 block text-[10px] text-slate-500">{product.sellerName}</span></div></button>; })}
+              </div>
+            </section>
+          )}
+          {recentProductIds.some(id => products.some(product => product.id === id)) && (
+            <section className="space-y-3" aria-label="Recently viewed products"><div className="flex items-center justify-between"><h2 className="flex items-center gap-1.5 text-sm font-black text-slate-900"><Clock3 className="h-4 w-4 text-slate-500" /> Recently viewed</h2><button type="button" onClick={() => setRecentProductIds([])} className="text-[10px] font-bold text-slate-500 hover:text-rose-600">Clear history</button></div><div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">{recentProductIds.map(id => products.find(product => product.id === id)).filter((product): product is Product => Boolean(product)).map(product => <button key={product.id} type="button" onClick={() => openProductDetails(product)} className="flex w-52 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 text-left hover:border-amber-300"><div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-50">{product.image && <img src={product.image} alt="" loading="lazy" className="h-full w-full object-cover" />}</div><span className="min-w-0"><span className="block truncate text-xs font-bold text-slate-800">{product.title}</span><span className="text-[11px] font-extrabold text-amber-700">₹{Math.round(product.sellerPrice * (1-product.additionalDiscountPercent/100))}</span></span></button>)}</div></section>
+          )}
+        </>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm">
+        <div className="min-w-0">
+          <p className="text-xs font-extrabold text-slate-900">Find your everyday essentials</p>
+          <p className="text-[10px] text-slate-500">Browse local sellers and compare what’s available</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="buyer-sort" className="sr-only">Sort products</label>
+          <select id="buyer-sort" value={sortBy} onChange={event => setSortBy(event.target.value as typeof sortBy)}
+            className="max-w-[145px] rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] font-bold text-slate-700 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100">
+            <option value="featured">Featured first</option>
+            <option value="price_asc">Price: low to high</option>
+            <option value="discount_desc">Biggest savings</option>
+            <option value="distance_asc">Nearest seller</option>
+          </select>
+          <button type="button" onClick={() => setShowFilters(open => !open)} aria-expanded={showFilters} aria-label="Filter products"
+            className={`inline-flex min-h-9 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${showFilters ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}>
+            <SlidersHorizontal className="h-3.5 w-3.5" /> Filter
+          </button>
+        </div>
       </div>
       <div className="flex items-center justify-between gap-2">
         <button type="button" onClick={() => setShowSavedItems(open => !open)} aria-expanded={showSavedItems}
@@ -203,7 +249,7 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
         <BuyerSavedListsPanel products={products} favoriteIds={savedItems.favoriteIds} lists={savedItems.lists}
           onToggleFavorite={toggleFavorite} onCreateList={createSavedList} onDeleteList={deleteSavedList}
           onAddToList={addProductToList} onRemoveFromList={removeProductFromList}
-          onAddToCart={product => addToCart(product, 1)} onClose={() => setShowSavedItems(false)} />
+          onAddToCart={product => { addToCart(product, 1); showToast(`${product.title} added to your basket.`, 'success'); }} onClose={() => setShowSavedItems(false)} />
       )}
 
       {/* Expanded Filter Panel */}
@@ -284,14 +330,12 @@ export const BuyerHome: React.FC<BuyerHomeProps> = ({
           {filteredProducts.map(product => (
             <ProductCard key={product.id} product={product}
               quantity={cart.find(item => item.product.id === product.id)?.quantity || 0}
-              onBargain={openChatForProduct}
-              onAddToCart={(item) => { addToCart(item, 1); }}
+              onAddToCart={(item) => { addToCart(item, 1); showToast(`${item.title} added to your basket.`, 'success'); }}
               onRemoveFromCart={(item) => {
                 const quantity = cart.find(line => line.product.id === item.id)?.quantity || 0;
                 updateCartQuantity(item.id, quantity - 1);
               }}
-              onBuyNow={onBuyNow}
-              onViewDetails={setSelectedProduct}
+              onViewDetails={openProductDetails}
               isFavorite={savedItems.favoriteIds.includes(product.id)}
               onToggleFavorite={product => toggleFavorite(product.id)}
             />
